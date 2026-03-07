@@ -1,65 +1,120 @@
-import Image from "next/image";
+import { BookOpenText, GraduationCap, ShieldCheck, UserRound } from "lucide-react";
 
-export default function Home() {
+import { LogoutButton } from "@/components/auth/logout-button";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { requireAuth } from "@/lib/auth/user";
+
+export default async function Home() {
+  const user = await requireAuth();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(212,176,128,0.24),_transparent_30%),linear-gradient(180deg,#f4efe6_0%,#f8f4ee_100%)]">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <section className="rounded-[34px] border border-[#dfd2c0] bg-[#1f2937] p-6 text-white shadow-[0_30px_100px_rgba(31,41,55,0.18)] sm:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <Badge className="border-white/15 bg-white/10 text-white">Protected Home Page</Badge>
+              <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
+                Welcome to the UMIS workspace
+              </h1>
+              <p className="mt-4 max-w-2xl text-base leading-8 text-[#d8e2ef]">
+                This home page is no longer public. Access is restricted to authenticated,
+                verified UMIS users only.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="secondary">Authenticated Session Active</Button>
+              <LogoutButton />
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <Card className="overflow-hidden">
+            <CardHeader>
+              <CardTitle>Account overview</CardTitle>
+              <CardDescription>
+                Current signed-in identity and the minimum profile data now attached to your UMIS session.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <OverviewItem icon={<UserRound className="size-5" />} label="Name" value={user.name} />
+              <OverviewItem icon={<ShieldCheck className="size-5" />} label="Role" value={user.role} />
+              <OverviewItem icon={<BookOpenText className="size-5" />} label="Department" value={user.department ?? "Not set"} />
+              <OverviewItem icon={<GraduationCap className="size-5" />} label="School" value={user.schoolName ?? "Not set"} />
+              <OverviewItem icon={<ShieldCheck className="size-5" />} label="Email" value={user.email} />
+              <OverviewItem icon={<UserRound className="size-5" />} label="Verification" value={user.emailVerified ? "Verified" : "Pending"} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Auth stack included</CardTitle>
+              <CardDescription>
+                The application now uses production-grade authentication building blocks.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 text-sm text-[#4b5563]">
+              <FeatureLine text="bcryptjs password hashing with strong validation rules" />
+              <FeatureLine text="Signed jose JWT session cookie stored as HTTP-only" />
+              <FeatureLine text="Resend-driven email verification and password recovery" />
+              <FeatureLine text="Faculty and student self-registration with role-specific fields" />
+              <FeatureLine text="Forgot password, reset password, resend verification, logout" />
+            </CardContent>
+          </Card>
+        </section>
+
+        {user.role === "Student" && user.studentDetails ? (
+          <section className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Student profile snapshot</CardTitle>
+                <CardDescription>
+                  Student registration fields captured during authentication onboarding.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <OverviewItem icon={<GraduationCap className="size-5" />} label="Roll No." value={user.studentDetails.rollNo} />
+                <OverviewItem icon={<BookOpenText className="size-5" />} label="Course" value={user.studentDetails.course} />
+                <OverviewItem icon={<UserRound className="size-5" />} label="Batch" value={user.studentDetails.batch} />
+                <OverviewItem icon={<ShieldCheck className="size-5" />} label="Admission Year" value={user.studentDetails.admissionYear} />
+              </CardContent>
+            </Card>
+          </section>
+        ) : null}
+      </div>
+    </main>
+  );
+}
+
+function OverviewItem({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-[24px] border border-[#ece4d7] bg-[#faf7f2] p-4">
+      <div className="mb-3 inline-flex size-10 items-center justify-center rounded-2xl bg-white text-[#8f5f36] shadow-sm">
+        {icon}
+      </div>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8f5f36]">
+        {label}
+      </p>
+      <p className="mt-2 text-base font-semibold text-[#111827]">{value}</p>
+    </div>
+  );
+}
+
+function FeatureLine({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border border-[#ece4d7] bg-[#faf7f2] px-4 py-3">
+      {text}
     </div>
   );
 }

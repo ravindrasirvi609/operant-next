@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document, Model } from "mongoose";
+import mongoose, { Document, Model, Schema } from "mongoose";
 
 // --- Subdocument Schemas ---
 
@@ -27,31 +27,69 @@ const ResearchProfileSchema = new Schema({
 
 // --- Unified User Schema ---
 
+export type UserRole =
+    | "Faculty"
+    | "Student"
+    | "Alumni"
+    | "Admin"
+    | "Director"
+    | "PRO"
+    | "NSS"
+    | "Sports"
+    | "Swayam"
+    | "Placement";
+
+export interface IQualification {
+    degree: string;
+    subject?: string;
+    university?: string;
+    year?: string;
+    percentage?: string;
+}
+
+export interface IExperience {
+    designation: string;
+    organization: string;
+    fromDate?: string;
+    toDate?: string;
+    isCurrent?: boolean;
+}
+
+export interface IResearchProfile {
+    orcidId?: string;
+    scopusId?: string;
+    researcherId?: string;
+    googleScholarId?: string;
+}
+
+export interface IStudentDetails {
+    rollNo: string;
+    course: string;
+    batch: string;
+    admissionYear: string;
+}
+
 export interface IUser extends Document {
     name: string;
     email: string;
     password?: string;
     photoURL?: string;
-    role: 'Faculty' | 'Student' | 'Alumni' | 'Admin' | 'Director' | 'PRO' | 'NSS' | 'Sports' | 'Swayam' | 'Placement';
+    role: UserRole;
     department?: string;
     schoolName?: string;
     designation?: string;
     phone?: string;
-
-    // Faculty Specific (Embedded)
-    qualifications: any[];
-    experience: any[];
-    researchProfile?: any;
-
-    // Student Specific (Embedded)
-    studentDetails?: {
-        rollNo: string;
-        course: string;
-        batch: string;
-        admissionYear: string;
-    };
-
+    qualifications: IQualification[];
+    experience: IExperience[];
+    researchProfile?: IResearchProfile;
+    studentDetails?: IStudentDetails;
     isActive: boolean;
+    emailVerified: boolean;
+    emailVerificationTokenHash?: string;
+    emailVerificationExpiresAt?: Date;
+    passwordResetTokenHash?: string;
+    passwordResetExpiresAt?: Date;
+    lastLoginAt?: Date;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -87,6 +125,12 @@ const UserSchema = new Schema<IUser>(
         },
 
         isActive: { type: Boolean, default: true },
+        emailVerified: { type: Boolean, default: false },
+        emailVerificationTokenHash: { type: String, select: false },
+        emailVerificationExpiresAt: { type: Date, select: false },
+        passwordResetTokenHash: { type: String, select: false },
+        passwordResetExpiresAt: { type: Date, select: false },
+        lastLoginAt: { type: Date },
     },
     {
         timestamps: true,

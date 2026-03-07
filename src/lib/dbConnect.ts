@@ -1,13 +1,5 @@
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI;
-
-if (!MONGODB_URI) {
-    throw new Error(
-        "Please define the MONGODB_URI environment variable inside .env.local"
-    );
-}
-
 /**
  * Cached connection for Mongoose in Next.js.
  *
@@ -21,7 +13,6 @@ interface MongooseCache {
     promise: Promise<typeof mongoose> | null;
 }
 
-/* eslint-disable no-var */
 declare global {
     var mongooseCache: MongooseCache | undefined;
 }
@@ -36,12 +27,20 @@ if (!globalThis.mongooseCache) {
 }
 
 async function dbConnect(): Promise<typeof mongoose> {
+    const mongoUri = process.env.MONGODB_URI;
+
+    if (!mongoUri) {
+        throw new Error(
+            "Please define the MONGODB_URI environment variable inside .env.local"
+        );
+    }
+
     if (cached.conn) {
         return cached.conn;
     }
 
     if (!cached.promise) {
-        cached.promise = mongoose.connect(MONGODB_URI as string, {
+        cached.promise = mongoose.connect(mongoUri, {
             bufferCommands: false,
         });
     }

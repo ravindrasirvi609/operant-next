@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## UMIS Authentication
 
-## Getting Started
+This project now includes a complete authentication foundation for the UMIS system:
 
-First, run the development server:
+- Protected home page at `/`
+- Faculty and Student self-registration at `/register`
+- Login at `/login`
+- Forgot password and reset password flows
+- Email verification and resend verification
+- `bcryptjs` password hashing
+- `jose` signed HTTP-only session cookies
+- `Resend` email delivery for verification and recovery
+- MongoDB-backed user persistence using the existing unified user model
+
+## Environment variables
+
+Create `.env.local` from `.env.example` and configure:
+
+- `MONGODB_URI`
+- `AUTH_SECRET`
+- `APP_URL`
+- `NEXT_PUBLIC_APP_URL`
+- `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL`
+
+If `RESEND_API_KEY` is omitted during local development, auth emails are logged to the server console as preview links.
+
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Anonymous users are redirected to `/login`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Core routes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `/` protected UMIS dashboard
+- `/login` sign in
+- `/register` faculty/student registration
+- `/forgot-password` request reset email
+- `/reset-password?token=...` set a new password
+- `/verify-email?token=...` verify account email
 
-## Learn More
+## API routes
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/reset-password`
+- `POST /api/auth/resend-verification`

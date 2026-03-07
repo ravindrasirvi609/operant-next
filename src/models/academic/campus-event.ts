@@ -10,7 +10,7 @@ export interface ICampusEvent extends Document {
     organizer: string;
     fundedBy?: string;
     numberOfParticipants?: number;
-    participantsInfo?: any[];
+    participantsInfo?: Record<string, unknown>[];
     outcome?: string;
     uploadProof?: string;
 
