@@ -5,7 +5,7 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 export interface ISystemMisc extends Document {
     type: 'News' | 'Notification' | 'VisitorCount' | 'DashboardStat';
     title?: string;
-    content?: Record<string, unknown> | string | number | boolean | null;
+    content?: unknown;
     category?: string;
     targetRoles: string[];
     expiresAt?: Date;

@@ -3,6 +3,11 @@
 This project now includes a complete authentication foundation for the UMIS system:
 
 - Protected home page at `/`
+- Admin bootstrap at `/admin/setup`
+- Admin login at `/admin/login`
+- Production-style admin console at `/admin`
+- Admin master-data management for colleges, schools, departments, and other enum-style values
+- Admin user management and system notice publishing
 - Faculty and Student self-registration at `/register`
 - Login at `/login`
 - Forgot password and reset password flows
@@ -37,6 +42,12 @@ Open [http://localhost:3000](http://localhost:3000). Anonymous users are redirec
 ## Core routes
 
 - `/` protected UMIS dashboard
+- `/admin` admin dashboard
+- `/admin/login` admin login
+- `/admin/setup` initialize the first admin
+- `/admin/master-data` institutional enum and master-data management
+- `/admin/users` user access management
+- `/admin/system` notices, news, and dashboard messages
 - `/login` sign in
 - `/register` faculty/student registration
 - `/forgot-password` request reset email
@@ -47,7 +58,15 @@ Open [http://localhost:3000](http://localhost:3000). Anonymous users are redirec
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `POST /api/auth/admin-login`
 - `POST /api/auth/logout`
 - `POST /api/auth/forgot-password`
 - `POST /api/auth/reset-password`
 - `POST /api/auth/resend-verification`
+- `POST /api/admin/bootstrap`
+- `GET/POST /api/admin/master-data`
+- `PATCH /api/admin/master-data/[id]`
+- `GET /api/admin/users`
+- `PATCH /api/admin/users/[id]`
+- `GET/POST /api/admin/system-updates`
+- `PATCH /api/admin/system-updates/[id]`

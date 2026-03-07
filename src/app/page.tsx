@@ -5,26 +5,32 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireAuth } from "@/lib/auth/user";
+import Link from "next/link";
 
 export default async function Home() {
   const user = await requireAuth();
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(212,176,128,0.24),_transparent_30%),linear-gradient(180deg,#f4efe6_0%,#f8f4ee_100%)]">
+    <main className="min-h-screen bg-zinc-50">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <section className="rounded-[34px] border border-[#dfd2c0] bg-[#1f2937] p-6 text-white shadow-[0_30px_100px_rgba(31,41,55,0.18)] sm:p-8">
+        <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <Badge className="border-white/15 bg-white/10 text-white">Protected Home Page</Badge>
-              <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
+              <Badge>Protected Home Page</Badge>
+              <h1 className="mt-4 text-4xl font-semibold tracking-tight text-zinc-950 sm:text-5xl">
                 Welcome to the UMIS workspace
               </h1>
-              <p className="mt-4 max-w-2xl text-base leading-8 text-[#d8e2ef]">
+              <p className="mt-4 max-w-2xl text-base leading-8 text-zinc-500">
                 This home page is no longer public. Access is restricted to authenticated,
                 verified UMIS users only.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
+              {user.role === "Admin" ? (
+                <Button asChild>
+                  <Link href="/admin">Open Admin Console</Link>
+                </Button>
+              ) : null}
               <Button variant="secondary">Authenticated Session Active</Button>
               <LogoutButton />
             </div>
@@ -42,6 +48,7 @@ export default async function Home() {
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <OverviewItem icon={<UserRound className="size-5" />} label="Name" value={user.name} />
               <OverviewItem icon={<ShieldCheck className="size-5" />} label="Role" value={user.role} />
+              <OverviewItem icon={<GraduationCap className="size-5" />} label="College" value={user.collegeName ?? "Not set"} />
               <OverviewItem icon={<BookOpenText className="size-5" />} label="Department" value={user.department ?? "Not set"} />
               <OverviewItem icon={<GraduationCap className="size-5" />} label="School" value={user.schoolName ?? "Not set"} />
               <OverviewItem icon={<ShieldCheck className="size-5" />} label="Email" value={user.email} />
@@ -56,7 +63,7 @@ export default async function Home() {
                 The application now uses production-grade authentication building blocks.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-3 text-sm text-[#4b5563]">
+            <CardContent className="grid gap-3 text-sm text-zinc-600">
               <FeatureLine text="bcryptjs password hashing with strong validation rules" />
               <FeatureLine text="Signed jose JWT session cookie stored as HTTP-only" />
               <FeatureLine text="Resend-driven email verification and password recovery" />
@@ -99,21 +106,21 @@ function OverviewItem({
   value: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-[#ece4d7] bg-[#faf7f2] p-4">
-      <div className="mb-3 inline-flex size-10 items-center justify-center rounded-2xl bg-white text-[#8f5f36] shadow-sm">
+    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+      <div className="mb-3 inline-flex size-10 items-center justify-center rounded-md bg-white text-zinc-700 shadow-sm">
         {icon}
       </div>
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8f5f36]">
+      <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">
         {label}
       </p>
-      <p className="mt-2 text-base font-semibold text-[#111827]">{value}</p>
+      <p className="mt-2 text-base font-semibold text-zinc-950">{value}</p>
     </div>
   );
 }
 
 function FeatureLine({ text }: { text: string }) {
   return (
-    <div className="rounded-2xl border border-[#ece4d7] bg-[#faf7f2] px-4 py-3">
+    <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3">
       {text}
     </div>
   );

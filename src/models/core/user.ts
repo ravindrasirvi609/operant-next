@@ -75,6 +75,7 @@ export interface IUser extends Document {
     password?: string;
     photoURL?: string;
     role: UserRole;
+    collegeName?: string;
     department?: string;
     schoolName?: string;
     designation?: string;
@@ -106,6 +107,7 @@ const UserSchema = new Schema<IUser>(
             enum: ['Faculty', 'Student', 'Alumni', 'Admin', 'Director', 'PRO', 'NSS', 'Sports', 'Swayam', 'Placement'],
             index: true
         },
+        collegeName: { type: String, trim: true, index: true },
         department: { type: String, trim: true },
         schoolName: { type: String, trim: true, index: true },
         designation: { type: String, trim: true },

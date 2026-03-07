@@ -8,6 +8,7 @@ import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/auth/email"
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { addHours, addMinutes, createRandomToken, hashToken } from "@/lib/auth/tokens";
 import {
+    adminBootstrapSchema,
     forgotPasswordSchema,
     loginSchema,
     registerSchema,
@@ -21,6 +22,7 @@ type SafeUser = {
     name: string;
     email: string;
     role: string;
+    collegeName?: string;
     department?: string;
     schoolName?: string;
     designation?: string;
@@ -36,6 +38,7 @@ function toSafeUser(user: IUser): SafeUser {
         name: user.name,
         email: user.email,
         role: user.role,
+        collegeName: user.collegeName,
         department: user.department,
         schoolName: user.schoolName,
         designation: user.designation,
@@ -59,6 +62,11 @@ async function issueVerificationToken(user: IUser) {
     });
 }
 
+type LoginOptions = {
+    requiredRole?: string;
+    roleMismatchMessage?: string;
+};
+
 export async function registerUser(rawInput: unknown) {
     const input = registerSchema.parse(rawInput);
 
@@ -79,6 +87,7 @@ export async function registerUser(rawInput: unknown) {
         password,
         role: input.role,
         phone: input.phone,
+        collegeName: input.collegeName,
         department: input.department,
         schoolName: input.schoolName,
         designation: input.role === "Faculty" ? input.designation : undefined,
@@ -103,7 +112,7 @@ export async function registerUser(rawInput: unknown) {
     };
 }
 
-export async function loginUser(rawInput: unknown) {
+export async function loginUser(rawInput: unknown, options?: LoginOptions) {
     const input = loginSchema.parse(rawInput);
 
     await dbConnect();
@@ -128,6 +137,14 @@ export async function loginUser(rawInput: unknown) {
         throw new AuthError("Verify your email before signing in.", 403);
     }
 
+    if (options?.requiredRole && user.role !== options.requiredRole) {
+        throw new AuthError(
+            options.roleMismatchMessage ??
+                `Only ${options.requiredRole} users can access this portal.`,
+            403
+        );
+    }
+
     user.lastLoginAt = new Date();
     await user.save();
 
@@ -144,6 +161,13 @@ export async function loginUser(rawInput: unknown) {
         message: "Login successful.",
         user: toSafeUser(user),
     };
+}
+
+export async function loginAdmin(rawInput: unknown) {
+    return loginUser(rawInput, {
+        requiredRole: "Admin",
+        roleMismatchMessage: "Only admin users can access the admin portal.",
+    });
 }
 
 export async function logoutUser() {
@@ -258,6 +282,59 @@ export async function verifyEmailToken(token: string) {
     };
 }
 
+export async function getAdminCount() {
+    await dbConnect();
+    return User.countDocuments({ role: "Admin" });
+}
+
+export async function bootstrapAdmin(rawInput: unknown) {
+    const input = adminBootstrapSchema.parse(rawInput);
+
+    await dbConnect();
+
+    const existingAdminCount = await User.countDocuments({ role: "Admin" });
+
+    if (existingAdminCount > 0) {
+        throw new AuthError("An admin account already exists.", 403);
+    }
+
+    const email = input.email.toLowerCase();
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+        throw new AuthError("An account with this email already exists.", 409);
+    }
+
+    const user = await User.create({
+        name: input.name,
+        email,
+        password: await hashPassword(input.password),
+        role: "Admin",
+        collegeName: input.collegeName,
+        department: input.department,
+        schoolName: input.schoolName,
+        designation: "System Administrator",
+        qualifications: [],
+        experience: [],
+        emailVerified: true,
+        isActive: true,
+    });
+
+    const token = await createSessionToken({
+        sub: user._id.toString(),
+        email: user.email,
+        name: user.name,
+        role: user.role,
+    });
+
+    await setSessionCookie(token);
+
+    return {
+        message: "Admin account created successfully.",
+        user: toSafeUser(user),
+    };
+}
+
 export async function getCurrentUser() {
     const session = await getSessionPayload();
 
@@ -286,10 +363,42 @@ export async function requireAuth() {
     return user;
 }
 
+export async function requireAdmin() {
+    const user = await getCurrentUser();
+
+    if (!user) {
+        redirect("/admin/login");
+    }
+
+    if (user.role !== "Admin") {
+        redirect("/");
+    }
+
+    return user;
+}
+
 export async function redirectIfAuthenticated() {
     const user = await getCurrentUser();
 
     if (user) {
         redirect("/");
     }
+}
+
+export async function redirectAdminIfAuthenticated() {
+    const user = await getCurrentUser();
+
+    if (user?.role === "Admin") {
+        redirect("/admin");
+    }
+}
+
+export async function assertAdminApiAccess() {
+    const user = await getCurrentUser();
+
+    if (!user || user.role !== "Admin") {
+        throw new AuthError("Admin access is required.", 403);
+    }
+
+    return user;
 }

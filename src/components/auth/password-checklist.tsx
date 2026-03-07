@@ -10,8 +10,8 @@ const requirements = [
 
 export function PasswordChecklist({ password }: { password: string }) {
     return (
-        <div className="grid gap-2 rounded-2xl bg-[#faf6f0] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8f5f36]">
+        <div className="grid gap-2 rounded-lg bg-zinc-50 p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">
                 Password Rules
             </p>
             <div className="grid gap-1">
@@ -20,7 +20,7 @@ export function PasswordChecklist({ password }: { password: string }) {
 
                     return (
                         <p
-                            className={`text-sm ${isMet ? "text-emerald-700" : "text-[#7d6a56]"}`}
+                            className={`text-sm ${isMet ? "text-emerald-700" : "text-zinc-500"}`}
                             key={item.label}
                         >
                             {isMet ? "•" : "○"} {item.label}

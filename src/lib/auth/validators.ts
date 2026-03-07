@@ -13,6 +13,7 @@ const baseRegisterSchema = z.object({
     email: z.email("Enter a valid email address."),
     password: passwordSchema,
     phone: z.string().trim().min(10, "Enter a valid phone number."),
+    collegeName: z.string().trim().min(2, "College is required."),
     department: z.string().trim().min(2, "Department is required."),
     schoolName: z.string().trim().min(2, "School name is required."),
 });
@@ -41,6 +42,17 @@ export const registerSchema = z.discriminatedUnion("role", [
 export const loginSchema = z.object({
     email: z.email("Enter a valid email address."),
     password: z.string().min(1, "Password is required."),
+});
+
+export const adminLoginSchema = loginSchema;
+
+export const adminBootstrapSchema = z.object({
+    name: z.string().trim().min(3, "Name must be at least 3 characters."),
+    email: z.email("Enter a valid email address."),
+    password: passwordSchema,
+    collegeName: z.string().trim().min(2, "College is required."),
+    department: z.string().trim().min(2, "Department is required."),
+    schoolName: z.string().trim().min(2, "School is required."),
 });
 
 export const forgotPasswordSchema = z.object({

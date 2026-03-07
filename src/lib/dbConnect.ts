@@ -40,6 +40,7 @@ async function dbConnect(): Promise<typeof mongoose> {
     }
 
     if (!cached.promise) {
+        console.log("Connecting to MongoDB with URI:", mongoUri?.split("@")[1] || "UNDEFINED");
         cached.promise = mongoose.connect(mongoUri, {
             bufferCommands: false,
         });

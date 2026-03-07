@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -29,6 +30,11 @@ type RegisterValues = z.infer<typeof registerSchema>;
 type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
 type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
 type ResendValues = z.infer<typeof resendVerificationSchema>;
+type Option = {
+    key: string;
+    label: string;
+    code?: string;
+};
 
 async function postJson(url: string, body: unknown) {
     const response = await fetch(url, {
@@ -137,7 +143,7 @@ export function LoginForm({
                             <Label htmlFor="login-password">Password</Label>
                             <Link
                                 href="/forgot-password"
-                                className="text-sm font-medium text-[#8f5f36] underline decoration-[#c9ac88] underline-offset-4"
+                                className="text-sm font-medium text-zinc-950"
                             >
                                 Forgot password?
                             </Link>
@@ -160,9 +166,9 @@ export function LoginForm({
 
             {showResend ? <ResendVerificationForm defaultEmail={emailValue} /> : null}
 
-            <div className="rounded-[24px] border border-[#e5ded3] bg-white/80 px-5 py-4 text-sm text-[#6b7280]">
+            <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4 text-sm text-zinc-500">
                 New to UMIS?{" "}
-                <Link href="/register" className="font-semibold text-[#8f5f36]">
+                <Link href="/register" className="font-medium text-zinc-950">
                     Create a student or faculty account
                 </Link>
             </div>
@@ -170,7 +176,15 @@ export function LoginForm({
     );
 }
 
-export function RegisterForm() {
+export function RegisterForm({
+    collegeOptions,
+    schoolOptions,
+    departmentOptions,
+}: {
+    collegeOptions: Option[];
+    schoolOptions: Option[];
+    departmentOptions: Option[];
+}) {
     const router = useRouter();
     const [role, setRole] = useState<"Faculty" | "Student">("Faculty");
     const [isPending, startTransition] = useTransition();
@@ -185,8 +199,9 @@ export function RegisterForm() {
             email: "",
             password: "",
             phone: "",
-            department: "",
-            schoolName: "",
+            collegeName: collegeOptions[0]?.label ?? "",
+            department: departmentOptions[0]?.label ?? "",
+            schoolName: schoolOptions[0]?.label ?? "",
             designation: "",
         },
     });
@@ -275,12 +290,48 @@ export function RegisterForm() {
 
                     <PasswordChecklist password={password ?? ""} />
 
-                    <div className="grid gap-5 sm:grid-cols-2">
+                    <div className="grid gap-5 sm:grid-cols-3">
+                        <Field label="College" id="register-college" error={"collegeName" in form.formState.errors ? form.formState.errors.collegeName?.message : undefined}>
+                            {collegeOptions.length ? (
+                                <Select id="register-college" {...form.register("collegeName")}>
+                                    <option value="">Select college</option>
+                                    {collegeOptions.map((item) => (
+                                        <option key={item.key} value={item.label}>
+                                            {item.label}
+                                        </option>
+                                    ))}
+                                </Select>
+                            ) : (
+                                <Input id="register-college" placeholder="College name" {...form.register("collegeName")} />
+                            )}
+                        </Field>
                         <Field label="School" id="register-school" error={form.formState.errors.schoolName?.message}>
-                            <Input id="register-school" placeholder="School of Engineering" {...form.register("schoolName")} />
+                            {schoolOptions.length ? (
+                                <Select id="register-school" {...form.register("schoolName")}>
+                                    <option value="">Select school</option>
+                                    {schoolOptions.map((item) => (
+                                        <option key={item.key} value={item.label}>
+                                            {item.label}
+                                        </option>
+                                    ))}
+                                </Select>
+                            ) : (
+                                <Input id="register-school" placeholder="School of Engineering" {...form.register("schoolName")} />
+                            )}
                         </Field>
                         <Field label="Department" id="register-department" error={form.formState.errors.department?.message}>
-                            <Input id="register-department" placeholder="Computer Science" {...form.register("department")} />
+                            {departmentOptions.length ? (
+                                <Select id="register-department" {...form.register("department")}>
+                                    <option value="">Select department</option>
+                                    {departmentOptions.map((item) => (
+                                        <option key={item.key} value={item.label}>
+                                            {item.label}
+                                        </option>
+                                    ))}
+                                </Select>
+                            ) : (
+                                <Input id="register-department" placeholder="Computer Science" {...form.register("department")} />
+                            )}
                         </Field>
                     </div>
 
@@ -318,9 +369,9 @@ export function RegisterForm() {
                 </form>
             </Tabs>
 
-            <div className="mt-5 text-sm text-[#6b7280]">
+            <div className="mt-5 text-sm text-zinc-500">
                 Already registered?{" "}
-                <Link href="/login" className="font-semibold text-[#8f5f36]">
+                <Link href="/login" className="font-medium text-zinc-950">
                     Sign in here
                 </Link>
             </div>
@@ -376,9 +427,9 @@ export function ForgotPasswordForm() {
                 </Button>
             </form>
 
-            <div className="mt-5 text-sm text-[#6b7280]">
+            <div className="mt-5 text-sm text-zinc-500">
                 Remembered it?{" "}
-                <Link href="/login" className="font-semibold text-[#8f5f36]">
+                <Link href="/login" className="font-medium text-zinc-950">
                     Back to sign in
                 </Link>
             </div>

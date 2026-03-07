@@ -1,0 +1,210 @@
+import Link from "next/link";
+import {
+    BarChart3,
+    BookOpen,
+    Building2,
+    ClipboardList,
+    FolderCog,
+    ShieldCheck,
+    Users,
+} from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getAdminDashboardData } from "@/lib/admin/dashboard";
+
+export default async function AdminDashboardPage() {
+    const dashboard = await getAdminDashboardData();
+
+    return (
+        <div className="space-y-6">
+            <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+                <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+                    <div>
+                        <Badge>UMIS Admin Dashboard</Badge>
+                        <h1 className="mt-4 text-4xl font-semibold tracking-tight text-zinc-950">
+                            Institution-wide control and monitoring
+                        </h1>
+                        <p className="mt-4 max-w-3xl text-base leading-8 text-zinc-500">
+                            This workspace is designed for operational administrators who maintain institutional masters, user access, reporting readiness, and system-wide notices.
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                        <Button asChild>
+                            <Link href="/admin/master-data">Manage Master Data</Link>
+                        </Button>
+                        <Button asChild variant="secondary">
+                            <Link href="/admin/users">Review Users</Link>
+                        </Button>
+                    </div>
+                </div>
+            </section>
+
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <MetricCard icon={<Users className="size-5" />} label="Total Users" value={dashboard.metrics.totalUsers} />
+                <MetricCard icon={<ShieldCheck className="size-5" />} label="Admin Users" value={dashboard.metrics.adminUsers} />
+                <MetricCard icon={<FolderCog className="size-5" />} label="Active Master Data" value={dashboard.metrics.activeMasterData} />
+                <MetricCard icon={<ClipboardList className="size-5" />} label="Pending Verification" value={dashboard.metrics.pendingVerification} />
+                <MetricCard icon={<Building2 className="size-5" />} label="Organizations" value={dashboard.metrics.organizations} />
+                <MetricCard icon={<BookOpen className="size-5" />} label="Programs" value={dashboard.metrics.programs} />
+                <MetricCard icon={<BarChart3 className="size-5" />} label="Reports" value={dashboard.metrics.reports} />
+                <MetricCard icon={<ClipboardList className="size-5" />} label="Locked Reporting Units" value={dashboard.metrics.reportingLocks} />
+            </section>
+
+            <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Operational readiness</CardTitle>
+                        <CardDescription>
+                            Current activity across research, reporting, communication, and feedback modules.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-4 md:grid-cols-2">
+                        <InfoCard label="Faculty accounts" value={dashboard.metrics.facultyUsers} />
+                        <InfoCard label="Student accounts" value={dashboard.metrics.studentUsers} />
+                        <InfoCard label="Feedback entries" value={dashboard.metrics.feedbackEntries} />
+                        <InfoCard label="System updates" value={dashboard.metrics.systemUpdates} />
+                        <InfoCard label="Publications" value={dashboard.metrics.publications} />
+                        <InfoCard label="Projects" value={dashboard.metrics.projects} />
+                        <InfoCard label="Research activities" value={dashboard.metrics.researchActivities} />
+                        <InfoCard label="Reports in repository" value={dashboard.metrics.reports} />
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Quick actions</CardTitle>
+                        <CardDescription>
+                            Recommended first steps to operationalize a production UMIS setup.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-3">
+                        <QuickAction href="/admin/master-data" text="Create colleges, schools, departments, academic years, and offices." />
+                        <QuickAction href="/admin/users" text="Promote responsible owners to Director, PRO, NSS, Sports, Swayam, or Placement roles." />
+                        <QuickAction href="/admin/system" text="Publish onboarding notices, reporting deadlines, and dashboard messages." />
+                        <QuickAction href="/register" text="Validate faculty and student onboarding after master data is populated." />
+                    </CardContent>
+                </Card>
+            </section>
+
+            <section className="grid gap-6 xl:grid-cols-2">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Recently onboarded users</CardTitle>
+                        <CardDescription>
+                            Latest access requests and institutional mappings.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-3">
+                        {dashboard.recentUsers.map((user) => (
+                            <div
+                                className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                                key={user._id.toString()}
+                            >
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <h3 className="text-base font-semibold text-zinc-950">
+                                        {user.name}
+                                    </h3>
+                                    <Badge>{user.role}</Badge>
+                                    <Badge
+                                        className={
+                                            user.isActive
+                                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                                : "border-rose-200 bg-rose-50 text-rose-700"
+                                        }
+                                    >
+                                        {user.isActive ? "Active" : "Inactive"}
+                                    </Badge>
+                                </div>
+                                <p className="mt-2 text-sm text-zinc-500">{user.email}</p>
+                                <p className="mt-2 text-sm text-zinc-500">
+                                    {user.schoolName || "No school"} / {user.department || "No department"}
+                                </p>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Recently updated master data</CardTitle>
+                        <CardDescription>
+                            Track the newest enum and configuration changes impacting the platform.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-3">
+                        {dashboard.recentMasterData.map((item) => (
+                            <div
+                                className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                                key={item._id.toString()}
+                            >
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <h3 className="text-base font-semibold text-zinc-950">
+                                        {item.label}
+                                    </h3>
+                                    <Badge>{item.category}</Badge>
+                                    <Badge
+                                        className={
+                                            item.isActive
+                                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                                : "border-rose-200 bg-rose-50 text-rose-700"
+                                        }
+                                    >
+                                        {item.isActive ? "Active" : "Inactive"}
+                                    </Badge>
+                                </div>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+            </section>
+        </div>
+    );
+}
+
+function MetricCard({
+    icon,
+    label,
+    value,
+}: {
+    icon: React.ReactNode;
+    label: string;
+    value: number;
+}) {
+    return (
+        <Card>
+            <CardContent className="flex items-center justify-between p-5">
+                <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
+                        {label}
+                    </p>
+                    <p className="mt-2 text-3xl font-semibold text-zinc-950">{value}</p>
+                </div>
+                <div className="inline-flex size-12 items-center justify-center rounded-md bg-zinc-100 text-zinc-700">
+                    {icon}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function InfoCard({ label, value }: { label: string; value: number }) {
+    return (
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+            <p className="text-sm text-zinc-500">{label}</p>
+            <p className="mt-2 text-2xl font-semibold text-zinc-950">{value}</p>
+        </div>
+    );
+}
+
+function QuickAction({ href, text }: { href: string; text: string }) {
+    return (
+        <Link
+            className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950"
+            href={href}
+        >
+            {text}
+        </Link>
+    );
+}
