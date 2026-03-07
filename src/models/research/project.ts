@@ -16,7 +16,7 @@ export interface IProject extends Document {
 
     // Relationships
     userId: Types.ObjectId;
-    schoolName: string;
+    collegeName: string;
 
     createdAt: Date;
     updatedAt: Date;
@@ -43,7 +43,7 @@ const ProjectSchema = new Schema<IProject>(
         uploadProof: { type: String },
 
         userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-        schoolName: { type: String, required: true, index: true },
+        collegeName: { type: String, required: true, index: true },
     },
     { timestamps: true }
 );

@@ -177,12 +177,12 @@ export function LoginForm({
 }
 
 export function RegisterForm({
+    universityOptions,
     collegeOptions,
-    schoolOptions,
     departmentOptions,
 }: {
+    universityOptions: Option[];
     collegeOptions: Option[];
-    schoolOptions: Option[];
     departmentOptions: Option[];
 }) {
     const router = useRouter();
@@ -199,9 +199,9 @@ export function RegisterForm({
             email: "",
             password: "",
             phone: "",
-            collegeName: collegeOptions[0]?.label ?? "",
+            universityName: universityOptions[0]?.label ?? "",
             department: departmentOptions[0]?.label ?? "",
-            schoolName: schoolOptions[0]?.label ?? "",
+            collegeName: collegeOptions[0]?.label ?? "",
             designation: "",
         },
     });
@@ -291,7 +291,21 @@ export function RegisterForm({
                     <PasswordChecklist password={password ?? ""} />
 
                     <div className="grid gap-5 sm:grid-cols-3">
-                        <Field label="College" id="register-college" error={"collegeName" in form.formState.errors ? form.formState.errors.collegeName?.message : undefined}>
+                        <Field label="University" id="register-university" error={"universityName" in form.formState.errors ? form.formState.errors.universityName?.message : undefined}>
+                            {universityOptions.length ? (
+                                <Select id="register-university" {...form.register("universityName")}>
+                                    <option value="">Select university</option>
+                                    {universityOptions.map((item) => (
+                                        <option key={item.key} value={item.label}>
+                                            {item.label}
+                                        </option>
+                                    ))}
+                                </Select>
+                            ) : (
+                                <Input id="register-university" placeholder="University name" {...form.register("universityName")} />
+                            )}
+                        </Field>
+                        <Field label="College" id="register-college" error={form.formState.errors.collegeName?.message}>
                             {collegeOptions.length ? (
                                 <Select id="register-college" {...form.register("collegeName")}>
                                     <option value="">Select college</option>
@@ -302,21 +316,7 @@ export function RegisterForm({
                                     ))}
                                 </Select>
                             ) : (
-                                <Input id="register-college" placeholder="College name" {...form.register("collegeName")} />
-                            )}
-                        </Field>
-                        <Field label="School" id="register-school" error={form.formState.errors.schoolName?.message}>
-                            {schoolOptions.length ? (
-                                <Select id="register-school" {...form.register("schoolName")}>
-                                    <option value="">Select school</option>
-                                    {schoolOptions.map((item) => (
-                                        <option key={item.key} value={item.label}>
-                                            {item.label}
-                                        </option>
-                                    ))}
-                                </Select>
-                            ) : (
-                                <Input id="register-school" placeholder="School of Engineering" {...form.register("schoolName")} />
+                                <Input id="register-college" placeholder="College of Engineering" {...form.register("collegeName")} />
                             )}
                         </Field>
                         <Field label="Department" id="register-department" error={form.formState.errors.department?.message}>

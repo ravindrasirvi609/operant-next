@@ -62,8 +62,8 @@ type UserRecord = {
     name: string;
     email: string;
     role: string;
+    universityName?: string;
     collegeName?: string;
-    schoolName?: string;
     department?: string;
     emailVerified: boolean;
     isActive: boolean;
@@ -179,12 +179,12 @@ export function AdminLoginForm({
 }
 
 export function AdminBootstrapForm({
+    universityOptions,
     collegeOptions,
-    schoolOptions,
     departmentOptions,
 }: {
+    universityOptions: Option[];
     collegeOptions: Option[];
-    schoolOptions: Option[];
     departmentOptions: Option[];
 }) {
     const router = useRouter();
@@ -197,8 +197,8 @@ export function AdminBootstrapForm({
             name: "",
             email: "",
             password: "",
+            universityName: universityOptions[0]?.label ?? "",
             collegeName: collegeOptions[0]?.label ?? "",
-            schoolName: schoolOptions[0]?.label ?? "",
             department: departmentOptions[0]?.label ?? "",
         },
     });
@@ -256,6 +256,20 @@ export function AdminBootstrapForm({
                     <PasswordChecklist password={password} />
 
                     <div className="grid gap-5 md:grid-cols-3">
+                        <Field label="University" id="bootstrap-university" error={form.formState.errors.universityName?.message}>
+                            {universityOptions.length ? (
+                                <Select id="bootstrap-university" {...form.register("universityName")}>
+                                    <option value="">Select university</option>
+                                    {universityOptions.map((item) => (
+                                        <option key={item.key} value={item.label}>
+                                            {item.label}
+                                        </option>
+                                    ))}
+                                </Select>
+                            ) : (
+                                <Input id="bootstrap-university" placeholder="University name" {...form.register("universityName")} />
+                            )}
+                        </Field>
                         <Field label="College" id="bootstrap-college" error={form.formState.errors.collegeName?.message}>
                             {collegeOptions.length ? (
                                 <Select id="bootstrap-college" {...form.register("collegeName")}>
@@ -268,20 +282,6 @@ export function AdminBootstrapForm({
                                 </Select>
                             ) : (
                                 <Input id="bootstrap-college" placeholder="College name" {...form.register("collegeName")} />
-                            )}
-                        </Field>
-                        <Field label="School" id="bootstrap-school" error={form.formState.errors.schoolName?.message}>
-                            {schoolOptions.length ? (
-                                <Select id="bootstrap-school" {...form.register("schoolName")}>
-                                    <option value="">Select school</option>
-                                    {schoolOptions.map((item) => (
-                                        <option key={item.key} value={item.label}>
-                                            {item.label}
-                                        </option>
-                                    ))}
-                                </Select>
-                            ) : (
-                                <Input id="bootstrap-school" placeholder="School name" {...form.register("schoolName")} />
                             )}
                         </Field>
                         <Field label="Department" id="bootstrap-department" error={form.formState.errors.department?.message}>
@@ -326,7 +326,7 @@ export function MasterDataManager({
     const form = useForm<MasterDataValues, unknown, MasterDataResolvedValues>({
         resolver: zodResolver(masterDataSchema),
         defaultValues: {
-            category: categories[0]?.id ?? "college",
+            category: categories[0]?.id ?? "university",
             label: "",
             code: "",
             description: "",
@@ -422,7 +422,7 @@ export function MasterDataManager({
                 <CardHeader>
                     <CardTitle>Create master data</CardTitle>
                     <CardDescription>
-                        Use this to add colleges, schools, departments, academic years, report categories, and other enum-style values.
+                        Use this to add universities, colleges, departments, academic years, report categories, and other enum-style values.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-5">
@@ -440,7 +440,7 @@ export function MasterDataManager({
                         </Field>
 
                         <Field label="Label" id="master-label" error={form.formState.errors.label?.message}>
-                            <Input id="master-label" placeholder="School of Engineering" {...form.register("label")} />
+                            <Input id="master-label" placeholder="College of Engineering" {...form.register("label")} />
                         </Field>
 
                         <div className="grid gap-5 md:grid-cols-2">
@@ -570,13 +570,13 @@ export function MasterDataManager({
 
 export function UserManagementTable({
     initialUsers,
+    universityOptions,
     collegeOptions,
-    schoolOptions,
     departmentOptions,
 }: {
     initialUsers: UserRecord[];
+    universityOptions: Option[];
     collegeOptions: Option[];
-    schoolOptions: Option[];
     departmentOptions: Option[];
 }) {
     const [users, setUsers] = useState(initialUsers);
@@ -666,7 +666,7 @@ export function UserManagementTable({
                                     </div>
                                     <p className="mt-2 text-sm text-zinc-500">{user.email}</p>
                                     <p className="mt-2 text-sm text-zinc-500">
-                                        {user.collegeName || "No college"} / {user.schoolName || "No school"} /{" "}
+                                        {user.universityName || "No university"} / {user.collegeName || "No college"} /{" "}
                                         {user.department || "No department"}
                                     </p>
                                 </div>
@@ -685,6 +685,20 @@ export function UserManagementTable({
                                         ))}
                                     </Select>
                                     <Select
+                                        defaultValue={user.universityName || ""}
+                                        disabled={isPending}
+                                        onChange={(event) =>
+                                            updateUser(user._id, { universityName: event.target.value })
+                                        }
+                                    >
+                                        <option value="">No university</option>
+                                        {universityOptions.map((item) => (
+                                            <option key={item.key} value={item.label}>
+                                                {item.label}
+                                            </option>
+                                        ))}
+                                    </Select>
+                                    <Select
                                         defaultValue={user.collegeName || ""}
                                         disabled={isPending}
                                         onChange={(event) =>
@@ -693,20 +707,6 @@ export function UserManagementTable({
                                     >
                                         <option value="">No college</option>
                                         {collegeOptions.map((item) => (
-                                            <option key={item.key} value={item.label}>
-                                                {item.label}
-                                            </option>
-                                        ))}
-                                    </Select>
-                                    <Select
-                                        defaultValue={user.schoolName || ""}
-                                        disabled={isPending}
-                                        onChange={(event) =>
-                                            updateUser(user._id, { schoolName: event.target.value })
-                                        }
-                                    >
-                                        <option value="">No school</option>
-                                        {schoolOptions.map((item) => (
                                             <option key={item.key} value={item.label}>
                                                 {item.label}
                                             </option>

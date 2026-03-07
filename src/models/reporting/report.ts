@@ -9,7 +9,7 @@ export interface IReport extends Document {
     uploadProof?: string;
 
     // Relationships
-    schoolName: string;
+    collegeName: string;
     userId?: Types.ObjectId;
 
     createdAt: Date;
@@ -30,7 +30,7 @@ const ReportSchema = new Schema<IReport>(
         data: { type: Schema.Types.Mixed, default: {} },
         uploadProof: { type: String },
 
-        schoolName: { type: String, required: true, index: true },
+        collegeName: { type: String, required: true, index: true },
         userId: { type: Schema.Types.ObjectId, ref: 'User' },
     },
     { timestamps: true }

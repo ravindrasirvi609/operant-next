@@ -3,7 +3,7 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 export interface IProgram extends Document {
     name: string;
     code?: string;
-    schoolName: string;
+    collegeName: string;
     level: 'UG' | 'PG' | 'PhD' | 'Diploma' | 'Certificate';
     type: 'Regular' | 'SelfFinance' | 'Vocational';
     yearOfIntroduction: string;
@@ -24,7 +24,7 @@ const ProgramSchema = new Schema<IProgram>(
     {
         name: { type: String, required: true, trim: true },
         code: { type: String, trim: true },
-        schoolName: { type: String, required: true, index: true },
+        collegeName: { type: String, required: true, index: true },
         level: { type: String, enum: ['UG', 'PG', 'PhD', 'Diploma', 'Certificate'], required: true },
         type: { type: String, enum: ['Regular', 'SelfFinance', 'Vocational'], default: 'Regular' },
         yearOfIntroduction: { type: String, required: true },

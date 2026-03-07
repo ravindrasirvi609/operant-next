@@ -36,8 +36,8 @@ export const adminUserUpdateSchema = z.object({
     role: z.enum(adminRoleOptions).optional(),
     isActive: z.boolean().optional(),
     emailVerified: z.boolean().optional(),
+    universityName: z.string().trim().optional(),
     collegeName: z.string().trim().optional(),
-    schoolName: z.string().trim().optional(),
     department: z.string().trim().optional(),
 });
 

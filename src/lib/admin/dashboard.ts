@@ -51,7 +51,7 @@ export async function getAdminDashboardData() {
         User.find()
             .sort({ createdAt: -1 })
             .limit(6)
-            .select("name email role department schoolName createdAt isActive"),
+            .select("name email role universityName department collegeName createdAt isActive"),
         MasterData.find()
             .sort({ updatedAt: -1 })
             .limit(8)

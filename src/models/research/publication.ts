@@ -19,7 +19,7 @@ export interface IPublication extends Document {
 
     // Relationships
     userId: Types.ObjectId; // Link to Core/User
-    schoolName: string;
+    collegeName: string;
 
     createdAt: Date;
     updatedAt: Date;
@@ -53,7 +53,7 @@ const PublicationSchema = new Schema<IPublication>(
         uploadProof: { type: String },
 
         userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-        schoolName: { type: String, required: true, index: true },
+        collegeName: { type: String, required: true, index: true },
     },
     { timestamps: true }
 );

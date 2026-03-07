@@ -9,7 +9,7 @@ export async function getAdminUsers() {
     return User.find()
         .sort({ createdAt: -1 })
         .select(
-            "name email role collegeName schoolName department phone emailVerified isActive lastLoginAt createdAt"
+            "name email role universityName collegeName department phone emailVerified isActive lastLoginAt createdAt"
         );
 }
 
@@ -36,12 +36,12 @@ export async function updateAdminUser(userId: string, rawInput: unknown) {
         user.emailVerified = input.emailVerified;
     }
 
-    if (input.collegeName !== undefined) {
-        user.collegeName = input.collegeName || undefined;
+    if (input.universityName !== undefined) {
+        user.universityName = input.universityName || undefined;
     }
 
-    if (input.schoolName !== undefined) {
-        user.schoolName = input.schoolName || undefined;
+    if (input.collegeName !== undefined) {
+        user.collegeName = input.collegeName || undefined;
     }
 
     if (input.department !== undefined) {

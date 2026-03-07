@@ -12,7 +12,7 @@ export interface IStudentActivity extends Document {
 
     // Relationships
     userId: Types.ObjectId; // Link to the Student
-    schoolName: string;
+    collegeName: string;
 
     createdAt: Date;
     updatedAt: Date;
@@ -35,7 +35,7 @@ const StudentActivitySchema = new Schema<IStudentActivity>(
         uploadProof: { type: String },
 
         userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-        schoolName: { type: String, required: true, index: true },
+        collegeName: { type: String, required: true, index: true },
     },
     { timestamps: true }
 );

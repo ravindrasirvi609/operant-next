@@ -13,9 +13,9 @@ const baseRegisterSchema = z.object({
     email: z.email("Enter a valid email address."),
     password: passwordSchema,
     phone: z.string().trim().min(10, "Enter a valid phone number."),
-    collegeName: z.string().trim().min(2, "College is required."),
+    universityName: z.string().trim().min(2, "University is required."),
     department: z.string().trim().min(2, "Department is required."),
-    schoolName: z.string().trim().min(2, "School name is required."),
+    collegeName: z.string().trim().min(2, "College name is required."),
 });
 
 const facultyRegisterSchema = baseRegisterSchema.extend({
@@ -50,9 +50,9 @@ export const adminBootstrapSchema = z.object({
     name: z.string().trim().min(3, "Name must be at least 3 characters."),
     email: z.email("Enter a valid email address."),
     password: passwordSchema,
-    collegeName: z.string().trim().min(2, "College is required."),
+    universityName: z.string().trim().min(2, "University is required."),
     department: z.string().trim().min(2, "Department is required."),
-    schoolName: z.string().trim().min(2, "School is required."),
+    collegeName: z.string().trim().min(2, "College is required."),
 });
 
 export const forgotPasswordSchema = z.object({

@@ -15,6 +15,7 @@ import {
     resendVerificationSchema,
     resetPasswordSchema,
 } from "@/lib/auth/validators";
+import Organization from "@/models/core/organization";
 import User, { IUser } from "@/models/core/user";
 
 type SafeUser = {
@@ -22,9 +23,9 @@ type SafeUser = {
     name: string;
     email: string;
     role: string;
-    collegeName?: string;
+    universityName?: string;
     department?: string;
-    schoolName?: string;
+    collegeName?: string;
     designation?: string;
     phone?: string;
     emailVerified: boolean;
@@ -32,15 +33,33 @@ type SafeUser = {
     lastLoginAt?: Date;
 };
 
+function getStudentPostLoginPath(user: SafeUser) {
+    if (user.role !== "Student") {
+        return "/";
+    }
+
+    const profileStatus = user.studentDetails?.profileStatus;
+
+    if (profileStatus === "Approved") {
+        return "/";
+    }
+
+    if (profileStatus === "PendingApproval") {
+        return "/student/verification-pending";
+    }
+
+    return "/student/profile";
+}
+
 function toSafeUser(user: IUser): SafeUser {
     return {
         id: user._id.toString(),
         name: user.name,
         email: user.email,
         role: user.role,
-        collegeName: user.collegeName,
+        universityName: user.universityName,
         department: user.department,
-        schoolName: user.schoolName,
+        collegeName: user.collegeName,
         designation: user.designation,
         phone: user.phone,
         emailVerified: user.emailVerified,
@@ -87,9 +106,9 @@ export async function registerUser(rawInput: unknown) {
         password,
         role: input.role,
         phone: input.phone,
-        collegeName: input.collegeName,
+        universityName: input.universityName,
         department: input.department,
-        schoolName: input.schoolName,
+        collegeName: input.collegeName,
         designation: input.role === "Faculty" ? input.designation : undefined,
         studentDetails:
             input.role === "Student"
@@ -129,7 +148,7 @@ export async function loginUser(rawInput: unknown, options?: LoginOptions) {
         throw new AuthError("Invalid email or password.", 401);
     }
 
-    if (!user.isActive) {
+    if (!user.isActive && user.role !== "Student") {
         throw new AuthError("This UMIS account has been deactivated.", 403);
     }
 
@@ -168,6 +187,31 @@ export async function loginAdmin(rawInput: unknown) {
         requiredRole: "Admin",
         roleMismatchMessage: "Only admin users can access the admin portal.",
     });
+}
+
+export async function loginDirector(rawInput: unknown) {
+    const result = await loginUser(rawInput);
+
+    await dbConnect();
+
+    const hasLeadershipAccess =
+        result.user.role === "Director" ||
+        Boolean(
+            await Organization.findOne({
+                headUserId: result.user.id,
+                isActive: true,
+            }).select("_id")
+        );
+
+    if (!hasLeadershipAccess) {
+        await clearSessionCookie();
+        throw new AuthError(
+            "Only assigned directors or department heads can access the leadership portal.",
+            403
+        );
+    }
+
+    return result;
 }
 
 export async function logoutUser() {
@@ -310,9 +354,9 @@ export async function bootstrapAdmin(rawInput: unknown) {
         email,
         password: await hashPassword(input.password),
         role: "Admin",
-        collegeName: input.collegeName,
+        universityName: input.universityName,
         department: input.department,
-        schoolName: input.schoolName,
+        collegeName: input.collegeName,
         designation: "System Administrator",
         qualifications: [],
         experience: [],
@@ -346,7 +390,7 @@ export async function getCurrentUser() {
 
     const user = await User.findById(session.sub);
 
-    if (!user || !user.isActive || !user.emailVerified) {
+    if (!user || !user.emailVerified) {
         return null;
     }
 
@@ -358,6 +402,50 @@ export async function requireAuth() {
 
     if (!user) {
         redirect("/login");
+    }
+
+    if (user.role === "Student" && user.studentDetails?.profileStatus !== "Approved") {
+        redirect(getStudentPostLoginPath(user));
+    }
+
+    return user;
+}
+
+export async function requireStudentProfileAccess() {
+    const user = await getCurrentUser();
+
+    if (!user) {
+        redirect("/login");
+    }
+
+    if (user.role !== "Student") {
+        redirect("/");
+    }
+
+    if (user.studentDetails?.profileStatus === "PendingApproval") {
+        redirect("/student/verification-pending");
+    }
+
+    return user;
+}
+
+export async function requireStudentPendingApprovalAccess() {
+    const user = await getCurrentUser();
+
+    if (!user) {
+        redirect("/login");
+    }
+
+    if (user.role !== "Student") {
+        redirect("/");
+    }
+
+    if (user.studentDetails?.profileStatus === "Approved") {
+        redirect("/");
+    }
+
+    if (user.studentDetails?.profileStatus !== "PendingApproval") {
+        redirect("/student/profile");
     }
 
     return user;
@@ -377,11 +465,50 @@ export async function requireAdmin() {
     return user;
 }
 
+export async function requireFaculty() {
+    const user = await getCurrentUser();
+
+    if (!user) {
+        redirect("/login");
+    }
+
+    if (user.role !== "Faculty") {
+        redirect("/");
+    }
+
+    return user;
+}
+
+export async function requireDirector() {
+    const user = await getCurrentUser();
+
+    if (!user) {
+        redirect("/director/login");
+    }
+
+    await dbConnect();
+
+    const hasLeadershipAccess =
+        user.role === "Director" ||
+        Boolean(
+            await Organization.findOne({
+                headUserId: user.id,
+                isActive: true,
+            }).select("_id")
+        );
+
+    if (!hasLeadershipAccess) {
+        redirect("/");
+    }
+
+    return user;
+}
+
 export async function redirectIfAuthenticated() {
     const user = await getCurrentUser();
 
     if (user) {
-        redirect("/");
+        redirect(getStudentPostLoginPath(user));
     }
 }
 
@@ -390,6 +517,29 @@ export async function redirectAdminIfAuthenticated() {
 
     if (user?.role === "Admin") {
         redirect("/admin");
+    }
+}
+
+export async function redirectDirectorIfAuthenticated() {
+    const user = await getCurrentUser();
+
+    if (!user) {
+        return;
+    }
+
+    await dbConnect();
+
+    const hasLeadershipAccess =
+        user.role === "Director" ||
+        Boolean(
+            await Organization.findOne({
+                headUserId: user.id,
+                isActive: true,
+            }).select("_id")
+        );
+
+    if (hasLeadershipAccess) {
+        redirect("/director");
     }
 }
 

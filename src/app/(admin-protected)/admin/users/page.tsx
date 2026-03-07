@@ -6,7 +6,7 @@ import { getAdminUsers } from "@/lib/admin/users";
 export default async function AdminUsersPage() {
     const [users, options] = await Promise.all([
         getAdminUsers(),
-        getActiveMasterDataOptions(["college", "school", "department"]),
+        getActiveMasterDataOptions(["university", "college", "department"]),
     ]);
 
     const safeUsers = JSON.parse(JSON.stringify(users)) as never;
@@ -22,10 +22,10 @@ export default async function AdminUsersPage() {
                 </CardHeader>
                 <CardContent>
                     <UserManagementTable
+                        universityOptions={options.university ?? []}
                         collegeOptions={options.college ?? []}
                         departmentOptions={options.department ?? []}
                         initialUsers={safeUsers}
-                        schoolOptions={options.school ?? []}
                     />
                 </CardContent>
             </Card>

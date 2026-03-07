@@ -67,6 +67,62 @@ export interface IStudentDetails {
     course: string;
     batch: string;
     admissionYear: string;
+    profileStatus?: "Draft" | "PendingApproval" | "Approved" | "Rejected";
+    profileSubmittedAt?: Date;
+    approvedAt?: Date;
+    approvedById?: mongoose.Types.ObjectId;
+    approvedByName?: string;
+    approvalNotes?: string;
+    assignedHodId?: mongoose.Types.ObjectId;
+    assignedHodName?: string;
+    assignedHodEmail?: string;
+    rejectionReason?: string;
+    personalInfo?: {
+        dateOfBirth?: string;
+        gender?: string;
+        bloodGroup?: string;
+        address?: string;
+        city?: string;
+        state?: string;
+        postalCode?: string;
+        emergencyContactName?: string;
+        emergencyContactPhone?: string;
+        parentName?: string;
+        parentPhone?: string;
+    };
+    academicInfo?: {
+        currentSemester?: string;
+        cgpa?: string;
+        section?: string;
+        mentorName?: string;
+        areasOfInterest?: string[];
+    };
+    careerProfile?: {
+        headline?: string;
+        summary?: string;
+        careerObjective?: string;
+        skills?: string[];
+        languages?: string[];
+        certifications?: string[];
+        achievements?: string[];
+        projects?: {
+            title: string;
+            description?: string;
+            techStack?: string[];
+            link?: string;
+        }[];
+        internships?: {
+            organization: string;
+            role?: string;
+            duration?: string;
+            description?: string;
+        }[];
+        socialLinks?: {
+            linkedin?: string;
+            github?: string;
+            portfolio?: string;
+        };
+    };
 }
 
 export interface IUser extends Document {
@@ -75,9 +131,9 @@ export interface IUser extends Document {
     password?: string;
     photoURL?: string;
     role: UserRole;
-    collegeName?: string;
+    universityName?: string;
     department?: string;
-    schoolName?: string;
+    collegeName?: string;
     designation?: string;
     phone?: string;
     qualifications: IQualification[];
@@ -107,9 +163,9 @@ const UserSchema = new Schema<IUser>(
             enum: ['Faculty', 'Student', 'Alumni', 'Admin', 'Director', 'PRO', 'NSS', 'Sports', 'Swayam', 'Placement'],
             index: true
         },
-        collegeName: { type: String, trim: true, index: true },
+        universityName: { type: String, trim: true, index: true },
         department: { type: String, trim: true },
-        schoolName: { type: String, trim: true, index: true },
+        collegeName: { type: String, trim: true, index: true },
         designation: { type: String, trim: true },
         phone: { type: String, trim: true },
 
@@ -124,6 +180,70 @@ const UserSchema = new Schema<IUser>(
             course: { type: String },
             batch: { type: String },
             admissionYear: { type: String },
+            profileStatus: {
+                type: String,
+                enum: ["Draft", "PendingApproval", "Approved", "Rejected"],
+                default: "Draft",
+            },
+            profileSubmittedAt: { type: Date },
+            approvedAt: { type: Date },
+            approvedById: { type: Schema.Types.ObjectId, ref: "User" },
+            approvedByName: { type: String },
+            approvalNotes: { type: String },
+            assignedHodId: { type: Schema.Types.ObjectId, ref: "User" },
+            assignedHodName: { type: String },
+            assignedHodEmail: { type: String, lowercase: true, trim: true },
+            rejectionReason: { type: String },
+            personalInfo: {
+                dateOfBirth: { type: String },
+                gender: { type: String },
+                bloodGroup: { type: String },
+                address: { type: String },
+                city: { type: String },
+                state: { type: String },
+                postalCode: { type: String },
+                emergencyContactName: { type: String },
+                emergencyContactPhone: { type: String },
+                parentName: { type: String },
+                parentPhone: { type: String },
+            },
+            academicInfo: {
+                currentSemester: { type: String },
+                cgpa: { type: String },
+                section: { type: String },
+                mentorName: { type: String },
+                areasOfInterest: { type: [String], default: [] },
+            },
+            careerProfile: {
+                headline: { type: String },
+                summary: { type: String },
+                careerObjective: { type: String },
+                skills: { type: [String], default: [] },
+                languages: { type: [String], default: [] },
+                certifications: { type: [String], default: [] },
+                achievements: { type: [String], default: [] },
+                projects: [
+                    {
+                        title: { type: String, required: true },
+                        description: { type: String },
+                        techStack: { type: [String], default: [] },
+                        link: { type: String },
+                    },
+                ],
+                internships: [
+                    {
+                        organization: { type: String, required: true },
+                        role: { type: String },
+                        duration: { type: String },
+                        description: { type: String },
+                    },
+                ],
+                socialLinks: {
+                    linkedin: { type: String },
+                    github: { type: String },
+                    portfolio: { type: String },
+                },
+            },
         },
 
         isActive: { type: Boolean, default: true },

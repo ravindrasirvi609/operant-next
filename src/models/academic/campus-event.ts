@@ -16,7 +16,7 @@ export interface ICampusEvent extends Document {
 
     // Relationships
     userId?: Types.ObjectId; // Organizer or Representative
-    schoolName: string;
+    collegeName: string;
 
     createdAt: Date;
     updatedAt: Date;
@@ -47,7 +47,7 @@ const CampusEventSchema = new Schema<ICampusEvent>(
         uploadProof: { type: String },
 
         userId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
-        schoolName: { type: String, required: true, index: true },
+        collegeName: { type: String, required: true, index: true },
     },
     { timestamps: true }
 );

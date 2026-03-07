@@ -6,7 +6,7 @@ This project now includes a complete authentication foundation for the UMIS syst
 - Admin bootstrap at `/admin/setup`
 - Admin login at `/admin/login`
 - Production-style admin console at `/admin`
-- Admin master-data management for colleges, schools, departments, and other enum-style values
+- Admin master-data management for universities, colleges, departments, and other enum-style values
 - Admin user management and system notice publishing
 - Faculty and Student self-registration at `/register`
 - Login at `/login`
@@ -29,6 +29,16 @@ Create `.env.local` from `.env.example` and configure:
 - `RESEND_FROM_EMAIL`
 
 If `RESEND_API_KEY` is omitted during local development, auth emails are logged to the server console as preview links.
+
+## Migration
+
+After pulling the schema rename from `collegeName/schoolName` to `universityName/collegeName`, run:
+
+```bash
+npm run migrate:institution-terminology
+```
+
+This migrates existing MongoDB documents for users, organizations, master data, and the module collections that previously stored `schoolName`.
 
 ## Getting started
 

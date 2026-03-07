@@ -7,8 +7,8 @@ export default async function RegisterPage() {
     await redirectIfAuthenticated();
 
     const options = await getActiveMasterDataOptions([
+        "university",
         "college",
-        "school",
         "department",
     ]);
 
@@ -19,9 +19,9 @@ export default async function RegisterPage() {
             description="Students and faculty can self-register here. All other roles remain administrator-managed."
         >
             <RegisterForm
+                universityOptions={options.university ?? []}
                 collegeOptions={options.college ?? []}
                 departmentOptions={options.department ?? []}
-                schoolOptions={options.school ?? []}
             />
         </AuthShell>
     );

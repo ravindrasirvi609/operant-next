@@ -31,6 +31,30 @@ export default async function Home() {
                   <Link href="/admin">Open Admin Console</Link>
                 </Button>
               ) : null}
+              {user.role === "Director" ? (
+                <Button asChild>
+                  <Link href="/director">Open Director Portal</Link>
+                </Button>
+              ) : null}
+              {user.role === "Faculty" ? (
+                <>
+                  <Button asChild>
+                    <Link href="/faculty/profile">Open Faculty Workspace</Link>
+                  </Button>
+                  <Button asChild variant="secondary">
+                    <Link href="/faculty/cas">Open CAS Module</Link>
+                  </Button>
+                  <Button asChild variant="secondary">
+                    <Link href="/faculty/pbas">Open PBAS Module</Link>
+                  </Button>
+                  <Button asChild variant="secondary">
+                    <Link href="/faculty/aqar">Open AQAR Module</Link>
+                  </Button>
+                  <Button asChild variant="secondary">
+                    <Link href="/faculty/evidence">Open Shared Evidence</Link>
+                  </Button>
+                </>
+              ) : null}
               <Button variant="secondary">Authenticated Session Active</Button>
               <LogoutButton />
             </div>
@@ -48,9 +72,9 @@ export default async function Home() {
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <OverviewItem icon={<UserRound className="size-5" />} label="Name" value={user.name} />
               <OverviewItem icon={<ShieldCheck className="size-5" />} label="Role" value={user.role} />
-              <OverviewItem icon={<GraduationCap className="size-5" />} label="College" value={user.collegeName ?? "Not set"} />
+              <OverviewItem icon={<GraduationCap className="size-5" />} label="University" value={user.universityName ?? "Not set"} />
               <OverviewItem icon={<BookOpenText className="size-5" />} label="Department" value={user.department ?? "Not set"} />
-              <OverviewItem icon={<GraduationCap className="size-5" />} label="School" value={user.schoolName ?? "Not set"} />
+              <OverviewItem icon={<GraduationCap className="size-5" />} label="College" value={user.collegeName ?? "Not set"} />
               <OverviewItem icon={<ShieldCheck className="size-5" />} label="Email" value={user.email} />
               <OverviewItem icon={<UserRound className="size-5" />} label="Verification" value={user.emailVerified ? "Verified" : "Pending"} />
             </CardContent>

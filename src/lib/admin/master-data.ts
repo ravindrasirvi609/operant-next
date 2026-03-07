@@ -6,19 +6,19 @@ import MasterData from "@/models/core/master-data";
 
 export const masterDataCategories = [
     {
-        id: "college",
-        label: "Colleges",
-        description: "Top-level college or campus entities used across the UMIS tenant.",
+        id: "university",
+        label: "Universities",
+        description: "Top-level university or campus entities used across the UMIS tenant.",
     },
     {
-        id: "school",
-        label: "Schools",
-        description: "Academic schools or faculties under a college.",
+        id: "college",
+        label: "Colleges",
+        description: "Academic colleges or faculties under a university.",
     },
     {
         id: "department",
         label: "Departments",
-        description: "Departments mapped to schools and used in user onboarding.",
+        description: "Departments mapped to colleges and used in user onboarding.",
     },
     {
         id: "academic-year",

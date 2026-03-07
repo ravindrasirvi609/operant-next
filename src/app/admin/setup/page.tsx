@@ -15,8 +15,8 @@ export default async function AdminSetupPage() {
     }
 
     const options = await getActiveMasterDataOptions([
+        "university",
         "college",
-        "school",
         "department",
     ]);
 
@@ -27,8 +27,8 @@ export default async function AdminSetupPage() {
             description="Create the first Admin account to unlock the operational dashboard and begin institutional setup."
         >
             <AdminBootstrapForm
+                universityOptions={options.university ?? []}
                 collegeOptions={options.college ?? []}
-                schoolOptions={options.school ?? []}
                 departmentOptions={options.department ?? []}
             />
         </AuthShell>

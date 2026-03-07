@@ -3,7 +3,7 @@ import mongoose, { Schema, Document, Model, Types } from "mongoose";
 export interface IFeedback extends Document {
     type: 'StudentSatisfaction' | 'Employer' | 'Alumni' | 'Parent' | 'Expert' | 'Peer' | 'General';
     academicYear: string;
-    schoolName: string;
+    collegeName: string;
     respondentName?: string;
     respondentEmail?: string;
     responses: {
@@ -29,7 +29,7 @@ const FeedbackSchema = new Schema<IFeedback>(
             index: true
         },
         academicYear: { type: String, required: true, index: true },
-        schoolName: { type: String, required: true, index: true },
+        collegeName: { type: String, required: true, index: true },
         respondentName: { type: String },
         respondentEmail: { type: String },
         responses: [{

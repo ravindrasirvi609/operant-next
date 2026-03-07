@@ -2,13 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ListTree, Megaphone, Users2 } from "lucide-react";
+import { FileStack, GitBranch, LayoutDashboard, ListTree, Megaphone, Users2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { LogoutButton } from "@/components/auth/logout-button";
 
 const navigation = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
+    { href: "/admin/hierarchy", label: "Hierarchy", icon: GitBranch },
+    { href: "/admin/cas", label: "CAS", icon: FileStack },
+    { href: "/admin/pbas", label: "PBAS", icon: FileStack },
+    { href: "/admin/aqar", label: "AQAR", icon: FileStack },
     { href: "/admin/master-data", label: "Master Data", icon: ListTree },
     { href: "/admin/users", label: "Users", icon: Users2 },
     { href: "/admin/system", label: "System Updates", icon: Megaphone },
@@ -67,7 +71,7 @@ export function AdminShell({
 
                     <div className="mt-8 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
                         <p className="text-sm leading-6 text-zinc-500">
-                            Admin access can create institutional enums like colleges, schools, departments, reporting categories, offices, and system alerts.
+                            Admin access can create institutional enums like universities, colleges, departments, reporting categories, offices, and system alerts.
                         </p>
                         <div className="mt-4">
                             <LogoutButton />

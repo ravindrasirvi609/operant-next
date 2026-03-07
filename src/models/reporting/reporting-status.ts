@@ -3,7 +3,7 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 export interface IReportingStatus extends Document {
     reportType: 'AQAR' | 'NIRF';
     academicYear: string;
-    schoolName: string;
+    collegeName: string;
     completedSections: string[];
     isLocked: boolean;
 
@@ -15,7 +15,7 @@ const ReportingStatusSchema = new Schema<IReportingStatus>(
     {
         reportType: { type: String, enum: ['AQAR', 'NIRF'], required: true },
         academicYear: { type: String, required: true },
-        schoolName: { type: String, required: true, index: true },
+        collegeName: { type: String, required: true, index: true },
         completedSections: { type: [String], default: [] },
         isLocked: { type: Boolean, default: false },
     },
@@ -24,7 +24,7 @@ const ReportingStatusSchema = new Schema<IReportingStatus>(
     }
 );
 
-ReportingStatusSchema.index({ reportType: 1, academicYear: 1, schoolName: 1 });
+ReportingStatusSchema.index({ reportType: 1, academicYear: 1, collegeName: 1 });
 
 const ReportingStatus: Model<IReportingStatus> =
     mongoose.models.ReportingStatus ||

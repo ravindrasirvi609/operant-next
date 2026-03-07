@@ -37,6 +37,9 @@ export default async function AdminDashboardPage() {
                         <Button asChild variant="secondary">
                             <Link href="/admin/users">Review Users</Link>
                         </Button>
+                        <Button asChild variant="secondary">
+                            <Link href="/admin/hierarchy">Manage Hierarchy</Link>
+                        </Button>
                     </div>
                 </div>
             </section>
@@ -80,7 +83,8 @@ export default async function AdminDashboardPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-3">
-                        <QuickAction href="/admin/master-data" text="Create colleges, schools, departments, academic years, and offices." />
+                        <QuickAction href="/admin/hierarchy" text="Build the university-college-department hierarchy and assign directors or heads." />
+                        <QuickAction href="/admin/master-data" text="Create supporting enums such as academic years, report categories, and offices." />
                         <QuickAction href="/admin/users" text="Promote responsible owners to Director, PRO, NSS, Sports, Swayam, or Placement roles." />
                         <QuickAction href="/admin/system" text="Publish onboarding notices, reporting deadlines, and dashboard messages." />
                         <QuickAction href="/register" text="Validate faculty and student onboarding after master data is populated." />
@@ -119,7 +123,7 @@ export default async function AdminDashboardPage() {
                                 </div>
                                 <p className="mt-2 text-sm text-zinc-500">{user.email}</p>
                                 <p className="mt-2 text-sm text-zinc-500">
-                                    {user.schoolName || "No school"} / {user.department || "No department"}
+                                    {user.universityName || "No university"} / {user.collegeName || "No college"} / {user.department || "No department"}
                                 </p>
                             </div>
                         ))}

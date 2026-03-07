@@ -16,7 +16,7 @@ export interface IResearchActivity extends Document {
 
     // Relationships
     userId: Types.ObjectId; // Link to Faculty Guide/Researcher
-    schoolName: string;
+    collegeName: string;
 
     createdAt: Date;
     updatedAt: Date;
@@ -43,7 +43,7 @@ const ResearchActivitySchema = new Schema<IResearchActivity>(
         uploadProof: { type: String },
 
         userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-        schoolName: { type: String, required: true, index: true },
+        collegeName: { type: String, required: true, index: true },
     },
     { timestamps: true }
 );
