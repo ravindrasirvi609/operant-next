@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ProfilePhotoUpload } from "@/components/faculty/profile-photo-upload";
 import { studentProfileSchema } from "@/lib/student/validators";
 
 type StudentProfileValues = z.input<typeof studentProfileSchema>;
@@ -68,13 +69,17 @@ function toCsv(value?: string[]) {
 }
 
 export function StudentProfileForm({
+    studentId,
     studentName,
     studentEmail,
     studentDetails,
+    currentPhotoURL,
 }: {
+    studentId: string;
     studentName: string;
     studentEmail: string;
     studentDetails?: ExistingStudentDetails;
+    currentPhotoURL?: string;
 }) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
@@ -181,15 +186,19 @@ export function StudentProfileForm({
     }
 
     return (
-        <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Student profile and approval</CardTitle>
-                    <CardDescription>
+        <div className="space-y-8">
+            <Card className="relative overflow-hidden border-zinc-200 bg-white">
+                <div className="pointer-events-none absolute inset-0">
+                    <div className="absolute -left-10 top-6 h-32 w-32 rounded-full bg-sky-100/70 blur-3xl" />
+                    <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-amber-100/70 blur-3xl" />
+                </div>
+                <CardHeader className="relative">
+                    <CardTitle className="text-2xl">Student profile and approval</CardTitle>
+                    <CardDescription className="text-base">
                         Complete your profile in full. HOD approval is required only for the first submission or after a rejection. Once approved, future edits save directly.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <CardContent className="relative grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <StatusItem label="Student" value={studentName} />
                     <StatusItem label="Email" value={studentEmail} />
                     <StatusItem label="Profile Status" value={studentDetails?.profileStatus ?? "Draft"} />
@@ -197,16 +206,51 @@ export function StudentProfileForm({
                 </CardContent>
             </Card>
 
-            {studentDetails?.rejectionReason ? (
-                <FormMessage message={`HOD feedback: ${studentDetails.rejectionReason}`} type="error" />
-            ) : null}
-            {message ? <FormMessage message={message.text} type={message.type} /> : null}
+            <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+                <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+                    <Card className="border-zinc-200 bg-white">
+                        <CardHeader>
+                            <CardTitle className="text-lg">Profile photo</CardTitle>
+                            <CardDescription>Upload a clear headshot for your student profile.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <ProfilePhotoUpload
+                                userId={studentId}
+                                currentPhotoURL={currentPhotoURL}
+                                endpoint="/api/student/photo"
+                            />
+                            <div className="grid gap-3">
+                                <StatusItem label="Roll No." value={studentDetails?.rollNo ?? "-"} />
+                                <StatusItem label="Course" value={studentDetails?.course ?? "-"} />
+                                <StatusItem label="Batch" value={studentDetails?.batch ?? "-"} />
+                            </div>
+                        </CardContent>
+                    </Card>
 
-            <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-                <SectionCard
-                    title="Academic identity"
-                    description="Core academic details used by the HOD while validating your profile."
-                >
+                    <Card className="border-zinc-200 bg-white">
+                        <CardHeader>
+                            <CardTitle className="text-lg">Quick actions</CardTitle>
+                            <CardDescription>Keep a copy of your resume handy.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex flex-col gap-3">
+                            <Button asChild variant="secondary">
+                                <a href="/api/student/resume">Download Resume PDF</a>
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="space-y-6">
+                    {studentDetails?.rejectionReason ? (
+                        <FormMessage message={`HOD feedback: ${studentDetails.rejectionReason}`} type="error" />
+                    ) : null}
+                    {message ? <FormMessage message={message.text} type={message.type} /> : null}
+
+                    <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
+                        <SectionCard
+                            title="Academic identity"
+                            description="Core academic details used by the HOD while validating your profile."
+                        >
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                         <ReadOnlyItem label="Roll Number" value={studentDetails?.rollNo ?? "-"} />
                         <ReadOnlyItem label="Course" value={studentDetails?.course ?? "-"} />
@@ -413,16 +457,18 @@ export function StudentProfileForm({
                     </div>
                 </SectionCard>
 
-                <div className="flex flex-wrap gap-3">
-                    <Button disabled={isPending} size="lg" type="submit">
-                        {isPending ? <Spinner /> : null}
-                        Submit To HOD For Approval
-                    </Button>
-                    <Button asChild size="lg" variant="secondary">
-                        <a href="/api/student/resume">Download Resume PDF</a>
-                    </Button>
+                        <div className="flex flex-wrap gap-3">
+                            <Button disabled={isPending} size="lg" type="submit">
+                                {isPending ? <Spinner /> : null}
+                                Submit To HOD For Approval
+                            </Button>
+                            <Button asChild size="lg" variant="secondary">
+                                <a href="/api/student/resume">Download Resume PDF</a>
+                            </Button>
+                        </div>
+                    </form>
                 </div>
-            </form>
+            </div>
         </div>
     );
 }
@@ -437,7 +483,7 @@ function SectionCard({
     children: React.ReactNode;
 }) {
     return (
-        <Card>
+        <Card className="border-zinc-200 bg-white shadow-sm">
             <CardHeader>
                 <CardTitle>{title}</CardTitle>
                 <CardDescription>{description}</CardDescription>

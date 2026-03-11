@@ -8,11 +8,13 @@ export default async function StudentProfilePage() {
 
     return (
         <main className="min-h-screen bg-zinc-50">
-            <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+            <div className="w-full px-4 py-8 sm:px-6 lg:px-10">
                 <StudentProfileForm
+                    studentId={user.id}
                     studentDetails={JSON.parse(JSON.stringify(student.studentDetails))}
                     studentEmail={student.email}
                     studentName={student.name}
+                    currentPhotoURL={student.photoURL}
                 />
             </div>
         </main>

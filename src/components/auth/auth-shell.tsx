@@ -2,6 +2,8 @@ import Link from "next/link";
 import { GraduationCap, LibraryBig, ShieldCheck } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 export function AuthShell({
     eyebrow,
@@ -17,26 +19,32 @@ export function AuthShell({
     footer?: React.ReactNode;
 }) {
     return (
-        <div className="min-h-screen bg-zinc-50">
-            <div className="relative mx-auto grid min-h-screen max-w-7xl gap-10 px-4 py-8 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
-                <section className="flex flex-col justify-between rounded-xl border border-zinc-200 bg-white px-6 py-8 shadow-sm sm:px-8 lg:px-10">
-                    <div className="space-y-8">
+        <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-zinc-50 via-white to-amber-50">
+            <div className="pointer-events-none absolute inset-0">
+                <div className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-sky-200/40 blur-3xl" />
+                <div className="absolute -right-16 bottom-0 h-80 w-80 rounded-full bg-amber-200/40 blur-3xl" />
+            </div>
+            <div className="relative mx-auto grid min-h-screen max-w-7xl gap-10 px-4 py-10 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
+                <Card className="flex h-full flex-col justify-between border-zinc-200/80 bg-white/90 shadow-xl backdrop-blur">
+                    <CardHeader className="gap-4 border-b border-zinc-100">
                         <div className="flex items-center justify-between gap-4">
                             <div>
                                 <p className="text-xs font-medium uppercase tracking-[0.24em] text-zinc-500">
                                     UMIS Software
                                 </p>
-                                <h1 className="mt-3 max-w-xl text-4xl font-semibold tracking-tight text-zinc-950 sm:text-5xl">
+                                <CardTitle className="mt-3 max-w-xl text-4xl font-semibold tracking-tight text-zinc-950 sm:text-5xl">
                                     Authentication built for academic operations.
-                                </h1>
+                                </CardTitle>
                             </div>
-                            <Badge>Secure Portal</Badge>
+                            <Badge className="bg-zinc-900 text-white">Secure Portal</Badge>
                         </div>
-                        <p className="max-w-2xl text-base leading-8 text-zinc-600">
+                        <CardDescription className="max-w-2xl text-base leading-7 text-zinc-600">
                             Students and faculty can self-register, verify email,
                             recover access, and enter the protected UMIS workspace.
                             The home page is locked behind authenticated access.
-                        </p>
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
                         <div className="grid gap-4 sm:grid-cols-3">
                             <FeatureCard
                                 icon={<ShieldCheck className="size-5" />}
@@ -54,25 +62,32 @@ export function AuthShell({
                                 text="Works against your Mongo user model so future modules inherit the same auth layer."
                             />
                         </div>
-                    </div>
-                    <div className="mt-10 flex flex-wrap items-center justify-between gap-4 text-sm text-zinc-500">
-                        <span>Modern auth stack with Resend, bcryptjs, jose, Zod, and React Hook Form.</span>
-                        <Link href="/login" className="font-medium text-zinc-950">
-                            Sign in
-                        </Link>
-                    </div>
-                </section>
+                        <Separator />
+                        <div className="grid gap-3 text-sm text-zinc-500">
+                            <p>Modern auth stack with Resend, bcryptjs, jose, Zod, and React Hook Form.</p>
+                            <div className="flex items-center gap-2">
+                                <span>Already onboarded?</span>
+                                <Link href="/login" className="font-medium text-zinc-950">
+                                    Sign in
+                                </Link>
+                            </div>
+                        </div>
+                    </CardContent>
+                    <CardFooter className="bg-zinc-50/70 text-sm text-zinc-500">
+                        Secure identity checks are required for every protected UMIS module.
+                    </CardFooter>
+                </Card>
 
                 <section className="flex items-center justify-center">
                     <div className="w-full max-w-2xl">
-                        <div className="mb-6">
+                        <div className="mb-6 space-y-3">
                             <p className="text-xs font-medium uppercase tracking-[0.24em] text-zinc-500">
                                 {eyebrow}
                             </p>
-                            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-950">
+                            <h2 className="text-3xl font-semibold tracking-tight text-zinc-950">
                                 {title}
                             </h2>
-                            <p className="mt-3 max-w-xl text-base leading-7 text-zinc-500">
+                            <p className="max-w-xl text-base leading-7 text-zinc-500">
                                 {description}
                             </p>
                         </div>
@@ -95,12 +110,16 @@ function FeatureCard({
     text: string;
 }) {
     return (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-5">
-            <div className="mb-4 inline-flex size-11 items-center justify-center rounded-md bg-white text-zinc-700 shadow-sm">
-                {icon}
-            </div>
-            <h3 className="text-lg font-semibold text-zinc-950">{title}</h3>
-            <p className="mt-2 text-sm leading-6 text-zinc-500">{text}</p>
-        </div>
+        <Card className="border-zinc-200/80 bg-white/80 shadow-sm">
+            <CardContent className="space-y-3">
+                <div className="inline-flex size-11 items-center justify-center rounded-md bg-white text-zinc-700 shadow-sm">
+                    {icon}
+                </div>
+                <div>
+                    <h3 className="text-lg font-semibold text-zinc-950">{title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-zinc-500">{text}</p>
+                </div>
+            </CardContent>
+        </Card>
     );
 }

@@ -11,7 +11,7 @@ import type { z } from "zod";
 import { FieldError, FormMessage, Spinner } from "@/components/auth/auth-helpers";
 import { PasswordChecklist } from "@/components/auth/password-checklist";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -58,18 +58,21 @@ function AuthCard({
     title,
     description,
     children,
+    footer,
 }: {
     title: string;
     description: string;
     children: React.ReactNode;
+    footer?: React.ReactNode;
 }) {
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
+        <Card className="border-zinc-200/80 bg-white/95 shadow-lg">
+            <CardHeader className="gap-2 border-b border-zinc-100">
+                <CardTitle className="text-xl">{title}</CardTitle>
+                <CardDescription className="text-sm text-zinc-500">{description}</CardDescription>
             </CardHeader>
-            <CardContent>{children}</CardContent>
+            <CardContent className="pt-6">{children}</CardContent>
+            {footer ? <CardFooter className="justify-between">{footer}</CardFooter> : null}
         </Card>
     );
 }
@@ -120,6 +123,14 @@ export function LoginForm({
             <AuthCard
                 title="Sign in to UMIS"
                 description="Only verified users can access the UMIS home page. Public access is disabled."
+                footer={
+                    <div className="text-sm text-zinc-500">
+                        New to UMIS?{" "}
+                        <Link href="/register" className="font-medium text-zinc-950">
+                            Create a student or faculty account
+                        </Link>
+                    </div>
+                }
             >
                 <form className="grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
                     {successMessage ? (
@@ -165,13 +176,6 @@ export function LoginForm({
             </AuthCard>
 
             {showResend ? <ResendVerificationForm defaultEmail={emailValue} /> : null}
-
-            <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4 text-sm text-zinc-500">
-                New to UMIS?{" "}
-                <Link href="/register" className="font-medium text-zinc-950">
-                    Create a student or faculty account
-                </Link>
-            </div>
         </div>
     );
 }
@@ -255,6 +259,14 @@ export function RegisterForm({
         <AuthCard
             title={title}
             description="Self-service registration is enabled only for Faculty and Student roles."
+            footer={
+                <div className="text-sm text-zinc-500">
+                    Already registered?{" "}
+                    <Link href="/login" className="font-medium text-zinc-950">
+                        Sign in here
+                    </Link>
+                </div>
+            }
         >
             <Tabs defaultValue="Faculty" onValueChange={(value) => handleRoleChange(value as "Faculty" | "Student")}>
                 <TabsList>
@@ -398,13 +410,6 @@ export function RegisterForm({
                     </Button>
                 </form>
             </Tabs>
-
-            <div className="mt-5 text-sm text-zinc-500">
-                Already registered?{" "}
-                <Link href="/login" className="font-medium text-zinc-950">
-                    Sign in here
-                </Link>
-            </div>
         </AuthCard>
     );
 }

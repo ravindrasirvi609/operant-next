@@ -16,9 +16,14 @@ import {
 type Props = {
     userId: string;
     currentPhotoURL?: string;
+    endpoint?: string;
 };
 
-export function ProfilePhotoUpload({ userId, currentPhotoURL }: Props) {
+export function ProfilePhotoUpload({
+    userId,
+    currentPhotoURL,
+    endpoint = "/api/faculty/photo",
+}: Props) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [photoURL, setPhotoURL] = useState(currentPhotoURL ?? "");
     const [progress, setProgress] = useState<UploadProgress | null>(null);
@@ -57,7 +62,7 @@ export function ProfilePhotoUpload({ userId, currentPhotoURL }: Props) {
                 );
 
                 // Persist the URL in the database.
-                const response = await fetch("/api/faculty/photo", {
+                const response = await fetch(endpoint, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ photoURL: result.downloadURL }),
@@ -82,7 +87,7 @@ export function ProfilePhotoUpload({ userId, currentPhotoURL }: Props) {
     function handleRemove() {
         startTransition(async () => {
             try {
-                const response = await fetch("/api/faculty/photo", {
+                const response = await fetch(endpoint, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ photoURL: "" }),
