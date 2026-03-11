@@ -34,7 +34,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import {
     SelectContent,
     SelectItem,
-    SelectRoot,
+    Select,
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
@@ -2281,7 +2281,7 @@ function SelectField({
                 control={form.control}
                 name={name as never}
                 render={({ field }) => (
-                    <SelectRoot value={field.value ?? ""} onValueChange={field.onChange} disabled={disabled}>
+                    <Select value={field.value ?? ""} onValueChange={field.onChange} disabled={disabled}>
                         <SelectTrigger>
                             <SelectValue placeholder={placeholder} />
                         </SelectTrigger>
@@ -2292,7 +2292,7 @@ function SelectField({
                                 </SelectItem>
                             ))}
                         </SelectContent>
-                    </SelectRoot>
+                    </Select>
                 )}
             />
         </FieldShell>

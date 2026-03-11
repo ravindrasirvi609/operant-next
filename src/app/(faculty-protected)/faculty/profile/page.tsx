@@ -6,12 +6,23 @@ export default async function FacultyProfilePage() {
     const user = await requireFaculty();
     const workspace = await getFacultyWorkspace(user.id);
 
+    const facultyUser = {
+        id: workspace.user._id.toString(),
+        name: workspace.user.name,
+        email: workspace.user.email,
+        photoURL: workspace.user.photoURL,
+        designation: workspace.user.designation,
+        department: workspace.user.department,
+        collegeName: workspace.user.collegeName,
+        universityName: workspace.user.universityName,
+    };
+
     return (
         <main className="min-h-screen bg-zinc-50">
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 <FacultyWorkspaceForm
                     facultyRecord={JSON.parse(JSON.stringify(workspace.facultyRecord))}
-                    user={JSON.parse(JSON.stringify(workspace.user))}
+                    user={facultyUser}
                 />
             </div>
         </main>

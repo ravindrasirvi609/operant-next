@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 
 import { FieldError, FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { ProfilePhotoUpload } from "@/components/faculty/profile-photo-upload";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,8 +20,10 @@ type FacultyWorkspaceValues = z.input<typeof facultyRecordSchema>;
 type FacultyWorkspaceResolvedValues = z.output<typeof facultyRecordSchema>;
 
 type FacultyUser = {
+    id: string;
     name: string;
     email: string;
+    photoURL?: string;
     designation?: string;
     department?: string;
     collegeName?: string;
@@ -181,6 +184,16 @@ export function FacultyWorkspaceForm({
             </Card>
 
             {message ? <FormMessage message={message.text} type={message.type} /> : null}
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Profile Photo</CardTitle>
+                    <CardDescription>Upload a professional photo for your faculty profile.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ProfilePhotoUpload userId={user.id} currentPhotoURL={user.photoURL} />
+                </CardContent>
+            </Card>
 
             <form onSubmit={form.handleSubmit(submit)}>
                 <Tabs defaultValue="profile">
