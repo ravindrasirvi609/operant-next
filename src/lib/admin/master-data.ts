@@ -2,7 +2,21 @@ import { Types } from "mongoose";
 
 import dbConnect from "@/lib/dbConnect";
 import { masterDataSchema, masterDataUpdateSchema } from "@/lib/admin/validators";
-import MasterData from "@/models/core/master-data";
+import MasterData, { type IMasterData } from "@/models/core/master-data";
+
+type MasterDataInput = import("zod").output<typeof masterDataSchema>;
+
+export type MasterDataBulkFailure = {
+    rowNumber: number;
+    category?: string;
+    label?: string;
+    message: string;
+};
+
+export type MasterDataBulkResult = {
+    created: IMasterData[];
+    failed: MasterDataBulkFailure[];
+};
 
 export const masterDataCategories = [
     {
@@ -53,6 +67,7 @@ export const masterDataCategories = [
 ];
 
 export const masterDataCategoryIds = masterDataCategories.map((item) => item.id);
+const masterDataCategorySet = new Set(masterDataCategoryIds);
 
 function slugify(value: string) {
     return value
@@ -70,6 +85,114 @@ function normalizeMetadata(
     }
 
     return metadata;
+}
+
+function assertKnownCategory(category: string) {
+    if (!masterDataCategorySet.has(category)) {
+        throw new Error(
+            `Unsupported category "${category}". Use one of: ${masterDataCategoryIds.join(", ")}.`
+        );
+    }
+}
+
+function isDuplicateKeyError(error: unknown) {
+    return (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        (error as { code?: unknown }).code === 11000
+    );
+}
+
+function getBulkErrorMessage(error: unknown) {
+    if (isDuplicateKeyError(error)) {
+        return "Duplicate entry: category + key/code already exists.";
+    }
+
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+
+    return "Unable to create this row.";
+}
+
+function extractBulkRowNumber(rawEntry: unknown, index: number) {
+    if (typeof rawEntry === "object" && rawEntry !== null) {
+        const rowNumber = (rawEntry as { rowNumber?: unknown; _rowNumber?: unknown })
+            .rowNumber;
+        const alternateRowNumber = (
+            rawEntry as { rowNumber?: unknown; _rowNumber?: unknown }
+        )._rowNumber;
+
+        if (typeof rowNumber === "number" && Number.isFinite(rowNumber)) {
+            return Math.max(2, Math.floor(rowNumber));
+        }
+
+        if (
+            typeof alternateRowNumber === "number" &&
+            Number.isFinite(alternateRowNumber)
+        ) {
+            return Math.max(2, Math.floor(alternateRowNumber));
+        }
+    }
+
+    // Header is row 1, so first payload row defaults to row 2.
+    return index + 2;
+}
+
+function stripBulkMetaFields(rawEntry: unknown) {
+    if (typeof rawEntry !== "object" || rawEntry === null) {
+        return rawEntry;
+    }
+
+    const rest = {
+        ...(rawEntry as Record<string, unknown> & {
+            rowNumber?: unknown;
+            _rowNumber?: unknown;
+        }),
+    };
+    delete rest.rowNumber;
+    delete rest._rowNumber;
+    return rest;
+}
+
+function getRawString(
+    rawEntry: unknown,
+    key: "category" | "label"
+): string | undefined {
+    if (typeof rawEntry !== "object" || rawEntry === null) {
+        return undefined;
+    }
+
+    const value = (rawEntry as Record<string, unknown>)[key];
+    return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+async function insertMasterDataEntry(
+    input: MasterDataInput,
+    adminObjectId: Types.ObjectId
+) {
+    const category = slugify(input.category);
+    assertKnownCategory(category);
+
+    const key = slugify(input.code?.trim() || input.label);
+
+    const item = await MasterData.create({
+        category,
+        key,
+        label: input.label,
+        code: input.code?.trim() || undefined,
+        description: input.description?.trim() || undefined,
+        parentCategory: input.parentCategory?.trim() || undefined,
+        parentKey: input.parentKey?.trim() || undefined,
+        metadata: normalizeMetadata(input.metadata),
+        sortOrder: input.sortOrder,
+        isActive: input.isActive,
+        createdBy: adminObjectId,
+        updatedBy: adminObjectId,
+    });
+
+    return item;
 }
 
 export async function getMasterDataMap(categories?: string[]) {
@@ -118,27 +241,62 @@ export async function createMasterDataEntry(
     const input = masterDataSchema.parse(rawInput);
     await dbConnect();
 
-    const category = slugify(input.category);
-    const key = slugify(input.code?.trim() || input.label);
+    const adminObjectId = new Types.ObjectId(adminUserId);
+    return insertMasterDataEntry(input, adminObjectId);
+}
 
+export async function createMasterDataEntriesBulk(
+    rawEntries: unknown,
+    adminUserId: string
+): Promise<MasterDataBulkResult> {
+    if (!Array.isArray(rawEntries)) {
+        throw new Error("Bulk payload must provide an entries array.");
+    }
+
+    if (!rawEntries.length) {
+        throw new Error("Add at least one row in the Excel file before uploading.");
+    }
+
+    if (rawEntries.length > 500) {
+        throw new Error("Bulk upload supports up to 500 rows per file.");
+    }
+
+    await dbConnect();
     const adminObjectId = new Types.ObjectId(adminUserId);
 
-    const item = await MasterData.create({
-        category,
-        key,
-        label: input.label,
-        code: input.code?.trim() || undefined,
-        description: input.description?.trim() || undefined,
-        parentCategory: input.parentCategory?.trim() || undefined,
-        parentKey: input.parentKey?.trim() || undefined,
-        metadata: normalizeMetadata(input.metadata),
-        sortOrder: input.sortOrder,
-        isActive: input.isActive,
-        createdBy: adminObjectId,
-        updatedBy: adminObjectId,
-    });
+    const created: IMasterData[] = [];
+    const failed: MasterDataBulkFailure[] = [];
 
-    return item;
+    for (let index = 0; index < rawEntries.length; index += 1) {
+        const rawEntry = rawEntries[index];
+        const rowNumber = extractBulkRowNumber(rawEntry, index);
+        const sanitizedEntry = stripBulkMetaFields(rawEntry);
+        const parsed = masterDataSchema.safeParse(sanitizedEntry);
+
+        if (!parsed.success) {
+            failed.push({
+                rowNumber,
+                category: getRawString(rawEntry, "category"),
+                label: getRawString(rawEntry, "label"),
+                message: parsed.error.issues[0]?.message ?? "Invalid row data.",
+            });
+            continue;
+        }
+
+        try {
+            const item = await insertMasterDataEntry(parsed.data, adminObjectId);
+            created.push(item);
+        } catch (error) {
+            failed.push({
+                rowNumber,
+                category: getRawString(rawEntry, "category"),
+                label: getRawString(rawEntry, "label"),
+                message: getBulkErrorMessage(error),
+            });
+        }
+    }
+
+    return { created, failed };
 }
 
 export async function updateMasterDataEntry(
@@ -158,7 +316,9 @@ export async function updateMasterDataEntry(
     }
 
     if (input.category) {
-        item.category = slugify(input.category);
+        const category = slugify(input.category);
+        assertKnownCategory(category);
+        item.category = category;
     }
 
     if (input.label) {
