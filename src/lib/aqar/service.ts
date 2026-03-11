@@ -216,6 +216,28 @@ export async function submitAqarApplication(actor: SafeActor, id: string) {
     return application;
 }
 
+export async function deleteAqarApplication(actor: SafeActor, id: string) {
+    await dbConnect();
+
+    if (actor.role !== "Faculty") {
+        throw new AuthError("Only the faculty owner can delete this AQAR application.", 403);
+    }
+
+    const application = await AqarApplication.findOne({ _id: id, facultyId: actor.id });
+
+    if (!application) {
+        throw new AuthError("AQAR application not found.", 404);
+    }
+
+    if (!["Draft", "Rejected"].includes(application.status)) {
+        throw new AuthError("Only draft or rejected AQAR applications can be deleted.", 409);
+    }
+
+    await AqarApplication.deleteOne({ _id: application._id });
+
+    return application;
+}
+
 export async function reviewAqarApplication(actor: SafeActor, id: string, rawInput: unknown) {
     const input = aqarReviewSchema.parse(rawInput);
     const application = await getAqarApplicationById(actor, id);

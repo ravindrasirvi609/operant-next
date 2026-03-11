@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, MailCheck } from "lucide-react";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 
 import { FieldError, FormMessage, Spinner } from "@/components/auth/auth-helpers";
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -293,42 +293,72 @@ export function RegisterForm({
                     <div className="grid gap-5 sm:grid-cols-3">
                         <Field label="University" id="register-university" error={"universityName" in form.formState.errors ? form.formState.errors.universityName?.message : undefined}>
                             {universityOptions.length ? (
-                                <Select id="register-university" {...form.register("universityName")}>
-                                    <option value="">Select university</option>
-                                    {universityOptions.map((item) => (
-                                        <option key={item.key} value={item.label}>
-                                            {item.label}
-                                        </option>
-                                    ))}
-                                </Select>
+                                <Controller
+                                    control={form.control}
+                                    name="universityName"
+                                    render={({ field }) => (
+                                        <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                            <SelectTrigger id="register-university" className="w-full">
+                                                <SelectValue placeholder="Select university" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {universityOptions.map((item) => (
+                                                    <SelectItem key={item.key} value={item.label}>
+                                                        {item.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
                             ) : (
                                 <Input id="register-university" placeholder="University name" {...form.register("universityName")} />
                             )}
                         </Field>
                         <Field label="College" id="register-college" error={form.formState.errors.collegeName?.message}>
                             {collegeOptions.length ? (
-                                <Select id="register-college" {...form.register("collegeName")}>
-                                    <option value="">Select college</option>
-                                    {collegeOptions.map((item) => (
-                                        <option key={item.key} value={item.label}>
-                                            {item.label}
-                                        </option>
-                                    ))}
-                                </Select>
+                                <Controller
+                                    control={form.control}
+                                    name="collegeName"
+                                    render={({ field }) => (
+                                        <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                            <SelectTrigger id="register-college" className="w-full">
+                                                <SelectValue placeholder="Select college" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {collegeOptions.map((item) => (
+                                                    <SelectItem key={item.key} value={item.label}>
+                                                        {item.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
                             ) : (
                                 <Input id="register-college" placeholder="College of Engineering" {...form.register("collegeName")} />
                             )}
                         </Field>
                         <Field label="Department" id="register-department" error={form.formState.errors.department?.message}>
                             {departmentOptions.length ? (
-                                <Select id="register-department" {...form.register("department")}>
-                                    <option value="">Select department</option>
-                                    {departmentOptions.map((item) => (
-                                        <option key={item.key} value={item.label}>
-                                            {item.label}
-                                        </option>
-                                    ))}
-                                </Select>
+                                <Controller
+                                    control={form.control}
+                                    name="department"
+                                    render={({ field }) => (
+                                        <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                            <SelectTrigger id="register-department" className="w-full">
+                                                <SelectValue placeholder="Select department" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {departmentOptions.map((item) => (
+                                                    <SelectItem key={item.key} value={item.label}>
+                                                        {item.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
                             ) : (
                                 <Input id="register-department" placeholder="Computer Science" {...form.register("department")} />
                             )}

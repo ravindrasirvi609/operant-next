@@ -6,7 +6,7 @@ import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 
@@ -250,12 +250,17 @@ export function AqarCycleDashboard({ initialCycles }: { initialCycles: AqarCycle
                                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                                     <div className="grid gap-2">
                                         <p className="text-sm font-medium text-zinc-950">Cycle Status</p>
-                                        <Select value={selected.status} onChange={(event) => updateCycleStatus(event.target.value)}>
-                                            {cycleStatusOptions.map((option) => (
-                                                <option key={option} value={option}>
-                                                    {option}
-                                                </option>
-                                            ))}
+                                        <Select value={selected.status} onValueChange={updateCycleStatus}>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select status" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {cycleStatusOptions.map((option) => (
+                                                    <SelectItem key={option} value={option}>
+                                                        {option}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
                                         </Select>
                                     </div>
                                     <Button type="button" variant="secondary" onClick={() => runAction("generate")} disabled={isPending}>

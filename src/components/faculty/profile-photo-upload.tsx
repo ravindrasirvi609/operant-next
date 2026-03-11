@@ -155,13 +155,14 @@ export function ProfilePhotoUpload({ userId, currentPhotoURL }: Props) {
                     {photoURL && (
                         <Button
                             type="button"
-                            variant="secondary"
-                            size="sm"
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                             disabled={isPending}
                             onClick={handleRemove}
+                            aria-label="Delete photo"
                         >
-                            <Trash2 className="mr-1 size-4" />
-                            Remove
+                            <Trash2 className="size-4" />
                         </Button>
                     )}
                 </div>

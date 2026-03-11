@@ -1,5 +1,6 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -75,7 +76,16 @@ export function FacultyEvidenceForm({
                             <Input type="number" placeholder="Year" {...form.register(`publications.${index}.year`, { valueAsNumber: true })} />
                             <Input placeholder="ISSN" {...form.register(`publications.${index}.issn`)} />
                             <Input placeholder="Indexing" {...form.register(`publications.${index}.indexing`)} />
-                            <Button type="button" variant="secondary" onClick={() => publications.remove(index)}>Remove</Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => publications.remove(index)}
+                                aria-label={`Delete publication ${index + 1}`}
+                            >
+                                <Trash2 className="size-4" />
+                            </Button>
                         </Row>
                     ))}
                     <Button type="button" variant="secondary" onClick={() => publications.append({ title: "", journal: "", year: new Date().getFullYear(), issn: "", indexing: "" })}>Add Publication</Button>
@@ -88,7 +98,16 @@ export function FacultyEvidenceForm({
                             <Input placeholder="Publisher" {...form.register(`books.${index}.publisher`)} />
                             <Input placeholder="ISBN" {...form.register(`books.${index}.isbn`)} />
                             <Input type="number" placeholder="Year" {...form.register(`books.${index}.year`, { valueAsNumber: true })} />
-                            <Button type="button" variant="secondary" onClick={() => books.remove(index)}>Remove</Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => books.remove(index)}
+                                aria-label={`Delete book ${index + 1}`}
+                            >
+                                <Trash2 className="size-4" />
+                            </Button>
                         </Row>
                     ))}
                     <Button type="button" variant="secondary" onClick={() => books.append({ title: "", publisher: "", isbn: "", year: new Date().getFullYear() })}>Add Book</Button>
@@ -101,7 +120,16 @@ export function FacultyEvidenceForm({
                             <Input placeholder="Funding Agency" {...form.register(`projects.${index}.fundingAgency`)} />
                             <Input type="number" placeholder="Amount" {...form.register(`projects.${index}.amount`, { valueAsNumber: true })} />
                             <Input type="number" placeholder="Year" {...form.register(`projects.${index}.year`, { valueAsNumber: true })} />
-                            <Button type="button" variant="secondary" onClick={() => projects.remove(index)}>Remove</Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => projects.remove(index)}
+                                aria-label={`Delete project ${index + 1}`}
+                            >
+                                <Trash2 className="size-4" />
+                            </Button>
                         </Row>
                     ))}
                     <Button type="button" variant="secondary" onClick={() => projects.append({ title: "", fundingAgency: "", amount: 0, year: new Date().getFullYear() })}>Add Project</Button>
@@ -113,7 +141,16 @@ export function FacultyEvidenceForm({
                             <Input placeholder="Patent Title" {...form.register(`patents.${index}.title`)} />
                             <Input type="number" placeholder="Year" {...form.register(`patents.${index}.year`, { valueAsNumber: true })} />
                             <Input placeholder="Status" {...form.register(`patents.${index}.status`)} />
-                            <Button type="button" variant="secondary" onClick={() => patents.remove(index)}>Remove Patent</Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => patents.remove(index)}
+                                aria-label={`Delete patent ${index + 1}`}
+                            >
+                                <Trash2 className="size-4" />
+                            </Button>
                         </Row>
                     ))}
                     <Button type="button" variant="secondary" onClick={() => patents.append({ title: "", year: new Date().getFullYear(), status: "" })}>Add Patent</Button>
@@ -123,7 +160,16 @@ export function FacultyEvidenceForm({
                             <Input placeholder="Organizer" {...form.register(`conferences.${index}.organizer`)} />
                             <Input type="number" placeholder="Year" {...form.register(`conferences.${index}.year`, { valueAsNumber: true })} />
                             <Input placeholder="Type" {...form.register(`conferences.${index}.type`)} />
-                            <Button type="button" variant="secondary" onClick={() => conferences.remove(index)}>Remove Conference</Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => conferences.remove(index)}
+                                aria-label={`Delete conference ${index + 1}`}
+                            >
+                                <Trash2 className="size-4" />
+                            </Button>
                         </Row>
                     ))}
                     <Button type="button" variant="secondary" onClick={() => conferences.append({ title: "", organizer: "", year: new Date().getFullYear(), type: "" })}>Add Conference</Button>
@@ -136,7 +182,16 @@ export function FacultyEvidenceForm({
                             <Input placeholder="Role" {...form.register(`workshops.${index}.role`)} />
                             <Input placeholder="Level" {...form.register(`workshops.${index}.level`)} />
                             <Input type="number" placeholder="Year" {...form.register(`workshops.${index}.year`, { valueAsNumber: true })} />
-                            <Button type="button" variant="secondary" onClick={() => workshops.remove(index)}>Remove Workshop</Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => workshops.remove(index)}
+                                aria-label={`Delete workshop ${index + 1}`}
+                            >
+                                <Trash2 className="size-4" />
+                            </Button>
                         </Row>
                     ))}
                     <Button type="button" variant="secondary" onClick={() => workshops.append({ title: "", role: "", level: "", year: new Date().getFullYear() })}>Add Workshop</Button>
@@ -145,7 +200,16 @@ export function FacultyEvidenceForm({
                             <Input placeholder="Extension Activity" {...form.register(`extensionActivities.${index}.title`)} />
                             <Input placeholder="Role / Audience" {...form.register(`extensionActivities.${index}.roleOrAudience`)} />
                             <Input type="number" placeholder="Year" {...form.register(`extensionActivities.${index}.year`, { valueAsNumber: true })} />
-                            <Button type="button" variant="secondary" onClick={() => extensions.remove(index)}>Remove Extension</Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => extensions.remove(index)}
+                                aria-label={`Delete extension activity ${index + 1}`}
+                            >
+                                <Trash2 className="size-4" />
+                            </Button>
                         </Row>
                     ))}
                     <Button type="button" variant="secondary" onClick={() => extensions.append({ title: "", roleOrAudience: "", year: new Date().getFullYear() })}>Add Extension Activity</Button>
@@ -154,7 +218,16 @@ export function FacultyEvidenceForm({
                             <Input placeholder="Organization" {...form.register(`collaborations.${index}.organization`)} />
                             <Input placeholder="Purpose" {...form.register(`collaborations.${index}.purpose`)} />
                             <Input type="number" placeholder="Year" {...form.register(`collaborations.${index}.year`, { valueAsNumber: true })} />
-                            <Button type="button" variant="secondary" onClick={() => collaborations.remove(index)}>Remove Collaboration</Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => collaborations.remove(index)}
+                                aria-label={`Delete collaboration ${index + 1}`}
+                            >
+                                <Trash2 className="size-4" />
+                            </Button>
                         </Row>
                     ))}
                     <Button type="button" variant="secondary" onClick={() => collaborations.append({ organization: "", purpose: "", year: new Date().getFullYear() })}>Add Collaboration</Button>

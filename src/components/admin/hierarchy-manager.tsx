@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 
 import { FieldError, FormMessage, Spinner } from "@/components/auth/auth-helpers";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { organizationSchema } from "@/lib/admin/hierarchy-validators";
 
@@ -71,6 +71,7 @@ export function HierarchyManager({
         null
     );
     const [isPending, startTransition] = useTransition();
+    const emptySelectValue = "__none__";
 
     const form = useForm<
         OrganizationFormValues,
@@ -206,13 +207,24 @@ export function HierarchyManager({
 
                         <div className="grid gap-4 md:grid-cols-2">
                             <Field label="Type" id="organization-type" error={form.formState.errors.type?.message}>
-                                <Select id="organization-type" {...form.register("type")}>
-                                    {organizationTypes.map((type) => (
-                                        <option key={type} value={type}>
-                                            {type}
-                                        </option>
-                                    ))}
-                                </Select>
+                                <Controller
+                                    control={form.control}
+                                    name="type"
+                                    render={({ field }) => (
+                                        <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                            <SelectTrigger id="organization-type" className="w-full">
+                                                <SelectValue placeholder="Select type" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {organizationTypes.map((type) => (
+                                                    <SelectItem key={type} value={type}>
+                                                        {type}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
                             </Field>
                             <Field label="Code" id="organization-code" error={form.formState.errors.code?.message}>
                                 <Input id="organization-code" {...form.register("code")} />
@@ -221,24 +233,56 @@ export function HierarchyManager({
 
                         <div className="grid gap-4 md:grid-cols-2">
                             <Field label="Parent unit" id="organization-parent" error={form.formState.errors.parentOrganizationId?.message}>
-                                <Select id="organization-parent" {...form.register("parentOrganizationId")}>
-                                    <option value="">No parent</option>
-                                    {potentialParents.map((item) => (
-                                        <option key={item._id} value={item._id}>
-                                            {item.name} ({item.type})
-                                        </option>
-                                    ))}
-                                </Select>
+                                <Controller
+                                    control={form.control}
+                                    name="parentOrganizationId"
+                                    render={({ field }) => (
+                                        <Select
+                                            value={field.value ? field.value : emptySelectValue}
+                                            onValueChange={(value) =>
+                                                field.onChange(value === emptySelectValue ? "" : value)
+                                            }
+                                        >
+                                            <SelectTrigger id="organization-parent" className="w-full">
+                                                <SelectValue placeholder="No parent" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value={emptySelectValue}>No parent</SelectItem>
+                                                {potentialParents.map((item) => (
+                                                    <SelectItem key={item._id} value={item._id}>
+                                                        {item.name} ({item.type})
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
                             </Field>
                             <Field label="Head user" id="organization-head" error={form.formState.errors.headUserId?.message}>
-                                <Select id="organization-head" {...form.register("headUserId")}>
-                                    <option value="">No head assigned</option>
-                                    {assignableUsers.map((user) => (
-                                        <option key={user._id} value={user._id}>
-                                            {user.name} ({user.role})
-                                        </option>
-                                    ))}
-                                </Select>
+                                <Controller
+                                    control={form.control}
+                                    name="headUserId"
+                                    render={({ field }) => (
+                                        <Select
+                                            value={field.value ? field.value : emptySelectValue}
+                                            onValueChange={(value) =>
+                                                field.onChange(value === emptySelectValue ? "" : value)
+                                            }
+                                        >
+                                            <SelectTrigger id="organization-head" className="w-full">
+                                                <SelectValue placeholder="No head assigned" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value={emptySelectValue}>No head assigned</SelectItem>
+                                                {assignableUsers.map((user) => (
+                                                    <SelectItem key={user._id} value={user._id}>
+                                                        {user.name} ({user.role})
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
                             </Field>
                         </div>
 

@@ -1,7 +1,8 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
-import { useFieldArray, useForm, useWatch } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 
@@ -11,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { casApplicationSchema } from "@/lib/cas/validators";
 
 type CasFormValues = z.input<typeof casApplicationSchema>;
@@ -554,14 +555,44 @@ export function CasDashboard({
                             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                                 <Field label="Application Year"><Input {...form.register("applicationYear")} /></Field>
                                 <Field label="Current Designation">
-                                    <Select {...form.register("currentDesignation")}>
-                                        {designationOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-                                    </Select>
+                                    <Controller
+                                        control={form.control}
+                                        name="currentDesignation"
+                                        render={({ field }) => (
+                                            <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue placeholder="Select designation" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {designationOptions.map((option) => (
+                                                        <SelectItem key={option} value={option}>
+                                                            {option}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    />
                                 </Field>
                                 <Field label="Applying For">
-                                    <Select {...form.register("applyingForDesignation")}>
-                                        {designationOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-                                    </Select>
+                                    <Controller
+                                        control={form.control}
+                                        name="applyingForDesignation"
+                                        render={({ field }) => (
+                                            <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue placeholder="Select designation" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {designationOptions.map((option) => (
+                                                        <SelectItem key={option} value={option}>
+                                                            {option}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    />
                                 </Field>
                             </div>
                         ) : null}
@@ -598,7 +629,16 @@ export function CasDashboard({
                                         <Input placeholder="Year" type="number" {...form.register(`achievements.publications.${index}.year`, { valueAsNumber: true })} />
                                         <Input placeholder="ISSN" {...form.register(`achievements.publications.${index}.issn`)} />
                                         <Input placeholder="Indexing" {...form.register(`achievements.publications.${index}.indexing`)} />
-                                        <Button type="button" variant="secondary" onClick={() => publicationFields.remove(index)}>Remove</Button>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                            onClick={() => publicationFields.remove(index)}
+                                            aria-label={`Delete publication ${index + 1}`}
+                                        >
+                                            <Trash2 className="size-4" />
+                                        </Button>
                                     </div>
                                 ))}
                                 <Button type="button" variant="secondary" onClick={() => publicationFields.append({ title: "", journal: "", year: new Date().getFullYear(), issn: "", indexing: "" })}>
@@ -616,7 +656,16 @@ export function CasDashboard({
                                             <Input placeholder="Publisher" {...form.register(`achievements.books.${index}.publisher`)} />
                                             <Input placeholder="ISBN" {...form.register(`achievements.books.${index}.isbn`)} />
                                             <Input placeholder="Year" type="number" {...form.register(`achievements.books.${index}.year`, { valueAsNumber: true })} />
-                                            <Button type="button" variant="secondary" onClick={() => bookFields.remove(index)}>Remove</Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                onClick={() => bookFields.remove(index)}
+                                                aria-label={`Delete book ${index + 1}`}
+                                            >
+                                                <Trash2 className="size-4" />
+                                            </Button>
                                         </div>
                                     ))}
                                     <Button type="button" variant="secondary" onClick={() => bookFields.append({ title: "", publisher: "", isbn: "", year: new Date().getFullYear() })}>
@@ -630,7 +679,16 @@ export function CasDashboard({
                                             <Input placeholder="Funding Agency" {...form.register(`achievements.researchProjects.${index}.fundingAgency`)} />
                                             <Input placeholder="Amount" type="number" {...form.register(`achievements.researchProjects.${index}.amount`, { valueAsNumber: true })} />
                                             <Input placeholder="Year" type="number" {...form.register(`achievements.researchProjects.${index}.year`, { valueAsNumber: true })} />
-                                            <Button type="button" variant="secondary" onClick={() => projectFields.remove(index)}>Remove</Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                onClick={() => projectFields.remove(index)}
+                                                aria-label={`Delete project ${index + 1}`}
+                                            >
+                                                <Trash2 className="size-4" />
+                                            </Button>
                                         </div>
                                     ))}
                                     <Button type="button" variant="secondary" onClick={() => projectFields.append({ title: "", fundingAgency: "", amount: 0, year: new Date().getFullYear() })}>

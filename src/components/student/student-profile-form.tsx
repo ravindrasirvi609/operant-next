@@ -1,9 +1,10 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useFieldArray, useForm } from "react-hook-form";
+import { Controller, useFieldArray, useForm } from "react-hook-form";
 import type { z } from "zod";
 
 import { FieldError, FormMessage, Spinner } from "@/components/auth/auth-helpers";
@@ -11,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { studentProfileSchema } from "@/lib/student/validators";
 
@@ -234,12 +235,22 @@ export function StudentProfileForm({
                             <Input id="dateOfBirth" type="date" {...form.register("dateOfBirth")} />
                         </Field>
                         <Field label="Gender" id="gender" error={form.formState.errors.gender?.message}>
-                            <Select id="gender" {...form.register("gender")}>
-                                <option value="">Select gender</option>
-                                <option value="Male">Male</option>
-                                <option value="Female">Female</option>
-                                <option value="Other">Other</option>
-                            </Select>
+                            <Controller
+                                control={form.control}
+                                name="gender"
+                                render={({ field }) => (
+                                    <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                        <SelectTrigger id="gender" className="w-full">
+                                            <SelectValue placeholder="Select gender" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Male">Male</SelectItem>
+                                            <SelectItem value="Female">Female</SelectItem>
+                                            <SelectItem value="Other">Other</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
                         </Field>
                         <Field label="Blood Group" id="bloodGroup" error={form.formState.errors.bloodGroup?.message}>
                             <Input id="bloodGroup" {...form.register("bloodGroup")} />
@@ -348,8 +359,15 @@ export function StudentProfileForm({
                                         />
                                     </Field>
                                 </div>
-                                <Button type="button" variant="secondary" onClick={() => projectFields.remove(index)}>
-                                    Remove Project
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={() => projectFields.remove(index)}
+                                    aria-label={`Delete project ${index + 1}`}
+                                >
+                                    <Trash2 className="size-4" />
                                 </Button>
                             </div>
                         ))}
@@ -377,8 +395,15 @@ export function StudentProfileForm({
                                 <Field label="Description" id={`internship-description-${index}`} error={form.formState.errors.internships?.[index]?.description?.message}>
                                     <Textarea id={`internship-description-${index}`} {...form.register(`internships.${index}.description`)} />
                                 </Field>
-                                <Button type="button" variant="secondary" onClick={() => internshipFields.remove(index)}>
-                                    Remove Internship
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={() => internshipFields.remove(index)}
+                                    aria-label={`Delete internship ${index + 1}`}
+                                >
+                                    <Trash2 className="size-4" />
                                 </Button>
                             </div>
                         ))}

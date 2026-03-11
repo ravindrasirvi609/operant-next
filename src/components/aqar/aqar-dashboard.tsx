@@ -15,10 +15,11 @@ import {
     Layers3,
     Plus,
     Sparkles,
+    Trash2,
     Trophy,
     type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type FieldErrors, type UseFormReturn } from "react-hook-form";
 import type { z } from "zod";
 
@@ -357,6 +358,7 @@ export function AqarDashboard({
 }) {
     const formSectionRef = useRef<HTMLElement | null>(null);
     const lastSavedPayloadRef = useRef<string>("");
+    const hasPrefilledRef = useRef(false);
     const [applications, setApplications] = useState(initialApplications);
     const [selectedId, setSelectedId] = useState<string | null>(initialApplications[0]?._id ?? null);
     const [currentStep, setCurrentStep] = useState(0);
@@ -365,6 +367,7 @@ export function AqarDashboard({
     const [isPending, startTransition] = useTransition();
     const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved">("idle");
     const [reviewChecks, setReviewChecks] = useState<boolean[]>(() => reviewChecklistItems.map(() => false));
+    const [prefillDefaults, setPrefillDefaults] = useState(evidenceDefaults);
 
     const selected = applications.find((item) => item._id === selectedId);
     const initialValues = useMemo(
@@ -375,10 +378,10 @@ export function AqarDashboard({
                       ...emptyForm(),
                       facultyContribution: {
                           ...emptyForm().facultyContribution,
-                          ...evidenceDefaults,
+                          ...prefillDefaults,
                       },
                   },
-        [selected, evidenceDefaults]
+        [selected, prefillDefaults]
     );
 
     const form = useForm<AqarFormValues, unknown, AqarResolvedValues>({
@@ -406,6 +409,35 @@ export function AqarDashboard({
         form.reset(initialValues);
         lastSavedPayloadRef.current = selected ? JSON.stringify(toFormValues(selected)) : "";
     }, [form, initialValues, selected]);
+
+    useEffect(() => {
+        if (selected || hasPrefilledRef.current) {
+            return;
+        }
+
+        let cancelled = false;
+
+        const loadDefaults = async () => {
+            try {
+                const response = await fetch("/api/faculty/evidence/defaults", { cache: "no-store" });
+                if (!response.ok) return;
+                const data = (await response.json()) as {
+                    defaults?: { aqar?: AqarFormValues["facultyContribution"] };
+                };
+                if (cancelled || form.formState.isDirty || !data.defaults?.aqar) return;
+                setPrefillDefaults(data.defaults.aqar);
+                hasPrefilledRef.current = true;
+            } catch {
+                // Ignore prefill refresh failures; keep initial server defaults.
+            }
+        };
+
+        loadDefaults();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [selected]);
 
     const watchedValues = useWatch({ control: form.control });
     const resolved = aqarApplicationSchema.safeParse(watchedValues);
@@ -530,6 +562,12 @@ export function AqarDashboard({
         setAutoSaveState("idle");
     }
 
+    function handleApplicationKeyDown(event: KeyboardEvent<HTMLDivElement>, applicationId: string) {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        selectApplication(applicationId);
+    }
+
     function createDraft() {
         setMessage(null);
 
@@ -555,6 +593,39 @@ export function AqarDashboard({
             setVisitedSteps([0]);
             setAutoSaveState("idle");
             requestAnimationFrame(() => focusFormWorkspace());
+        });
+    }
+
+    function deleteApplication(applicationId: string) {
+        if (!confirm("Delete this AQAR draft? This cannot be undone.")) {
+            return;
+        }
+
+        setMessage(null);
+
+        startTransition(async () => {
+            const response = await fetch(`/api/aqar/${applicationId}`, { method: "DELETE" });
+            const data = (await response.json()) as { message?: string };
+
+            if (!response.ok) {
+                setMessage({ type: "error", text: data.message ?? "Unable to delete AQAR application." });
+                return;
+            }
+
+            setApplications((current) => {
+                const remaining = current.filter((item) => item._id !== applicationId);
+                if (selectedId === applicationId) {
+                    const nextId = remaining[0]?._id ?? null;
+                    setSelectedId(nextId);
+                    setReviewChecks(reviewChecklistItems.map(() => false));
+                    setCurrentStep(0);
+                    setVisitedSteps([0]);
+                    setAutoSaveState("idle");
+                }
+                return remaining;
+            });
+
+            setMessage({ type: "success", text: data.message ?? "AQAR application deleted." });
         });
     }
 
@@ -708,12 +779,14 @@ export function AqarDashboard({
                                         const lastActivity = getLastActivity(application);
 
                                         return (
-                                            <button
-                                                type="button"
+                                            <div
                                                 key={application._id}
+                                                role="button"
+                                                tabIndex={0}
                                                 onClick={() => selectApplication(application._id)}
+                                                onKeyDown={(event) => handleApplicationKeyDown(event, application._id)}
                                                 className={cn(
-                                                    "rounded-2xl border p-5 text-left transition-colors",
+                                                    "rounded-2xl border p-5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/30",
                                                     isActive
                                                         ? "border-zinc-900 bg-zinc-900 text-zinc-50 shadow-lg"
                                                         : "border-zinc-200 bg-zinc-50/80 text-zinc-950 hover:border-zinc-300 hover:bg-white"
@@ -726,9 +799,32 @@ export function AqarDashboard({
                                                         </p>
                                                         <p className="mt-2 text-lg font-semibold">{application.academicYear}</p>
                                                     </div>
-                                                    <Badge className={cn("shrink-0", isActive ? "bg-white/15 text-white" : getStatusBadgeClass(application.status))}>
-                                                        {application.status}
-                                                    </Badge>
+                                                    <div className="flex items-center gap-2">
+                                                        {editableStatuses.has(application.status) ? (
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className={cn(
+                                                                    "h-9 w-9",
+                                                                    isActive
+                                                                        ? "text-white/90 hover:bg-white/10 hover:text-white"
+                                                                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                                                                )}
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    deleteApplication(application._id);
+                                                                }}
+                                                                aria-label="Delete AQAR draft"
+                                                                disabled={isPending}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        ) : null}
+                                                        <Badge className={cn("shrink-0", isActive ? "bg-white/15 text-white" : getStatusBadgeClass(application.status))}>
+                                                            {application.status}
+                                                        </Badge>
+                                                    </div>
                                                 </div>
                                                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                                                     <SummaryChip
@@ -746,7 +842,7 @@ export function AqarDashboard({
                                                     {isActive ? "Currently selected" : "Select this AQAR"}
                                                     <ChevronRight className="h-4 w-4" />
                                                 </div>
-                                            </button>
+                                            </div>
                                         );
                                     })}
                                 </div>
@@ -2111,8 +2207,16 @@ function EntryCard({
                     <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Entry {index + 1}</p>
                     <p className="mt-1 text-lg font-semibold text-zinc-950">{title}</p>
                 </div>
-                <Button type="button" variant="outline" onClick={onRemove} disabled={disabled}>
-                    Remove
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={onRemove}
+                    disabled={disabled}
+                    aria-label={`Delete ${title} entry ${index + 1}`}
+                >
+                    <Trash2 className="size-4" />
                 </Button>
             </div>
             {children}

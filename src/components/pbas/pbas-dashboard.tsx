@@ -1,7 +1,8 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
-import { useFieldArray, useForm, useWatch } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 
@@ -10,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { pbasApplicationSchema } from "@/lib/pbas/validators";
 
@@ -544,13 +545,24 @@ export function PbasDashboard({
                                     <Input {...form.register("academicYear")} />
                                 </Field>
                                 <Field label="Current Designation">
-                                    <Select {...form.register("currentDesignation")}>
-                                        {designationOptions.map((option) => (
-                                            <option key={option} value={option}>
-                                                {option}
-                                            </option>
-                                        ))}
-                                    </Select>
+                                    <Controller
+                                        control={form.control}
+                                        name="currentDesignation"
+                                        render={({ field }) => (
+                                            <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue placeholder="Select designation" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {designationOptions.map((option) => (
+                                                        <SelectItem key={option} value={option}>
+                                                            {option}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    />
                                 </Field>
                                 <Field label="Appraisal From">
                                     <Input type="date" {...form.register("appraisalPeriod.fromDate")} />
@@ -620,8 +632,15 @@ export function PbasDashboard({
                                         <Input placeholder="Year" type="number" {...form.register(`category2.researchPapers.${index}.year`, { valueAsNumber: true })} />
                                         <Input placeholder="ISSN" {...form.register(`category2.researchPapers.${index}.issn`)} />
                                         <Input placeholder="Indexing" {...form.register(`category2.researchPapers.${index}.indexing`)} />
-                                        <Button type="button" variant="secondary" onClick={() => researchFields.remove(index)}>
-                                            Remove
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                            onClick={() => researchFields.remove(index)}
+                                            aria-label={`Delete research paper ${index + 1}`}
+                                        >
+                                            <Trash2 className="size-4" />
                                         </Button>
                                     </div>
                                 ))}
@@ -655,8 +674,15 @@ export function PbasDashboard({
                                             <Input placeholder="Publisher" {...form.register(`category2.books.${index}.publisher`)} />
                                             <Input placeholder="ISBN" {...form.register(`category2.books.${index}.isbn`)} />
                                             <Input placeholder="Year" type="number" {...form.register(`category2.books.${index}.year`, { valueAsNumber: true })} />
-                                            <Button type="button" variant="secondary" onClick={() => bookFields.remove(index)}>
-                                                Remove
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                onClick={() => bookFields.remove(index)}
+                                                aria-label={`Delete book ${index + 1}`}
+                                            >
+                                                <Trash2 className="size-4" />
                                             </Button>
                                         </div>
                                     ))}
@@ -674,8 +700,15 @@ export function PbasDashboard({
                                             <Input placeholder="Title" {...form.register(`category2.patents.${index}.title`)} />
                                             <Input placeholder="Year" type="number" {...form.register(`category2.patents.${index}.year`, { valueAsNumber: true })} />
                                             <Input placeholder="Status" {...form.register(`category2.patents.${index}.status`)} />
-                                            <Button type="button" variant="secondary" onClick={() => patentFields.remove(index)}>
-                                                Remove
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                onClick={() => patentFields.remove(index)}
+                                                aria-label={`Delete patent ${index + 1}`}
+                                            >
+                                                <Trash2 className="size-4" />
                                             </Button>
                                         </div>
                                     ))}
@@ -694,8 +727,15 @@ export function PbasDashboard({
                                             <Input placeholder="Organizer" {...form.register(`category2.conferences.${index}.organizer`)} />
                                             <Input placeholder="Year" type="number" {...form.register(`category2.conferences.${index}.year`, { valueAsNumber: true })} />
                                             <Input placeholder="Type" {...form.register(`category2.conferences.${index}.type`)} />
-                                            <Button type="button" variant="secondary" onClick={() => conferenceFields.remove(index)}>
-                                                Remove
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                onClick={() => conferenceFields.remove(index)}
+                                                aria-label={`Delete conference ${index + 1}`}
+                                            >
+                                                <Trash2 className="size-4" />
                                             </Button>
                                         </div>
                                     ))}
@@ -714,8 +754,15 @@ export function PbasDashboard({
                                             <Input placeholder="Funding Agency" {...form.register(`category2.projects.${index}.fundingAgency`)} />
                                             <Input placeholder="Amount" type="number" {...form.register(`category2.projects.${index}.amount`, { valueAsNumber: true })} />
                                             <Input placeholder="Year" type="number" {...form.register(`category2.projects.${index}.year`, { valueAsNumber: true })} />
-                                            <Button type="button" variant="secondary" onClick={() => projectFields.remove(index)}>
-                                                Remove
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                onClick={() => projectFields.remove(index)}
+                                                aria-label={`Delete project ${index + 1}`}
+                                            >
+                                                <Trash2 className="size-4" />
                                             </Button>
                                         </div>
                                     ))}
@@ -734,8 +781,15 @@ export function PbasDashboard({
                                             <Input placeholder="Committee" {...form.register(`category3.committees.${index}.committeeName`)} />
                                             <Input placeholder="Role" {...form.register(`category3.committees.${index}.role`)} />
                                             <Input placeholder="Year" type="number" {...form.register(`category3.committees.${index}.year`, { valueAsNumber: true })} />
-                                            <Button type="button" variant="secondary" onClick={() => committeeFields.remove(index)}>
-                                                Remove
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                onClick={() => committeeFields.remove(index)}
+                                                aria-label={`Delete committee ${index + 1}`}
+                                            >
+                                                <Trash2 className="size-4" />
                                             </Button>
                                         </div>
                                     ))}
@@ -749,8 +803,15 @@ export function PbasDashboard({
                                         <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2" key={field.id}>
                                             <Input placeholder="Responsibility" {...form.register(`category3.administrativeDuties.${index}.title`)} />
                                             <Input placeholder="Year" type="number" {...form.register(`category3.administrativeDuties.${index}.year`, { valueAsNumber: true })} />
-                                            <Button type="button" variant="secondary" onClick={() => administrativeFields.remove(index)}>
-                                                Remove
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                onClick={() => administrativeFields.remove(index)}
+                                                aria-label={`Delete administrative duty ${index + 1}`}
+                                            >
+                                                <Trash2 className="size-4" />
                                             </Button>
                                         </div>
                                     ))}
@@ -764,8 +825,15 @@ export function PbasDashboard({
                                         <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2" key={field.id}>
                                             <Input placeholder="Duty" {...form.register(`category3.examDuties.${index}.duty`)} />
                                             <Input placeholder="Year" type="number" {...form.register(`category3.examDuties.${index}.year`, { valueAsNumber: true })} />
-                                            <Button type="button" variant="secondary" onClick={() => examDutyFields.remove(index)}>
-                                                Remove
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                onClick={() => examDutyFields.remove(index)}
+                                                aria-label={`Delete exam duty ${index + 1}`}
+                                            >
+                                                <Trash2 className="size-4" />
                                             </Button>
                                         </div>
                                     ))}
@@ -779,8 +847,15 @@ export function PbasDashboard({
                                         <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2" key={field.id}>
                                             <Input placeholder="Activity" {...form.register(`category3.studentGuidance.${index}.activity`)} />
                                             <Input placeholder="Count" type="number" {...form.register(`category3.studentGuidance.${index}.count`, { valueAsNumber: true })} />
-                                            <Button type="button" variant="secondary" onClick={() => guidanceFields.remove(index)}>
-                                                Remove
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                onClick={() => guidanceFields.remove(index)}
+                                                aria-label={`Delete guidance entry ${index + 1}`}
+                                            >
+                                                <Trash2 className="size-4" />
                                             </Button>
                                         </div>
                                     ))}
@@ -795,8 +870,15 @@ export function PbasDashboard({
                                             <Input placeholder="Activity" {...form.register(`category3.extensionActivities.${index}.title`)} />
                                             <Input placeholder="Role" {...form.register(`category3.extensionActivities.${index}.role`)} />
                                             <Input placeholder="Year" type="number" {...form.register(`category3.extensionActivities.${index}.year`, { valueAsNumber: true })} />
-                                            <Button type="button" variant="secondary" onClick={() => extensionFields.remove(index)}>
-                                                Remove
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                onClick={() => extensionFields.remove(index)}
+                                                aria-label={`Delete extension activity ${index + 1}`}
+                                            >
+                                                <Trash2 className="size-4" />
                                             </Button>
                                         </div>
                                     ))}

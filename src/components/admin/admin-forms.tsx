@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, Plus, Shield, Users } from "lucide-react";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 
 import { FieldError, FormMessage, Spinner } from "@/components/auth/auth-helpers";
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -42,6 +42,8 @@ type Option = {
     label: string;
     code?: string;
 };
+
+const emptySelectValue = "__none__";
 
 type MasterDataEntry = {
     _id: string;
@@ -258,42 +260,72 @@ export function AdminBootstrapForm({
                     <div className="grid gap-5 md:grid-cols-3">
                         <Field label="University" id="bootstrap-university" error={form.formState.errors.universityName?.message}>
                             {universityOptions.length ? (
-                                <Select id="bootstrap-university" {...form.register("universityName")}>
-                                    <option value="">Select university</option>
-                                    {universityOptions.map((item) => (
-                                        <option key={item.key} value={item.label}>
-                                            {item.label}
-                                        </option>
-                                    ))}
-                                </Select>
+                                <Controller
+                                    control={form.control}
+                                    name="universityName"
+                                    render={({ field }) => (
+                                        <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                            <SelectTrigger id="bootstrap-university" className="w-full">
+                                                <SelectValue placeholder="Select university" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {universityOptions.map((item) => (
+                                                    <SelectItem key={item.key} value={item.label}>
+                                                        {item.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
                             ) : (
                                 <Input id="bootstrap-university" placeholder="University name" {...form.register("universityName")} />
                             )}
                         </Field>
                         <Field label="College" id="bootstrap-college" error={form.formState.errors.collegeName?.message}>
                             {collegeOptions.length ? (
-                                <Select id="bootstrap-college" {...form.register("collegeName")}>
-                                    <option value="">Select college</option>
-                                    {collegeOptions.map((item) => (
-                                        <option key={item.key} value={item.label}>
-                                            {item.label}
-                                        </option>
-                                    ))}
-                                </Select>
+                                <Controller
+                                    control={form.control}
+                                    name="collegeName"
+                                    render={({ field }) => (
+                                        <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                            <SelectTrigger id="bootstrap-college" className="w-full">
+                                                <SelectValue placeholder="Select college" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {collegeOptions.map((item) => (
+                                                    <SelectItem key={item.key} value={item.label}>
+                                                        {item.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
                             ) : (
                                 <Input id="bootstrap-college" placeholder="College name" {...form.register("collegeName")} />
                             )}
                         </Field>
                         <Field label="Department" id="bootstrap-department" error={form.formState.errors.department?.message}>
                             {departmentOptions.length ? (
-                                <Select id="bootstrap-department" {...form.register("department")}>
-                                    <option value="">Select department</option>
-                                    {departmentOptions.map((item) => (
-                                        <option key={item.key} value={item.label}>
-                                            {item.label}
-                                        </option>
-                                    ))}
-                                </Select>
+                                <Controller
+                                    control={form.control}
+                                    name="department"
+                                    render={({ field }) => (
+                                        <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                            <SelectTrigger id="bootstrap-department" className="w-full">
+                                                <SelectValue placeholder="Select department" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {departmentOptions.map((item) => (
+                                                    <SelectItem key={item.key} value={item.label}>
+                                                        {item.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
                             ) : (
                                 <Input id="bootstrap-department" placeholder="Department name" {...form.register("department")} />
                             )}
@@ -430,13 +462,24 @@ export function MasterDataManager({
 
                     <form className="grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
                         <Field label="Category" id="master-category" error={form.formState.errors.category?.message}>
-                            <Select id="master-category" {...form.register("category")}>
-                                {categories.map((category) => (
-                                    <option key={category.id} value={category.id}>
-                                        {category.label}
-                                    </option>
-                                ))}
-                            </Select>
+                            <Controller
+                                control={form.control}
+                                name="category"
+                                render={({ field }) => (
+                                    <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                        <SelectTrigger id="master-category" className="w-full">
+                                            <SelectValue placeholder="Select category" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {categories.map((category) => (
+                                                <SelectItem key={category.id} value={category.id}>
+                                                    {category.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
                         </Field>
 
                         <Field label="Label" id="master-label" error={form.formState.errors.label?.message}>
@@ -458,24 +501,56 @@ export function MasterDataManager({
 
                         <div className="grid gap-5 md:grid-cols-2">
                             <Field label="Parent category" id="master-parent-category" error={form.formState.errors.parentCategory?.message}>
-                                <Select id="master-parent-category" {...form.register("parentCategory")}>
-                                    <option value="">No parent</option>
-                                    {categories.map((category) => (
-                                        <option key={category.id} value={category.id}>
-                                            {category.label}
-                                        </option>
-                                    ))}
-                                </Select>
+                                <Controller
+                                    control={form.control}
+                                    name="parentCategory"
+                                    render={({ field }) => (
+                                        <Select
+                                            value={field.value ? field.value : emptySelectValue}
+                                            onValueChange={(value) =>
+                                                field.onChange(value === emptySelectValue ? "" : value)
+                                            }
+                                        >
+                                            <SelectTrigger id="master-parent-category" className="w-full">
+                                                <SelectValue placeholder="No parent" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value={emptySelectValue}>No parent</SelectItem>
+                                                {categories.map((category) => (
+                                                    <SelectItem key={category.id} value={category.id}>
+                                                        {category.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
                             </Field>
                             <Field label="Parent item" id="master-parent-key" error={form.formState.errors.parentKey?.message}>
-                                <Select id="master-parent-key" {...form.register("parentKey")}>
-                                    <option value="">No parent item</option>
-                                    {parentOptions.map((item) => (
-                                        <option key={item._id} value={item.key}>
-                                            {item.label}
-                                        </option>
-                                    ))}
-                                </Select>
+                                <Controller
+                                    control={form.control}
+                                    name="parentKey"
+                                    render={({ field }) => (
+                                        <Select
+                                            value={field.value ? field.value : emptySelectValue}
+                                            onValueChange={(value) =>
+                                                field.onChange(value === emptySelectValue ? "" : value)
+                                            }
+                                        >
+                                            <SelectTrigger id="master-parent-key" className="w-full">
+                                                <SelectValue placeholder="No parent item" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value={emptySelectValue}>No parent item</SelectItem>
+                                                {parentOptions.map((item) => (
+                                                    <SelectItem key={item._id} value={item.key}>
+                                                        {item.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
                             </Field>
                         </div>
 
@@ -672,59 +747,85 @@ export function UserManagementTable({
                                 </div>
                                 <div className="grid gap-3 md:grid-cols-2 xl:min-w-[640px] xl:grid-cols-5">
                                     <Select
-                                        defaultValue={user.role}
+                                        value={user.role}
                                         disabled={isPending}
-                                        onChange={(event) =>
-                                            updateUser(user._id, { role: event.target.value as UserUpdateValues["role"] })
+                                        onValueChange={(value) =>
+                                            updateUser(user._id, { role: value as UserUpdateValues["role"] })
                                         }
                                     >
-                                        {roleOptions.map((role) => (
-                                            <option key={role} value={role}>
-                                                {role}
-                                            </option>
-                                        ))}
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Role" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {roleOptions.map((role) => (
+                                                <SelectItem key={role} value={role}>
+                                                    {role}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
                                     </Select>
                                     <Select
-                                        defaultValue={user.universityName || ""}
+                                        value={user.universityName || emptySelectValue}
                                         disabled={isPending}
-                                        onChange={(event) =>
-                                            updateUser(user._id, { universityName: event.target.value })
+                                        onValueChange={(value) =>
+                                            updateUser(user._id, {
+                                                universityName: value === emptySelectValue ? "" : value,
+                                            })
                                         }
                                     >
-                                        <option value="">No university</option>
-                                        {universityOptions.map((item) => (
-                                            <option key={item.key} value={item.label}>
-                                                {item.label}
-                                            </option>
-                                        ))}
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="No university" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={emptySelectValue}>No university</SelectItem>
+                                            {universityOptions.map((item) => (
+                                                <SelectItem key={item.key} value={item.label}>
+                                                    {item.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
                                     </Select>
                                     <Select
-                                        defaultValue={user.collegeName || ""}
+                                        value={user.collegeName || emptySelectValue}
                                         disabled={isPending}
-                                        onChange={(event) =>
-                                            updateUser(user._id, { collegeName: event.target.value })
+                                        onValueChange={(value) =>
+                                            updateUser(user._id, {
+                                                collegeName: value === emptySelectValue ? "" : value,
+                                            })
                                         }
                                     >
-                                        <option value="">No college</option>
-                                        {collegeOptions.map((item) => (
-                                            <option key={item.key} value={item.label}>
-                                                {item.label}
-                                            </option>
-                                        ))}
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="No college" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={emptySelectValue}>No college</SelectItem>
+                                            {collegeOptions.map((item) => (
+                                                <SelectItem key={item.key} value={item.label}>
+                                                    {item.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
                                     </Select>
                                     <Select
-                                        defaultValue={user.department || ""}
+                                        value={user.department || emptySelectValue}
                                         disabled={isPending}
-                                        onChange={(event) =>
-                                            updateUser(user._id, { department: event.target.value })
+                                        onValueChange={(value) =>
+                                            updateUser(user._id, {
+                                                department: value === emptySelectValue ? "" : value,
+                                            })
                                         }
                                     >
-                                        <option value="">No department</option>
-                                        {departmentOptions.map((item) => (
-                                            <option key={item.key} value={item.label}>
-                                                {item.label}
-                                            </option>
-                                        ))}
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="No department" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={emptySelectValue}>No department</SelectItem>
+                                            {departmentOptions.map((item) => (
+                                                <SelectItem key={item.key} value={item.label}>
+                                                    {item.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
                                     </Select>
                                     <div className="grid grid-cols-2 gap-2">
                                         <Button
@@ -880,12 +981,23 @@ export function SystemUpdatesManager({
 
                     <form className="grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
                         <Field label="Type" id="system-type" error={form.formState.errors.type?.message}>
-                            <Select id="system-type" {...form.register("type")}>
-                                <option value="Notification">Notification</option>
-                                <option value="News">News</option>
-                                <option value="DashboardStat">Dashboard Stat</option>
-                                <option value="VisitorCount">Visitor Count</option>
-                            </Select>
+                            <Controller
+                                control={form.control}
+                                name="type"
+                                render={({ field }) => (
+                                    <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                        <SelectTrigger id="system-type" className="w-full">
+                                            <SelectValue placeholder="Select type" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Notification">Notification</SelectItem>
+                                            <SelectItem value="News">News</SelectItem>
+                                            <SelectItem value="DashboardStat">Dashboard Stat</SelectItem>
+                                            <SelectItem value="VisitorCount">Visitor Count</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
                         </Field>
 
                         <Field label="Title" id="system-title" error={form.formState.errors.title?.message}>

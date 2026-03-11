@@ -1,5 +1,6 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -239,8 +240,15 @@ export function FacultyWorkspaceForm({
                                             <Input placeholder="Year" {...form.register(`degrees.${index}.year`)} />
                                         </div>
                                         <div className="mt-3">
-                                            <Button type="button" variant="secondary" onClick={() => degreeFields.remove(index)}>
-                                                Remove Degree
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                onClick={() => degreeFields.remove(index)}
+                                                aria-label={`Delete degree ${index + 1}`}
+                                            >
+                                                <Trash2 className="size-4" />
                                             </Button>
                                         </div>
                                     </div>
