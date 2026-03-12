@@ -251,6 +251,28 @@ export async function updatePbasApplication(actor: SafeActor, id: string, rawInp
     return application;
 }
 
+export async function deletePbasApplication(actor: SafeActor, id: string) {
+    await dbConnect();
+
+    if (actor.role !== "Faculty") {
+        throw new AuthError("Only the faculty owner can delete this PBAS application.", 403);
+    }
+
+    const application = await PbasApplication.findOne({ _id: id, facultyId: actor.id });
+
+    if (!application) {
+        throw new AuthError("PBAS application not found.", 404);
+    }
+
+    if (application.status !== "Draft") {
+        throw new AuthError("Only draft PBAS applications can be deleted.", 409);
+    }
+
+    await PbasApplication.deleteOne({ _id: application._id });
+
+    return application;
+}
+
 export async function submitPbasApplication(actor: SafeActor, id: string) {
     const application = await getPbasApplicationById(actor, id);
 

@@ -297,6 +297,28 @@ export function PbasDashboard({
     const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved">("idle");
 
     const selected = applications.find((item) => item._id === selectedId);
+
+    function deleteApplication(applicationId: string) {
+        if (!confirm("Are you sure you want to delete this PBAS draft?")) {
+            return;
+        }
+
+        startTransition(async () => {
+            const response = await fetch(`/api/pbas/${applicationId}`, { method: "DELETE" });
+            const data = (await response.json()) as { message?: string };
+
+            if (!response.ok) {
+                setMessage({ type: "error", text: data.message ?? "Unable to delete PBAS application." });
+                return;
+            }
+
+            setApplications((current) => current.filter((item) => item._id !== applicationId));
+            if (selectedId === applicationId) {
+                setSelectedId(null);
+            }
+            setMessage({ type: "success", text: data.message ?? "PBAS application deleted." });
+        });
+    }
     const form = useForm<PbasFormValues, unknown, PbasResolvedValues>({
         resolver: zodResolver(pbasApplicationSchema),
         defaultValues: selected
@@ -514,9 +536,24 @@ export function PbasDashboard({
 
                 {selected ? (
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Status Timeline</CardTitle>
-                            <CardDescription>Every PBAS status transition is logged here.</CardDescription>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                            <div className="space-y-1.5">
+                                <CardTitle>Status Timeline</CardTitle>
+                                <CardDescription>Every PBAS status transition is logged here.</CardDescription>
+                            </div>
+                            {selected.status === "Draft" ? (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={() => deleteApplication(selected._id)}
+                                    disabled={isPending}
+                                    title="Delete Draft"
+                                >
+                                    <Trash2 className="size-4" />
+                                </Button>
+                            ) : null}
                         </CardHeader>
                         <CardContent>
                             <PBASStatusTimeline logs={selected.statusLogs} />
