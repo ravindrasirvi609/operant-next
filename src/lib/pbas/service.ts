@@ -198,6 +198,11 @@ export async function getFacultyPbasApplications(actor: SafeActor) {
 
 export async function getPbasApplicationById(actor: SafeActor, id: string) {
     await dbConnect();
+
+    if (!Types.ObjectId.isValid(id)) {
+        throw new AuthError("PBAS application not found.", 404);
+    }
+
     const application = await PbasApplication.findById(id);
 
     if (!application) {
@@ -253,6 +258,10 @@ export async function updatePbasApplication(actor: SafeActor, id: string, rawInp
 
 export async function deletePbasApplication(actor: SafeActor, id: string) {
     await dbConnect();
+
+    if (!Types.ObjectId.isValid(id)) {
+        throw new AuthError("PBAS application not found.", 404);
+    }
 
     if (actor.role !== "Faculty") {
         throw new AuthError("Only the faculty owner can delete this PBAS application.", 403);
