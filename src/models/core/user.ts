@@ -131,6 +131,11 @@ export interface IUser extends Document {
     password?: string;
     photoURL?: string;
     role: UserRole;
+    accountStatus: "PendingActivation" | "Active" | "Suspended";
+    institutionId?: mongoose.Types.ObjectId;
+    departmentId?: mongoose.Types.ObjectId;
+    studentId?: mongoose.Types.ObjectId;
+    facultyId?: mongoose.Types.ObjectId;
     universityName?: string;
     department?: string;
     collegeName?: string;
@@ -155,7 +160,7 @@ const UserSchema = new Schema<IUser>(
     {
         name: { type: String, required: true, trim: true },
         email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
-        password: { type: String, required: true, select: false },
+        password: { type: String, select: false },
         photoURL: { type: String },
         role: {
             type: String,
@@ -163,6 +168,17 @@ const UserSchema = new Schema<IUser>(
             enum: ['Faculty', 'Student', 'Alumni', 'Admin', 'Director', 'PRO', 'NSS', 'Sports', 'Swayam', 'Placement'],
             index: true
         },
+        accountStatus: {
+            type: String,
+            required: true,
+            enum: ["PendingActivation", "Active", "Suspended"],
+            default: "Active",
+            index: true,
+        },
+        institutionId: { type: Schema.Types.ObjectId, ref: "Institution", index: true },
+        departmentId: { type: Schema.Types.ObjectId, ref: "Department", index: true },
+        studentId: { type: Schema.Types.ObjectId, ref: "Student" },
+        facultyId: { type: Schema.Types.ObjectId, ref: "Faculty" },
         universityName: { type: String, trim: true, index: true },
         department: { type: String, trim: true },
         collegeName: { type: String, trim: true, index: true },
@@ -259,6 +275,12 @@ const UserSchema = new Schema<IUser>(
         collection: 'users' // Consolidated collection
     }
 );
+
+UserSchema.index({ institutionId: 1, role: 1 });
+UserSchema.index({ departmentId: 1, role: 1 });
+UserSchema.index({ studentId: 1 }, { unique: true, sparse: true });
+UserSchema.index({ facultyId: 1 }, { unique: true, sparse: true });
+UserSchema.index({ role: 1, accountStatus: 1 });
 
 const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
 

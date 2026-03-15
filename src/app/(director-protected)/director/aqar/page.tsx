@@ -1,6 +1,5 @@
-import dbConnect from "@/lib/dbConnect";
-import User from "@/models/core/user";
 import { requireDirector } from "@/lib/auth/user";
+import { getFacultyByIds } from "@/lib/faculty/migration";
 import { getAqarReviewQueue } from "@/lib/aqar/service";
 import { AqarReviewBoard } from "@/components/aqar/aqar-review-board";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,11 +13,11 @@ export default async function DirectorAqarReviewPage() {
         department: director.department,
     });
 
-    await dbConnect();
     const facultyMap = new Map(
-        (
-            await User.find({ _id: { $in: queue.map((item) => item.facultyId) } }).select("name")
-        ).map((user) => [user._id.toString(), user.name])
+        (await getFacultyByIds(queue.map((item) => item.facultyId.toString()))).map((faculty) => [
+            faculty._id.toString(),
+            [faculty.firstName, faculty.lastName].filter(Boolean).join(" "),
+        ])
     );
 
     const items = queue.map((item) => ({

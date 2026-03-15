@@ -2,7 +2,10 @@ import { Types } from "mongoose";
 
 import dbConnect from "@/lib/dbConnect";
 import { AuthError } from "@/lib/auth/errors";
+import { ensureFacultyContext } from "@/lib/faculty/migration";
 import Organization from "@/models/core/organization";
+import Department from "@/models/reference/department";
+import Faculty from "@/models/faculty/faculty";
 import User from "@/models/core/user";
 import AqarApplication, { type AqarStatus } from "@/models/core/aqar-application";
 import { aqarApplicationSchema, aqarApprovalSchema, aqarReviewSchema } from "@/lib/aqar/validators";
@@ -85,15 +88,31 @@ function pushStatusLog(
 }
 
 async function getUserForApplication(application: InstanceType<typeof AqarApplication>) {
-    const faculty = await User.findById(application.facultyId).select(
-        "name email role department designation universityName collegeName"
+    const faculty = await Faculty.findById(application.facultyId).select(
+        "userId departmentId designation"
     );
 
-    if (!faculty) {
+    if (!faculty?.userId) {
         throw new AuthError("Faculty account not found.", 404);
     }
 
-    return faculty;
+    const user = await User.findById(faculty.userId).select(
+        "name email role department designation universityName collegeName"
+    );
+
+    if (!user) {
+        throw new AuthError("Faculty account not found.", 404);
+    }
+
+    const department = faculty.departmentId
+        ? await Department.findById(faculty.departmentId).select("name")
+        : null;
+
+    return {
+        ...user,
+        department: department?.name ?? user.department,
+        designation: faculty.designation || user.designation,
+    };
 }
 
 export async function createAqarApplication(actor: SafeActor, rawInput: unknown) {
@@ -104,10 +123,11 @@ export async function createAqarApplication(actor: SafeActor, rawInput: unknown)
         throw new AuthError("Only faculty users can create AQAR applications.", 403);
     }
 
+    const { faculty } = await ensureFacultyContext(actor.id);
     const metrics = computeAqarMetrics(input);
 
     const application = await AqarApplication.create({
-        facultyId: new Types.ObjectId(actor.id),
+        facultyId: faculty._id,
         academicYear: input.academicYear,
         reportingPeriod: input.reportingPeriod,
         facultyContribution: input.facultyContribution,
@@ -138,7 +158,9 @@ export async function getFacultyAqarApplications(actor: SafeActor) {
         throw new AuthError("Only faculty users can view their AQAR applications.", 403);
     }
 
-    return AqarApplication.find({ facultyId: actor.id }).sort({ updatedAt: -1 });
+    const { faculty } = await ensureFacultyContext(actor.id);
+
+    return AqarApplication.find({ facultyId: faculty._id }).sort({ updatedAt: -1 });
 }
 
 export async function getAqarApplicationById(actor: SafeActor, id: string) {
@@ -153,8 +175,11 @@ export async function getAqarApplicationById(actor: SafeActor, id: string) {
         return application;
     }
 
-    if (actor.role === "Faculty" && application.facultyId.toString() === actor.id) {
-        return application;
+    if (actor.role === "Faculty") {
+        const { faculty } = await ensureFacultyContext(actor.id);
+        if (application.facultyId.toString() === faculty._id.toString()) {
+            return application;
+        }
     }
 
     const headedDepartment = await getDepartmentHeadedByUser(actor.id);
@@ -172,8 +197,12 @@ export async function getAqarApplicationById(actor: SafeActor, id: string) {
 export async function updateAqarApplication(actor: SafeActor, id: string, rawInput: unknown) {
     const input = aqarApplicationSchema.parse(rawInput);
     const application = await getAqarApplicationById(actor, id);
+    const facultyContext = actor.role === "Faculty" ? await ensureFacultyContext(actor.id) : null;
 
-    if (actor.role !== "Faculty" || application.facultyId.toString() !== actor.id) {
+    if (
+        actor.role !== "Faculty" ||
+        application.facultyId.toString() !== facultyContext?.faculty._id.toString()
+    ) {
         throw new AuthError("Only the faculty owner can update this AQAR application.", 403);
     }
 
@@ -195,8 +224,12 @@ export async function updateAqarApplication(actor: SafeActor, id: string, rawInp
 
 export async function submitAqarApplication(actor: SafeActor, id: string) {
     const application = await getAqarApplicationById(actor, id);
+    const facultyContext = actor.role === "Faculty" ? await ensureFacultyContext(actor.id) : null;
 
-    if (actor.role !== "Faculty" || application.facultyId.toString() !== actor.id) {
+    if (
+        actor.role !== "Faculty" ||
+        application.facultyId.toString() !== facultyContext?.faculty._id.toString()
+    ) {
         throw new AuthError("Only the faculty owner can submit this AQAR application.", 403);
     }
 
@@ -223,7 +256,9 @@ export async function deleteAqarApplication(actor: SafeActor, id: string) {
         throw new AuthError("Only the faculty owner can delete this AQAR application.", 403);
     }
 
-    const application = await AqarApplication.findOne({ _id: id, facultyId: actor.id });
+    const { faculty } = await ensureFacultyContext(actor.id);
+
+    const application = await AqarApplication.findOne({ _id: id, facultyId: faculty._id });
 
     if (!application) {
         throw new AuthError("AQAR application not found.", 404);
@@ -334,7 +369,10 @@ export async function getAqarReviewQueue(actor: SafeActor) {
         return [];
     }
 
-    const facultyUsers = await User.find({ department: headedDepartment.name, role: "Faculty" }).select("_id");
+    const departments = await Department.find({ name: headedDepartment.name }).select("_id");
+    const facultyUsers = await Faculty.find({
+        departmentId: { $in: departments.map((item) => item._id) },
+    }).select("_id");
 
     return AqarApplication.find({
         facultyId: { $in: facultyUsers.map((item) => item._id) },

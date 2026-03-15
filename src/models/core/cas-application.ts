@@ -55,12 +55,15 @@ export interface ICasApplication extends Document {
     applicationYear: string;
     currentDesignation: string;
     applyingForDesignation: string;
+    applicationDate?: Date;
+    eligibilityDate?: Date;
     eligibilityPeriod: {
         fromYear: number;
         toYear: number;
     };
     experienceYears: number;
     pbasReports: Types.ObjectId[];
+    apiScoreCalculated?: number;
     apiScore: {
         teachingLearning: number;
         researchPublication: number;
@@ -155,16 +158,19 @@ const CasStatusLogSchema = new Schema<ICasStatusLog>(
 
 const CasApplicationSchema = new Schema<ICasApplication>(
     {
-        facultyId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+        facultyId: { type: Schema.Types.ObjectId, ref: "Faculty", required: true, index: true },
         applicationYear: { type: String, required: true, trim: true, index: true },
         currentDesignation: { type: String, required: true, trim: true },
         applyingForDesignation: { type: String, required: true, trim: true },
+        applicationDate: { type: Date },
+        eligibilityDate: { type: Date },
         eligibilityPeriod: {
             fromYear: { type: Number, required: true },
             toYear: { type: Number, required: true },
         },
         experienceYears: { type: Number, required: true, default: 0 },
         pbasReports: [{ type: Schema.Types.ObjectId }],
+        apiScoreCalculated: { type: Number, default: 0 },
         apiScore: {
             teachingLearning: { type: Number, default: 0 },
             researchPublication: { type: Number, default: 0 },

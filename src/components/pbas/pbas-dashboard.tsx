@@ -1,8 +1,8 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
-import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
+import { ShieldCheck, Trash2, Upload } from "lucide-react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 
@@ -11,12 +11,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { pbasApplicationSchema } from "@/lib/pbas/validators";
+import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { pbasApplicationSchema, type PbasSnapshot } from "@/lib/pbas/validators";
+import {
+    uploadFile,
+    validateFile,
+    UploadValidationError,
+    type UploadProgress,
+} from "@/lib/upload/service";
 
 type PbasFormValues = z.input<typeof pbasApplicationSchema>;
-type PbasResolvedValues = z.output<typeof pbasApplicationSchema>;
 
 type PbasApp = {
     _id: string;
@@ -26,34 +33,13 @@ type PbasApp = {
         fromDate: string;
         toDate: string;
     };
-    category1: {
-        classesTaken: number;
-        coursePreparationHours: number;
-        coursesTaught: string[];
-        mentoringCount: number;
-        labSupervisionCount: number;
-        feedbackSummary?: string;
-    };
-    category2: {
-        researchPapers: Array<{ title: string; journal: string; year: number; issn?: string; indexing?: string }>;
-        books: Array<{ title: string; publisher: string; isbn?: string; year: number }>;
-        patents: Array<{ title: string; year: number; status: string }>;
-        conferences: Array<{ title: string; organizer: string; year: number; type: string }>;
-        projects: Array<{ title: string; fundingAgency: string; amount: number; year: number }>;
-    };
-    category3: {
-        committees: Array<{ committeeName: string; role?: string; year?: number }>;
-        administrativeDuties: Array<{ title: string; year?: number }>;
-        examDuties: Array<{ duty: string; year?: number }>;
-        studentGuidance: Array<{ activity: string; count: number }>;
-        extensionActivities: Array<{ title: string; role?: string; year?: number }>;
-    };
     apiScore: {
         teachingActivities: number;
         researchAcademicContribution: number;
         institutionalResponsibilities: number;
         totalScore: number;
     };
+    snapshot?: PbasSnapshot;
     status: string;
     statusLogs: Array<{
         _id?: string;
@@ -66,14 +52,36 @@ type PbasApp = {
     updatedAt: string;
 };
 
-const steps = [
-    "Basic Details",
-    "Teaching Activities",
-    "Research Papers",
-    "Books, Patents, Conferences",
-    "Institutional Responsibilities",
-    "Review and Submit",
-] as const;
+type PbasSummary = {
+    activeYear?: { id: string; label: string; yearStart: number; yearEnd: number };
+    submissionDeadline?: string;
+    lastApprovedApiScore?: number;
+    lastApprovedYear?: string;
+    warnings: string[];
+    stats: {
+        teachingLoadHours: number;
+        publicationCount: number;
+        projectCount: number;
+        fdpCount: number;
+        adminRoleCount: number;
+        extensionCount: number;
+        evidenceCount: number;
+    };
+    meta: PbasFormValues;
+    snapshot: PbasSnapshot;
+};
+
+type IndicatorEntry = {
+    indicatorId: string;
+    indicatorCode: string;
+    indicatorName: string;
+    category?: { id?: string; code?: string; name?: string; maxScore?: number };
+    maxScore: number;
+    claimedScore: number;
+    approvedScore?: number;
+    evidenceDocument?: { _id?: string; fileName?: string; fileUrl?: string; fileType?: string } | null;
+    remarks?: string;
+};
 
 const designationOptions = [
     "Assistant Professor (Stage 1)",
@@ -84,58 +92,45 @@ const designationOptions = [
     "Professor",
 ] as const;
 
-function emptyForm(): PbasFormValues {
+function emptyForm(prefill?: Partial<PbasFormValues>): PbasFormValues {
     const year = new Date().getFullYear();
     const nextYear = year + 1;
-
-    return {
+    const base: PbasFormValues = {
         academicYear: `${year}-${nextYear}`,
         currentDesignation: "Assistant Professor (Stage 1)",
         appraisalPeriod: {
             fromDate: `${year}-06-01`,
             toDate: `${nextYear}-05-31`,
         },
-        category1: {
-            classesTaken: 0,
-            coursePreparationHours: 0,
-            coursesTaught: [],
-            mentoringCount: 0,
-            labSupervisionCount: 0,
-            feedbackSummary: "",
-        },
-        category2: {
-            researchPapers: [],
-            books: [],
-            patents: [],
-            conferences: [],
-            projects: [],
-        },
-        category3: {
-            committees: [],
-            administrativeDuties: [],
-            examDuties: [],
-            studentGuidance: [],
-            extensionActivities: [],
+    };
+
+    if (!prefill) {
+        return base;
+    }
+
+    return {
+        ...base,
+        ...prefill,
+        appraisalPeriod: {
+            ...base.appraisalPeriod,
+            ...prefill.appraisalPeriod,
         },
     };
 }
 
-function toFormValues(application?: PbasApp): PbasFormValues {
+function toFormValues(application?: PbasApp, prefill?: Partial<PbasFormValues>): PbasFormValues {
     if (!application) {
-        return emptyForm();
+        return emptyForm(prefill);
     }
 
     return {
         academicYear: application.academicYear,
         currentDesignation: application.currentDesignation,
         appraisalPeriod: application.appraisalPeriod,
-        category1: application.category1,
-        category2: application.category2,
-        category3: application.category3,
     };
 }
 
-function computeScore(values: PbasResolvedValues) {
+function computeScore(values: PbasSnapshot) {
     const teachingActivities = Math.min(
         100,
         values.category1.classesTaken * 2 +
@@ -191,26 +186,6 @@ function computeScore(values: PbasResolvedValues) {
     };
 }
 
-export function PBASProgressStepper({ currentStep }: { currentStep: number }) {
-    return (
-        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-            {steps.map((step, index) => (
-                <div
-                    className={`rounded-lg border p-3 text-sm ${
-                        index <= currentStep
-                            ? "border-zinc-300 bg-white text-zinc-950"
-                            : "border-zinc-200 bg-zinc-50 text-zinc-500"
-                    }`}
-                    key={step}
-                >
-                    <p className="text-xs uppercase tracking-[0.16em]">Step {index + 1}</p>
-                    <p className="mt-2 font-medium">{step}</p>
-                </div>
-            ))}
-        </div>
-    );
-}
-
 export function PBASScoreCalculator({
     score,
 }: {
@@ -226,7 +201,7 @@ export function PBASScoreCalculator({
             <CardHeader>
                 <CardTitle>API Score Calculator</CardTitle>
                 <CardDescription>
-                    PBAS API score updates in real time from teaching, research, and institutional activity data.
+                    PBAS API score is calculated from faculty records and captured on save or submit.
                 </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -276,27 +251,34 @@ export function PBASStatusTimeline({
 export function PbasDashboard({
     initialApplications,
     facultyName,
-    evidenceDefaults,
+    facultyId,
+    summary,
 }: {
     initialApplications: PbasApp[];
     facultyName: string;
-    evidenceDefaults: {
-        researchPapers: PbasFormValues["category2"]["researchPapers"];
-        books: PbasFormValues["category2"]["books"];
-        patents: PbasFormValues["category2"]["patents"];
-        conferences: PbasFormValues["category2"]["conferences"];
-        projects: PbasFormValues["category2"]["projects"];
-        extensionActivities: PbasFormValues["category3"]["extensionActivities"];
-    };
+    facultyId: string;
+    summary: PbasSummary;
 }) {
     const [applications, setApplications] = useState(initialApplications);
     const [selectedId, setSelectedId] = useState<string | null>(initialApplications[0]?._id ?? null);
-    const [currentStep, setCurrentStep] = useState(0);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [isPending, startTransition] = useTransition();
     const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved">("idle");
+    const [entries, setEntries] = useState<IndicatorEntry[]>([]);
+    const [entryLoading, setEntryLoading] = useState(false);
+    const [entryError, setEntryError] = useState<string | null>(null);
+    const [uploadProgress, setUploadProgress] = useState<Record<string, UploadProgress | null>>({});
+    const [uploadError, setUploadError] = useState<Record<string, string>>({});
+
+    const displayEntries = useMemo(() => {
+        const totals = entries.filter((entry) => entry.indicatorCode.endsWith("_TOTAL"));
+        return totals.length ? totals : entries;
+    }, [entries]);
 
     const selected = applications.find((item) => item._id === selectedId);
+    const selectedSnapshot = selected?.snapshot ?? summary.snapshot;
+    const canEdit = !selected || ["Draft", "Rejected"].includes(selected.status);
+    const defaultDraft = useMemo(() => emptyForm(summary?.meta), [summary]);
 
     function deleteApplication(applicationId: string) {
         if (!confirm("Are you sure you want to delete this PBAS draft?")) {
@@ -319,64 +301,27 @@ export function PbasDashboard({
             setMessage({ type: "success", text: data.message ?? "PBAS application deleted." });
         });
     }
-    const form = useForm<PbasFormValues, unknown, PbasResolvedValues>({
+    const form = useForm<PbasFormValues>({
         resolver: zodResolver(pbasApplicationSchema),
         defaultValues: selected
-            ? toFormValues(selected)
-            : {
-                  ...emptyForm(),
-                  category2: {
-                      ...emptyForm().category2,
-                      researchPapers: evidenceDefaults.researchPapers,
-                      books: evidenceDefaults.books,
-                      patents: evidenceDefaults.patents,
-                      conferences: evidenceDefaults.conferences,
-                      projects: evidenceDefaults.projects,
-                  },
-                  category3: {
-                      ...emptyForm().category3,
-                      extensionActivities: evidenceDefaults.extensionActivities,
-                  },
-              },
+            ? toFormValues(selected, summary?.meta)
+            : defaultDraft,
     });
-
-    const researchFields = useFieldArray({ control: form.control, name: "category2.researchPapers" });
-    const bookFields = useFieldArray({ control: form.control, name: "category2.books" });
-    const patentFields = useFieldArray({ control: form.control, name: "category2.patents" });
-    const conferenceFields = useFieldArray({ control: form.control, name: "category2.conferences" });
-    const projectFields = useFieldArray({ control: form.control, name: "category2.projects" });
-    const committeeFields = useFieldArray({ control: form.control, name: "category3.committees" });
-    const administrativeFields = useFieldArray({ control: form.control, name: "category3.administrativeDuties" });
-    const examDutyFields = useFieldArray({ control: form.control, name: "category3.examDuties" });
-    const guidanceFields = useFieldArray({ control: form.control, name: "category3.studentGuidance" });
-    const extensionFields = useFieldArray({ control: form.control, name: "category3.extensionActivities" });
 
     useEffect(() => {
         form.reset(
             selected
-                ? toFormValues(selected)
-                : {
-                      ...emptyForm(),
-                      category2: {
-                          ...emptyForm().category2,
-                          researchPapers: evidenceDefaults.researchPapers,
-                          books: evidenceDefaults.books,
-                          patents: evidenceDefaults.patents,
-                          conferences: evidenceDefaults.conferences,
-                          projects: evidenceDefaults.projects,
-                      },
-                      category3: {
-                          ...emptyForm().category3,
-                          extensionActivities: evidenceDefaults.extensionActivities,
-                      },
-                  }
+                ? toFormValues(selected, summary?.meta)
+                : defaultDraft
         );
-    }, [selectedId, selected, form, evidenceDefaults]);
+    }, [selectedId, selected, form, defaultDraft, summary]);
 
     const watchedValues = useWatch({ control: form.control });
     const resolved = pbasApplicationSchema.safeParse(watchedValues);
-    const normalizedValues = resolved.success ? resolved.data : pbasApplicationSchema.parse(emptyForm());
-    const score = computeScore(normalizedValues);
+    const score = useMemo(
+        () => selected?.apiScore ?? computeScore(selectedSnapshot),
+        [selected, selectedSnapshot]
+    );
 
     useEffect(() => {
         if (!selectedId || !form.formState.isDirty) {
@@ -415,16 +360,38 @@ export function PbasDashboard({
         return () => window.clearTimeout(timer);
     }, [resolved, selectedId, form.formState.isDirty, selected]);
 
-    function setCourses(value: string) {
-        form.setValue(
-            "category1.coursesTaught",
-            value
-                .split(",")
-                .map((item) => item.trim())
-                .filter(Boolean),
-            { shouldDirty: true, shouldValidate: true }
-        );
-    }
+    useEffect(() => {
+        if (!selectedId) {
+            setEntries([]);
+            return;
+        }
+
+        let cancelled = false;
+        setEntryLoading(true);
+        setEntryError(null);
+
+        fetch(`/api/pbas/${selectedId}/entries`)
+            .then((response) => response.json())
+            .then((data) => {
+                if (cancelled) return;
+                if (!data?.entries?.items) {
+                    setEntryError("Unable to load PBAS indicator entries.");
+                    setEntryLoading(false);
+                    return;
+                }
+                setEntries(data.entries.items as IndicatorEntry[]);
+                setEntryLoading(false);
+            })
+            .catch(() => {
+                if (cancelled) return;
+                setEntryError("Unable to load PBAS indicator entries.");
+                setEntryLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedId]);
 
     function createDraft() {
         setMessage(null);
@@ -443,7 +410,14 @@ export function PbasDashboard({
                 return;
             }
 
-            setApplications((current) => [data.application!, ...current]);
+            setApplications((current) => {
+                const exists = current.some((item) => item._id === data.application!._id);
+                if (!exists) {
+                    return [data.application!, ...current];
+                }
+
+                return current.map((item) => (item._id === data.application!._id ? data.application! : item));
+            });
             setSelectedId(data.application._id);
             setCurrentStep(0);
             setMessage({ type: "success", text: data.message ?? "PBAS draft created." });
@@ -472,121 +446,368 @@ export function PbasDashboard({
         });
     }
 
+    function updateEntryState(items: IndicatorEntry[]) {
+        setEntries(items);
+    }
+
+    async function persistEntry(indicatorId: string, payload: Record<string, unknown>) {
+        if (!selectedId) return;
+        const response = await fetch(`/api/pbas/${selectedId}/entries`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ indicatorId, ...payload }),
+        });
+        const data = (await response.json()) as { entries?: { items?: IndicatorEntry[] } };
+        if (response.ok && data.entries?.items) {
+            updateEntryState(data.entries.items);
+        } else {
+            throw new Error(data?.entries ? "Unable to update PBAS entries." : "Unable to update PBAS entries.");
+        }
+    }
+
+    async function handleEvidenceUpload(indicatorId: string, file: File) {
+        setUploadError((current) => ({ ...current, [indicatorId]: "" }));
+
+        try {
+            validateFile(file, "evidence");
+        } catch (err) {
+            if (err instanceof UploadValidationError) {
+                setUploadError((current) => ({ ...current, [indicatorId]: err.message }));
+            }
+            return;
+        }
+
+        setUploadProgress((current) => ({ ...current, [indicatorId]: null }));
+
+        try {
+            const result = await uploadFile(file, "evidence", facultyId, (progress) => {
+                setUploadProgress((current) => ({ ...current, [indicatorId]: progress }));
+            });
+
+            const docResponse = await fetch("/api/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    fileName: file.name,
+                    fileUrl: result.downloadURL,
+                    fileType: file.type,
+                }),
+            });
+
+            const docData = (await docResponse.json()) as { document?: { _id?: string } };
+            if (!docResponse.ok || !docData.document?._id) {
+                throw new Error("Unable to save evidence document.");
+            }
+
+            await persistEntry(indicatorId, { evidenceDocumentId: docData.document._id });
+            setUploadProgress((current) => ({ ...current, [indicatorId]: null }));
+        } catch (err) {
+            setUploadProgress((current) => ({ ...current, [indicatorId]: null }));
+            setUploadError((current) => ({
+                ...current,
+                [indicatorId]: err instanceof Error ? err.message : "Evidence upload failed.",
+            }));
+        }
+    }
+
     return (
-        <div className="grid gap-6 xl:grid-cols-[340px_1fr]">
-            <div className="space-y-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>PBAS Dashboard</CardTitle>
-                        <CardDescription>
-                            Manage yearly PBAS applications, API scores, and approval workflow for {facultyName}.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <Button className="w-full" onClick={createDraft} type="button" disabled={isPending}>
-                            {isPending ? <Spinner /> : null}
-                            Start PBAS Draft
-                        </Button>
-                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-500">
-                            Auto save: {selectedId ? autoSaveState : "Create a draft to enable auto save"}
+        <div className="grid gap-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>PBAS Year Overview</CardTitle>
+                    <CardDescription>
+                        Active academic year readiness, submission window, and performance highlights.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="grid gap-3 md:grid-cols-3">
+                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+                            <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Active Year</p>
+                            <p className="mt-2 text-lg font-semibold text-zinc-950">
+                                {summary.activeYear?.label || "Not configured"}
+                            </p>
                         </div>
-                    </CardContent>
-                </Card>
+                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+                            <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Submission Deadline</p>
+                            <p className="mt-2 text-lg font-semibold text-zinc-950">
+                                {summary.submissionDeadline || "Not configured"}
+                            </p>
+                        </div>
+                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+                            <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Last Approved API</p>
+                            <p className="mt-2 text-lg font-semibold text-zinc-950">
+                                {summary.lastApprovedApiScore ?? 0}
+                            </p>
+                            <p className="mt-1 text-xs text-zinc-500">
+                                {summary.lastApprovedYear ? `Year ${summary.lastApprovedYear}` : "No approved PBAS yet"}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-6">
+                        <Metric label="Teaching Hours" value={String(summary.stats.teachingLoadHours)} />
+                        <Metric label="Publications" value={String(summary.stats.publicationCount)} />
+                        <Metric label="Projects" value={String(summary.stats.projectCount)} />
+                        <Metric label="FDP Count" value={String(summary.stats.fdpCount)} />
+                        <Metric label="Admin Roles" value={String(summary.stats.adminRoleCount)} />
+                        <Metric label="Evidence" value={String(summary.stats.evidenceCount)} />
+                    </div>
+                    {summary.warnings.length ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-700">
+                                Attention Needed
+                            </p>
+                            <ul className="mt-2 list-disc space-y-1 pl-4">
+                                {summary.warnings.map((item) => (
+                                    <li key={item}>{item}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    ) : null}
+                </CardContent>
+            </Card>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Applications</CardTitle>
-                        <CardDescription>Active academic-year records and PBAS workflow history.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid gap-3">
-                        {applications.length ? (
-                            applications.map((application) => (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setSelectedId(application._id);
-                                        setCurrentStep(0);
-                                    }}
-                                    key={application._id}
-                                    className={`rounded-lg border p-4 text-left ${
-                                        selectedId === application._id
-                                            ? "border-zinc-400 bg-white"
-                                            : "border-zinc-200 bg-zinc-50"
-                                    }`}
-                                >
-                                    <div className="flex items-center justify-between gap-3">
-                                        <p className="font-semibold text-zinc-950">{application.academicYear}</p>
-                                        <Badge>{application.status}</Badge>
-                                    </div>
-                                    <p className="mt-2 text-sm text-zinc-600">
-                                        {application.currentDesignation}
-                                    </p>
-                                    <p className="mt-1 text-sm text-zinc-500">
-                                        API {application.apiScore.totalScore}
-                                    </p>
-                                </button>
-                            ))
-                        ) : (
-                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                                No PBAS applications created yet.
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {selected ? (
+            <div className="grid gap-6 xl:grid-cols-[340px_1fr]">
+                <div className="space-y-6">
                     <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                            <div className="space-y-1.5">
-                                <CardTitle>Status Timeline</CardTitle>
-                                <CardDescription>Every PBAS status transition is logged here.</CardDescription>
-                            </div>
-                            {selected.status === "Draft" ? (
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                    onClick={() => deleteApplication(selected._id)}
-                                    disabled={isPending}
-                                    title="Delete Draft"
-                                >
-                                    <Trash2 className="size-4" />
-                                </Button>
-                            ) : null}
+                        <CardHeader>
+                            <CardTitle>PBAS Dashboard</CardTitle>
+                            <CardDescription>
+                                Manage yearly PBAS applications, API scores, and approval workflow for {facultyName}.
+                            </CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            <PBASStatusTimeline logs={selected.statusLogs} />
+                        <CardContent className="space-y-3">
+                            <Button className="w-full" onClick={createDraft} type="button" disabled={isPending}>
+                                {isPending ? <Spinner /> : null}
+                                Start PBAS Draft
+                            </Button>
+                            <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-500">
+                                Auto save: {selectedId ? autoSaveState : "Create a draft to enable auto save"}
+                            </div>
                         </CardContent>
                     </Card>
-                ) : null}
-            </div>
 
-            <div className="space-y-6">
-                {message ? <FormMessage message={message.text} type={message.type} /> : null}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Applications</CardTitle>
+                            <CardDescription>Active academic-year records and PBAS workflow history.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {applications.length ? (
+                                <ScrollArea className="h-[280px] pr-2">
+                                    <div className="grid gap-3">
+                                        {applications.map((application) => (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedId(application._id);
+                                                }}
+                                                key={application._id}
+                                                className={`rounded-lg border p-4 text-left transition ${
+                                                    selectedId === application._id
+                                                        ? "border-zinc-400 bg-white"
+                                                        : "border-zinc-200 bg-zinc-50 hover:border-zinc-300 hover:bg-white"
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <p className="font-semibold text-zinc-950">
+                                                        {application.academicYear}
+                                                    </p>
+                                                    <Badge variant="secondary">{application.status}</Badge>
+                                                </div>
+                                                <p className="mt-2 text-sm text-zinc-600">
+                                                    {application.currentDesignation}
+                                                </p>
+                                                <p className="mt-1 text-sm text-zinc-500">
+                                                    API {application.apiScore.totalScore}
+                                                </p>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </ScrollArea>
+                            ) : (
+                                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                                    No PBAS applications created yet.
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
 
-                <PBASProgressStepper currentStep={currentStep} />
-                <PBASScoreCalculator score={score} />
+                    {selected ? (
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                                <div className="space-y-1.5">
+                                    <CardTitle>Status Timeline</CardTitle>
+                                    <CardDescription>Every PBAS status transition is logged here.</CardDescription>
+                                </div>
+                                {selected.status === "Draft" ? (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                        onClick={() => deleteApplication(selected._id)}
+                                        disabled={isPending}
+                                        title="Delete Draft"
+                                    >
+                                        <Trash2 className="size-4" />
+                                    </Button>
+                                ) : null}
+                            </CardHeader>
+                            <CardContent>
+                                <PBASStatusTimeline logs={selected.statusLogs} />
+                            </CardContent>
+                        </Card>
+                    ) : null}
+                </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>PBAS Annual Appraisal Form</CardTitle>
-                        <CardDescription>
-                            Structured yearly performance capture for teaching, research, institutional work, and API score reporting.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        {currentStep === 0 ? (
+                <div className="space-y-6">
+                    {message ? <FormMessage message={message.text} type={message.type} /> : null}
+
+                    {selected?.status === "Rejected" ? (
+                        <Card className="border-rose-200 bg-rose-50">
+                            <CardHeader>
+                                <CardTitle>Resubmission Required</CardTitle>
+                                <CardDescription>
+                                    This PBAS application was rejected. Review remarks in the timeline and resubmit after updates.
+                                </CardDescription>
+                            </CardHeader>
+                        </Card>
+                    ) : null}
+
+                    <PBASScoreCalculator score={score} />
+                    <Separator />
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>PBAS Indicator Totals</CardTitle>
+                            <CardDescription>
+                                Evidence-linked indicator totals for the selected PBAS form.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {entryLoading ? (
+                                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                                    Loading PBAS indicators...
+                                </div>
+                            ) : entryError ? (
+                                <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                                    {entryError}
+                                </div>
+                            ) : displayEntries.length ? (
+                                <div className="rounded-lg border border-zinc-200">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Indicator</TableHead>
+                                                <TableHead className="text-right">Claimed</TableHead>
+                                                <TableHead className="text-right">Approved</TableHead>
+                                                <TableHead>Evidence</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {displayEntries.map((entry) => (
+                                                <TableRow key={entry.indicatorId}>
+                                                    <TableCell className="align-top">
+                                                        <div className="space-y-1">
+                                                            <p className="text-sm font-semibold text-zinc-950">
+                                                                {entry.indicatorName}
+                                                            </p>
+                                                            <p className="text-xs text-zinc-500">
+                                                                {entry.category?.name} • {entry.indicatorCode} • Max {entry.maxScore}
+                                                            </p>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right align-top">
+                                                        <span className="text-sm font-semibold text-zinc-900">{entry.claimedScore}</span>
+                                                    </TableCell>
+                                                    <TableCell className="text-right align-top">
+                                                        <span className="text-sm font-semibold text-emerald-700">
+                                                            {entry.approvedScore ?? "--"}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell className="align-top">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <input
+                                                                type="file"
+                                                                accept="application/pdf,image/jpeg,image/png,image/webp"
+                                                                className="hidden"
+                                                                id={`pbas-evidence-${entry.indicatorId}`}
+                                                                onChange={(event) => {
+                                                                    const file = event.target.files?.[0];
+                                                                    if (!file) return;
+                                                                    event.target.value = "";
+                                                                    void handleEvidenceUpload(entry.indicatorId, file);
+                                                                }}
+                                                            />
+                                                            <Button asChild size="sm" variant="secondary">
+                                                                <label
+                                                                    htmlFor={`pbas-evidence-${entry.indicatorId}`}
+                                                                    className="cursor-pointer"
+                                                                >
+                                                                    <Upload className="mr-2 size-4" />
+                                                                    Upload
+                                                                </label>
+                                                            </Button>
+                                                            {entry.evidenceDocument?.fileUrl ? (
+                                                                <a
+                                                                    href={entry.evidenceDocument.fileUrl}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    className="inline-flex items-center gap-2 text-xs font-medium text-emerald-700"
+                                                                >
+                                                                    <ShieldCheck className="size-4" />
+                                                                    {entry.evidenceDocument.fileName || "Evidence linked"}
+                                                                </a>
+                                                            ) : (
+                                                                <Badge variant="secondary">Missing</Badge>
+                                                            )}
+                                                            {uploadProgress[entry.indicatorId] ? (
+                                                                <span className="text-xs text-zinc-500">
+                                                                    Uploading {uploadProgress[entry.indicatorId]?.percent ?? 0}%
+                                                                </span>
+                                                            ) : null}
+                                                            {uploadError[entry.indicatorId] ? (
+                                                                <span className="text-xs text-rose-600">
+                                                                    {uploadError[entry.indicatorId]}
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            ) : (
+                                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                                    Select a PBAS form to view indicator totals.
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>PBAS Annual Appraisal Form</CardTitle>
+                            <CardDescription>
+                                Metadata and read-only snapshot of faculty records used for PBAS scoring.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
                             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                                 <Field label="Academic Year">
-                                    <Input {...form.register("academicYear")} />
+                                    <Input {...form.register("academicYear")} disabled={!canEdit} />
                                 </Field>
                                 <Field label="Current Designation">
                                     <Controller
                                         control={form.control}
                                         name="currentDesignation"
                                         render={({ field }) => (
-                                            <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                            <Select
+                                                value={field.value || undefined}
+                                                onValueChange={field.onChange}
+                                                disabled={!canEdit}
+                                            >
                                                 <SelectTrigger className="w-full">
                                                     <SelectValue placeholder="Select designation" />
                                                 </SelectTrigger>
@@ -602,396 +823,84 @@ export function PbasDashboard({
                                     />
                                 </Field>
                                 <Field label="Appraisal From">
-                                    <Input type="date" {...form.register("appraisalPeriod.fromDate")} />
+                                    <Input type="date" {...form.register("appraisalPeriod.fromDate")} disabled={!canEdit} />
                                 </Field>
                                 <Field label="Appraisal To">
-                                    <Input type="date" {...form.register("appraisalPeriod.toDate")} />
+                                    <Input type="date" {...form.register("appraisalPeriod.toDate")} disabled={!canEdit} />
                                 </Field>
                             </div>
-                        ) : null}
 
-                        {currentStep === 1 ? (
-                            <div className="space-y-4">
-                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                    <Field label="Classes Taken">
-                                        <Input
-                                            type="number"
-                                            {...form.register("category1.classesTaken", { valueAsNumber: true })}
-                                        />
-                                    </Field>
-                                    <Field label="Course Preparation Hours">
-                                        <Input
-                                            type="number"
-                                            {...form.register("category1.coursePreparationHours", {
-                                                valueAsNumber: true,
-                                            })}
-                                        />
-                                    </Field>
-                                    <Field label="Mentoring Count">
-                                        <Input
-                                            type="number"
-                                            {...form.register("category1.mentoringCount", { valueAsNumber: true })}
-                                        />
-                                    </Field>
-                                    <Field label="Lab Supervision">
-                                        <Input
-                                            type="number"
-                                            {...form.register("category1.labSupervisionCount", {
-                                                valueAsNumber: true,
-                                            })}
-                                        />
-                                    </Field>
+                            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+                                PBAS scores are derived from faculty teaching, research, and institutional records. Update source data in{" "}
+                                <a className="font-semibold text-zinc-900 hover:underline" href="/faculty/evidence">
+                                    Evidence Workspace
+                                </a>{" "}
+                                and{" "}
+                                <a className="font-semibold text-zinc-900 hover:underline" href="/faculty/profile">
+                                    Faculty Profile
+                                </a>
+                                .
+                            </div>
+
+                            <div className="grid gap-4 lg:grid-cols-3">
+                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
+                                    <p className="text-sm font-semibold text-zinc-950">Teaching Snapshot</p>
+                                    <p className="mt-2 text-sm text-zinc-600">
+                                        Classes taken: {selectedSnapshot.category1.classesTaken}
+                                    </p>
+                                    <p className="text-sm text-zinc-600">
+                                        Courses taught: {selectedSnapshot.category1.coursesTaught.length}
+                                    </p>
+                                    <p className="text-sm text-zinc-600">
+                                        Mentoring: {selectedSnapshot.category1.mentoringCount} | Lab: {selectedSnapshot.category1.labSupervisionCount}
+                                    </p>
                                 </div>
-                                <Field label="Courses Taught (comma separated)">
-                                    <Input
-                                        value={(watchedValues.category1?.coursesTaught ?? []).join(", ")}
-                                        onChange={(event) => setCourses(event.target.value)}
-                                    />
-                                </Field>
-                                <Field label="Feedback Summary">
-                                    <Textarea {...form.register("category1.feedbackSummary")} />
-                                </Field>
+                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
+                                    <p className="text-sm font-semibold text-zinc-950">Research Snapshot</p>
+                                    <p className="mt-2 text-sm text-zinc-600">
+                                        Papers: {selectedSnapshot.category2.researchPapers.length} | Books: {selectedSnapshot.category2.books.length}
+                                    </p>
+                                    <p className="text-sm text-zinc-600">
+                                        Patents: {selectedSnapshot.category2.patents.length} | Projects: {selectedSnapshot.category2.projects.length}
+                                    </p>
+                                    <p className="text-sm text-zinc-600">
+                                        Conferences: {selectedSnapshot.category2.conferences.length}
+                                    </p>
+                                </div>
+                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
+                                    <p className="text-sm font-semibold text-zinc-950">Institutional Snapshot</p>
+                                    <p className="mt-2 text-sm text-zinc-600">
+                                        Committees: {selectedSnapshot.category3.committees.length} | Admin duties: {selectedSnapshot.category3.administrativeDuties.length}
+                                    </p>
+                                    <p className="text-sm text-zinc-600">
+                                        Exam duties: {selectedSnapshot.category3.examDuties.length} | Guidance: {selectedSnapshot.category3.studentGuidance.reduce((sum, item) => sum + item.count, 0)}
+                                    </p>
+                                    <p className="text-sm text-zinc-600">
+                                        Extension activities: {selectedSnapshot.category3.extensionActivities.length}
+                                    </p>
+                                </div>
                             </div>
-                        ) : null}
 
-                        {currentStep === 2 ? (
-                            <CardSection
-                                title="Research Papers"
-                                description="Capture journals and indexed publications for PBAS research assessment."
-                            >
-                                {researchFields.fields.map((field, index) => (
-                                    <div
-                                        className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2 xl:grid-cols-5"
-                                        key={field.id}
-                                    >
-                                        <Input placeholder="Title" {...form.register(`category2.researchPapers.${index}.title`)} />
-                                        <Input placeholder="Journal" {...form.register(`category2.researchPapers.${index}.journal`)} />
-                                        <Input placeholder="Year" type="number" {...form.register(`category2.researchPapers.${index}.year`, { valueAsNumber: true })} />
-                                        <Input placeholder="ISSN" {...form.register(`category2.researchPapers.${index}.issn`)} />
-                                        <Input placeholder="Indexing" {...form.register(`category2.researchPapers.${index}.indexing`)} />
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                            onClick={() => researchFields.remove(index)}
-                                            aria-label={`Delete research paper ${index + 1}`}
-                                        >
-                                            <Trash2 className="size-4" />
-                                        </Button>
-                                    </div>
-                                ))}
+                            <div className="flex flex-wrap gap-3">
+                                {selectedId ? (
+                                    <Button asChild type="button" variant="secondary">
+                                        <a href={`/api/pbas/${selectedId}/report`}>Download PBAS PDF</a>
+                                    </Button>
+                                ) : null}
                                 <Button
                                     type="button"
-                                    variant="secondary"
-                                    onClick={() =>
-                                        researchFields.append({
-                                            title: "",
-                                            journal: "",
-                                            year: new Date().getFullYear(),
-                                            issn: "",
-                                            indexing: "",
-                                        })
-                                    }
+                                    onClick={submitApplication}
+                                    disabled={isPending || !selectedId || !canEdit}
                                 >
-                                    Add Research Paper
+                                    {isPending ? <Spinner /> : null}
+                                    Submit PBAS Application
                                 </Button>
-                            </CardSection>
-                        ) : null}
-
-                        {currentStep === 3 ? (
-                            <div className="space-y-6">
-                                <CardSection title="Books" description="Published books and academic book chapters.">
-                                    {bookFields.fields.map((field, index) => (
-                                        <div
-                                            className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2 xl:grid-cols-4"
-                                            key={field.id}
-                                        >
-                                            <Input placeholder="Title" {...form.register(`category2.books.${index}.title`)} />
-                                            <Input placeholder="Publisher" {...form.register(`category2.books.${index}.publisher`)} />
-                                            <Input placeholder="ISBN" {...form.register(`category2.books.${index}.isbn`)} />
-                                            <Input placeholder="Year" type="number" {...form.register(`category2.books.${index}.year`, { valueAsNumber: true })} />
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                onClick={() => bookFields.remove(index)}
-                                                aria-label={`Delete book ${index + 1}`}
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                    <Button type="button" variant="secondary" onClick={() => bookFields.append({ title: "", publisher: "", isbn: "", year: new Date().getFullYear() })}>
-                                        Add Book
-                                    </Button>
-                                </CardSection>
-
-                                <CardSection title="Patents" description="Filed, published, or granted patents.">
-                                    {patentFields.fields.map((field, index) => (
-                                        <div
-                                            className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2 xl:grid-cols-3"
-                                            key={field.id}
-                                        >
-                                            <Input placeholder="Title" {...form.register(`category2.patents.${index}.title`)} />
-                                            <Input placeholder="Year" type="number" {...form.register(`category2.patents.${index}.year`, { valueAsNumber: true })} />
-                                            <Input placeholder="Status" {...form.register(`category2.patents.${index}.status`)} />
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                onClick={() => patentFields.remove(index)}
-                                                aria-label={`Delete patent ${index + 1}`}
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                    <Button type="button" variant="secondary" onClick={() => patentFields.append({ title: "", year: new Date().getFullYear(), status: "" })}>
-                                        Add Patent
-                                    </Button>
-                                </CardSection>
-
-                                <CardSection title="Conferences" description="Academic papers, presentations, and seminars.">
-                                    {conferenceFields.fields.map((field, index) => (
-                                        <div
-                                            className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2 xl:grid-cols-4"
-                                            key={field.id}
-                                        >
-                                            <Input placeholder="Title" {...form.register(`category2.conferences.${index}.title`)} />
-                                            <Input placeholder="Organizer" {...form.register(`category2.conferences.${index}.organizer`)} />
-                                            <Input placeholder="Year" type="number" {...form.register(`category2.conferences.${index}.year`, { valueAsNumber: true })} />
-                                            <Input placeholder="Type" {...form.register(`category2.conferences.${index}.type`)} />
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                onClick={() => conferenceFields.remove(index)}
-                                                aria-label={`Delete conference ${index + 1}`}
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                    <Button type="button" variant="secondary" onClick={() => conferenceFields.append({ title: "", organizer: "", year: new Date().getFullYear(), type: "" })}>
-                                        Add Conference
-                                    </Button>
-                                </CardSection>
-
-                                <CardSection title="Projects" description="Sponsored and funded research projects.">
-                                    {projectFields.fields.map((field, index) => (
-                                        <div
-                                            className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2 xl:grid-cols-4"
-                                            key={field.id}
-                                        >
-                                            <Input placeholder="Title" {...form.register(`category2.projects.${index}.title`)} />
-                                            <Input placeholder="Funding Agency" {...form.register(`category2.projects.${index}.fundingAgency`)} />
-                                            <Input placeholder="Amount" type="number" {...form.register(`category2.projects.${index}.amount`, { valueAsNumber: true })} />
-                                            <Input placeholder="Year" type="number" {...form.register(`category2.projects.${index}.year`, { valueAsNumber: true })} />
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                onClick={() => projectFields.remove(index)}
-                                                aria-label={`Delete project ${index + 1}`}
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                    <Button type="button" variant="secondary" onClick={() => projectFields.append({ title: "", fundingAgency: "", amount: 0, year: new Date().getFullYear() })}>
-                                        Add Project
-                                    </Button>
-                                </CardSection>
                             </div>
-                        ) : null}
-
-                        {currentStep === 4 ? (
-                            <div className="space-y-6">
-                                <CardSection title="Committees" description="Committees and governance participation.">
-                                    {committeeFields.fields.map((field, index) => (
-                                        <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-3" key={field.id}>
-                                            <Input placeholder="Committee" {...form.register(`category3.committees.${index}.committeeName`)} />
-                                            <Input placeholder="Role" {...form.register(`category3.committees.${index}.role`)} />
-                                            <Input placeholder="Year" type="number" {...form.register(`category3.committees.${index}.year`, { valueAsNumber: true })} />
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                onClick={() => committeeFields.remove(index)}
-                                                aria-label={`Delete committee ${index + 1}`}
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                    <Button type="button" variant="secondary" onClick={() => committeeFields.append({ committeeName: "", role: "", year: new Date().getFullYear() })}>
-                                        Add Committee
-                                    </Button>
-                                </CardSection>
-
-                                <CardSection title="Administrative Responsibilities" description="Department or institutional administrative work.">
-                                    {administrativeFields.fields.map((field, index) => (
-                                        <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2" key={field.id}>
-                                            <Input placeholder="Responsibility" {...form.register(`category3.administrativeDuties.${index}.title`)} />
-                                            <Input placeholder="Year" type="number" {...form.register(`category3.administrativeDuties.${index}.year`, { valueAsNumber: true })} />
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                onClick={() => administrativeFields.remove(index)}
-                                                aria-label={`Delete administrative duty ${index + 1}`}
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                    <Button type="button" variant="secondary" onClick={() => administrativeFields.append({ title: "", year: new Date().getFullYear() })}>
-                                        Add Administrative Duty
-                                    </Button>
-                                </CardSection>
-
-                                <CardSection title="Exam Duties" description="Examination and evaluation responsibilities.">
-                                    {examDutyFields.fields.map((field, index) => (
-                                        <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2" key={field.id}>
-                                            <Input placeholder="Duty" {...form.register(`category3.examDuties.${index}.duty`)} />
-                                            <Input placeholder="Year" type="number" {...form.register(`category3.examDuties.${index}.year`, { valueAsNumber: true })} />
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                onClick={() => examDutyFields.remove(index)}
-                                                aria-label={`Delete exam duty ${index + 1}`}
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                    <Button type="button" variant="secondary" onClick={() => examDutyFields.append({ duty: "", year: new Date().getFullYear() })}>
-                                        Add Exam Duty
-                                    </Button>
-                                </CardSection>
-
-                                <CardSection title="Student Guidance" description="Mentoring, dissertation, and student support activities.">
-                                    {guidanceFields.fields.map((field, index) => (
-                                        <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2" key={field.id}>
-                                            <Input placeholder="Activity" {...form.register(`category3.studentGuidance.${index}.activity`)} />
-                                            <Input placeholder="Count" type="number" {...form.register(`category3.studentGuidance.${index}.count`, { valueAsNumber: true })} />
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                onClick={() => guidanceFields.remove(index)}
-                                                aria-label={`Delete guidance entry ${index + 1}`}
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                    <Button type="button" variant="secondary" onClick={() => guidanceFields.append({ activity: "", count: 0 })}>
-                                        Add Guidance Entry
-                                    </Button>
-                                </CardSection>
-
-                                <CardSection title="Extension Activities" description="Outreach, extension, and social-impact academic activities.">
-                                    {extensionFields.fields.map((field, index) => (
-                                        <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-3" key={field.id}>
-                                            <Input placeholder="Activity" {...form.register(`category3.extensionActivities.${index}.title`)} />
-                                            <Input placeholder="Role" {...form.register(`category3.extensionActivities.${index}.role`)} />
-                                            <Input placeholder="Year" type="number" {...form.register(`category3.extensionActivities.${index}.year`, { valueAsNumber: true })} />
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                onClick={() => extensionFields.remove(index)}
-                                                aria-label={`Delete extension activity ${index + 1}`}
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                    <Button type="button" variant="secondary" onClick={() => extensionFields.append({ title: "", role: "", year: new Date().getFullYear() })}>
-                                        Add Extension Activity
-                                    </Button>
-                                </CardSection>
-                            </div>
-                        ) : null}
-
-                        {currentStep === 5 ? (
-                            <div className="space-y-4">
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                                    <p className="text-sm font-semibold text-zinc-950">Review Summary</p>
-                                    <p className="mt-2 text-sm text-zinc-600">
-                                        Academic year {watchedValues.academicYear ?? ""} | Research papers: {(watchedValues.category2?.researchPapers ?? []).length} | Committees: {(watchedValues.category3?.committees ?? []).length}
-                                    </p>
-                                    <p className="mt-1 text-sm text-zinc-600">
-                                        Total API score {score.totalScore}
-                                    </p>
-                                </div>
-                                <div className="flex flex-wrap gap-3">
-                                    {selectedId ? (
-                                        <Button asChild type="button" variant="secondary">
-                                            <a href={`/api/pbas/${selectedId}/report`}>Download PBAS PDF</a>
-                                        </Button>
-                                    ) : null}
-                                    <Button type="button" onClick={submitApplication} disabled={isPending || !selectedId}>
-                                        {isPending ? <Spinner /> : null}
-                                        Submit PBAS Application
-                                    </Button>
-                                </div>
-                            </div>
-                        ) : null}
-
-                        <div className="flex flex-wrap gap-3">
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                onClick={() => setCurrentStep((step) => Math.max(0, step - 1))}
-                                disabled={currentStep === 0}
-                            >
-                                Previous
-                            </Button>
-                            <Button
-                                type="button"
-                                onClick={() => setCurrentStep((step) => Math.min(steps.length - 1, step + 1))}
-                                disabled={currentStep === steps.length - 1}
-                            >
-                                Next
-                            </Button>
-                        </div>
-                    </CardContent>
+                        </CardContent>
                 </Card>
             </div>
         </div>
-    );
-}
-
-function CardSection({
-    title,
-    description,
-    children,
-}: {
-    title: string;
-    description: string;
-    children: React.ReactNode;
-}) {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4">{children}</CardContent>
-        </Card>
+        </div>
     );
 }
 
@@ -1018,3 +927,7 @@ function Metric({ label, value }: { label: string; value: string }) {
         </div>
     );
 }
+function setCurrentStep(arg0: number) {
+    throw new Error("Function not implemented.");
+}
+

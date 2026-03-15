@@ -117,12 +117,20 @@ type UserRecord = {
     name: string;
     email: string;
     role: string;
+    accountStatus?: string;
     universityName?: string;
     collegeName?: string;
     department?: string;
     emailVerified: boolean;
     isActive: boolean;
     lastLoginAt?: string;
+    studentDetails?: {
+        rollNo?: string;
+    };
+    facultySummary?: {
+        employeeCode?: string;
+        designation?: string;
+    };
 };
 
 type SystemUpdateRecord = {
@@ -1408,6 +1416,19 @@ export function UserManagementTable({
                                         {user.universityName || "No university"} / {user.collegeName || "No college"} /{" "}
                                         {user.department || "No department"}
                                     </p>
+                                    {user.studentDetails?.rollNo ? (
+                                        <p className="mt-1 text-sm text-zinc-500">
+                                            Enrollment No.: {user.studentDetails.rollNo}
+                                        </p>
+                                    ) : null}
+                                    {user.facultySummary?.employeeCode ? (
+                                        <p className="mt-1 text-sm text-zinc-500">
+                                            Employee Code: {user.facultySummary.employeeCode}
+                                            {user.facultySummary.designation
+                                                ? ` · ${user.facultySummary.designation}`
+                                                : ""}
+                                        </p>
+                                    ) : null}
                                 </div>
                                 <div className="grid gap-3 md:grid-cols-2 xl:min-w-[640px] xl:grid-cols-5">
                                     <Select
@@ -1516,6 +1537,11 @@ export function UserManagementTable({
                                     </div>
                                 </div>
                             </div>
+                            {user.accountStatus ? (
+                                <p className="mt-3 text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">
+                                    Account status: {user.accountStatus}
+                                </p>
+                            ) : null}
                         </div>
                     ))}
                 </CardContent>

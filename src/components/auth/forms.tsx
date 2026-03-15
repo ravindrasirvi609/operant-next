@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, MailCheck } from "lucide-react";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 
 import { FieldError, FormMessage, Spinner } from "@/components/auth/auth-helpers";
@@ -14,27 +14,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+    facultyActivationSchema,
     forgotPasswordSchema,
     loginSchema,
-    registerSchema,
     resendVerificationSchema,
     resetPasswordSchema,
+    studentActivationSchema,
 } from "@/lib/auth/validators";
 
 type LoginValues = z.infer<typeof loginSchema>;
-type RegisterValues = z.infer<typeof registerSchema>;
 type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
 type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
 type ResendValues = z.infer<typeof resendVerificationSchema>;
-type Option = {
-    key: string;
-    label: string;
-    code?: string;
-};
+type StudentActivationValues = z.infer<typeof studentActivationSchema>;
+type FacultyActivationValues = z.infer<typeof facultyActivationSchema>;
 
 async function postJson(url: string, body: unknown) {
     const response = await fetch(url, {
@@ -106,8 +100,10 @@ export function LoginForm({
 
         startTransition(async () => {
             try {
-                await postJson("/api/auth/login", values);
-                router.push("/");
+                const data = (await postJson("/api/auth/login", values)) as {
+                    redirectPath?: string;
+                };
+                router.push(data.redirectPath ?? "/");
                 router.refresh();
             } catch (error) {
                 const message =
@@ -125,9 +121,13 @@ export function LoginForm({
                 description="Only verified users can access the UMIS home page. Public access is disabled."
                 footer={
                     <div className="text-sm text-zinc-500">
-                        New to UMIS?{" "}
-                        <Link href="/register" className="font-medium text-zinc-950">
-                            Create a student or faculty account
+                        First time student?{" "}
+                        <Link href="/activate-student" className="font-medium text-zinc-950">
+                            Activate your account
+                        </Link>
+                        {" · "}
+                        <Link href="/activate-faculty" className="font-medium text-zinc-950">
+                            Faculty first-time setup
                         </Link>
                     </div>
                 }
@@ -139,11 +139,10 @@ export function LoginForm({
                     {errorMessage ? <FormMessage message={errorMessage} type="error" /> : null}
 
                     <div className="grid gap-2">
-                        <Label htmlFor="login-email">Email</Label>
+                        <Label htmlFor="login-email">Email or Enrollment No.</Label>
                         <Input
                             id="login-email"
-                            type="email"
-                            placeholder="faculty@university.edu"
+                            placeholder="faculty@university.edu or CSE2024001"
                             {...form.register("email")}
                         />
                         <FieldError message={form.formState.errors.email?.message} />
@@ -181,32 +180,61 @@ export function LoginForm({
 }
 
 export function RegisterForm({
-    universityOptions,
-    collegeOptions,
-    departmentOptions,
 }: {
-    universityOptions: Option[];
-    collegeOptions: Option[];
-    departmentOptions: Option[];
+    universityOptions: unknown[];
+    collegeOptions: unknown[];
+    departmentOptions: unknown[];
 }) {
+    return (
+        <AuthCard
+            title="Institutional onboarding only"
+            description="Faculty accounts are now provisioned by the institution. If your profile is already created, complete first-time setup instead of registering."
+            footer={
+                <div className="text-sm text-zinc-500">
+                    Need access?{" "}
+                    <Link href="/activate-faculty" className="font-medium text-zinc-950">
+                        Activate faculty account
+                    </Link>
+                    {" · "}
+                    <Link href="/activate-student" className="font-medium text-zinc-950">
+                        Activate student account
+                    </Link>
+                </div>
+            }
+        >
+            <div className="grid gap-4 text-sm text-zinc-600">
+                <p>
+                    Faculty identities are created by Admin, HR, or IQAC. Public self-registration is disabled to keep institutional mapping and accreditation data accurate.
+                </p>
+                <p>
+                    If your institutional profile has already been provisioned, use first-time setup with your employee code and institutional email.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                    <Button asChild className="w-full sm:w-auto">
+                        <Link href="/activate-faculty">First Time Faculty Login Setup</Link>
+                    </Button>
+                    <Button asChild variant="outline" className="w-full sm:w-auto">
+                        <Link href="/login">Back to sign in</Link>
+                    </Button>
+                </div>
+            </div>
+        </AuthCard>
+    );
+}
+
+export function StudentActivationForm() {
     const router = useRouter();
-    const [role, setRole] = useState<"Faculty" | "Student">("Faculty");
     const [isPending, startTransition] = useTransition();
     const [successMessage, setSuccessMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
 
-    const form = useForm<RegisterValues>({
-        resolver: zodResolver(registerSchema),
+    const form = useForm<StudentActivationValues>({
+        resolver: zodResolver(studentActivationSchema),
         defaultValues: {
-            role: "Faculty",
-            name: "",
-            email: "",
+            enrollmentNo: "",
+            verificationValue: "",
             password: "",
-            phone: "",
-            universityName: universityOptions[0]?.label ?? "",
-            department: departmentOptions[0]?.label ?? "",
-            collegeName: collegeOptions[0]?.label ?? "",
-            designation: "",
+            confirmPassword: "",
         },
     });
 
@@ -216,40 +244,22 @@ export function RegisterForm({
         defaultValue: "",
     });
 
-    const title = useMemo(
-        () =>
-            role === "Faculty"
-                ? "Register faculty access"
-                : "Register student access",
-        [role]
-    );
-
-    function handleRoleChange(nextRole: "Faculty" | "Student") {
-        setRole(nextRole);
-        form.setValue("role", nextRole);
-        setErrorMessage("");
-        setSuccessMessage("");
-    }
-
-    function onSubmit(values: RegisterValues) {
+    function onSubmit(values: StudentActivationValues) {
         setErrorMessage("");
         setSuccessMessage("");
 
         startTransition(async () => {
             try {
-                await postJson("/api/auth/register", values);
-                setSuccessMessage(
-                    "Registration complete. Verify your email from the message sent to your inbox."
-                );
-                router.push(
-                    `/login?message=${encodeURIComponent(
-                        "Registration complete. Verify your email before signing in."
-                    )}&email=${encodeURIComponent(values.email)}`
-                );
+                const data = (await postJson("/api/auth/activate-student", values)) as {
+                    message?: string;
+                    redirectPath?: string;
+                };
+                setSuccessMessage(data.message ?? "Student account activated.");
+                router.push(data.redirectPath ?? "/student/profile");
                 router.refresh();
             } catch (error) {
                 setErrorMessage(
-                    error instanceof Error ? error.message : "Unable to register."
+                    error instanceof Error ? error.message : "Unable to activate account."
                 );
             }
         });
@@ -257,159 +267,134 @@ export function RegisterForm({
 
     return (
         <AuthCard
-            title={title}
-            description="Self-service registration is enabled only for Faculty and Student roles."
+            title="First Time Student Login Setup"
+            description="Use your pre-provisioned institutional record to verify your identity and set your password."
             footer={
                 <div className="text-sm text-zinc-500">
-                    Already registered?{" "}
+                    Already activated?{" "}
                     <Link href="/login" className="font-medium text-zinc-950">
                         Sign in here
                     </Link>
                 </div>
             }
         >
-            <Tabs defaultValue="Faculty" onValueChange={(value) => handleRoleChange(value as "Faculty" | "Student")}>
-                <TabsList>
-                    <TabsTrigger value="Faculty">Faculty</TabsTrigger>
-                    <TabsTrigger value="Student">Student</TabsTrigger>
-                </TabsList>
+            <form className="grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
+                {successMessage ? <FormMessage message={successMessage} type="success" /> : null}
+                {errorMessage ? <FormMessage message={errorMessage} type="error" /> : null}
 
-                <form className="mt-6 grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
-                    {successMessage ? (
-                        <FormMessage message={successMessage} type="success" />
-                    ) : null}
-                    {errorMessage ? <FormMessage message={errorMessage} type="error" /> : null}
+                <Field label="Enrollment number" id="activate-enrollment" error={form.formState.errors.enrollmentNo?.message}>
+                    <Input id="activate-enrollment" placeholder="CSE2024001" {...form.register("enrollmentNo")} />
+                </Field>
 
-                    <input type="hidden" value={role} {...form.register("role")} />
+                <Field label="Registered email or mobile" id="activate-verification" error={form.formState.errors.verificationValue?.message}>
+                    <Input id="activate-verification" placeholder="ravi@college.edu or 9876543210" {...form.register("verificationValue")} />
+                </Field>
 
-                    <div className="grid gap-5 sm:grid-cols-2">
-                        <Field label="Full name" id="register-name" error={form.formState.errors.name?.message}>
-                            <Input id="register-name" placeholder="Dr. Ananya Rao" {...form.register("name")} />
-                        </Field>
-                        <Field label="Institution email" id="register-email" error={form.formState.errors.email?.message}>
-                            <Input id="register-email" type="email" placeholder="name@university.edu" {...form.register("email")} />
-                        </Field>
-                    </div>
+                <div className="grid gap-5 sm:grid-cols-2">
+                    <Field label="Set password" id="activate-password" error={form.formState.errors.password?.message}>
+                        <Input id="activate-password" type="password" {...form.register("password")} />
+                    </Field>
+                    <Field label="Confirm password" id="activate-confirm-password" error={form.formState.errors.confirmPassword?.message}>
+                        <Input id="activate-confirm-password" type="password" {...form.register("confirmPassword")} />
+                    </Field>
+                </div>
 
-                    <div className="grid gap-5 sm:grid-cols-2">
-                        <Field label="Phone" id="register-phone" error={form.formState.errors.phone?.message}>
-                            <Input id="register-phone" placeholder="+91 9876543210" {...form.register("phone")} />
-                        </Field>
-                        <Field label="Password" id="register-password" error={form.formState.errors.password?.message}>
-                            <Input id="register-password" type="password" placeholder="Create a strong password" {...form.register("password")} />
-                        </Field>
-                    </div>
+                <PasswordChecklist password={password ?? ""} />
 
-                    <PasswordChecklist password={password ?? ""} />
+                <Button className="w-full" size="lg" disabled={isPending} type="submit">
+                    {isPending ? <Spinner /> : <ArrowRight className="size-4" />}
+                    Activate Student Account
+                </Button>
+            </form>
+        </AuthCard>
+    );
+}
 
-                    <div className="grid gap-5 sm:grid-cols-3">
-                        <Field label="University" id="register-university" error={"universityName" in form.formState.errors ? form.formState.errors.universityName?.message : undefined}>
-                            {universityOptions.length ? (
-                                <Controller
-                                    control={form.control}
-                                    name="universityName"
-                                    render={({ field }) => (
-                                        <Select value={field.value || undefined} onValueChange={field.onChange}>
-                                            <SelectTrigger id="register-university" className="w-full">
-                                                <SelectValue placeholder="Select university" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {universityOptions.map((item) => (
-                                                    <SelectItem key={item.key} value={item.label}>
-                                                        {item.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                />
-                            ) : (
-                                <Input id="register-university" placeholder="University name" {...form.register("universityName")} />
-                            )}
-                        </Field>
-                        <Field label="College" id="register-college" error={form.formState.errors.collegeName?.message}>
-                            {collegeOptions.length ? (
-                                <Controller
-                                    control={form.control}
-                                    name="collegeName"
-                                    render={({ field }) => (
-                                        <Select value={field.value || undefined} onValueChange={field.onChange}>
-                                            <SelectTrigger id="register-college" className="w-full">
-                                                <SelectValue placeholder="Select college" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {collegeOptions.map((item) => (
-                                                    <SelectItem key={item.key} value={item.label}>
-                                                        {item.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                />
-                            ) : (
-                                <Input id="register-college" placeholder="College of Engineering" {...form.register("collegeName")} />
-                            )}
-                        </Field>
-                        <Field label="Department" id="register-department" error={form.formState.errors.department?.message}>
-                            {departmentOptions.length ? (
-                                <Controller
-                                    control={form.control}
-                                    name="department"
-                                    render={({ field }) => (
-                                        <Select value={field.value || undefined} onValueChange={field.onChange}>
-                                            <SelectTrigger id="register-department" className="w-full">
-                                                <SelectValue placeholder="Select department" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {departmentOptions.map((item) => (
-                                                    <SelectItem key={item.key} value={item.label}>
-                                                        {item.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                />
-                            ) : (
-                                <Input id="register-department" placeholder="Computer Science" {...form.register("department")} />
-                            )}
-                        </Field>
-                    </div>
+export function FacultyActivationForm() {
+    const router = useRouter();
+    const [isPending, startTransition] = useTransition();
+    const [successMessage, setSuccessMessage] = useState("");
+    const [errorMessage, setErrorMessage] = useState("");
 
-                    <TabsContent value="Faculty" forceMount className={role === "Faculty" ? "block" : "hidden"}>
-                        <Field label="Designation" id="register-designation" error={"designation" in form.formState.errors ? form.formState.errors.designation?.message : undefined}>
-                            <Input id="register-designation" placeholder="Associate Professor" {...form.register("designation")} />
-                        </Field>
-                    </TabsContent>
+    const form = useForm<FacultyActivationValues>({
+        resolver: zodResolver(facultyActivationSchema),
+        defaultValues: {
+            employeeCode: "",
+            email: "",
+            password: "",
+            confirmPassword: "",
+        },
+    });
 
-                    <TabsContent value="Student" forceMount className={role === "Student" ? "grid gap-5" : "hidden"}>
-                        <div className="grid gap-5 sm:grid-cols-2">
-                            <Field label="Roll number" id="register-roll" error={"rollNo" in form.formState.errors ? form.formState.errors.rollNo?.message : undefined}>
-                                <Input id="register-roll" placeholder="UMIS24CS101" {...form.register("rollNo")} />
-                            </Field>
-                            <Field label="Course" id="register-course" error={"course" in form.formState.errors ? form.formState.errors.course?.message : undefined}>
-                                <Input id="register-course" placeholder="B.Tech CSE" {...form.register("course")} />
-                            </Field>
-                        </div>
-                        <div className="grid gap-5 sm:grid-cols-2">
-                            <Field label="Batch" id="register-batch" error={"batch" in form.formState.errors ? form.formState.errors.batch?.message : undefined}>
-                                <Input id="register-batch" placeholder="2024-2028" {...form.register("batch")} />
-                            </Field>
-                            <Field label="Admission year" id="register-admission-year" error={"admissionYear" in form.formState.errors ? form.formState.errors.admissionYear?.message : undefined}>
-                                <Input id="register-admission-year" placeholder="2024" {...form.register("admissionYear")} />
-                            </Field>
-                        </div>
-                    </TabsContent>
+    const password = useWatch({
+        control: form.control,
+        name: "password",
+        defaultValue: "",
+    });
 
-                    <Separator className="my-1" />
+    function onSubmit(values: FacultyActivationValues) {
+        setErrorMessage("");
+        setSuccessMessage("");
 
-                    <Button className="w-full" size="lg" disabled={isPending} type="submit">
-                        {isPending ? <Spinner /> : <ArrowRight className="size-4" />}
-                        Create Account
-                    </Button>
-                </form>
-            </Tabs>
+        startTransition(async () => {
+            try {
+                const data = (await postJson("/api/auth/activate-faculty", values)) as {
+                    message?: string;
+                    redirectPath?: string;
+                };
+                setSuccessMessage(data.message ?? "Faculty account activated.");
+                router.push(data.redirectPath ?? "/faculty");
+                router.refresh();
+            } catch (error) {
+                setErrorMessage(
+                    error instanceof Error ? error.message : "Unable to activate account."
+                );
+            }
+        });
+    }
+
+    return (
+        <AuthCard
+            title="First Time Faculty Login Setup"
+            description="Use your pre-provisioned institutional faculty record to verify your identity and set your password."
+            footer={
+                <div className="text-sm text-zinc-500">
+                    Already activated?{" "}
+                    <Link href="/login" className="font-medium text-zinc-950">
+                        Sign in here
+                    </Link>
+                </div>
+            }
+        >
+            <form className="grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
+                {successMessage ? <FormMessage message={successMessage} type="success" /> : null}
+                {errorMessage ? <FormMessage message={errorMessage} type="error" /> : null}
+
+                <div className="grid gap-5 sm:grid-cols-2">
+                    <Field label="Employee code" id="activate-faculty-code" error={form.formState.errors.employeeCode?.message}>
+                        <Input id="activate-faculty-code" placeholder="CSE-FAC-001" {...form.register("employeeCode")} />
+                    </Field>
+                    <Field label="Institution email" id="activate-faculty-email" error={form.formState.errors.email?.message}>
+                        <Input id="activate-faculty-email" type="email" placeholder="faculty@college.edu" {...form.register("email")} />
+                    </Field>
+                </div>
+
+                <div className="grid gap-5 sm:grid-cols-2">
+                    <Field label="Set password" id="activate-faculty-password" error={form.formState.errors.password?.message}>
+                        <Input id="activate-faculty-password" type="password" {...form.register("password")} />
+                    </Field>
+                    <Field label="Confirm password" id="activate-faculty-confirm-password" error={form.formState.errors.confirmPassword?.message}>
+                        <Input id="activate-faculty-confirm-password" type="password" {...form.register("confirmPassword")} />
+                    </Field>
+                </div>
+
+                <PasswordChecklist password={password ?? ""} />
+
+                <Button className="w-full" size="lg" disabled={isPending} type="submit">
+                    {isPending ? <Spinner /> : <ArrowRight className="size-4" />}
+                    Activate Faculty Account
+                </Button>
+            </form>
         </AuthCard>
     );
 }

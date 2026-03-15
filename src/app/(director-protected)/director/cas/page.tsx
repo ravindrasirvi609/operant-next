@@ -1,9 +1,8 @@
 import { CasReviewBoard } from "@/components/cas/cas-review-board";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCasReviewQueue } from "@/lib/cas/service";
+import { getFacultyByIds } from "@/lib/faculty/migration";
 import { requireDirector } from "@/lib/auth/user";
-import User from "@/models/core/user";
-import dbConnect from "@/lib/dbConnect";
 
 export default async function DirectorCasReviewPage() {
     const director = await requireDirector();
@@ -14,11 +13,11 @@ export default async function DirectorCasReviewPage() {
         department: director.department,
     });
 
-    await dbConnect();
     const facultyMap = new Map(
-        (
-            await User.find({ _id: { $in: queue.map((item) => item.facultyId) } }).select("name")
-        ).map((user) => [user._id.toString(), user.name])
+        (await getFacultyByIds(queue.map((item) => item.facultyId.toString()))).map((faculty) => [
+            faculty._id.toString(),
+            [faculty.firstName, faculty.lastName].filter(Boolean).join(" "),
+        ])
     );
 
     const items = queue.map((item) => ({

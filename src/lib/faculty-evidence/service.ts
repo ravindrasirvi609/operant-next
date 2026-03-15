@@ -1,34 +1,50 @@
 import dbConnect from "@/lib/dbConnect";
-import { AuthError } from "@/lib/auth/errors";
 import User from "@/models/core/user";
 import FacultyEvidence from "@/models/core/faculty-evidence";
+import Event from "@/models/reference/event";
+import SocialProgram from "@/models/reference/social-program";
+import FacultyBook from "@/models/faculty/faculty-book";
+import FacultyEventParticipation from "@/models/faculty/faculty-event-participation";
+import FacultyFdpConducted from "@/models/faculty/faculty-fdp-conducted";
+import FacultyPatent from "@/models/faculty/faculty-patent";
+import FacultyPublication from "@/models/faculty/faculty-publication";
+import FacultyResearchProject from "@/models/faculty/faculty-research-project";
+import FacultySocialExtension from "@/models/faculty/faculty-social-extension";
+import { AuthError } from "@/lib/auth/errors";
+import { ensureFacultyContext } from "@/lib/faculty/migration";
 import { facultyEvidenceSchema } from "@/lib/faculty-evidence/validators";
 import type { CasApplicationInput } from "@/lib/cas/validators";
-import type { PbasApplicationInput } from "@/lib/pbas/validators";
+import type { PbasSnapshot } from "@/lib/pbas/validators";
 import type { AqarApplicationInput } from "@/lib/aqar/validators";
 
 function uniqueBy<T>(items: T[], keyOf: (item: T) => string) {
     const map = new Map<string, T>();
+
     for (const item of items) {
         const key = keyOf(item).trim().toLowerCase();
         if (!key) continue;
         map.set(key, item);
     }
+
     return Array.from(map.values()).sort((a, b) => keyOf(a).localeCompare(keyOf(b)));
 }
 
-async function getOrCreateEvidence(facultyId: string) {
+function academicYearLabelFromYear(year: number) {
+    return `${year}-${year + 1}`;
+}
+
+async function getShadowEvidence(userId: string) {
     await dbConnect();
 
-    const user = await User.findById(facultyId).select("role");
+    const user = await User.findById(userId).select("role");
     if (!user || user.role !== "Faculty") {
         throw new AuthError("Faculty evidence profile not found.", 404);
     }
 
     const evidence =
-        (await FacultyEvidence.findOne({ facultyId })) ||
+        (await FacultyEvidence.findOne({ facultyId: userId })) ||
         (await FacultyEvidence.create({
-            facultyId,
+            facultyId: userId,
             publications: [],
             books: [],
             projects: [],
@@ -42,163 +58,404 @@ async function getOrCreateEvidence(facultyId: string) {
     return evidence;
 }
 
+async function ensureEvent(facultyId: string, title: string, organizer?: string, year?: number) {
+    const { faculty } = await ensureFacultyContext(facultyId);
+    let event = await Event.findOne({
+        title,
+        institutionId: faculty.institutionId,
+        departmentId: faculty.departmentId,
+        eventType: "Conference",
+    });
+
+    if (!event) {
+        event = await Event.create({
+            title,
+            eventType: "Conference",
+            organizedBy: organizer || faculty.designation || "Faculty",
+            startDate: year ? new Date(year, 0, 1) : undefined,
+            institutionId: faculty.institutionId,
+            departmentId: faculty.departmentId,
+        });
+    }
+
+    return event;
+}
+
+async function ensureSocialProgram(name: string) {
+    let program = await SocialProgram.findOne({ name, type: "Extension" });
+
+    if (!program) {
+        program = await SocialProgram.create({ name, type: "Extension" });
+    }
+
+    return program;
+}
+
+async function buildEvidenceState(userId: string) {
+    const { faculty } = await ensureFacultyContext(userId);
+    const shadowEvidence = await getShadowEvidence(userId);
+
+    const [publications, books, projects, patents, conferences, workshops, extensions] =
+        await Promise.all([
+            FacultyPublication.find({ facultyId: faculty._id }).sort({ updatedAt: -1 }),
+            FacultyBook.find({ facultyId: faculty._id }).sort({ updatedAt: -1 }),
+            FacultyResearchProject.find({ facultyId: faculty._id }).sort({ updatedAt: -1 }),
+            FacultyPatent.find({ facultyId: faculty._id }).sort({ updatedAt: -1 }),
+            FacultyEventParticipation.find({ facultyId: faculty._id })
+                .populate("eventId", "title organizedBy startDate eventType")
+                .sort({ updatedAt: -1 }),
+            FacultyFdpConducted.find({ facultyId: faculty._id }).sort({ updatedAt: -1 }),
+            FacultySocialExtension.find({ facultyId: faculty._id })
+                .populate("programId", "name")
+                .sort({ updatedAt: -1 }),
+        ]);
+
+    return {
+        publications: uniqueBy(
+            [
+                ...publications.map((item) => ({
+                    title: item.title,
+                    journal: item.journalName ?? item.publisher ?? "",
+                    year: item.publicationDate?.getFullYear() ?? new Date().getFullYear(),
+                    issn: item.isbnIssn,
+                    indexing: item.indexedIn,
+                })),
+                ...shadowEvidence.publications.map((item) => ({
+                    title: item.title,
+                    journal: item.journal,
+                    year: item.year,
+                    issn: item.issn,
+                    indexing: item.indexing,
+                })),
+            ],
+            (item) => `${item.title}-${item.journal}-${item.year}`
+        ),
+        books: uniqueBy(
+            [
+                ...books.map((item) => ({
+                    title: item.title,
+                    publisher: item.publisher ?? "",
+                    isbn: item.isbn,
+                    year: item.publicationDate?.getFullYear() ?? new Date().getFullYear(),
+                })),
+                ...shadowEvidence.books.map((item) => ({
+                    title: item.title,
+                    publisher: item.publisher,
+                    isbn: item.isbn,
+                    year: item.year,
+                })),
+            ],
+            (item) => `${item.title}-${item.publisher}-${item.year}`
+        ),
+        projects: uniqueBy(
+            [
+                ...projects.map((item) => ({
+                    title: item.title,
+                    fundingAgency: item.fundingAgency ?? "",
+                    amount: item.amountSanctioned,
+                    year: item.startDate?.getFullYear() ?? new Date().getFullYear(),
+                })),
+                ...shadowEvidence.projects.map((item) => ({
+                    title: item.title,
+                    fundingAgency: item.fundingAgency,
+                    amount: item.amount,
+                    year: item.year,
+                })),
+            ],
+            (item) => `${item.title}-${item.fundingAgency}-${item.year}`
+        ),
+        patents: uniqueBy(
+            [
+                ...patents.map((item) => ({
+                    title: item.title,
+                    year: item.filingDate?.getFullYear() ?? new Date().getFullYear(),
+                    status: item.status,
+                })),
+                ...shadowEvidence.patents.map((item) => ({
+                    title: item.title,
+                    year: item.year,
+                    status: item.status,
+                })),
+            ],
+            (item) => `${item.title}-${item.status}-${item.year}`
+        ),
+        conferences: uniqueBy(
+            [
+                ...conferences.map((item) => ({
+                    title: (item.eventId as { title?: string })?.title ?? "Conference",
+                    organizer: (item.eventId as { organizedBy?: string })?.organizedBy,
+                    year:
+                        (item.eventId as { startDate?: Date })?.startDate?.getFullYear() ??
+                        new Date().getFullYear(),
+                    type: (item.eventId as { eventType?: string })?.eventType ?? "Conference",
+                })),
+                ...shadowEvidence.conferences.map((item) => ({
+                    title: item.title,
+                    organizer: item.organizer,
+                    year: item.year,
+                    type: item.type,
+                })),
+            ],
+            (item) => `${item.title}-${item.year}`
+        ),
+        workshops: uniqueBy(
+            [
+                ...workshops.map((item) => ({
+                    title: item.title,
+                    role: item.sponsoredBy,
+                    level: item.level,
+                    year: item.startDate?.getFullYear() ?? new Date().getFullYear(),
+                })),
+                ...shadowEvidence.workshops.map((item) => ({
+                    title: item.title,
+                    role: item.role,
+                    level: item.level,
+                    year: item.year,
+                })),
+            ],
+            (item) => `${item.title}-${item.year}`
+        ),
+        extensionActivities: uniqueBy(
+            [
+                ...extensions.map((item) => ({
+                    title: item.activityName,
+                    roleOrAudience: (item.programId as { name?: string })?.name,
+                    year: new Date().getFullYear(),
+                })),
+                ...shadowEvidence.extensionActivities.map((item) => ({
+                    title: item.title,
+                    roleOrAudience: item.roleOrAudience,
+                    year: item.year,
+                })),
+            ],
+            (item) => `${item.title}-${item.year}`
+        ),
+        collaborations: uniqueBy(
+            shadowEvidence.collaborations.map((item) => ({
+                organization: item.organization,
+                purpose: item.purpose,
+                year: item.year,
+            })),
+            (item) => `${item.organization}-${item.purpose}-${item.year}`
+        ),
+    };
+}
+
 export async function getFacultyEvidence(facultyId: string) {
-    return getOrCreateEvidence(facultyId);
+    return buildEvidenceState(facultyId);
 }
 
 export async function saveFacultyEvidence(facultyId: string, rawInput: unknown) {
     const input = facultyEvidenceSchema.parse(rawInput);
-    const evidence = await getOrCreateEvidence(facultyId);
+    const { faculty } = await ensureFacultyContext(facultyId);
+    const shadowEvidence = await getShadowEvidence(facultyId);
 
-    evidence.publications = uniqueBy(input.publications, (item) => `${item.title}-${item.journal}-${item.year}`);
-    evidence.books = uniqueBy(input.books, (item) => `${item.title}-${item.publisher}-${item.year}`);
-    evidence.projects = uniqueBy(input.projects, (item) => `${item.title}-${item.fundingAgency}-${item.year}`);
-    evidence.patents = uniqueBy(input.patents, (item) => `${item.title}-${item.status}-${item.year}`);
-    evidence.conferences = uniqueBy(input.conferences, (item) => `${item.title}-${item.year}`);
-    evidence.workshops = uniqueBy(input.workshops, (item) => `${item.title}-${item.year}`);
-    evidence.extensionActivities = uniqueBy(input.extensionActivities, (item) => `${item.title}-${item.year}`);
-    evidence.collaborations = uniqueBy(input.collaborations, (item) => `${item.organization}-${item.purpose}-${item.year}`);
+    shadowEvidence.publications = uniqueBy(input.publications, (item) => `${item.title}-${item.journal}-${item.year}`);
+    shadowEvidence.books = uniqueBy(input.books, (item) => `${item.title}-${item.publisher}-${item.year}`);
+    shadowEvidence.projects = uniqueBy(input.projects, (item) => `${item.title}-${item.fundingAgency}-${item.year}`);
+    shadowEvidence.patents = uniqueBy(input.patents, (item) => `${item.title}-${item.status}-${item.year}`);
+    shadowEvidence.conferences = uniqueBy(input.conferences, (item) => `${item.title}-${item.year}`);
+    shadowEvidence.workshops = uniqueBy(input.workshops, (item) => `${item.title}-${item.year}`);
+    shadowEvidence.extensionActivities = uniqueBy(input.extensionActivities, (item) => `${item.title}-${item.year}`);
+    shadowEvidence.collaborations = uniqueBy(input.collaborations, (item) => `${item.organization}-${item.purpose}-${item.year}`);
+    await shadowEvidence.save();
 
-    await evidence.save();
-    return evidence;
+    await Promise.all([
+        FacultyPublication.deleteMany({ facultyId: faculty._id }),
+        FacultyBook.deleteMany({ facultyId: faculty._id }),
+        FacultyResearchProject.deleteMany({ facultyId: faculty._id }),
+        FacultyPatent.deleteMany({ facultyId: faculty._id }),
+        FacultyEventParticipation.deleteMany({ facultyId: faculty._id }),
+        FacultyFdpConducted.deleteMany({ facultyId: faculty._id }),
+        FacultySocialExtension.deleteMany({ facultyId: faculty._id }),
+    ]);
+
+    for (const item of input.publications) {
+        await FacultyPublication.create({
+            facultyId: faculty._id,
+            title: item.title,
+            journalName: item.journal,
+            publicationType: item.indexing?.toLowerCase().includes("scopus")
+                ? "Scopus"
+                : item.indexing?.toLowerCase().includes("web of science")
+                  ? "WebOfScience"
+                  : "UGC",
+            isbnIssn: item.issn || undefined,
+            indexedIn: item.indexing || undefined,
+            publicationDate: new Date(item.year, 0, 1),
+        });
+    }
+
+    for (const item of input.books) {
+        await FacultyBook.create({
+            facultyId: faculty._id,
+            title: item.title,
+            publisher: item.publisher || undefined,
+            isbn: item.isbn || undefined,
+            publicationDate: new Date(item.year, 0, 1),
+            bookType: "Textbook",
+        });
+    }
+
+    for (const item of input.projects) {
+        await FacultyResearchProject.create({
+            facultyId: faculty._id,
+            title: item.title,
+            fundingAgency: item.fundingAgency || undefined,
+            projectType: "Major",
+            amountSanctioned: item.amount ?? 0,
+            startDate: new Date(item.year, 0, 1),
+            status: "Completed",
+            principalInvestigator: true,
+        });
+    }
+
+    for (const item of input.patents) {
+        await FacultyPatent.create({
+            facultyId: faculty._id,
+            title: item.title,
+            status:
+                item.status === "Granted" || item.status === "Published"
+                    ? item.status
+                    : "Filed",
+            filingDate: new Date(item.year, 0, 1),
+        });
+    }
+
+    for (const item of input.conferences) {
+        const event = await ensureEvent(facultyId, item.title, item.organizer, item.year);
+        await FacultyEventParticipation.create({
+            facultyId: faculty._id,
+            eventId: event._id,
+            role: "Participant",
+            paperPresented: false,
+            organized: false,
+        });
+    }
+
+    for (const item of input.workshops) {
+        await FacultyFdpConducted.create({
+            facultyId: faculty._id,
+            title: item.title,
+            sponsoredBy: item.role || undefined,
+            level:
+                item.level === "State" || item.level === "National" || item.level === "International"
+                    ? item.level
+                    : "College",
+            startDate: new Date(item.year, 0, 1),
+            participantsCount: 0,
+        });
+    }
+
+    for (const item of input.extensionActivities) {
+        const program = await ensureSocialProgram(item.title);
+        await FacultySocialExtension.create({
+            facultyId: faculty._id,
+            programId: program._id,
+            activityName: item.title,
+            hoursContributed: 0,
+        });
+    }
+
+    return buildEvidenceState(facultyId);
 }
 
 async function mergeEvidence(
     facultyId: string,
-    partial: Partial<{
-        publications: Awaited<ReturnType<typeof getOrCreateEvidence>>["publications"];
-        books: Awaited<ReturnType<typeof getOrCreateEvidence>>["books"];
-        projects: Awaited<ReturnType<typeof getOrCreateEvidence>>["projects"];
-        patents: Awaited<ReturnType<typeof getOrCreateEvidence>>["patents"];
-        conferences: Awaited<ReturnType<typeof getOrCreateEvidence>>["conferences"];
-        workshops: Awaited<ReturnType<typeof getOrCreateEvidence>>["workshops"];
-        extensionActivities: Awaited<ReturnType<typeof getOrCreateEvidence>>["extensionActivities"];
-        collaborations: Awaited<ReturnType<typeof getOrCreateEvidence>>["collaborations"];
-    }>
+    partial: Partial<Awaited<ReturnType<typeof getFacultyEvidence>>>
 ) {
-    const evidence = await getOrCreateEvidence(facultyId);
+    const current = await getFacultyEvidence(facultyId);
 
-    const current = {
-        publications: evidence.publications.map((item) => ({
+    return saveFacultyEvidence(facultyId, {
+        publications: partial.publications
+            ? uniqueBy([...current.publications, ...partial.publications], (item) => `${item.title}-${item.journal}-${item.year}`)
+            : current.publications,
+        books: partial.books
+            ? uniqueBy([...current.books, ...partial.books], (item) => `${item.title}-${item.publisher}-${item.year}`)
+            : current.books,
+        projects: partial.projects
+            ? uniqueBy([...current.projects, ...partial.projects], (item) => `${item.title}-${item.fundingAgency}-${item.year}`)
+            : current.projects,
+        patents: partial.patents
+            ? uniqueBy([...current.patents, ...partial.patents], (item) => `${item.title}-${item.status}-${item.year}`)
+            : current.patents,
+        conferences: partial.conferences
+            ? uniqueBy([...current.conferences, ...partial.conferences], (item) => `${item.title}-${item.year}`)
+            : current.conferences,
+        workshops: partial.workshops
+            ? uniqueBy([...current.workshops, ...partial.workshops], (item) => `${item.title}-${item.year}`)
+            : current.workshops,
+        extensionActivities: partial.extensionActivities
+            ? uniqueBy([...current.extensionActivities, ...partial.extensionActivities], (item) => `${item.title}-${item.year}`)
+            : current.extensionActivities,
+        collaborations: partial.collaborations
+            ? uniqueBy([...current.collaborations, ...partial.collaborations], (item) => `${item.organization}-${item.purpose}-${item.year}`)
+            : current.collaborations,
+    });
+}
+
+export async function syncEvidenceFromCas(facultyId: string, input: CasApplicationInput) {
+    return mergeEvidence(facultyId, {
+        publications: input.achievements.publications.map((item) => ({
             title: item.title,
             journal: item.journal,
             year: item.year,
             issn: item.issn,
             indexing: item.indexing,
         })),
-        books: evidence.books.map((item) => ({
+        books: input.achievements.books.map((item) => ({
             title: item.title,
             publisher: item.publisher,
             isbn: item.isbn,
             year: item.year,
         })),
-        projects: evidence.projects.map((item) => ({
+        projects: input.achievements.researchProjects.map((item) => ({
             title: item.title,
             fundingAgency: item.fundingAgency,
             amount: item.amount,
             year: item.year,
         })),
-        patents: evidence.patents.map((item) => ({
+        conferences: Array.from({ length: input.achievements.conferences }).map((_, index) => ({
+            title: `CAS Conference Contribution ${index + 1}`,
+            year: input.eligibilityPeriod.toYear,
+            organizer: "",
+            type: "Conference",
+        })),
+    });
+}
+
+export async function syncEvidenceFromPbas(facultyId: string, input: PbasSnapshot) {
+    return mergeEvidence(facultyId, {
+        publications: input.category2.researchPapers.map((item) => ({
+            title: item.title,
+            journal: item.journal,
+            year: item.year,
+            issn: item.issn,
+            indexing: item.indexing,
+        })),
+        books: input.category2.books.map((item) => ({
+            title: item.title,
+            publisher: item.publisher,
+            isbn: item.isbn,
+            year: item.year,
+        })),
+        projects: input.category2.projects.map((item) => ({
+            title: item.title,
+            fundingAgency: item.fundingAgency,
+            amount: item.amount,
+            year: item.year,
+        })),
+        patents: input.category2.patents.map((item) => ({
             title: item.title,
             year: item.year,
             status: item.status,
         })),
-        conferences: evidence.conferences.map((item) => ({
+        conferences: input.category2.conferences.map((item) => ({
             title: item.title,
             organizer: item.organizer,
             year: item.year,
             type: item.type,
         })),
-        workshops: evidence.workshops.map((item) => ({
-            title: item.title,
-            role: item.role,
-            level: item.level,
-            year: item.year,
-        })),
-        extensionActivities: evidence.extensionActivities.map((item) => ({
-            title: item.title,
-            roleOrAudience: item.roleOrAudience,
-            year: item.year,
-        })),
-        collaborations: evidence.collaborations.map((item) => ({
-            organization: item.organization,
-            purpose: item.purpose,
-            year: item.year,
-        })),
-    };
-
-    if (partial.publications) {
-        evidence.publications = uniqueBy(
-            [...current.publications, ...partial.publications],
-            (item) => `${item.title}-${item.journal}-${item.year}`
-        );
-    }
-    if (partial.books) {
-        evidence.books = uniqueBy(
-            [...current.books, ...partial.books],
-            (item) => `${item.title}-${item.publisher}-${item.year}`
-        );
-    }
-    if (partial.projects) {
-        evidence.projects = uniqueBy(
-            [...current.projects, ...partial.projects],
-            (item) => `${item.title}-${item.fundingAgency}-${item.year}`
-        );
-    }
-    if (partial.patents) {
-        evidence.patents = uniqueBy(
-            [...current.patents, ...partial.patents],
-            (item) => `${item.title}-${item.status}-${item.year}`
-        );
-    }
-    if (partial.conferences) {
-        evidence.conferences = uniqueBy(
-            [...current.conferences, ...partial.conferences],
-            (item) => `${item.title}-${item.year}`
-        );
-    }
-    if (partial.workshops) {
-        evidence.workshops = uniqueBy(
-            [...current.workshops, ...partial.workshops],
-            (item) => `${item.title}-${item.year}`
-        );
-    }
-    if (partial.extensionActivities) {
-        evidence.extensionActivities = uniqueBy(
-            [...current.extensionActivities, ...partial.extensionActivities],
-            (item) => `${item.title}-${item.year}`
-        );
-    }
-    if (partial.collaborations) {
-        evidence.collaborations = uniqueBy(
-            [...current.collaborations, ...partial.collaborations],
-            (item) => `${item.organization}-${item.purpose}-${item.year}`
-        );
-    }
-
-    await evidence.save();
-    return evidence;
-}
-
-export async function syncEvidenceFromCas(facultyId: string, input: CasApplicationInput) {
-    return mergeEvidence(facultyId, {
-        publications: input.achievements.publications,
-        books: input.achievements.books,
-        projects: input.achievements.researchProjects,
-        conferences: Array.from({ length: input.achievements.conferences }).map((_, index) => ({
-            title: `CAS Conference Contribution ${index + 1}`,
-            year: input.eligibilityPeriod.toYear,
-        })),
-    });
-}
-
-export async function syncEvidenceFromPbas(facultyId: string, input: PbasApplicationInput) {
-    return mergeEvidence(facultyId, {
-        publications: input.category2.researchPapers,
-        books: input.category2.books,
-        projects: input.category2.projects,
-        patents: input.category2.patents,
-        conferences: input.category2.conferences,
         extensionActivities: input.category3.extensionActivities.map((item) => ({
             title: item.title,
             roleOrAudience: item.role,
@@ -222,20 +479,12 @@ export async function syncEvidenceFromAqar(facultyId: string, input: AqarApplica
             isbn: item.isbnIssnNumber,
             year: item.publicationYear ?? new Date().getFullYear(),
         })),
-        projects: [
-            ...input.facultyContribution.seedMoneyProjects.map((item) => ({
-                title: item.schemeOrProjectTitle,
-                fundingAgency: item.fundingAgencyName,
-                amount: item.fundsInInr ?? 0,
-                year: item.awardYear,
-            })),
-            ...input.facultyContribution.consultancyServices.map((item) => ({
-                title: item.consultancyProjectName,
-                fundingAgency: item.sponsoringAgencyContact,
-                amount: item.revenueGeneratedInInr ?? 0,
-                year: item.consultancyYear ?? new Date().getFullYear(),
-            })),
-        ],
+        projects: input.facultyContribution.seedMoneyProjects.map((item) => ({
+            title: item.schemeOrProjectTitle,
+            fundingAgency: item.fundingAgencyName,
+            amount: item.fundsInInr ?? 0,
+            year: item.awardYear,
+        })),
         patents: input.facultyContribution.patents.map((item) => ({
             title: item.title,
             year: item.awardYear ?? new Date().getFullYear(),
@@ -250,19 +499,21 @@ export async function syncEvidenceFromAqar(facultyId: string, input: AqarApplica
         workshops: input.facultyContribution.facultyDevelopmentProgrammes.map((item) => ({
             title: item.programTitle,
             role: item.organizedBy,
-            level: "FDP",
+            level: "National",
             year: Number(item.year) || new Date().getFullYear(),
         })),
         extensionActivities: input.facultyContribution.eContentDeveloped.map((item) => ({
             title: item.moduleName,
             roleOrAudience: item.platform,
-            year: Number(item.academicYear?.slice(0, 4)) || new Date().getFullYear(),
+            year:
+                parseInt(item.academicYear?.slice(0, 4) || "", 10) ||
+                new Date().getFullYear(),
         })),
     });
 }
 
 export async function getFacultyEvidenceDefaults(facultyId: string) {
-    const evidence = await getOrCreateEvidence(facultyId);
+    const evidence = await getFacultyEvidence(facultyId);
 
     return {
         cas: {
@@ -365,7 +616,7 @@ export async function getFacultyEvidenceDefaults(facultyId: string) {
                 status: item.status,
                 level: "National" as const,
                 awardYear: item.year,
-                academicYear: `${item.year}-${item.year + 1}`,
+                academicYear: academicYearLabelFromYear(item.year),
                 proof: "",
             })),
             phdAwards: [],
@@ -382,7 +633,7 @@ export async function getFacultyEvidenceDefaults(facultyId: string) {
                 isbnIssnNumber: item.isbn,
                 affiliationInstitute: "",
                 publisherName: item.publisher,
-                academicYear: `${item.year}-${item.year + 1}`,
+                academicYear: academicYearLabelFromYear(item.year),
                 proof: "",
             })),
             eContentDeveloped: [],

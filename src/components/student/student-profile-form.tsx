@@ -1,20 +1,20 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useFieldArray, useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import type { z } from "zod";
 
 import { FieldError, FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { ProfilePhotoUpload } from "@/components/faculty/profile-photo-upload";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ProfilePhotoUpload } from "@/components/faculty/profile-photo-upload";
 import { studentProfileSchema } from "@/lib/student/validators";
 
 type StudentProfileValues = z.input<typeof studentProfileSchema>;
@@ -64,20 +64,46 @@ type ExistingStudentDetails = {
     };
 };
 
-function toCsv(value?: string[]) {
-    return value?.join(", ") ?? "";
+type StudentMeta = {
+    enrollmentNo: string;
+    studentStatus: string;
+    accountStatus: string;
+    institutionName?: string;
+    departmentName?: string;
+    programName?: string;
+    degreeType?: string;
+    durationYears?: number;
+    admissionYear?: number;
+    mobile?: string;
+    lastLoginAt?: string | Date;
+};
+
+function formatLogin(value?: string | Date) {
+    if (!value) {
+        return "First-time access";
+    }
+
+    return new Intl.DateTimeFormat("en-IN", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+    }).format(new Date(value));
 }
 
 export function StudentProfileForm({
     studentId,
     studentName,
     studentEmail,
+    studentMeta,
     studentDetails,
     currentPhotoURL,
 }: {
     studentId: string;
     studentName: string;
     studentEmail: string;
+    studentMeta: StudentMeta;
     studentDetails?: ExistingStudentDetails;
     currentPhotoURL?: string;
 }) {
@@ -101,54 +127,27 @@ export function StudentProfileForm({
             emergencyContactPhone: studentDetails?.personalInfo?.emergencyContactPhone ?? "",
             parentName: studentDetails?.personalInfo?.parentName ?? "",
             parentPhone: studentDetails?.personalInfo?.parentPhone ?? "",
-            currentSemester: studentDetails?.academicInfo?.currentSemester ?? "",
-            cgpa: studentDetails?.academicInfo?.cgpa ?? "",
-            section: studentDetails?.academicInfo?.section ?? "",
-            mentorName: studentDetails?.academicInfo?.mentorName ?? "",
-            areasOfInterest: studentDetails?.academicInfo?.areasOfInterest ?? [],
-            headline: studentDetails?.careerProfile?.headline ?? "",
-            summary: studentDetails?.careerProfile?.summary ?? "",
-            careerObjective: studentDetails?.careerProfile?.careerObjective ?? "",
-            skills: studentDetails?.careerProfile?.skills ?? [],
-            languages: studentDetails?.careerProfile?.languages ?? [],
-            certifications: studentDetails?.careerProfile?.certifications ?? [],
-            achievements: studentDetails?.careerProfile?.achievements ?? [],
-            projects: studentDetails?.careerProfile?.projects ?? [],
-            internships: studentDetails?.careerProfile?.internships ?? [],
-            linkedin: studentDetails?.careerProfile?.socialLinks?.linkedin ?? "",
-            github: studentDetails?.careerProfile?.socialLinks?.github ?? "",
-            portfolio: studentDetails?.careerProfile?.socialLinks?.portfolio ?? "",
         },
     });
 
-    const projectFields = useFieldArray({
-        control: form.control,
-        name: "projects",
-    });
+    const completion = useMemo(() => {
+        const values = form.getValues();
+        const checks = [
+            values.dateOfBirth,
+            values.gender,
+            values.address,
+            values.city,
+            values.state,
+            values.postalCode,
+            values.emergencyContactName,
+            values.emergencyContactPhone,
+            values.parentName,
+            values.parentPhone,
+        ];
 
-    const internshipFields = useFieldArray({
-        control: form.control,
-        name: "internships",
-    });
-
-    function setCsvField(
-        field:
-            | "areasOfInterest"
-            | "skills"
-            | "languages"
-            | "certifications"
-            | "achievements",
-        value: string
-    ) {
-        form.setValue(
-            field,
-            value
-                .split(",")
-                .map((item) => item.trim())
-                .filter(Boolean),
-            { shouldValidate: true }
-        );
-    }
+        const done = checks.filter(Boolean).length;
+        return Math.round((done / checks.length) * 100);
+    }, [form]);
 
     function onSubmit(values: StudentProfileResolvedValues) {
         setMessage(null);
@@ -174,7 +173,7 @@ export function StudentProfileForm({
 
             setMessage({
                 type: "success",
-                text: data.message ?? "Profile submitted for HOD approval.",
+                text: data.message ?? "Profile saved successfully.",
             });
 
             if (data.redirectPath) {
@@ -186,32 +185,47 @@ export function StudentProfileForm({
     }
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-6">
             <Card className="relative overflow-hidden border-zinc-200 bg-white">
                 <div className="pointer-events-none absolute inset-0">
-                    <div className="absolute -left-10 top-6 h-32 w-32 rounded-full bg-sky-100/70 blur-3xl" />
-                    <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-amber-100/70 blur-3xl" />
+                    <div className="absolute -left-12 top-8 h-36 w-36 rounded-full bg-sky-100/70 blur-3xl" />
+                    <div className="absolute right-0 top-0 h-48 w-48 rounded-full bg-emerald-100/60 blur-3xl" />
                 </div>
-                <CardHeader className="relative">
-                    <CardTitle className="text-2xl">Student profile and approval</CardTitle>
+                <CardHeader className="relative space-y-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <CardTitle className="text-2xl">Student Profile Workspace</CardTitle>
+                        <Badge>{studentMeta.studentStatus}</Badge>
+                        <Badge
+                            className={
+                                studentMeta.accountStatus === "Active"
+                                    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                                    : "bg-amber-100 text-amber-700 hover:bg-amber-100"
+                            }
+                        >
+                            {studentMeta.accountStatus}
+                        </Badge>
+                        <Badge variant="secondary">{studentDetails?.profileStatus ?? "Draft"}</Badge>
+                    </div>
                     <CardDescription className="text-base">
-                        Complete your profile in full. HOD approval is required only for the first submission or after a rejection. Once approved, future edits save directly.
+                        A single professional profile surface for institutional identity, personal details,
+                        academics, and career portfolio. All sections below map directly to your student
+                        profile schema.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="relative grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <StatusItem label="Student" value={studentName} />
-                    <StatusItem label="Email" value={studentEmail} />
-                    <StatusItem label="Profile Status" value={studentDetails?.profileStatus ?? "Draft"} />
-                    <StatusItem label="Assigned HOD" value={studentDetails?.assignedHodName ?? "Not mapped"} />
+                <CardContent className="relative grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <MetaItem label="Student" value={studentName} />
+                    <MetaItem label="Institution Email" value={studentEmail} />
+                    <MetaItem label="Enrollment No." value={studentMeta.enrollmentNo} />
+                    <MetaItem label="Last Login" value={formatLogin(studentMeta.lastLoginAt)} />
                 </CardContent>
             </Card>
 
             <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-                <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+                <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
                     <Card className="border-zinc-200 bg-white">
                         <CardHeader>
-                            <CardTitle className="text-lg">Profile photo</CardTitle>
-                            <CardDescription>Upload a clear headshot for your student profile.</CardDescription>
+                            <CardTitle className="text-lg">Profile Photo</CardTitle>
+                            <CardDescription>Use a clear and professional headshot.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <ProfilePhotoUpload
@@ -219,277 +233,182 @@ export function StudentProfileForm({
                                 currentPhotoURL={currentPhotoURL}
                                 endpoint="/api/student/photo"
                             />
-                            <div className="grid gap-3">
-                                <StatusItem label="Roll No." value={studentDetails?.rollNo ?? "-"} />
-                                <StatusItem label="Course" value={studentDetails?.course ?? "-"} />
-                                <StatusItem label="Batch" value={studentDetails?.batch ?? "-"} />
-                            </div>
                         </CardContent>
                     </Card>
 
                     <Card className="border-zinc-200 bg-white">
                         <CardHeader>
-                            <CardTitle className="text-lg">Quick actions</CardTitle>
-                            <CardDescription>Keep a copy of your resume handy.</CardDescription>
+                            <CardTitle className="text-lg">Institution Mapping</CardTitle>
+                            <CardDescription>Read-only academic identity from the institution.</CardDescription>
                         </CardHeader>
-                        <CardContent className="flex flex-col gap-3">
-                            <Button asChild variant="secondary">
+                        <CardContent className="space-y-3">
+                            <ReadOnlyLine label="Roll Number" value={studentDetails?.rollNo ?? studentMeta.enrollmentNo} />
+                            <ReadOnlyLine label="Course" value={studentDetails?.course ?? studentMeta.programName ?? "-"} />
+                            <ReadOnlyLine label="Batch" value={studentDetails?.batch ?? "-"} />
+                            <ReadOnlyLine
+                                label="Admission Year"
+                                value={
+                                    studentDetails?.admissionYear ??
+                                    (studentMeta.admissionYear ? String(studentMeta.admissionYear) : "-")
+                                }
+                            />
+                            <ReadOnlyLine label="Institution" value={studentMeta.institutionName ?? "-"} />
+                            <ReadOnlyLine label="Department" value={studentMeta.departmentName ?? "-"} />
+                            <ReadOnlyLine label="Program" value={studentMeta.programName ?? "-"} />
+                            <ReadOnlyLine label="Degree Type" value={studentMeta.degreeType ?? "-"} />
+                            <ReadOnlyLine
+                                label="Program Duration"
+                                value={studentMeta.durationYears ? `${studentMeta.durationYears} years` : "-"}
+                            />
+                            <ReadOnlyLine label="Mobile" value={studentMeta.mobile ?? "-"} />
+                            <ReadOnlyLine label="Verifier" value={studentDetails?.assignedHodName ?? "Not assigned"} />
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-zinc-200 bg-white">
+                        <CardHeader>
+                            <CardTitle className="text-lg">Completion</CardTitle>
+                            <CardDescription>Track required profile readiness.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <div className="h-2 rounded-full bg-zinc-100">
+                                <div
+                                    className="h-2 rounded-full bg-zinc-900 transition-all"
+                                    style={{ width: `${completion}%` }}
+                                />
+                            </div>
+                            <p className="text-sm text-zinc-600">
+                                {completion}% of required profile fields completed.
+                            </p>
+                            <Button asChild className="w-full" variant="secondary">
                                 <a href="/api/student/resume">Download Resume PDF</a>
                             </Button>
                         </CardContent>
                     </Card>
-                </div>
+                </aside>
 
-                <div className="space-y-6">
+                <section className="space-y-4">
                     {studentDetails?.rejectionReason ? (
-                        <FormMessage message={`HOD feedback: ${studentDetails.rejectionReason}`} type="error" />
+                        <FormMessage
+                            message={`Reviewer feedback: ${studentDetails.rejectionReason}`}
+                            type="error"
+                        />
                     ) : null}
                     {message ? <FormMessage message={message.text} type={message.type} /> : null}
 
-                    <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-                        <SectionCard
-                            title="Academic identity"
-                            description="Core academic details used by the HOD while validating your profile."
-                        >
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                        <ReadOnlyItem label="Roll Number" value={studentDetails?.rollNo ?? "-"} />
-                        <ReadOnlyItem label="Course" value={studentDetails?.course ?? "-"} />
-                        <ReadOnlyItem label="Batch" value={studentDetails?.batch ?? "-"} />
-                        <ReadOnlyItem label="Admission Year" value={studentDetails?.admissionYear ?? "-"} />
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                        <Field label="Current Semester" id="currentSemester" error={form.formState.errors.currentSemester?.message}>
-                            <Input id="currentSemester" {...form.register("currentSemester")} />
-                        </Field>
-                        <Field label="CGPA" id="cgpa" error={form.formState.errors.cgpa?.message}>
-                            <Input id="cgpa" {...form.register("cgpa")} />
-                        </Field>
-                        <Field label="Section" id="section" error={form.formState.errors.section?.message}>
-                            <Input id="section" {...form.register("section")} />
-                        </Field>
-                        <Field label="Mentor Name" id="mentorName" error={form.formState.errors.mentorName?.message}>
-                            <Input id="mentorName" {...form.register("mentorName")} />
-                        </Field>
-                    </div>
-                </SectionCard>
-
-                <SectionCard title="Personal information" description="Mandatory identity and emergency-contact details.">
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                        <Field label="Date of Birth" id="dateOfBirth" error={form.formState.errors.dateOfBirth?.message}>
-                            <Input id="dateOfBirth" type="date" {...form.register("dateOfBirth")} />
-                        </Field>
-                        <Field label="Gender" id="gender" error={form.formState.errors.gender?.message}>
-                            <Controller
-                                control={form.control}
-                                name="gender"
-                                render={({ field }) => (
-                                    <Select value={field.value || undefined} onValueChange={field.onChange}>
-                                        <SelectTrigger id="gender" className="w-full">
-                                            <SelectValue placeholder="Select gender" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Male">Male</SelectItem>
-                                            <SelectItem value="Female">Female</SelectItem>
-                                            <SelectItem value="Other">Other</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            />
-                        </Field>
-                        <Field label="Blood Group" id="bloodGroup" error={form.formState.errors.bloodGroup?.message}>
-                            <Input id="bloodGroup" {...form.register("bloodGroup")} />
-                        </Field>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <Field label="Address" id="address" error={form.formState.errors.address?.message}>
-                            <Textarea id="address" {...form.register("address")} />
-                        </Field>
-                        <div className="grid gap-4">
-                            <div className="grid gap-4 md:grid-cols-3">
-                                <Field label="City" id="city" error={form.formState.errors.city?.message}>
-                                    <Input id="city" {...form.register("city")} />
-                                </Field>
-                                <Field label="State" id="state" error={form.formState.errors.state?.message}>
-                                    <Input id="state" {...form.register("state")} />
-                                </Field>
-                                <Field label="Postal Code" id="postalCode" error={form.formState.errors.postalCode?.message}>
-                                    <Input id="postalCode" {...form.register("postalCode")} />
-                                </Field>
-                            </div>
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <Field label="Emergency Contact Name" id="emergencyContactName" error={form.formState.errors.emergencyContactName?.message}>
-                                    <Input id="emergencyContactName" {...form.register("emergencyContactName")} />
-                                </Field>
-                                <Field label="Emergency Contact Phone" id="emergencyContactPhone" error={form.formState.errors.emergencyContactPhone?.message}>
-                                    <Input id="emergencyContactPhone" {...form.register("emergencyContactPhone")} />
-                                </Field>
-                            </div>
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <Field label="Parent Name" id="parentName" error={form.formState.errors.parentName?.message}>
-                                    <Input id="parentName" {...form.register("parentName")} />
-                                </Field>
-                                <Field label="Parent Phone" id="parentPhone" error={form.formState.errors.parentPhone?.message}>
-                                    <Input id="parentPhone" {...form.register("parentPhone")} />
-                                </Field>
-                            </div>
-                        </div>
-                    </div>
-                </SectionCard>
-
-                <SectionCard title="Career profile" description="This content is used for HOD approval and resume generation.">
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <Field label="Professional Headline" id="headline" error={form.formState.errors.headline?.message}>
-                            <Input id="headline" {...form.register("headline")} />
-                        </Field>
-                        <Field label="Areas of Interest" id="areasOfInterest" error={form.formState.errors.areasOfInterest?.message?.toString()}>
-                            <Input
-                                id="areasOfInterest"
-                                defaultValue={toCsv(studentDetails?.academicInfo?.areasOfInterest)}
-                                onChange={(event) => setCsvField("areasOfInterest", event.target.value)}
-                            />
-                        </Field>
-                    </div>
-                    <Field label="Summary" id="summary" error={form.formState.errors.summary?.message}>
-                        <Textarea id="summary" {...form.register("summary")} />
-                    </Field>
-                    <Field label="Career Objective" id="careerObjective" error={form.formState.errors.careerObjective?.message}>
-                        <Textarea id="careerObjective" {...form.register("careerObjective")} />
-                    </Field>
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                        <CsvField label="Skills" field="skills" initialValue={toCsv(studentDetails?.careerProfile?.skills)} onChange={setCsvField} />
-                        <CsvField label="Languages" field="languages" initialValue={toCsv(studentDetails?.careerProfile?.languages)} onChange={setCsvField} />
-                        <CsvField label="Certifications" field="certifications" initialValue={toCsv(studentDetails?.careerProfile?.certifications)} onChange={setCsvField} />
-                        <CsvField label="Achievements" field="achievements" initialValue={toCsv(studentDetails?.careerProfile?.achievements)} onChange={setCsvField} />
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-3">
-                        <Field label="LinkedIn" id="linkedin" error={form.formState.errors.linkedin?.message}>
-                            <Input id="linkedin" {...form.register("linkedin")} />
-                        </Field>
-                        <Field label="GitHub" id="github" error={form.formState.errors.github?.message}>
-                            <Input id="github" {...form.register("github")} />
-                        </Field>
-                        <Field label="Portfolio" id="portfolio" error={form.formState.errors.portfolio?.message}>
-                            <Input id="portfolio" {...form.register("portfolio")} />
-                        </Field>
-                    </div>
-                </SectionCard>
-
-                <SectionCard title="Projects" description="Add academic, capstone, freelance, or personal projects.">
-                    <div className="grid gap-4">
-                        {projectFields.fields.map((field, index) => (
-                            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={field.id}>
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    <Field label="Project Title" id={`project-title-${index}`} error={form.formState.errors.projects?.[index]?.title?.message}>
-                                        <Input id={`project-title-${index}`} {...form.register(`projects.${index}.title`)} />
-                                    </Field>
-                                    <Field label="Project Link" id={`project-link-${index}`} error={form.formState.errors.projects?.[index]?.link?.message}>
-                                        <Input id={`project-link-${index}`} {...form.register(`projects.${index}.link`)} />
-                                    </Field>
+                    <Card className="border-zinc-200 bg-white">
+                        <CardHeader>
+                            <CardTitle className="text-xl">Edit Profile Details</CardTitle>
+                            <CardDescription>
+                                Update only your personal and emergency-contact information here.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
+                                <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-800">
+                                    Academic, career, and portfolio records are managed separately in <a className="font-semibold underline" href="/student/records">Records Workspace</a>.
                                 </div>
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    <Field label="Description" id={`project-description-${index}`} error={form.formState.errors.projects?.[index]?.description?.message}>
-                                        <Textarea id={`project-description-${index}`} {...form.register(`projects.${index}.description`)} />
+
+                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                    <Field
+                                        label="Date of Birth"
+                                        id="dateOfBirth"
+                                        error={form.formState.errors.dateOfBirth?.message}
+                                    >
+                                        <Input id="dateOfBirth" type="date" {...form.register("dateOfBirth")} />
                                     </Field>
-                                    <Field label="Tech Stack (comma separated)" id={`project-tech-${index}`} error={form.formState.errors.projects?.[index]?.techStack?.message?.toString()}>
-                                        <Input
-                                            id={`project-tech-${index}`}
-                                            defaultValue={field.techStack?.join(", ") ?? ""}
-                                            onChange={(event) =>
-                                                form.setValue(
-                                                    `projects.${index}.techStack`,
-                                                    event.target.value.split(",").map((item) => item.trim()).filter(Boolean)
-                                                )
-                                            }
+                                    <Field label="Gender" id="gender" error={form.formState.errors.gender?.message}>
+                                        <Controller
+                                            control={form.control}
+                                            name="gender"
+                                            render={({ field }) => (
+                                                <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                                    <SelectTrigger id="gender" className="w-full">
+                                                        <SelectValue placeholder="Select gender" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="Male">Male</SelectItem>
+                                                        <SelectItem value="Female">Female</SelectItem>
+                                                        <SelectItem value="Other">Other</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
                                         />
                                     </Field>
-                                </div>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                    onClick={() => projectFields.remove(index)}
-                                    aria-label={`Delete project ${index + 1}`}
-                                >
-                                    <Trash2 className="size-4" />
-                                </Button>
-                            </div>
-                        ))}
-                        <Button type="button" variant="secondary" onClick={() => projectFields.append({ title: "", description: "", techStack: [], link: "" })}>
-                            Add Project
-                        </Button>
-                    </div>
-                </SectionCard>
-
-                <SectionCard title="Internships" description="Add internships, trainings, industrial attachments, or apprenticeships.">
-                    <div className="grid gap-4">
-                        {internshipFields.fields.map((field, index) => (
-                            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={field.id}>
-                                <div className="grid gap-4 md:grid-cols-3">
-                                    <Field label="Organization" id={`internship-org-${index}`} error={form.formState.errors.internships?.[index]?.organization?.message}>
-                                        <Input id={`internship-org-${index}`} {...form.register(`internships.${index}.organization`)} />
-                                    </Field>
-                                    <Field label="Role" id={`internship-role-${index}`} error={form.formState.errors.internships?.[index]?.role?.message}>
-                                        <Input id={`internship-role-${index}`} {...form.register(`internships.${index}.role`)} />
-                                    </Field>
-                                    <Field label="Duration" id={`internship-duration-${index}`} error={form.formState.errors.internships?.[index]?.duration?.message}>
-                                        <Input id={`internship-duration-${index}`} {...form.register(`internships.${index}.duration`)} />
+                                    <Field
+                                        label="Blood Group"
+                                        id="bloodGroup"
+                                        error={form.formState.errors.bloodGroup?.message}
+                                    >
+                                        <Input id="bloodGroup" {...form.register("bloodGroup")} />
                                     </Field>
                                 </div>
-                                <Field label="Description" id={`internship-description-${index}`} error={form.formState.errors.internships?.[index]?.description?.message}>
-                                    <Textarea id={`internship-description-${index}`} {...form.register(`internships.${index}.description`)} />
+                                <Field label="Address" id="address" error={form.formState.errors.address?.message}>
+                                    <Textarea id="address" {...form.register("address")} />
                                 </Field>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                    onClick={() => internshipFields.remove(index)}
-                                    aria-label={`Delete internship ${index + 1}`}
-                                >
-                                    <Trash2 className="size-4" />
-                                </Button>
-                            </div>
-                        ))}
-                        <Button type="button" variant="secondary" onClick={() => internshipFields.append({ organization: "", role: "", duration: "", description: "" })}>
-                            Add Internship
-                        </Button>
-                    </div>
-                </SectionCard>
+                                <div className="grid gap-4 md:grid-cols-3">
+                                    <Field label="City" id="city" error={form.formState.errors.city?.message}>
+                                        <Input id="city" {...form.register("city")} />
+                                    </Field>
+                                    <Field label="State" id="state" error={form.formState.errors.state?.message}>
+                                        <Input id="state" {...form.register("state")} />
+                                    </Field>
+                                    <Field
+                                        label="Postal Code"
+                                        id="postalCode"
+                                        error={form.formState.errors.postalCode?.message}
+                                    >
+                                        <Input id="postalCode" {...form.register("postalCode")} />
+                                    </Field>
+                                </div>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <Field
+                                        label="Emergency Contact Name"
+                                        id="emergencyContactName"
+                                        error={form.formState.errors.emergencyContactName?.message}
+                                    >
+                                        <Input id="emergencyContactName" {...form.register("emergencyContactName")} />
+                                    </Field>
+                                    <Field
+                                        label="Emergency Contact Phone"
+                                        id="emergencyContactPhone"
+                                        error={form.formState.errors.emergencyContactPhone?.message}
+                                    >
+                                        <Input id="emergencyContactPhone" {...form.register("emergencyContactPhone")} />
+                                    </Field>
+                                </div>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <Field
+                                        label="Parent Name"
+                                        id="parentName"
+                                        error={form.formState.errors.parentName?.message}
+                                    >
+                                        <Input id="parentName" {...form.register("parentName")} />
+                                    </Field>
+                                    <Field
+                                        label="Parent Phone"
+                                        id="parentPhone"
+                                        error={form.formState.errors.parentPhone?.message}
+                                    >
+                                        <Input id="parentPhone" {...form.register("parentPhone")} />
+                                    </Field>
+                                </div>
 
-                        <div className="flex flex-wrap gap-3">
-                            <Button disabled={isPending} size="lg" type="submit">
-                                {isPending ? <Spinner /> : null}
-                                Submit To HOD For Approval
-                            </Button>
-                            <Button asChild size="lg" variant="secondary">
-                                <a href="/api/student/resume">Download Resume PDF</a>
-                            </Button>
-                        </div>
-                    </form>
-                </div>
+                                <div className="flex flex-wrap gap-3 border-t border-zinc-200 pt-4">
+                                    <Button disabled={isPending} size="lg" type="submit">
+                                        {isPending ? <Spinner /> : null}
+                                        Save Student Profile
+                                    </Button>
+                                    <Button asChild size="lg" variant="secondary">
+                                        <a href="/api/student/resume">Download Resume PDF</a>
+                                    </Button>
+                                </div>
+                            </form>
+                        </CardContent>
+                    </Card>
+                </section>
             </div>
         </div>
-    );
-}
-
-function SectionCard({
-    title,
-    description,
-    children,
-}: {
-    title: string;
-    description: string;
-    children: React.ReactNode;
-}) {
-    return (
-        <Card className="border-zinc-200 bg-white shadow-sm">
-            <CardHeader>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4">{children}</CardContent>
-        </Card>
     );
 }
 
@@ -513,7 +432,7 @@ function Field({
     );
 }
 
-function StatusItem({ label, value }: { label: string; value: string }) {
+function MetaItem({ label, value }: { label: string; value: string }) {
     return (
         <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
@@ -522,39 +441,11 @@ function StatusItem({ label, value }: { label: string; value: string }) {
     );
 }
 
-function ReadOnlyItem({ label, value }: { label: string; value: string }) {
+function ReadOnlyLine({ label, value }: { label: string; value: string }) {
     return (
-        <div className="grid gap-2">
-            <Label>{label}</Label>
-            <div className="flex h-10 items-center rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-600">
-                {value}
-            </div>
-        </div>
-    );
-}
-
-function CsvField({
-    label,
-    field,
-    initialValue,
-    onChange,
-}: {
-    label: string;
-    field: "skills" | "languages" | "certifications" | "achievements";
-    initialValue: string;
-    onChange: (
-        field: "areasOfInterest" | "skills" | "languages" | "certifications" | "achievements",
-        value: string
-    ) => void;
-}) {
-    return (
-        <div className="grid gap-2">
-            <Label htmlFor={field}>{label}</Label>
-            <Input
-                defaultValue={initialValue}
-                id={field}
-                onChange={(event) => onChange(field, event.target.value)}
-            />
+        <div className="grid gap-1 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+            <p className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">{label}</p>
+            <p className="text-sm font-semibold text-zinc-900">{value}</p>
         </div>
     );
 }

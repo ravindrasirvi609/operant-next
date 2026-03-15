@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 
 import { createApiErrorResponse } from "@/lib/auth/http";
-import { registerUser } from "@/lib/auth/user";
 
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
-        const result = await registerUser(body);
-
-        return NextResponse.json(result, { status: 201 });
+        await request.json();
+        return NextResponse.json(
+            {
+                message:
+                    "Public faculty registration is disabled. Ask Admin/HR/IQAC to provision your account, then use First Time Faculty Login Setup.",
+            },
+            { status: 410 }
+        );
     } catch (error) {
         return createApiErrorResponse(error);
     }

@@ -64,6 +64,36 @@ export const masterDataCategories = [
         label: "Administrative Offices",
         description: "Non-academic units such as IQAC, Exam, Establishment, PRO, and Placement.",
     },
+    {
+        id: "award",
+        label: "Awards & Achievements",
+        description: "Student-facing award and achievement master list used in records.",
+    },
+    {
+        id: "skill",
+        label: "Skills & Certifications",
+        description: "Skills and certification masters used in student records.",
+    },
+    {
+        id: "sport",
+        label: "Sports",
+        description: "Sports master list used for student activity records.",
+    },
+    {
+        id: "cultural-activity",
+        label: "Cultural Activities",
+        description: "Cultural activity master list for student records.",
+    },
+    {
+        id: "event",
+        label: "Events",
+        description: "Events master list for student participation records.",
+    },
+    {
+        id: "social-program",
+        label: "Social Programs",
+        description: "Social program master list (NSS, NCC, outreach, etc.).",
+    },
 ];
 
 export const masterDataCategoryIds = masterDataCategories.map((item) => item.id);

@@ -26,23 +26,6 @@ export const studentProfileSchema = z.object({
     emergencyContactPhone: z.string().trim().min(10, "Emergency contact phone is required."),
     parentName: z.string().trim().min(2, "Parent name is required."),
     parentPhone: z.string().trim().min(10, "Parent phone is required."),
-    currentSemester: z.string().trim().min(1, "Current semester is required."),
-    cgpa: z.string().trim().min(1, "CGPA is required."),
-    section: z.string().trim().optional(),
-    mentorName: z.string().trim().optional(),
-    areasOfInterest: z.array(z.string().trim()).default([]),
-    headline: z.string().trim().min(3, "Headline is required."),
-    summary: z.string().trim().min(20, "Summary should be at least 20 characters."),
-    careerObjective: z.string().trim().min(20, "Career objective should be at least 20 characters."),
-    skills: z.array(z.string().trim()).min(1, "Add at least one skill."),
-    languages: z.array(z.string().trim()).default([]),
-    certifications: z.array(z.string().trim()).default([]),
-    achievements: z.array(z.string().trim()).default([]),
-    projects: z.array(studentProjectSchema).default([]),
-    internships: z.array(studentInternshipSchema).default([]),
-    linkedin: z.string().trim().optional(),
-    github: z.string().trim().optional(),
-    portfolio: z.string().trim().optional(),
 });
 
 export const studentApprovalDecisionSchema = z.object({

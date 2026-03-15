@@ -442,7 +442,7 @@ const StatusLogSchema = new Schema<IAqarStatusLog>(
 
 const AqarApplicationSchema = new Schema<IAqarApplication>(
     {
-        facultyId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+        facultyId: { type: Schema.Types.ObjectId, ref: "Faculty", required: true, index: true },
         academicYear: { type: String, required: true, trim: true, index: true },
         reportingPeriod: {
             fromDate: createStringSchema(true),

@@ -39,7 +39,7 @@ export default async function Home() {
               {user.role === "Faculty" ? (
                 <>
                   <Button asChild>
-                    <Link href="/faculty/profile">Open Faculty Workspace</Link>
+                    <Link href="/faculty">Open Faculty Workspace</Link>
                   </Button>
                   <Button asChild variant="secondary">
                     <Link href="/faculty/cas">Open CAS Module</Link>
@@ -54,6 +54,11 @@ export default async function Home() {
                     <Link href="/faculty/evidence">Open Shared Evidence</Link>
                   </Button>
                 </>
+              ) : null}
+              {user.role === "Student" ? (
+                <Button asChild>
+                  <Link href="/student/profile">Open Student Portal</Link>
+                </Button>
               ) : null}
               <Button variant="secondary">Authenticated Session Active</Button>
               <LogoutButton />
@@ -91,7 +96,7 @@ export default async function Home() {
               <FeatureLine text="bcryptjs password hashing with strong validation rules" />
               <FeatureLine text="Signed jose JWT session cookie stored as HTTP-only" />
               <FeatureLine text="Resend-driven email verification and password recovery" />
-              <FeatureLine text="Faculty and student self-registration with role-specific fields" />
+              <FeatureLine text="Institutional pre-provisioning with first-time activation for faculty and students" />
               <FeatureLine text="Forgot password, reset password, resend verification, logout" />
             </CardContent>
           </Card>

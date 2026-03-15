@@ -1,12 +1,12 @@
 import { CasDashboard } from "@/components/cas/cas-dashboard";
 import { requireFaculty } from "@/lib/auth/user";
-import { getFacultyCasApplications } from "@/lib/cas/service";
+import { getCasEligibilityForFaculty, getFacultyCasApplications } from "@/lib/cas/service";
 import { getFacultyEvidenceDefaults } from "@/lib/faculty-evidence/service";
 import { getPbasReportsForCas } from "@/lib/pbas/service";
 
 export default async function FacultyCasPage() {
     const faculty = await requireFaculty();
-    const [pbasReports, applications, evidenceDefaults] = await Promise.all([
+    const [pbasReports, applications, evidenceDefaults, eligibility] = await Promise.all([
         getPbasReportsForCas(faculty.id),
         getFacultyCasApplications({
             id: faculty.id,
@@ -15,6 +15,12 @@ export default async function FacultyCasPage() {
             department: faculty.department,
         }),
         getFacultyEvidenceDefaults(faculty.id),
+        getCasEligibilityForFaculty({
+            id: faculty.id,
+            name: faculty.name,
+            role: faculty.role,
+            department: faculty.department,
+        }),
     ]);
 
     return (
@@ -22,6 +28,8 @@ export default async function FacultyCasPage() {
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 <CasDashboard
                     facultyName={faculty.name}
+                    facultyId={faculty.id}
+                    eligibility={JSON.parse(JSON.stringify(eligibility))}
                     initialApplications={JSON.parse(JSON.stringify(applications))}
                     evidenceDefaults={JSON.parse(JSON.stringify(evidenceDefaults.cas))}
                     pbasOptions={JSON.parse(

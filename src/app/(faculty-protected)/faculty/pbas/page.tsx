@@ -1,18 +1,22 @@
 import { PbasDashboard } from "@/components/pbas/pbas-dashboard";
 import { requireFaculty } from "@/lib/auth/user";
-import { getFacultyEvidenceDefaults } from "@/lib/faculty-evidence/service";
-import { getFacultyPbasApplications } from "@/lib/pbas/service";
+import { getFacultyPbasApplications, getPbasSummaryForFaculty } from "@/lib/pbas/service";
 
 export default async function FacultyPbasPage() {
     const faculty = await requireFaculty();
-    const [applications, evidenceDefaults] = await Promise.all([
+    const [applications, summary] = await Promise.all([
         getFacultyPbasApplications({
             id: faculty.id,
             name: faculty.name,
             role: faculty.role,
             department: faculty.department,
         }),
-        getFacultyEvidenceDefaults(faculty.id),
+        getPbasSummaryForFaculty({
+            id: faculty.id,
+            name: faculty.name,
+            role: faculty.role,
+            department: faculty.department,
+        }),
     ]);
 
     return (
@@ -20,7 +24,8 @@ export default async function FacultyPbasPage() {
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 <PbasDashboard
                     facultyName={faculty.name}
-                    evidenceDefaults={JSON.parse(JSON.stringify(evidenceDefaults.pbas))}
+                    facultyId={faculty.id}
+                    summary={JSON.parse(JSON.stringify(summary))}
                     initialApplications={JSON.parse(JSON.stringify(applications))}
                 />
             </div>

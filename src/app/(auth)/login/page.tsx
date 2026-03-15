@@ -17,8 +17,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     return (
         <AuthShell
             eyebrow="Authentication"
-            title="Faculty and student sign in"
-            description="UMIS entry is restricted to authenticated accounts. Anonymous users are redirected to this page."
+            title="Institutional sign in"
+            description="Students sign in with email or enrollment number after first-time activation. Faculty and staff sign in with email after institutional provisioning and activation."
         >
             <LoginForm
                 defaultEmail={params.email}

@@ -9,13 +9,18 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { addHours, addMinutes, createRandomToken, hashToken } from "@/lib/auth/tokens";
 import {
     adminBootstrapSchema,
+    adminLoginSchema,
+    facultyActivationSchema,
     forgotPasswordSchema,
     loginSchema,
     registerSchema,
     resendVerificationSchema,
     resetPasswordSchema,
+    studentActivationSchema,
 } from "@/lib/auth/validators";
 import Organization from "@/models/core/organization";
+import Faculty from "@/models/faculty/faculty";
+import Student from "@/models/student/student";
 import User, { IUser } from "@/models/core/user";
 
 type SafeUser = {
@@ -23,32 +28,36 @@ type SafeUser = {
     name: string;
     email: string;
     role: string;
+    accountStatus: IUser["accountStatus"];
     universityName?: string;
     department?: string;
     collegeName?: string;
     designation?: string;
     phone?: string;
+    facultyId?: string;
     emailVerified: boolean;
     studentDetails?: IUser["studentDetails"];
     lastLoginAt?: Date;
 };
 
-function getStudentPostLoginPath(user: SafeUser) {
-    if (user.role !== "Student") {
-        return "/";
+function getPostLoginPath(user: SafeUser) {
+    if (user.role === "Student") {
+        if (user.accountStatus === "PendingActivation") {
+            return "/activate-student";
+        }
+
+        return "/student/profile";
     }
 
-    const profileStatus = user.studentDetails?.profileStatus;
+    if (user.role === "Faculty") {
+        if (user.accountStatus === "PendingActivation") {
+            return "/activate-faculty";
+        }
 
-    if (profileStatus === "Approved") {
-        return "/";
+        return "/faculty";
     }
 
-    if (profileStatus === "PendingApproval") {
-        return "/student/verification-pending";
-    }
-
-    return "/student/profile";
+    return "/";
 }
 
 function toSafeUser(user: IUser): SafeUser {
@@ -57,11 +66,13 @@ function toSafeUser(user: IUser): SafeUser {
         name: user.name,
         email: user.email,
         role: user.role,
+        accountStatus: user.accountStatus,
         universityName: user.universityName,
         department: user.department,
         collegeName: user.collegeName,
         designation: user.designation,
         phone: user.phone,
+        facultyId: user.facultyId?.toString(),
         emailVerified: user.emailVerified,
         studentDetails: user.studentDetails,
         lastLoginAt: user.lastLoginAt,
@@ -85,6 +96,31 @@ type LoginOptions = {
     requiredRole?: string;
     roleMismatchMessage?: string;
 };
+
+function normalizePhone(value?: string | null) {
+    return String(value ?? "").replace(/\D+/g, "");
+}
+
+async function findUserForLogin(identifier: string) {
+    const normalized = identifier.trim();
+    const emailCandidate = normalized.toLowerCase();
+
+    const user =
+        (await User.findOne({ email: emailCandidate }).select("+password")) ||
+        null;
+
+    if (user) {
+        return user;
+    }
+
+    const student = await Student.findOne({ enrollmentNo: normalized }).select("userId");
+
+    if (!student?.userId) {
+        return null;
+    }
+
+    return User.findById(student.userId).select("+password");
+}
 
 export async function registerUser(rawInput: unknown) {
     const input = registerSchema.parse(rawInput);
@@ -110,15 +146,7 @@ export async function registerUser(rawInput: unknown) {
         department: input.department,
         collegeName: input.collegeName,
         designation: input.role === "Faculty" ? input.designation : undefined,
-        studentDetails:
-            input.role === "Student"
-                ? {
-                      rollNo: input.rollNo,
-                      course: input.course,
-                      batch: input.batch,
-                      admissionYear: input.admissionYear,
-                  }
-                : undefined,
+        accountStatus: "Active",
         qualifications: [],
         experience: [],
         emailVerified: false,
@@ -136,19 +164,37 @@ export async function loginUser(rawInput: unknown, options?: LoginOptions) {
 
     await dbConnect();
 
-    const user = await User.findOne({ email: input.email.toLowerCase() }).select("+password");
+    const user = await findUserForLogin(input.email);
 
-    if (!user?.password) {
-        throw new AuthError("Invalid email or password.", 401);
+    if (!user) {
+        throw new AuthError("Invalid credentials.", 401);
+    }
+
+    if (user.role === "Student" && (!user.password || user.accountStatus === "PendingActivation")) {
+        throw new AuthError(
+            "Your institutional account is ready. Complete First Time Student Login Setup before signing in.",
+            403
+        );
+    }
+
+    if (user.role === "Faculty" && (!user.password || user.accountStatus === "PendingActivation")) {
+        throw new AuthError(
+            "Your institutional faculty account is ready. Complete First Time Faculty Login Setup before signing in.",
+            403
+        );
+    }
+
+    if (!user.password) {
+        throw new AuthError("Invalid credentials.", 401);
     }
 
     const isValidPassword = await verifyPassword(input.password, user.password);
 
     if (!isValidPassword) {
-        throw new AuthError("Invalid email or password.", 401);
+        throw new AuthError("Invalid credentials.", 401);
     }
 
-    if (!user.isActive && user.role !== "Student") {
+    if (!user.isActive || user.accountStatus === "Suspended") {
         throw new AuthError("This UMIS account has been deactivated.", 403);
     }
 
@@ -176,13 +222,18 @@ export async function loginUser(rawInput: unknown, options?: LoginOptions) {
 
     await setSessionCookie(token);
 
+    const safeUser = toSafeUser(user);
+
     return {
         message: "Login successful.",
-        user: toSafeUser(user),
+        redirectPath: getPostLoginPath(safeUser),
+        user: safeUser,
     };
 }
 
 export async function loginAdmin(rawInput: unknown) {
+    adminLoginSchema.parse(rawInput);
+
     return loginUser(rawInput, {
         requiredRole: "Admin",
         roleMismatchMessage: "Only admin users can access the admin portal.",
@@ -229,7 +280,7 @@ export async function requestPasswordReset(rawInput: unknown) {
 
     const user = await User.findOne({ email: input.email.toLowerCase() });
 
-    if (user && user.emailVerified && user.isActive) {
+    if (user && user.emailVerified && user.isActive && user.accountStatus === "Active") {
         const rawToken = createRandomToken();
         user.passwordResetTokenHash = hashToken(rawToken);
         user.passwordResetExpiresAt = addMinutes(authConfig.passwordResetDurationMinutes);
@@ -263,6 +314,7 @@ export async function resetPassword(rawInput: unknown) {
     }
 
     user.password = await hashPassword(input.password);
+    user.accountStatus = "Active";
     user.passwordResetTokenHash = undefined;
     user.passwordResetExpiresAt = undefined;
     user.lastLoginAt = new Date();
@@ -290,7 +342,7 @@ export async function resendVerificationEmail(rawInput: unknown) {
 
     const user = await User.findOne({ email: input.email.toLowerCase() });
 
-    if (user && !user.emailVerified && user.isActive) {
+    if (user && !user.emailVerified && user.isActive && user.accountStatus !== "PendingActivation") {
         await issueVerificationToken(user);
     }
 
@@ -316,6 +368,9 @@ export async function verifyEmailToken(token: string) {
     }
 
     user.emailVerified = true;
+    if (user.accountStatus !== "Suspended") {
+        user.accountStatus = "Active";
+    }
     user.emailVerificationTokenHash = undefined;
     user.emailVerificationExpiresAt = undefined;
     await user.save();
@@ -323,6 +378,142 @@ export async function verifyEmailToken(token: string) {
     return {
         success: true,
         message: "Email verified. You can now sign in to UMIS.",
+    };
+}
+
+export async function activateStudentAccount(rawInput: unknown) {
+    const input = studentActivationSchema.parse(rawInput);
+
+    await dbConnect();
+
+    const student = await Student.findOne({
+        enrollmentNo: input.enrollmentNo.trim(),
+    }).select("userId email mobile");
+
+    if (!student?.userId) {
+        throw new AuthError(
+            "No pre-provisioned student account was found for that enrollment number.",
+            404
+        );
+    }
+
+    const user = await User.findById(student.userId).select("+password");
+
+    if (!user || user.role !== "Student") {
+        throw new AuthError("Student activation record is invalid.", 400);
+    }
+
+    const verificationValue = input.verificationValue.trim();
+    const isEmailVerification = verificationValue.includes("@");
+
+    const verified = isEmailVerification
+        ? [user.email, student.email].some(
+              (value) =>
+                  value?.trim().toLowerCase() === verificationValue.toLowerCase()
+          )
+        : [user.phone, student.mobile].some(
+              (value) => normalizePhone(value) === normalizePhone(verificationValue)
+          );
+
+    if (!verified) {
+        throw new AuthError(
+            "The enrollment number and registered contact details do not match our records.",
+            403
+        );
+    }
+
+    if (user.password && user.accountStatus === "Active") {
+        throw new AuthError(
+            "This student account is already activated. Sign in normally instead.",
+            409
+        );
+    }
+
+    user.password = await hashPassword(input.password);
+    user.accountStatus = "Active";
+    user.emailVerified = true;
+    user.isActive = true;
+    user.studentId = student._id;
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    const token = await createSessionToken({
+        sub: user._id.toString(),
+        email: user.email,
+        name: user.name,
+        role: user.role,
+    });
+
+    await setSessionCookie(token);
+
+    const safeUser = toSafeUser(user);
+
+    return {
+        message: "Student account activated successfully.",
+        redirectPath: getPostLoginPath(safeUser),
+        user: safeUser,
+    };
+}
+
+export async function activateFacultyAccount(rawInput: unknown) {
+    const input = facultyActivationSchema.parse(rawInput);
+
+    await dbConnect();
+
+    const faculty = await Faculty.findOne({
+        employeeCode: input.employeeCode.trim(),
+    }).select("userId email");
+
+    if (!faculty?.userId) {
+        throw new AuthError(
+            "No pre-provisioned faculty account was found for that employee code.",
+            404
+        );
+    }
+
+    const user = await User.findById(faculty.userId).select("+password");
+
+    if (!user || user.role !== "Faculty") {
+        throw new AuthError("Faculty activation record is invalid.", 400);
+    }
+
+    if (user.email.trim().toLowerCase() !== input.email.trim().toLowerCase()) {
+        throw new AuthError(
+            "The employee code and registered institutional email do not match our records.",
+            403
+        );
+    }
+
+    if (user.password && user.accountStatus === "Active") {
+        throw new AuthError(
+            "This faculty account is already activated. Sign in normally instead.",
+            409
+        );
+    }
+
+    user.password = await hashPassword(input.password);
+    user.accountStatus = "Active";
+    user.emailVerified = true;
+    user.isActive = true;
+    user.facultyId = faculty._id;
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    const token = await createSessionToken({
+        sub: user._id.toString(),
+        email: user.email,
+        name: user.name,
+        role: user.role,
+    });
+
+    await setSessionCookie(token);
+
+    const safeUser = toSafeUser(user);
+
+    return {
+        message: "Faculty account activated successfully.",
+        redirectPath: getPostLoginPath(safeUser),
+        user: safeUser,
     };
 }
 
@@ -404,8 +595,12 @@ export async function requireAuth() {
         redirect("/login");
     }
 
-    if (user.role === "Student" && user.studentDetails?.profileStatus !== "Approved") {
-        redirect(getStudentPostLoginPath(user));
+    if (user.role === "Student" && user.accountStatus === "PendingActivation") {
+        redirect(getPostLoginPath(user));
+    }
+
+    if (user.role === "Faculty" && user.accountStatus === "PendingActivation") {
+        redirect(getPostLoginPath(user));
     }
 
     return user;
@@ -422,30 +617,8 @@ export async function requireStudentProfileAccess() {
         redirect("/");
     }
 
-    if (user.studentDetails?.profileStatus === "PendingApproval") {
-        redirect("/student/verification-pending");
-    }
-
-    return user;
-}
-
-export async function requireStudentPendingApprovalAccess() {
-    const user = await getCurrentUser();
-
-    if (!user) {
-        redirect("/login");
-    }
-
-    if (user.role !== "Student") {
-        redirect("/");
-    }
-
-    if (user.studentDetails?.profileStatus === "Approved") {
-        redirect("/");
-    }
-
-    if (user.studentDetails?.profileStatus !== "PendingApproval") {
-        redirect("/student/profile");
+    if (user.accountStatus === "PendingActivation") {
+        redirect("/activate-student");
     }
 
     return user;
@@ -474,6 +647,10 @@ export async function requireFaculty() {
 
     if (user.role !== "Faculty") {
         redirect("/");
+    }
+
+    if (user.accountStatus === "PendingActivation") {
+        redirect("/activate-faculty");
     }
 
     return user;
@@ -508,7 +685,7 @@ export async function redirectIfAuthenticated() {
     const user = await getCurrentUser();
 
     if (user) {
-        redirect(getStudentPostLoginPath(user));
+        redirect(getPostLoginPath(user));
     }
 }
 

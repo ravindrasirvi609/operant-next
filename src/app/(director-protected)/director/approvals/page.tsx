@@ -1,12 +1,20 @@
-import { DirectorApprovalQueue } from "@/components/director/director-approval-queue";
 import { requireDirector } from "@/lib/auth/user";
-import { getHodApprovalQueue } from "@/lib/student/service";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function DirectorApprovalsPage() {
-    const director = await requireDirector();
-    const students = await getHodApprovalQueue(director.id);
+    await requireDirector();
 
     return (
-        <DirectorApprovalQueue students={JSON.parse(JSON.stringify(students))} />
+        <Card>
+            <CardHeader>
+                <CardTitle>Student approval workflow retired</CardTitle>
+                <CardDescription>
+                    Student self-submission and HOD approval are no longer part of the accreditation identity flow.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="text-sm leading-7 text-zinc-600">
+                Student identities are now provisioned centrally by the institution. Students activate their pre-created accounts through First Time Student Login Setup, so there is no pending approval queue here anymore.
+            </CardContent>
+        </Card>
     );
 }

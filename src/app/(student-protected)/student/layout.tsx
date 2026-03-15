@@ -21,15 +21,10 @@ export default async function StudentLayout({
     redirect("/");
   }
 
-  const studentDetails = user.studentDetails;
-  const isApproved = studentDetails?.profileStatus === "Approved";
-
   const navLinks = [
     { label: "Home", href: "/" },
     { label: "Profile", href: "/student/profile" },
-    ...(isApproved
-      ? [{ label: "Resume", href: "/api/student/resume" }]
-      : [{ label: "Verification", href: "/student/verification-pending" }]),
+    { label: "Records", href: "/student/records" },
   ];
 
   return (
@@ -57,17 +52,13 @@ export default async function StudentLayout({
           <div className="flex items-center gap-2">
             <div className="hidden text-right text-xs text-zinc-500 sm:block">
               <p className="font-medium text-zinc-900">{user.name}</p>
-              <p>{studentDetails?.course ?? "Student"}</p>
+              <p>{user.studentDetails?.course ?? "Student"}</p>
             </div>
             <Badge variant="secondary">{user.role ?? "Student"}</Badge>
             <Badge
-              className={
-                isApproved
-                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
-                  : "bg-amber-100 text-amber-700 hover:bg-amber-100"
-              }
+              className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
             >
-              {isApproved ? "Active" : "Pending"}
+              {user.accountStatus}
             </Badge>
           </div>
         </div>
@@ -94,18 +85,9 @@ export default async function StudentLayout({
             <Link className="text-sm text-zinc-500 hover:text-zinc-900" href="/student/profile">
               Profile
             </Link>
-            {isApproved ? (
-              <Link className="text-sm text-zinc-500 hover:text-zinc-900" href="/api/student/resume">
-                Resume
-              </Link>
-            ) : (
-              <Link
-                className="text-sm text-zinc-500 hover:text-zinc-900"
-                href="/student/verification-pending"
-              >
-                Verification
-              </Link>
-            )}
+            <Link className="text-sm text-zinc-500 hover:text-zinc-900" href="/student/records">
+              Records
+            </Link>
             <Link className="text-sm text-zinc-500 hover:text-zinc-900" href="/">
               Home
             </Link>

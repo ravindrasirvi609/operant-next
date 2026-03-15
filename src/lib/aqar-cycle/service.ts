@@ -5,7 +5,6 @@ import { AuthError } from "@/lib/auth/errors";
 import AqarApplication from "@/models/core/aqar-application";
 import AqarCycle, { type IAqarCycleCriterion } from "@/models/core/aqar-cycle";
 import CasApplication from "@/models/core/cas-application";
-import FacultyRecord from "@/models/core/faculty-record";
 import MasterData from "@/models/core/master-data";
 import Organization from "@/models/core/organization";
 import User from "@/models/core/user";
@@ -15,6 +14,11 @@ import SystemMisc from "@/models/engagement/system-misc";
 import Publication from "@/models/research/publication";
 import Project from "@/models/research/project";
 import PbasApplication from "@/models/core/pbas-application";
+import Faculty from "@/models/faculty/faculty";
+import FacultyAdminRole from "@/models/faculty/faculty-admin-role";
+import FacultyPublication from "@/models/faculty/faculty-publication";
+import FacultyResearchProject from "@/models/faculty/faculty-research-project";
+import FacultyTeachingLoad from "@/models/faculty/faculty-teaching-load";
 
 type SafeActor = {
     id: string;
@@ -139,6 +143,8 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         universityCount,
         programCount,
         facultyRecords,
+        facultyTeachingLoads,
+        facultyAdminRoles,
         approvedPbasCount,
         casCount,
         facultyAqarContributions,
@@ -148,6 +154,8 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         publications,
         books,
         projects,
+        facultyPublications,
+        facultyProjects,
         collaborations,
         activeOfficeMasters,
         systemUpdates,
@@ -159,7 +167,9 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         Organization.countDocuments({ type: "College", isActive: true }),
         Organization.countDocuments({ type: "University", isActive: true }),
         Program.countDocuments(),
-        FacultyRecord.find().select("coursesTaught degrees administrativeResponsibilities"),
+        Faculty.find().select("qualifications administrativeResponsibilities"),
+        FacultyTeachingLoad.find().select("facultyId courseName"),
+        FacultyAdminRole.find().select("facultyId"),
         PbasApplication.countDocuments({
             academicYear,
             status: { $in: ["Approved", "Committee Review", "Under Review", "Submitted"] },
@@ -172,27 +182,29 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         Publication.countDocuments({ year: academicYear }),
         Publication.countDocuments({ year: academicYear, type: { $in: ["Book", "BookChapter"] } }),
         Project.countDocuments(),
+        FacultyPublication.countDocuments(),
+        FacultyResearchProject.countDocuments(),
         Project.countDocuments({ type: "Collaboration" }),
         MasterData.countDocuments({ category: "office", isActive: true }),
         SystemMisc.countDocuments({ isActive: true }),
     ]);
 
     const averageCoursesTaught =
-        facultyRecords.length > 0
+        facultyTeachingLoads.length > 0 && facultyRecords.length > 0
             ? Number(
                   (
-                      facultyRecords.reduce((sum, record) => sum + (record.coursesTaught?.length ?? 0), 0) /
+                      facultyTeachingLoads.length /
                       facultyRecords.length
                   ).toFixed(1)
               )
             : 0;
 
     const qualifiedFaculty =
-        facultyRecords.filter((record) => (record.degrees?.length ?? 0) > 0).length;
+        facultyRecords.filter((record) => (record.qualifications?.length ?? 0) > 0).length;
 
     const totalAdministrativeResponsibilities = facultyRecords.reduce(
         (sum, record) => sum + (record.administrativeResponsibilities?.length ?? 0),
-        0
+        facultyAdminRoles.length
     );
 
     const criteriaSections: IAqarCycleCriterion[] = [
@@ -238,8 +250,8 @@ async function buildCriteriaSections(academicYear: string): Promise<{
             summary: "Institutional research output and extension activity aggregated from PBAS, AQAR, publication, and project modules.",
             metrics: {
                 facultyPublications: publications,
-                booksAndChapters: books,
-                projectsAndMoUs: projects,
+                booksAndChapters: books + facultyPublications,
+                projectsAndMoUs: projects + facultyProjects,
                 facultyAqarContributions,
             },
             completionPercent: 0,

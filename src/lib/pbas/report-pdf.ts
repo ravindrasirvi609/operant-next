@@ -1,4 +1,10 @@
-import PbasApplication from "@/models/core/pbas-application";
+import FacultyPbasForm from "@/models/core/faculty-pbas-form";
+import Faculty from "@/models/faculty/faculty";
+import User from "@/models/core/user";
+import Department from "@/models/reference/department";
+import Institution from "@/models/reference/institution";
+import AcademicYear from "@/models/reference/academic-year";
+import { buildPbasSnapshot } from "@/lib/pbas/service";
 
 const PAGE_WIDTH = 595;
 const PAGE_HEIGHT = 842;
@@ -77,20 +83,27 @@ function makePdf(pages: string[]) {
     return Buffer.from(pdf, "utf8");
 }
 
-export async function buildPbasReportPdf(application: InstanceType<typeof PbasApplication>) {
-    await application.populate({
-        path: "facultyId",
-        select: "name email designation department universityName collegeName",
-    });
+export async function buildPbasReportPdf(application: InstanceType<typeof FacultyPbasForm>) {
+    const academicYear = await AcademicYear.findById(application.academicYearId).select("yearStart");
+    const snapshot = await buildPbasSnapshot(
+        application.facultyId,
+        application.academicYearId,
+        academicYear?.yearStart
+    );
+    const faculty = await Faculty.findById(application.facultyId).select(
+        "firstName lastName email designation departmentId institutionId userId"
+    );
+    const user = faculty?.userId ? await User.findById(faculty.userId).select("name email") : null;
+    const department = faculty?.departmentId
+        ? await Department.findById(faculty.departmentId).select("name")
+        : null;
+    const institution = faculty?.institutionId
+        ? await Institution.findById(faculty.institutionId).select("name")
+        : null;
 
-    const faculty = application.facultyId as unknown as {
-        name?: string;
-        email?: string;
-        designation?: string;
-        department?: string;
-        universityName?: string;
-        collegeName?: string;
-    };
+    const facultyName =
+        faculty ? `${faculty.firstName} ${faculty.lastName ?? ""}`.trim() : user?.name ?? "Faculty Member";
+    const facultyEmail = faculty?.email ?? user?.email;
 
     const commands: string[] = [];
     const pages: string[] = [];
@@ -118,14 +131,13 @@ export async function buildPbasReportPdf(application: InstanceType<typeof PbasAp
         y -= 6;
     };
 
-    line(faculty.name || "Faculty Member", "F2", 20);
-    line(application.currentDesignation || faculty.designation || "Faculty", "F3", 12);
+    line(facultyName || "Faculty Member", "F2", 20);
+    line(application.currentDesignation || faculty?.designation || "Faculty", "F3", 12);
     para(
         [
-            faculty.email,
-            faculty.department,
-            faculty.collegeName,
-            faculty.universityName,
+            facultyEmail,
+            department?.name,
+            institution?.name,
         ]
             .filter(Boolean)
             .join(" | ")
@@ -137,29 +149,29 @@ export async function buildPbasReportPdf(application: InstanceType<typeof PbasAp
     para(`Workflow Status: ${application.status}`);
 
     section("Category I - Teaching Learning and Evaluation");
-    para(`Classes taken: ${application.category1.classesTaken}`);
-    para(`Course preparation hours: ${application.category1.coursePreparationHours}`);
-    para(`Courses taught: ${application.category1.coursesTaught.join(", ") || "-"}`);
-    para(`Mentoring count: ${application.category1.mentoringCount} | Lab supervision: ${application.category1.labSupervisionCount}`);
-    para(`Feedback summary: ${application.category1.feedbackSummary || "-"}`);
+    para(`Classes taken: ${snapshot.category1.classesTaken}`);
+    para(`Course preparation hours: ${snapshot.category1.coursePreparationHours}`);
+    para(`Courses taught: ${snapshot.category1.coursesTaught.join(", ") || "-"}`);
+    para(`Mentoring count: ${snapshot.category1.mentoringCount} | Lab supervision: ${snapshot.category1.labSupervisionCount}`);
+    para(`Feedback summary: ${snapshot.category1.feedbackSummary || "-"}`);
 
     section("Category II - Research and Academic Contribution");
-    para(`Research papers: ${application.category2.researchPapers.length}`);
-    para(`Books: ${application.category2.books.length}`);
-    para(`Patents: ${application.category2.patents.length}`);
-    para(`Conferences: ${application.category2.conferences.length}`);
-    para(`Projects: ${application.category2.projects.length}`);
+    para(`Research papers: ${snapshot.category2.researchPapers.length}`);
+    para(`Books: ${snapshot.category2.books.length}`);
+    para(`Patents: ${snapshot.category2.patents.length}`);
+    para(`Conferences: ${snapshot.category2.conferences.length}`);
+    para(`Projects: ${snapshot.category2.projects.length}`);
 
-    if (application.category2.researchPapers.length) {
-        para(`Paper highlights: ${application.category2.researchPapers.map((item) => `${item.title} (${item.year})`).join("; ")}`);
+    if (snapshot.category2.researchPapers.length) {
+        para(`Paper highlights: ${snapshot.category2.researchPapers.map((item) => `${item.title} (${item.year})`).join("; ")}`);
     }
 
     section("Category III - Institutional Responsibilities");
-    para(`Committees: ${application.category3.committees.map((item) => item.committeeName).join(", ") || "-"}`);
-    para(`Administrative duties: ${application.category3.administrativeDuties.map((item) => item.title).join(", ") || "-"}`);
-    para(`Exam duties: ${application.category3.examDuties.map((item) => item.duty).join(", ") || "-"}`);
-    para(`Student guidance: ${application.category3.studentGuidance.map((item) => `${item.activity} (${item.count})`).join(", ") || "-"}`);
-    para(`Extension activities: ${application.category3.extensionActivities.map((item) => item.title).join(", ") || "-"}`);
+    para(`Committees: ${snapshot.category3.committees.map((item) => item.committeeName).join(", ") || "-"}`);
+    para(`Administrative duties: ${snapshot.category3.administrativeDuties.map((item) => item.title).join(", ") || "-"}`);
+    para(`Exam duties: ${snapshot.category3.examDuties.map((item) => item.duty).join(", ") || "-"}`);
+    para(`Student guidance: ${snapshot.category3.studentGuidance.map((item) => `${item.activity} (${item.count})`).join(", ") || "-"}`);
+    para(`Extension activities: ${snapshot.category3.extensionActivities.map((item) => item.title).join(", ") || "-"}`);
 
     section("API Score");
     para(

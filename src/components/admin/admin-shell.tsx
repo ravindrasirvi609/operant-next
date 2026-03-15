@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileStack, GitBranch, LayoutDashboard, ListTree, Megaphone, Users2 } from "lucide-react";
+import { BookOpen, FileStack, GitBranch, LayoutDashboard, ListTree, Megaphone, Users2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -10,8 +10,11 @@ import { LogoutButton } from "@/components/auth/logout-button";
 const navigation = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
     { href: "/admin/hierarchy", label: "Hierarchy", icon: GitBranch },
+    { href: "/admin/academics", label: "Academics", icon: BookOpen },
     { href: "/admin/cas", label: "CAS", icon: FileStack },
     { href: "/admin/pbas", label: "PBAS", icon: FileStack },
+    { href: "/admin/evidence", label: "Evidence Review", icon: FileStack },
+    { href: "/admin/pbas/catalog", label: "PBAS Catalog", icon: ListTree },
     { href: "/admin/aqar", label: "AQAR", icon: FileStack },
     { href: "/admin/master-data", label: "Master Data", icon: ListTree },
     { href: "/admin/users", label: "Users", icon: Users2 },

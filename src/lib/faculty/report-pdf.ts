@@ -1,6 +1,46 @@
 import type { getFacultyWorkspace } from "@/lib/faculty/service";
 
 type FacultyWorkspace = Awaited<ReturnType<typeof getFacultyWorkspace>>;
+type CasReportEntry = {
+    promotionFrom: string;
+    promotionTo: string;
+    assessmentPeriodStart: string;
+    assessmentPeriodEnd: string;
+    currentStage?: string;
+    teachingExperienceYears?: number;
+    publicationCount?: number;
+    bookCount?: number;
+    conferenceCount?: number;
+    workshopCount?: number;
+    projectCount?: number;
+    phdSupervisionCount?: number;
+    adminResponsibilitySummary?: string;
+    researchSummary?: string;
+    apiScoreClaimed?: number;
+};
+type PbasReportEntry = {
+    academicYear: string;
+    teachingHours?: number;
+    coursesHandled?: string[];
+    mentoringCount?: number;
+    labSupervisionCount?: number;
+    researchPaperCount?: number;
+    journalCount?: number;
+    bookCount?: number;
+    patentCount?: number;
+    conferenceCount?: number;
+    committeeWork?: string;
+    examDuties?: string;
+    studentGuidance?: string;
+    teachingScore?: number;
+    researchScore?: number;
+    institutionalScore?: number;
+    totalApiScore?: number;
+    remarks?: string;
+};
+export type FacultyReportEntry =
+    | { type: "cas"; data: CasReportEntry }
+    | { type: "pbas"; data: PbasReportEntry };
 
 const PAGE_WIDTH = 595;
 const PAGE_HEIGHT = 842;
@@ -74,10 +114,9 @@ function makePdf(pages: string[]) {
 
 export function buildFacultyReportPdf(
     workspace: FacultyWorkspace,
-    type: "cas" | "pbas",
-    entryId: string
+    entry: FacultyReportEntry
 ) {
-    const { user, facultyRecord } = workspace;
+    const { user } = workspace;
     const commands: string[] = [];
     const pages: string[] = [];
     let y = TOP;
@@ -118,11 +157,8 @@ export function buildFacultyReportPdf(
             .join(" | ")
     );
 
-    if (type === "cas") {
-        const cas = facultyRecord.casEntries.find((item) => item._id?.toString() === entryId);
-        if (!cas) {
-            throw new Error("Requested faculty report entry was not found.");
-        }
+    if (entry.type === "cas") {
+        const cas = entry.data;
         section("Career Advancement Scheme Report");
         para(`Promotion Path: ${cas.promotionFrom} to ${cas.promotionTo}`);
         para(`Assessment Period: ${cas.assessmentPeriodStart} to ${cas.assessmentPeriodEnd}`);
@@ -141,10 +177,7 @@ export function buildFacultyReportPdf(
         section("API Score");
         para(`Claimed API score: ${cas.apiScoreClaimed || 0}`);
     } else {
-        const pbas = facultyRecord.pbasEntries.find((item) => item._id?.toString() === entryId);
-        if (!pbas) {
-            throw new Error("Requested faculty report entry was not found.");
-        }
+        const pbas = entry.data;
         section("Performance Based Appraisal System Report");
         para(`Academic Year: ${pbas.academicYear}`);
         section("Teaching Activities");

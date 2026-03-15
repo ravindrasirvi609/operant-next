@@ -9,6 +9,7 @@ const navLinks = [
   { label: "Profile", href: "/faculty/profile" },
   { label: "PBAS", href: "/faculty/pbas" },
   { label: "Evidence", href: "/faculty/evidence" },
+  { label: "Evidence Review", href: "/faculty/evidence-review" },
   { label: "AQAR", href: "/faculty/aqar" },
   { label: "CAS", href: "/faculty/cas" },
 ];

@@ -1,0 +1,8 @@
+{
+      "chat.tools.terminal.autoApprove": {
+            "/^node --env-file=\\.env\\.local -e 'const mongoose=require\\(\"mongoose\"\\); \\(async\\(\\)=>\\{ await mongoose\\.connect\\(process\\.env\\.MONGODB_URI,\\{bufferCommands:false\\}\\); const wanted=\\[\"institutions\",\"departments\",\"programs\",\"academic_years\",\"semesters\"\\]; const existing=\\(await mongoose\\.connection\\.db\\.listCollections\\(\\{\\}, \\{nameOnly:true\\}\\)\\.toArray\\(\\)\\)\\.map\\(c=>c\\.name\\); const missing=wanted\\.filter\\(name=>!existing\\.includes\\(name\\)\\); console\\.log\\(JSON\\.stringify\\(\\{existing:wanted\\.filter\\(name=>existing\\.includes\\(name\\)\\), missing\\}, null, 2\\)\\); if \\(missing\\.length\\)\\{ for \\(const name of missing\\)\\{ await mongoose\\.connection\\.db\\.createCollection\\(name\\); \\} console\\.log\\(JSON\\.stringify\\(\\{created:missing\\}, null, 2\\)\\); \\} await mongoose\\.disconnect\\(\\); \\}\\)\\(\\)\\.catch\\(async err=>\\{ console\\.error\\(err\\.message\\); try\\{await mongoose\\.disconnect\\(\\);\\}catch\\{\\} process\\.exit\\(1\\); \\}\\);'$/": {
+                  "approve": true,
+                  "matchCommandLine": true
+            }
+      }
+}
