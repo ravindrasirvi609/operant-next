@@ -1,14 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { Trash2 } from "lucide-react";
+import {
+    BookOpenText,
+    FileCheck2,
+    GraduationCap,
+    ShieldCheck,
+    Sparkles,
+    Trash2,
+    UserRound,
+} from "lucide-react";
 import { useId, useMemo, useState, useTransition } from "react";
-import { Controller, useFieldArray, useForm } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 
 import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
 import { ProfilePhotoUpload } from "@/components/faculty/profile-photo-upload";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -38,6 +47,7 @@ import {
     researchProjectStatuses,
     researchProjectTypes,
 } from "@/lib/faculty/options";
+import { cn } from "@/lib/utils";
 import { facultyRecordSchema } from "@/lib/faculty/validators";
 
 type FacultyWorkspaceValues = z.input<typeof facultyRecordSchema>;
@@ -66,6 +76,10 @@ type CourseOption = {
 
 function toCsv(value?: string[]) {
     return value?.join(", ") ?? "";
+}
+
+function countEvidenceLinked<T extends { documentId?: string }>(rows?: T[]) {
+    return rows?.filter((row) => Boolean(row.documentId)).length ?? 0;
 }
 
 export function FacultyWorkspaceForm({
@@ -151,6 +165,64 @@ export function FacultyWorkspaceForm({
         [courseOptions]
     );
 
+    const watchedValues = useWatch({ control: form.control });
+
+    const completion = useMemo(() => {
+        const profileChecks = [
+            Boolean(watchedValues.employeeCode),
+            Boolean(watchedValues.joiningDate),
+            Boolean(watchedValues.biography),
+            Boolean(watchedValues.specialization),
+            Boolean(watchedValues.highestQualification),
+            Number(watchedValues.experienceYears ?? 0) > 0,
+        ];
+
+        const completedProfileFields = profileChecks.filter(Boolean).length;
+        const profileScore = Math.round((completedProfileFields / profileChecks.length) * 100);
+
+        const teachingRecords =
+            (watchedValues.teachingSummaries?.length ?? 0) +
+            (watchedValues.teachingLoads?.length ?? 0) +
+            (watchedValues.resultSummaries?.length ?? 0);
+
+        const scholarlyRecords =
+            (watchedValues.publications?.length ?? 0) +
+            (watchedValues.books?.length ?? 0) +
+            (watchedValues.patents?.length ?? 0) +
+            (watchedValues.researchProjects?.length ?? 0) +
+            (watchedValues.eventParticipations?.length ?? 0);
+
+        const activityRecords =
+            (watchedValues.administrativeRoles?.length ?? 0) +
+            (watchedValues.institutionalContributions?.length ?? 0) +
+            (watchedValues.facultyDevelopmentProgrammes?.length ?? 0) +
+            (watchedValues.socialExtensionActivities?.length ?? 0);
+
+        const evidenceCount =
+            countEvidenceLinked(watchedValues.teachingSummaries) +
+            countEvidenceLinked(watchedValues.teachingLoads) +
+            countEvidenceLinked(watchedValues.resultSummaries) +
+            countEvidenceLinked(watchedValues.publications) +
+            countEvidenceLinked(watchedValues.books) +
+            countEvidenceLinked(watchedValues.patents) +
+            countEvidenceLinked(watchedValues.researchProjects) +
+            countEvidenceLinked(watchedValues.eventParticipations) +
+            countEvidenceLinked(watchedValues.administrativeRoles) +
+            countEvidenceLinked(watchedValues.institutionalContributions) +
+            countEvidenceLinked(watchedValues.facultyDevelopmentProgrammes) +
+            countEvidenceLinked(watchedValues.socialExtensionActivities);
+
+        return {
+            profileScore,
+            completedProfileFields,
+            totalProfileFields: profileChecks.length,
+            teachingRecords,
+            scholarlyRecords,
+            activityRecords,
+            evidenceCount,
+        };
+    }, [watchedValues]);
+
     function getCourseOptionsForProgram(programName?: string) {
         if (!programName) {
             return uniqueCourseOptions;
@@ -221,13 +293,27 @@ export function FacultyWorkspaceForm({
     }
 
     return (
-        <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Faculty Workspace</CardTitle>
-                    <CardDescription>
-                        Maintain your canonical faculty identity and the real category-wise faculty records that drive PBAS, CAS, and AQAR workflows.
+        <div className="space-y-8 pb-20">
+            <Card className="border-0 bg-[linear-gradient(120deg,#0f172a_0%,#1f2937_48%,#14532d_100%)] text-white shadow-xl ring-0">
+                <CardHeader className="gap-3">
+                    <Badge variant="secondary" className="w-fit bg-white/15 text-white">
+                        Faculty Profile Workspace
+                    </Badge>
+                    <CardTitle className="text-2xl font-semibold md:text-3xl">Professional Faculty Profile</CardTitle>
+                    <CardDescription className="max-w-3xl text-white/80">
+                        Maintain your canonical faculty identity and high-quality category-wise records that drive PBAS, CAS, and AQAR workflows.
                     </CardDescription>
+                    <div className="flex flex-wrap gap-2">
+                        <Badge variant="outline" className="border-white/30 bg-white/10 text-white">
+                            {completion.profileScore}% profile completeness
+                        </Badge>
+                        <Badge variant="outline" className="border-white/30 bg-white/10 text-white">
+                            {completion.evidenceCount} linked evidence files
+                        </Badge>
+                        <Badge variant="outline" className="border-white/30 bg-white/10 text-white">
+                            {completion.teachingRecords + completion.scholarlyRecords + completion.activityRecords} total records
+                        </Badge>
+                    </div>
                 </CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                     <Info label="Faculty" value={user.name} />
@@ -238,36 +324,71 @@ export function FacultyWorkspaceForm({
                 </CardContent>
             </Card>
 
-            <div className="grid gap-6 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <KpiCard
+                    title="Profile Completion"
+                    icon={<UserRound className="size-4" />}
+                    value={`${completion.completedProfileFields}/${completion.totalProfileFields}`}
+                    description="Core profile fields complete"
+                    tone="blue"
+                />
+                <KpiCard
+                    title="Teaching Records"
+                    icon={<GraduationCap className="size-4" />}
+                    value={String(completion.teachingRecords)}
+                    description="Summaries, load, and outcomes"
+                    tone="indigo"
+                />
+                <KpiCard
+                    title="Academic Outputs"
+                    icon={<BookOpenText className="size-4" />}
+                    value={String(completion.scholarlyRecords)}
+                    description="Publications, books, patents, projects"
+                    tone="emerald"
+                />
+                <KpiCard
+                    title="Evidence Coverage"
+                    icon={<FileCheck2 className="size-4" />}
+                    value={String(completion.evidenceCount)}
+                    description="Records linked with documents"
+                    tone="amber"
+                />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-4">
                 <ActionCard
                     title="PBAS Module"
                     description="Verify yearly academic contributions, upload evidence, and submit PBAS."
                     href="/faculty/pbas"
                     label="Open PBAS"
+                    icon={<Sparkles className="size-4" />}
                 />
                 <ActionCard
                     title="CAS Module"
                     description="Prepare promotion evidence, link PBAS reports, and manage CAS workflow."
                     href="/faculty/cas"
                     label="Open CAS"
+                    icon={<ShieldCheck className="size-4" />}
                 />
                 <ActionCard
                     title="AQAR Module"
                     description="Review annual quality contributions and submit AQAR-ready faculty data."
                     href="/faculty/aqar"
                     label="Open AQAR"
+                    icon={<FileCheck2 className="size-4" />}
                 />
                 <ActionCard
                     title="Faculty Records"
                     description="Use this workspace as the source of truth for category-wise faculty data."
                     href="/faculty/profile"
                     label="Review Records"
+                    icon={<BookOpenText className="size-4" />}
                 />
             </div>
 
             {message ? <FormMessage message={message.text} type={message.type} /> : null}
 
-            <Card>
+            <Card className="border-white/70 bg-white/85 shadow-sm backdrop-blur">
                 <CardHeader>
                     <CardTitle>Profile Photo</CardTitle>
                     <CardDescription>Upload a professional photo for your faculty profile.</CardDescription>
@@ -277,13 +398,25 @@ export function FacultyWorkspaceForm({
                 </CardContent>
             </Card>
 
-            <form onSubmit={form.handleSubmit(submit)}>
-                <Tabs defaultValue="profile">
-                    <TabsList className="grid h-auto grid-cols-1 gap-2 p-2 md:grid-cols-4">
-                        <TabsTrigger value="profile">Profile</TabsTrigger>
-                        <TabsTrigger value="teaching">Teaching</TabsTrigger>
-                        <TabsTrigger value="activities">Academic Activities</TabsTrigger>
-                        <TabsTrigger value="compliance">Compliance</TabsTrigger>
+            <form onSubmit={form.handleSubmit(submit)} className="space-y-6">
+                <Tabs defaultValue="profile" className="space-y-6">
+                    <TabsList className="grid h-auto w-full grid-cols-1 gap-2 rounded-2xl border border-zinc-200 bg-white/85 p-2 shadow-sm backdrop-blur sm:grid-cols-2 xl:grid-cols-4">
+                        <TabsTrigger value="profile" className="h-10 gap-1.5 whitespace-normal px-3 text-center">
+                            <UserRound className="size-4" />
+                            Profile
+                        </TabsTrigger>
+                        <TabsTrigger value="teaching" className="h-10 gap-1.5 whitespace-normal px-3 text-center">
+                            <GraduationCap className="size-4" />
+                            Teaching
+                        </TabsTrigger>
+                        <TabsTrigger value="activities" className="h-10 gap-1.5 whitespace-normal px-3 text-center">
+                            <BookOpenText className="size-4" />
+                            Academic Activities
+                        </TabsTrigger>
+                        <TabsTrigger value="compliance" className="h-10 gap-1.5 whitespace-normal px-3 text-center">
+                            <ShieldCheck className="size-4" />
+                            Compliance
+                        </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="profile" className="mt-6 space-y-6">
@@ -1302,11 +1435,52 @@ export function FacultyWorkspaceForm({
                     </TabsContent>
                 </Tabs>
 
-                <Button type="submit" size="lg" disabled={isPending} className="mt-6">
-                    {isPending ? <Spinner /> : null}
-                    Save Faculty Workspace
-                </Button>
+                <div className="sticky bottom-4 z-10 flex justify-end">
+                    <div className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white/95 p-2 shadow-lg backdrop-blur">
+                        <p className={cn("px-2 text-xs font-medium", form.formState.isDirty ? "text-amber-700" : "text-emerald-700")}>
+                            {form.formState.isDirty ? "Unsaved changes" : "All changes saved"}
+                        </p>
+                        <Button type="submit" size="lg" disabled={isPending} className="min-w-[220px]">
+                            {isPending ? <Spinner /> : null}
+                            Save Faculty Workspace
+                        </Button>
+                    </div>
+                </div>
             </form>
+        </div>
+    );
+}
+
+function KpiCard({
+    title,
+    value,
+    description,
+    icon,
+    tone,
+}: {
+    title: string;
+    value: string;
+    description: string;
+    icon: React.ReactNode;
+    tone: "blue" | "indigo" | "emerald" | "amber";
+}) {
+    const toneClasses: Record<typeof tone, string> = {
+        blue: "border-sky-200 bg-sky-50 text-sky-900",
+        indigo: "border-indigo-200 bg-indigo-50 text-indigo-900",
+        emerald: "border-emerald-200 bg-emerald-50 text-emerald-900",
+        amber: "border-amber-200 bg-amber-50 text-amber-900",
+    };
+
+    return (
+        <div className={cn("rounded-2xl border p-4 shadow-sm", toneClasses[tone])}>
+            <div className="flex items-center justify-between">
+                <p className="text-xs font-medium uppercase tracking-[0.12em]">{title}</p>
+                <span className="inline-flex size-8 items-center justify-center rounded-full bg-white/80">
+                    {icon}
+                </span>
+            </div>
+            <p className="mt-3 text-2xl font-semibold">{value}</p>
+            <p className="mt-1 text-xs opacity-80">{description}</p>
         </div>
     );
 }
@@ -1316,20 +1490,27 @@ function ActionCard({
     description,
     href,
     label,
+    icon,
 }: {
     title: string;
     description: string;
     href: string;
     label: string;
+    icon: React.ReactNode;
 }) {
     return (
-        <Card>
+        <Card className="border-zinc-200/80 bg-white/85 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
             <CardHeader>
-                <CardTitle>{title}</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-base">
+                    <span className="inline-flex size-6 items-center justify-center rounded-full bg-zinc-100 text-zinc-700">
+                        {icon}
+                    </span>
+                    {title}
+                </CardTitle>
                 <CardDescription>{description}</CardDescription>
             </CardHeader>
             <CardContent>
-                <Button asChild className="w-full">
+                <Button asChild className="w-full rounded-xl">
                     <Link href={href}>{label}</Link>
                 </Button>
             </CardContent>
@@ -1347,10 +1528,10 @@ function ActionLink({
     href: string;
 }) {
     return (
-        <div className="rounded-xl border border-zinc-200 p-4">
-            <p className="text-sm font-semibold text-zinc-950">{title}</p>
-            <p className="mt-1 text-xs text-zinc-500">{description}</p>
-            <Button asChild variant="outline" className="mt-4 w-full">
+        <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4">
+            <p className="text-sm font-semibold text-zinc-900">{title}</p>
+            <p className="mt-1 text-xs text-zinc-600">{description}</p>
+            <Button asChild variant="outline" className="mt-4 w-full bg-white">
                 <Link href={href}>Open {title}</Link>
             </Button>
         </div>
@@ -1359,9 +1540,9 @@ function ActionLink({
 
 function Info({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-sm font-semibold text-zinc-950">{value}</p>
+        <div className="rounded-xl border border-white/25 bg-white/10 p-4 backdrop-blur">
+            <p className="text-xs uppercase tracking-[0.16em] text-white/70">{label}</p>
+            <p className="mt-2 text-sm font-semibold text-white">{value}</p>
         </div>
     );
 }
@@ -1376,12 +1557,12 @@ function SectionCard({
     children: React.ReactNode;
 }) {
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
+        <Card className="border-zinc-200/80 bg-white/90 shadow-sm backdrop-blur">
+            <CardHeader className="border-b border-zinc-100 pb-4">
+                <CardTitle className="text-[1.03rem] text-zinc-900">{title}</CardTitle>
+                <CardDescription className="text-zinc-600">{description}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">{children}</CardContent>
+            <CardContent className="space-y-4 pt-5">{children}</CardContent>
         </Card>
     );
 }
@@ -1398,10 +1579,12 @@ function Field({
     children: React.ReactNode;
 }) {
     return (
-        <div className="grid gap-2">
-            <Label htmlFor={id}>{label}</Label>
+        <div className="grid gap-2.5">
+            <Label htmlFor={id} className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-600">
+                {label}
+            </Label>
             {children}
-            {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+            {error ? <p className="text-xs font-medium text-rose-600">{error}</p> : null}
         </div>
     );
 }
@@ -1416,8 +1599,8 @@ function CsvField({
     onChange: (value: string) => void;
 }) {
     return (
-        <div className="grid gap-2">
-            <Label>{label}</Label>
+        <div className="grid gap-2.5">
+            <Label className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-600">{label}</Label>
             <Input defaultValue={initialValue} onChange={(event) => onChange(event.target.value)} />
         </div>
     );
@@ -1485,8 +1668,8 @@ function DocumentUploadField({
     }
 
     return (
-        <div className="grid gap-2 rounded-md border border-dashed border-zinc-300 bg-white p-3">
-            <Label htmlFor={inputId} className="text-xs text-zinc-600">
+        <div className="grid gap-2.5 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/80 p-3">
+            <Label htmlFor={inputId} className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-600">
                 Upload PDF or image
             </Label>
             <Input
@@ -1527,7 +1710,7 @@ function AcademicYearSelect({
 }) {
     return (
         <Select value={value || undefined} onValueChange={onChange}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full bg-white">
                 <SelectValue placeholder="Select academic year" />
             </SelectTrigger>
             <SelectContent>
@@ -1564,7 +1747,7 @@ function MultiSelectField({
     return (
         <Popover>
             <PopoverTrigger asChild>
-                <Button type="button" variant="outline" className="w-full justify-between text-left font-normal">
+                <Button type="button" variant="outline" className="w-full justify-between bg-white text-left font-normal">
                     <span className="truncate">
                         {selected.length ? selected.join(", ") : placeholder}
                     </span>
@@ -1601,7 +1784,7 @@ function EnumSelect({
 }) {
     return (
         <Select value={value || undefined} onValueChange={onChange}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full bg-white">
                 <SelectValue placeholder={placeholder} />
             </SelectTrigger>
             <SelectContent>
@@ -1625,7 +1808,7 @@ function CheckboxField({
     label: string;
 }) {
     return (
-        <label className="flex items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
+        <label className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
             <Checkbox checked={checked} onCheckedChange={(value) => onCheckedChange(Boolean(value))} />
             <span>{label}</span>
         </label>
@@ -1633,7 +1816,11 @@ function CheckboxField({
 }
 
 function EditableRow({ children }: { children: React.ReactNode }) {
-    return <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2 xl:grid-cols-6">{children}</div>;
+    return (
+        <div className="grid gap-4 rounded-2xl border border-zinc-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] p-4 shadow-sm md:grid-cols-2 xl:grid-cols-6">
+            {children}
+        </div>
+    );
 }
 
 function RowField({
@@ -1647,7 +1834,7 @@ function RowField({
 }) {
     return (
         <div className={`grid gap-2 ${className ?? ""}`.trim()}>
-            <Label className="text-xs font-medium tracking-wide text-zinc-600">{label}</Label>
+            <Label className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-600">{label}</Label>
             {children}
         </div>
     );
@@ -1679,7 +1866,7 @@ function DeleteButton({
             type="button"
             variant="ghost"
             size="icon"
-            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            className="rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={onClick}
             aria-label={label}
         >
