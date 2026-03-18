@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { designationOptions } from "@/lib/faculty/options";
 
 export const pbasStatusValues = [
     "Draft",
@@ -108,7 +109,7 @@ const category3Schema = z.object({
 
 export const pbasApplicationSchema = z.object({
     academicYear: z.string().trim().min(4, "Academic year is required."),
-    currentDesignation: z.string().trim().min(2, "Current designation is required."),
+    currentDesignation: z.enum(designationOptions, { message: "Select a valid designation." }),
     appraisalPeriod: z.object({
         fromDate: z.string().trim().min(4, "Appraisal start date is required."),
         toDate: z.string().trim().min(4, "Appraisal end date is required."),

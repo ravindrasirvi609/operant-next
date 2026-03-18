@@ -16,7 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { designationOptions, getDesignationProfile } from "@/lib/faculty/options";
+import { getDesignationProfile } from "@/lib/faculty/options";
 import { pbasApplicationSchema, type PbasSnapshot } from "@/lib/pbas/validators";
 import {
     uploadFile,
@@ -30,7 +30,7 @@ type PbasFormValues = z.input<typeof pbasApplicationSchema>;
 type PbasApp = {
     _id: string;
     academicYear: string;
-    currentDesignation: string;
+    currentDesignation: PbasFormValues["currentDesignation"];
     appraisalPeriod: {
         fromDate: string;
         toDate: string;
@@ -352,6 +352,10 @@ export function PbasDashboard({
     const [entryError, setEntryError] = useState<string | null>(null);
     const [uploadProgress, setUploadProgress] = useState<Record<string, UploadProgress | null>>({});
     const [uploadError, setUploadError] = useState<Record<string, string>>({});
+    const activeStatuses = useMemo(
+        () => new Set(["Draft", "Rejected", "Submitted", "Under Review", "Committee Review"]),
+        []
+    );
 
     const displayEntries = useMemo(() => {
         const totals = entries.filter((entry) => entry.indicatorCode.endsWith("_TOTAL"));
@@ -359,6 +363,10 @@ export function PbasDashboard({
     }, [entries]);
 
     const selected = applications.find((item) => item._id === selectedId);
+    const activeApplication = useMemo(
+        () => applications.find((item) => activeStatuses.has(item.status)),
+        [applications, activeStatuses]
+    );
     const selectedSnapshot = selectedDetail?.snapshot ?? selected?.snapshot ?? summary.snapshot;
     const canEdit = !selected || ["Draft", "Rejected"].includes(selected.status);
     const academicYearOptions = useMemo(() => {
@@ -793,10 +801,21 @@ export function PbasDashboard({
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            <Button className="w-full" onClick={createDraft} type="button" disabled={isPending}>
+                            <Button
+                                className="w-full"
+                                onClick={createDraft}
+                                type="button"
+                                disabled={isPending || Boolean(activeApplication)}
+                            >
                                 {isPending ? <Spinner /> : null}
                                 Start PBAS Draft
                             </Button>
+                            {activeApplication ? (
+                                <p className="text-xs text-amber-700">
+                                    One PBAS form is already active ({activeApplication.academicYear}, {activeApplication.status}).
+                                    Complete, approve, or reject it before starting a new form.
+                                </p>
+                            ) : null}
                             <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-500">
                                 Auto save: {selectedId ? autoSaveState : "Create a draft to enable auto save"}
                             </div>
@@ -1037,27 +1056,10 @@ export function PbasDashboard({
                                     />
                                 </Field>
                                 <Field label="Current Designation">
-                                    <Controller
-                                        control={form.control}
-                                        name="currentDesignation"
-                                        render={({ field }) => (
-                                            <Select
-                                                value={field.value || undefined}
-                                                onValueChange={field.onChange}
-                                                disabled={!canEdit}
-                                            >
-                                                <SelectTrigger className="w-full">
-                                                    <SelectValue placeholder="Select designation" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {designationOptions.map((option) => (
-                                                        <SelectItem key={option} value={option}>
-                                                            {option}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        )}
+                                    <Input
+                                        {...form.register("currentDesignation")}
+                                        disabled
+                                        readOnly
                                     />
                                 </Field>
                                 <Field label="Appraisal From">

@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import dbConnect from "@/lib/dbConnect";
 import { AuthError } from "@/lib/auth/errors";
 import { ensureFacultyContext } from "@/lib/faculty/migration";
+import { designationOptions } from "@/lib/faculty/options";
 import Organization from "@/models/core/organization";
 import Department from "@/models/reference/department";
 import Faculty from "@/models/faculty/faculty";
@@ -51,6 +52,14 @@ type SafeActor = {
     role: string;
     department?: string;
 };
+
+function normalizeDesignation(value?: string | null) {
+    const fallback = designationOptions[0];
+    if (!value) return fallback;
+    return designationOptions.includes(value as (typeof designationOptions)[number])
+        ? (value as (typeof designationOptions)[number])
+        : fallback;
+}
 
 function scoreResearchPaper(indexing?: string) {
     const value = (indexing ?? "").toLowerCase();
@@ -498,6 +507,14 @@ async function audit(actor: SafeActor | undefined, action: string, tableName: st
     });
 }
 
+const ACTIVE_PBAS_STATUSES: ReadonlyArray<PbasStatus> = [
+    "Draft",
+    "Rejected",
+    "Submitted",
+    "Under Review",
+    "Committee Review",
+];
+
 export type PbasSummary = {
     activeYear?: {
         id: string;
@@ -635,7 +652,7 @@ export async function getPbasSummaryForFaculty(actor: SafeActor): Promise<PbasSu
     const yearFallback = new Date().getFullYear();
     const meta = pbasApplicationSchema.parse({
         academicYear: activeYearLabel || `${yearFallback}-${yearFallback + 1}`,
-        currentDesignation: faculty.designation || "Assistant Professor (Stage 1)",
+        currentDesignation: normalizeDesignation(faculty.designation),
         appraisalPeriod: {
             fromDate: activeYear?.yearStart ? `${activeYear.yearStart}-06-01` : `${yearFallback}-06-01`,
             toDate: activeYear?.yearEnd ? `${activeYear.yearEnd}-05-31` : `${yearFallback + 1}-05-31`,
@@ -799,6 +816,19 @@ export async function createPbasApplication(actor: SafeActor, rawInput: unknown)
     }
 
     const { faculty } = await ensureFacultyContext(actor.id);
+
+    const activeApplication = await FacultyPbasForm.findOne({
+        facultyId: faculty._id,
+        status: { $in: ACTIVE_PBAS_STATUSES },
+    }).sort({ updatedAt: -1 });
+
+    if (activeApplication) {
+        throw new AuthError(
+            `Only one active PBAS form is allowed at a time. Current active form is in ${activeApplication.status} status (${activeApplication.academicYear}).`,
+            409
+        );
+    }
+
     const academicYear = await ensureAcademicYear(input.academicYear);
     const context = await loadPbasReferenceContext(faculty._id, academicYear._id);
     const draftReferences = deriveAutoDraftReferences(context);
