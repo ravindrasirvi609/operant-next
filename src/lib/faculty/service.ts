@@ -2,13 +2,21 @@ import dbConnect from "@/lib/dbConnect";
 import { facultyRecordSchema } from "@/lib/faculty/validators";
 import { ensureFacultyContext } from "@/lib/faculty/migration";
 import AcademicYear from "@/models/reference/academic-year";
+import Event from "@/models/reference/event";
 import Program from "@/models/academic/program";
 import SocialProgram from "@/models/reference/social-program";
 import FacultyAdminRole from "@/models/faculty/faculty-admin-role";
+import FacultyBook from "@/models/faculty/faculty-book";
+import FacultyEventParticipation from "@/models/faculty/faculty-event-participation";
 import FacultyFdpConducted from "@/models/faculty/faculty-fdp-conducted";
+import FacultyInstitutionalContribution from "@/models/faculty/faculty-institutional-contribution";
+import FacultyPatent from "@/models/faculty/faculty-patent";
+import FacultyPublication from "@/models/faculty/faculty-publication";
+import FacultyResearchProject from "@/models/faculty/faculty-research-project";
 import FacultyResultSummary from "@/models/faculty/faculty-result-summary";
 import FacultySocialExtension from "@/models/faculty/faculty-social-extension";
 import FacultyTeachingLoad from "@/models/faculty/faculty-teaching-load";
+import FacultyTeachingSummary from "@/models/faculty/faculty-teaching-summary";
 
 function toDateInput(value?: Date | null) {
     if (!value) {
@@ -98,13 +106,67 @@ async function ensureSocialProgram(name: string) {
     return program;
 }
 
+async function ensureEvent(
+    institutionId: string,
+    departmentId: string,
+    input: {
+        title: string;
+        organizer: string;
+        eventType: "Seminar" | "Workshop" | "Conference" | "Symposium" | "Webinar" | "Other";
+        level: "College" | "State" | "National" | "International";
+        startDate?: string;
+        endDate?: string;
+        location?: string;
+    }
+) {
+    let event = await Event.findOne({
+        institutionId,
+        departmentId,
+        title: input.title,
+        eventType: input.eventType,
+        organizedBy: input.organizer,
+    });
+
+    if (!event) {
+        event = await Event.create({
+            title: input.title,
+            eventType: input.eventType,
+            organizedBy: input.organizer,
+            level: input.level,
+            startDate: input.startDate ? new Date(input.startDate) : undefined,
+            endDate: input.endDate ? new Date(input.endDate) : undefined,
+            location: input.location || undefined,
+            institutionId,
+            departmentId,
+        });
+    }
+
+    return event;
+}
+
 export async function getFacultyWorkspace(userId: string) {
     await dbConnect();
 
     const { user, faculty } = await ensureFacultyContext(userId);
 
-    const [teachingLoads, resultSummaries, administrativeRoles, facultyDevelopmentProgrammes, socialExtensionActivities] =
+    const [
+        teachingSummaries,
+        teachingLoads,
+        resultSummaries,
+        publications,
+        books,
+        patents,
+        researchProjects,
+        eventParticipations,
+        administrativeRoles,
+        institutionalContributions,
+        facultyDevelopmentProgrammes,
+        socialExtensionActivities,
+    ] =
         await Promise.all([
+            FacultyTeachingSummary.find({ facultyId: faculty._id })
+                .populate("academicYearId", "yearStart yearEnd")
+                .sort({ updatedAt: -1 }),
             FacultyTeachingLoad.find({ facultyId: faculty._id })
                 .populate("academicYearId", "yearStart yearEnd")
                 .populate("programId", "name")
@@ -112,7 +174,17 @@ export async function getFacultyWorkspace(userId: string) {
             FacultyResultSummary.find({ facultyId: faculty._id })
                 .populate("academicYearId", "yearStart yearEnd")
                 .sort({ updatedAt: -1 }),
+            FacultyPublication.find({ facultyId: faculty._id }).sort({ updatedAt: -1 }),
+            FacultyBook.find({ facultyId: faculty._id }).sort({ updatedAt: -1 }),
+            FacultyPatent.find({ facultyId: faculty._id }).sort({ updatedAt: -1 }),
+            FacultyResearchProject.find({ facultyId: faculty._id }).sort({ updatedAt: -1 }),
+            FacultyEventParticipation.find({ facultyId: faculty._id })
+                .populate("eventId", "title organizedBy eventType level startDate endDate location")
+                .sort({ updatedAt: -1 }),
             FacultyAdminRole.find({ facultyId: faculty._id })
+                .populate("academicYearId", "yearStart yearEnd")
+                .sort({ updatedAt: -1 }),
+            FacultyInstitutionalContribution.find({ facultyId: faculty._id })
                 .populate("academicYearId", "yearStart yearEnd")
                 .sort({ updatedAt: -1 }),
             FacultyFdpConducted.find({ facultyId: faculty._id }).sort({ updatedAt: -1 }),
@@ -147,6 +219,19 @@ export async function getFacultyWorkspace(userId: string) {
             researcherId: faculty.researchProfile?.researcherId ?? "",
             googleScholarId: faculty.researchProfile?.googleScholarId ?? "",
         },
+        teachingSummaries: teachingSummaries.map((item) => ({
+            _id: item._id.toString(),
+            academicYear: toAcademicYearLabel(
+                (item.academicYearId as { yearStart?: number })?.yearStart,
+                (item.academicYearId as { yearEnd?: number })?.yearEnd
+            ),
+            classesTaken: item.classesTaken,
+            coursePreparationHours: item.coursePreparationHours,
+            coursesTaught: item.coursesTaught ?? [],
+            mentoringCount: item.mentoringCount,
+            labSupervisionCount: item.labSupervisionCount,
+            feedbackSummary: item.feedbackSummary ?? "",
+        })),
         teachingLoads: teachingLoads.map((item) => ({
             _id: item._id.toString(),
             academicYear: toAcademicYearLabel(
@@ -173,6 +258,64 @@ export async function getFacultyWorkspace(userId: string) {
             passedStudents: item.passedStudents,
             universityRankStudents: item.universityRankStudents,
         })),
+        publications: publications.map((item) => ({
+            _id: item._id.toString(),
+            title: item.title,
+            journalName: item.journalName ?? "",
+            publisher: item.publisher ?? "",
+            publicationType: item.publicationType,
+            impactFactor: item.impactFactor,
+            isbnIssn: item.isbnIssn ?? "",
+            doi: item.doi ?? "",
+            publicationDate: toDateInput(item.publicationDate),
+            indexedIn: item.indexedIn ?? "",
+            authorPosition: item.authorPosition,
+        })),
+        books: books.map((item) => ({
+            _id: item._id.toString(),
+            title: item.title,
+            publisher: item.publisher ?? "",
+            isbn: item.isbn ?? "",
+            publicationDate: toDateInput(item.publicationDate),
+            bookType: item.bookType,
+        })),
+        patents: patents.map((item) => ({
+            _id: item._id.toString(),
+            title: item.title,
+            patentNumber: item.patentNumber ?? "",
+            status: item.status,
+            filingDate: toDateInput(item.filingDate),
+            grantDate: toDateInput(item.grantDate),
+        })),
+        researchProjects: researchProjects.map((item) => ({
+            _id: item._id.toString(),
+            title: item.title,
+            fundingAgency: item.fundingAgency ?? "",
+            projectType: item.projectType,
+            amountSanctioned: item.amountSanctioned ?? 0,
+            startDate: toDateInput(item.startDate),
+            endDate: toDateInput(item.endDate),
+            status: item.status,
+            principalInvestigator: item.principalInvestigator,
+        })),
+        eventParticipations: eventParticipations.map((item) => ({
+            _id: item._id.toString(),
+            title: (item.eventId as { title?: string })?.title ?? "",
+            organizer: (item.eventId as { organizedBy?: string })?.organizedBy ?? "",
+            eventType:
+                (item.eventId as { eventType?: "Seminar" | "Workshop" | "Conference" | "Symposium" | "Webinar" | "Other" })?.eventType ??
+                "Conference",
+            level:
+                (item.eventId as { level?: "College" | "State" | "National" | "International" })?.level ??
+                "College",
+            startDate: toDateInput((item.eventId as { startDate?: Date })?.startDate),
+            endDate: toDateInput((item.eventId as { endDate?: Date })?.endDate),
+            location: (item.eventId as { location?: string })?.location ?? "",
+            role: item.role,
+            paperPresented: item.paperPresented,
+            paperTitle: item.paperTitle ?? "",
+            organized: item.organized,
+        })),
         administrativeRoles: administrativeRoles.map((item) => ({
             _id: item._id.toString(),
             academicYear: toAcademicYearLabel(
@@ -182,6 +325,17 @@ export async function getFacultyWorkspace(userId: string) {
             roleName: item.roleName,
             committeeName: item.committeeName ?? "",
             responsibilityDescription: item.responsibilityDescription ?? "",
+        })),
+        institutionalContributions: institutionalContributions.map((item) => ({
+            _id: item._id.toString(),
+            academicYear: toAcademicYearLabel(
+                (item.academicYearId as { yearStart?: number })?.yearStart,
+                (item.academicYearId as { yearEnd?: number })?.yearEnd
+            ),
+            activityTitle: item.activityTitle,
+            role: item.role,
+            impactLevel: item.impactLevel,
+            scoreWeightage: item.scoreWeightage ?? 0,
         })),
         facultyDevelopmentProgrammes: facultyDevelopmentProgrammes.map((item) => ({
             _id: item._id.toString(),
@@ -243,12 +397,34 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
     await user.save();
 
     await Promise.all([
+        FacultyTeachingSummary.deleteMany({ facultyId: faculty._id }),
         FacultyTeachingLoad.deleteMany({ facultyId: faculty._id }),
         FacultyResultSummary.deleteMany({ facultyId: faculty._id }),
+        FacultyPublication.deleteMany({ facultyId: faculty._id }),
+        FacultyBook.deleteMany({ facultyId: faculty._id }),
+        FacultyPatent.deleteMany({ facultyId: faculty._id }),
+        FacultyResearchProject.deleteMany({ facultyId: faculty._id }),
+        FacultyEventParticipation.deleteMany({ facultyId: faculty._id }),
         FacultyAdminRole.deleteMany({ facultyId: faculty._id }),
+        FacultyInstitutionalContribution.deleteMany({ facultyId: faculty._id }),
         FacultyFdpConducted.deleteMany({ facultyId: faculty._id }),
         FacultySocialExtension.deleteMany({ facultyId: faculty._id }),
     ]);
+
+    for (const entry of input.teachingSummaries) {
+        const academicYear = await ensureAcademicYear(entry.academicYear);
+
+        await FacultyTeachingSummary.create({
+            facultyId: faculty._id,
+            academicYearId: academicYear._id,
+            classesTaken: entry.classesTaken,
+            coursePreparationHours: entry.coursePreparationHours,
+            coursesTaught: entry.coursesTaught,
+            mentoringCount: entry.mentoringCount,
+            labSupervisionCount: entry.labSupervisionCount,
+            feedbackSummary: entry.feedbackSummary || undefined,
+        });
+    }
 
     for (const entry of input.teachingLoads) {
         const academicYear = await ensureAcademicYear(entry.academicYear);
@@ -289,6 +465,83 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
         });
     }
 
+    for (const entry of input.publications) {
+        await FacultyPublication.create({
+            facultyId: faculty._id,
+            title: entry.title,
+            journalName: entry.journalName || undefined,
+            publisher: entry.publisher || undefined,
+            publicationType: entry.publicationType,
+            impactFactor: entry.impactFactor,
+            isbnIssn: entry.isbnIssn || undefined,
+            doi: entry.doi || undefined,
+            publicationDate: entry.publicationDate ? new Date(entry.publicationDate) : undefined,
+            indexedIn: entry.indexedIn || undefined,
+            authorPosition: entry.authorPosition,
+        });
+    }
+
+    for (const entry of input.books) {
+        await FacultyBook.create({
+            facultyId: faculty._id,
+            title: entry.title,
+            publisher: entry.publisher || undefined,
+            isbn: entry.isbn || undefined,
+            publicationDate: entry.publicationDate ? new Date(entry.publicationDate) : undefined,
+            bookType: entry.bookType,
+        });
+    }
+
+    for (const entry of input.patents) {
+        await FacultyPatent.create({
+            facultyId: faculty._id,
+            title: entry.title,
+            patentNumber: entry.patentNumber || undefined,
+            status: entry.status,
+            filingDate: entry.filingDate ? new Date(entry.filingDate) : undefined,
+            grantDate: entry.grantDate ? new Date(entry.grantDate) : undefined,
+        });
+    }
+
+    for (const entry of input.researchProjects) {
+        await FacultyResearchProject.create({
+            facultyId: faculty._id,
+            title: entry.title,
+            fundingAgency: entry.fundingAgency || undefined,
+            projectType: entry.projectType,
+            amountSanctioned: entry.amountSanctioned,
+            startDate: entry.startDate ? new Date(entry.startDate) : undefined,
+            endDate: entry.endDate ? new Date(entry.endDate) : undefined,
+            status: entry.status,
+            principalInvestigator: entry.principalInvestigator,
+        });
+    }
+
+    for (const entry of input.eventParticipations) {
+        const event = await ensureEvent(
+            faculty.institutionId.toString(),
+            faculty.departmentId.toString(),
+            {
+                title: entry.title,
+                organizer: entry.organizer,
+                eventType: entry.eventType,
+                level: entry.level,
+                startDate: entry.startDate,
+                endDate: entry.endDate,
+                location: entry.location,
+            }
+        );
+
+        await FacultyEventParticipation.create({
+            facultyId: faculty._id,
+            eventId: event._id,
+            role: entry.role,
+            paperPresented: entry.paperPresented,
+            paperTitle: entry.paperTitle || undefined,
+            organized: entry.organized,
+        });
+    }
+
     for (const entry of input.administrativeRoles) {
         const academicYear = entry.academicYear ? await ensureAcademicYear(entry.academicYear) : null;
 
@@ -298,6 +551,19 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
             roleName: entry.roleName,
             committeeName: entry.committeeName || undefined,
             responsibilityDescription: entry.responsibilityDescription || undefined,
+        });
+    }
+
+    for (const entry of input.institutionalContributions) {
+        const academicYear = await ensureAcademicYear(entry.academicYear);
+
+        await FacultyInstitutionalContribution.create({
+            facultyId: faculty._id,
+            academicYearId: academicYear._id,
+            activityTitle: entry.activityTitle,
+            role: entry.role,
+            impactLevel: entry.impactLevel,
+            scoreWeightage: entry.scoreWeightage,
         });
     }
 

@@ -1,12 +1,12 @@
 import { CasDashboard } from "@/components/cas/cas-dashboard";
 import { requireFaculty } from "@/lib/auth/user";
 import { getCasEligibilityForFaculty, getFacultyCasApplications } from "@/lib/cas/service";
-import { getFacultyEvidenceDefaults } from "@/lib/faculty-evidence/service";
+import { getFacultyReportDefaults } from "@/lib/faculty/report-defaults";
 import { getPbasReportsForCas } from "@/lib/pbas/service";
 
 export default async function FacultyCasPage() {
     const faculty = await requireFaculty();
-    const [pbasReports, applications, evidenceDefaults, eligibility] = await Promise.all([
+    const [pbasReports, applications, facultyDefaults, eligibility] = await Promise.all([
         getPbasReportsForCas(faculty.id),
         getFacultyCasApplications({
             id: faculty.id,
@@ -14,7 +14,7 @@ export default async function FacultyCasPage() {
             role: faculty.role,
             department: faculty.department,
         }),
-        getFacultyEvidenceDefaults(faculty.id),
+        getFacultyReportDefaults(faculty.id),
         getCasEligibilityForFaculty({
             id: faculty.id,
             name: faculty.name,
@@ -31,7 +31,7 @@ export default async function FacultyCasPage() {
                     facultyId={faculty.id}
                     eligibility={JSON.parse(JSON.stringify(eligibility))}
                     initialApplications={JSON.parse(JSON.stringify(applications))}
-                    evidenceDefaults={JSON.parse(JSON.stringify(evidenceDefaults.cas))}
+                    evidenceDefaults={JSON.parse(JSON.stringify(facultyDefaults.cas))}
                     pbasOptions={JSON.parse(
                         JSON.stringify(
                             pbasReports.map((report) => ({
@@ -42,6 +42,7 @@ export default async function FacultyCasPage() {
                                 researchScore: report.apiScore.researchAcademicContribution,
                                 institutionalScore: report.apiScore.institutionalResponsibilities,
                                 status: report.status,
+                                usableForSubmit: report.usableForSubmit,
                             }))
                         )
                     )}

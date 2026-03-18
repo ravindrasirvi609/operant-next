@@ -419,7 +419,7 @@ export function AqarDashboard({
 
         const loadDefaults = async () => {
             try {
-                const response = await fetch("/api/faculty/evidence/defaults", { cache: "no-store" });
+                const response = await fetch("/api/faculty/report-defaults", { cache: "no-store" });
                 if (!response.ok) return;
                 const data = (await response.json()) as {
                     defaults?: { aqar?: AqarFormValues["facultyContribution"] };
@@ -753,7 +753,7 @@ export function AqarDashboard({
                                 <div className="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
                                     {selectedId
                                         ? "Draft edits are auto-saved while you stay in an editable AQAR status."
-                                        : "The form is prefilled from shared evidence. Create a draft to enable autosave and workflow tracking."}
+                                        : "The form is prefilled from faculty category records. Create a draft to enable autosave and workflow tracking."}
                                 </div>
                             )}
                         </CardContent>

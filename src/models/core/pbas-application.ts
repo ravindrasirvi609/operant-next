@@ -1,4 +1,39 @@
 import mongoose, { Document, Model, Schema, Types } from "mongoose";
+import {
+    PbasAdministrativeDutySchema,
+    PbasBookSchema,
+    PbasCommitteeSchema,
+    PbasConferenceSchema,
+    PbasExamDutySchema,
+    PbasExtensionActivitySchema,
+    PbasPatentSchema,
+    PbasProjectSchema,
+    PbasResearchPaperSchema,
+    PbasStudentGuidanceSchema,
+    type IPbasAdministrativeDuty,
+    type IPbasBook,
+    type IPbasCommittee,
+    type IPbasConference,
+    type IPbasExamDuty,
+    type IPbasExtensionActivity,
+    type IPbasPatent,
+    type IPbasProject,
+    type IPbasResearchPaper,
+    type IPbasStudentGuidance,
+} from "@/models/core/pbas-snapshot-schema";
+
+export type {
+    IPbasAdministrativeDuty,
+    IPbasBook,
+    IPbasCommittee,
+    IPbasConference,
+    IPbasExamDuty,
+    IPbasExtensionActivity,
+    IPbasPatent,
+    IPbasProject,
+    IPbasResearchPaper,
+    IPbasStudentGuidance,
+} from "@/models/core/pbas-snapshot-schema";
 
 export type PbasStatus =
     | "Draft"
@@ -7,68 +42,6 @@ export type PbasStatus =
     | "Committee Review"
     | "Approved"
     | "Rejected";
-
-export interface IPbasResearchPaper {
-    title: string;
-    journal: string;
-    year: number;
-    issn?: string;
-    indexing?: string;
-}
-
-export interface IPbasBook {
-    title: string;
-    publisher: string;
-    isbn?: string;
-    year: number;
-}
-
-export interface IPbasPatent {
-    title: string;
-    year: number;
-    status: string;
-}
-
-export interface IPbasConference {
-    title: string;
-    organizer: string;
-    year: number;
-    type: string;
-}
-
-export interface IPbasProject {
-    title: string;
-    fundingAgency: string;
-    amount: number;
-    year: number;
-}
-
-export interface IPbasCommittee {
-    committeeName: string;
-    role?: string;
-    year?: number;
-}
-
-export interface IPbasAdministrativeDuty {
-    title: string;
-    year?: number;
-}
-
-export interface IPbasExamDuty {
-    duty: string;
-    year?: number;
-}
-
-export interface IPbasStudentGuidance {
-    activity: string;
-    count: number;
-}
-
-export interface IPbasExtensionActivity {
-    title: string;
-    role?: string;
-    year?: number;
-}
 
 export interface IPbasReviewCommitteeEntry {
     reviewerId: Types.ObjectId;
@@ -134,98 +107,6 @@ export interface IPbasApplication extends Document {
     updatedAt: Date;
 }
 
-const ResearchPaperSchema = new Schema<IPbasResearchPaper>(
-    {
-        title: { type: String, required: true, trim: true },
-        journal: { type: String, required: true, trim: true },
-        year: { type: Number, required: true },
-        issn: { type: String, trim: true },
-        indexing: { type: String, trim: true },
-    },
-    { _id: false }
-);
-
-const BookSchema = new Schema<IPbasBook>(
-    {
-        title: { type: String, required: true, trim: true },
-        publisher: { type: String, required: true, trim: true },
-        isbn: { type: String, trim: true },
-        year: { type: Number, required: true },
-    },
-    { _id: false }
-);
-
-const PatentSchema = new Schema<IPbasPatent>(
-    {
-        title: { type: String, required: true, trim: true },
-        year: { type: Number, required: true },
-        status: { type: String, required: true, trim: true },
-    },
-    { _id: false }
-);
-
-const ConferenceSchema = new Schema<IPbasConference>(
-    {
-        title: { type: String, required: true, trim: true },
-        organizer: { type: String, required: true, trim: true },
-        year: { type: Number, required: true },
-        type: { type: String, required: true, trim: true },
-    },
-    { _id: false }
-);
-
-const ProjectSchema = new Schema<IPbasProject>(
-    {
-        title: { type: String, required: true, trim: true },
-        fundingAgency: { type: String, required: true, trim: true },
-        amount: { type: Number, default: 0 },
-        year: { type: Number, required: true },
-    },
-    { _id: false }
-);
-
-const CommitteeSchema = new Schema<IPbasCommittee>(
-    {
-        committeeName: { type: String, required: true, trim: true },
-        role: { type: String, trim: true },
-        year: { type: Number },
-    },
-    { _id: false }
-);
-
-const AdministrativeDutySchema = new Schema<IPbasAdministrativeDuty>(
-    {
-        title: { type: String, required: true, trim: true },
-        year: { type: Number },
-    },
-    { _id: false }
-);
-
-const ExamDutySchema = new Schema<IPbasExamDuty>(
-    {
-        duty: { type: String, required: true, trim: true },
-        year: { type: Number },
-    },
-    { _id: false }
-);
-
-const StudentGuidanceSchema = new Schema<IPbasStudentGuidance>(
-    {
-        activity: { type: String, required: true, trim: true },
-        count: { type: Number, default: 0 },
-    },
-    { _id: false }
-);
-
-const ExtensionActivitySchema = new Schema<IPbasExtensionActivity>(
-    {
-        title: { type: String, required: true, trim: true },
-        role: { type: String, trim: true },
-        year: { type: Number },
-    },
-    { _id: false }
-);
-
 const ReviewCommitteeSchema = new Schema<IPbasReviewCommitteeEntry>(
     {
         reviewerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
@@ -278,18 +159,18 @@ const PbasApplicationSchema = new Schema<IPbasApplication>(
             feedbackSummary: { type: String, trim: true },
         },
         category2: {
-            researchPapers: { type: [ResearchPaperSchema], default: [] },
-            books: { type: [BookSchema], default: [] },
-            patents: { type: [PatentSchema], default: [] },
-            conferences: { type: [ConferenceSchema], default: [] },
-            projects: { type: [ProjectSchema], default: [] },
+            researchPapers: { type: [PbasResearchPaperSchema], default: [] },
+            books: { type: [PbasBookSchema], default: [] },
+            patents: { type: [PbasPatentSchema], default: [] },
+            conferences: { type: [PbasConferenceSchema], default: [] },
+            projects: { type: [PbasProjectSchema], default: [] },
         },
         category3: {
-            committees: { type: [CommitteeSchema], default: [] },
-            administrativeDuties: { type: [AdministrativeDutySchema], default: [] },
-            examDuties: { type: [ExamDutySchema], default: [] },
-            studentGuidance: { type: [StudentGuidanceSchema], default: [] },
-            extensionActivities: { type: [ExtensionActivitySchema], default: [] },
+            committees: { type: [PbasCommitteeSchema], default: [] },
+            administrativeDuties: { type: [PbasAdministrativeDutySchema], default: [] },
+            examDuties: { type: [PbasExamDutySchema], default: [] },
+            studentGuidance: { type: [PbasStudentGuidanceSchema], default: [] },
+            extensionActivities: { type: [PbasExtensionActivitySchema], default: [] },
         },
         apiScore: {
             teachingActivities: { type: Number, default: 0 },

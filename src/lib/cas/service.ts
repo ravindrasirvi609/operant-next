@@ -10,7 +10,6 @@ import User from "@/models/core/user";
 import CasApplication, { type CasStatus } from "@/models/core/cas-application";
 import { casApplicationSchema, casApprovalSchema, casReviewSchema } from "@/lib/cas/validators";
 import { getPbasReportsByIdsForFaculty } from "@/lib/pbas/service";
-import { syncEvidenceFromCas } from "@/lib/faculty-evidence/service";
 import CasApiScoreBreakup from "@/models/core/cas-api-score-breakup";
 import CasPromotionHistory from "@/models/core/cas-promotion-history";
 import ApprovalWorkflow from "@/models/core/approval-workflow";
@@ -427,7 +426,6 @@ export async function createCasApplication(actor: SafeActor, rawInput: unknown) 
         status: "Draft",
     });
 
-    await syncEvidenceFromCas(actor.id, input);
     await upsertCasBreakup(application);
     await upsertWorkflow("CAS", application._id.toString(), actor.role, application.status, "CAS draft created.");
     await audit(actor, "CAS_CREATE", "cas_applications", application._id.toString(), undefined, {
@@ -515,7 +513,6 @@ export async function updateCasApplication(actor: SafeActor, id: string, rawInpu
 
     pushStatusLog(application, application.status, actor, "CAS application draft auto-saved.");
     await application.save();
-    await syncEvidenceFromCas(actor.id, input);
     await upsertCasBreakup(application);
     await upsertWorkflow("CAS", application._id.toString(), actor.role, application.status, "CAS draft updated.");
     await audit(actor, "CAS_UPDATE", "cas_applications", application._id.toString(), oldState, application.toObject());
@@ -544,6 +541,16 @@ export async function submitCasApplication(actor: SafeActor, id: string) {
 
     if (!application.pbasReports.length) {
         throw new AuthError("At least one PBAS report must be linked before submission.", 400);
+    }
+
+    const approvedPbas = await FacultyPbasForm.find({
+        _id: { $in: application.pbasReports },
+        facultyId: application.facultyId,
+        status: "Approved",
+    }).select("_id");
+
+    if (approvedPbas.length !== application.pbasReports.length) {
+        throw new AuthError("CAS submission requires approved PBAS reports only.", 400);
     }
 
     const requiredDocs = await CasSupportingDocument.find({

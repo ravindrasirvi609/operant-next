@@ -8,8 +8,6 @@ const navLinks = [
   { label: "Home", href: "/faculty" },
   { label: "Profile", href: "/faculty/profile" },
   { label: "PBAS", href: "/faculty/pbas" },
-  { label: "Evidence", href: "/faculty/evidence" },
-  { label: "Evidence Review", href: "/faculty/evidence-review" },
   { label: "AQAR", href: "/faculty/aqar" },
   { label: "CAS", href: "/faculty/cas" },
 ];
@@ -75,8 +73,8 @@ export default async function FacultyLayout({
             <Link className="text-sm text-zinc-500 hover:text-zinc-900" href="/faculty/profile">
               Settings
             </Link>
-            <Link className="text-sm text-zinc-500 hover:text-zinc-900" href="/faculty/evidence">
-              Evidence
+            <Link className="text-sm text-zinc-500 hover:text-zinc-900" href="/faculty/profile">
+              Faculty Data
             </Link>
             <Link className="text-sm text-zinc-500 hover:text-zinc-900" href="/faculty/pbas">
               PBAS

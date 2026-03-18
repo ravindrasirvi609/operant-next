@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createApiErrorResponse } from "@/lib/auth/http";
 import { getCurrentUser } from "@/lib/auth/user";
-import { buildPbasSnapshot, deletePbasApplication, getPbasApplicationById, updatePbasApplication } from "@/lib/pbas/service";
-import AcademicYear from "@/models/reference/academic-year";
+import { deletePbasApplication, getPbasApplicationDetails, updatePbasApplication } from "@/lib/pbas/service";
 
 type RouteContext = {
     params: Promise<{
@@ -20,7 +19,7 @@ export async function GET(_request: Request, context: RouteContext) {
         }
 
         const { id } = await context.params;
-        const application = await getPbasApplicationById(
+        const application = await getPbasApplicationDetails(
             {
                 id: user.id,
                 name: user.name,
@@ -30,14 +29,7 @@ export async function GET(_request: Request, context: RouteContext) {
             id
         );
 
-        const academicYear = await AcademicYear.findById(application.academicYearId).select("yearStart");
-        const snapshot = await buildPbasSnapshot(
-            application.facultyId,
-            application.academicYearId,
-            academicYear?.yearStart
-        );
-
-        return NextResponse.json({ application: { ...application.toObject(), snapshot } });
+        return NextResponse.json({ application });
     } catch (error) {
         return createApiErrorResponse(error);
     }

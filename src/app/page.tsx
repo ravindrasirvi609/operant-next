@@ -51,7 +51,7 @@ export default async function Home() {
                     <Link href="/faculty/aqar">Open AQAR Module</Link>
                   </Button>
                   <Button asChild variant="secondary">
-                    <Link href="/faculty/evidence">Open Shared Evidence</Link>
+                    <Link href="/faculty/profile">Open Faculty Data</Link>
                   </Button>
                 </>
               ) : null}

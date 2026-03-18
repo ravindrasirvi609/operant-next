@@ -7,8 +7,7 @@ import { createApiErrorResponse } from "@/lib/auth/http";
 import CasApplication from "@/models/core/cas-application";
 import FacultyPbasForm from "@/models/core/faculty-pbas-form";
 import { ensureFacultyContext } from "@/lib/faculty/migration";
-import AcademicYear from "@/models/reference/academic-year";
-import { buildPbasSnapshot } from "@/lib/pbas/service";
+import { getPbasSnapshotForApplication } from "@/lib/pbas/service";
 
 export async function GET(request: Request) {
     try {
@@ -79,12 +78,7 @@ export async function GET(request: Request) {
                 );
             }
 
-            const academicYear = await AcademicYear.findById(entry.academicYearId).select("yearStart");
-            const snapshot = await buildPbasSnapshot(
-                entry.facultyId,
-                entry.academicYearId,
-                academicYear?.yearStart
-            );
+            const snapshot = await getPbasSnapshotForApplication(entry);
 
             normalizedEntry = {
                 type: "pbas" as const,

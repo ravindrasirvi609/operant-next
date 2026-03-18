@@ -115,6 +115,19 @@ export const pbasApplicationSchema = z.object({
     }),
 });
 
+export const pbasDraftReferencesSchema = z.object({
+    teachingSummaryId: z.string().trim().min(1).optional(),
+    teachingLoadIds: z.array(z.string().trim().min(1)).default([]),
+    publicationIds: z.array(z.string().trim().min(1)).default([]),
+    bookIds: z.array(z.string().trim().min(1)).default([]),
+    patentIds: z.array(z.string().trim().min(1)).default([]),
+    researchProjectIds: z.array(z.string().trim().min(1)).default([]),
+    eventParticipationIds: z.array(z.string().trim().min(1)).default([]),
+    adminRoleIds: z.array(z.string().trim().min(1)).default([]),
+    institutionalContributionIds: z.array(z.string().trim().min(1)).default([]),
+    socialExtensionIds: z.array(z.string().trim().min(1)).default([]),
+});
+
 export const pbasSnapshotSchema = z.object({
     category1: category1Schema,
     category2: category2Schema,
@@ -132,4 +145,5 @@ export const pbasApprovalSchema = z.object({
 });
 
 export type PbasApplicationMetaInput = z.infer<typeof pbasApplicationSchema>;
+export type PbasDraftReferencesInput = z.infer<typeof pbasDraftReferencesSchema>;
 export type PbasSnapshot = z.infer<typeof pbasSnapshotSchema>;

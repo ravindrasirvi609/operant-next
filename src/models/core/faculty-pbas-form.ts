@@ -1,4 +1,12 @@
 import mongoose, { Document, Model, Schema, Types } from "mongoose";
+import {
+    type IPbasApiScore,
+} from "@/models/core/pbas-snapshot-schema";
+import { PbasApiScoreSchema } from "@/models/core/pbas-snapshot-schema";
+import {
+    PbasDraftReferencesSchema,
+    type IPbasDraftReferences,
+} from "@/models/core/pbas-reference-schema";
 
 export type FacultyPbasSubmissionStatus = "Draft" | "Submitted" | "Locked";
 
@@ -41,12 +49,10 @@ export interface IFacultyPbasForm extends Document {
     academicYear: string;
     currentDesignation: string;
     appraisalPeriod: { fromDate: string; toDate: string };
-    apiScore: {
-        teachingActivities: number;
-        researchAcademicContribution: number;
-        institutionalResponsibilities: number;
-        totalScore: number;
-    };
+    draftReferences: IPbasDraftReferences;
+    activeRevisionId?: Types.ObjectId;
+    latestSubmittedRevisionId?: Types.ObjectId;
+    apiScore: IPbasApiScore;
     reviewCommittee: IPbasReviewCommitteeEntry[];
     statusLogs: IPbasStatusLog[];
     status: PbasStatus;
@@ -109,12 +115,10 @@ const FacultyPbasFormSchema = new Schema<IFacultyPbasForm>(
             fromDate: { type: String, required: true, trim: true },
             toDate: { type: String, required: true, trim: true },
         },
-        apiScore: {
-            teachingActivities: { type: Number, default: 0 },
-            researchAcademicContribution: { type: Number, default: 0 },
-            institutionalResponsibilities: { type: Number, default: 0 },
-            totalScore: { type: Number, default: 0 },
-        },
+        draftReferences: { type: PbasDraftReferencesSchema, default: () => ({}) },
+        activeRevisionId: { type: Schema.Types.ObjectId, ref: "FacultyPbasRevision" },
+        latestSubmittedRevisionId: { type: Schema.Types.ObjectId, ref: "FacultyPbasRevision" },
+        apiScore: { type: PbasApiScoreSchema, default: () => ({}) },
         reviewCommittee: { type: [ReviewCommitteeSchema], default: [] },
         statusLogs: { type: [StatusLogSchema], default: [] },
         status: {

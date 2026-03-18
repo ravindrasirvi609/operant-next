@@ -10,11 +10,13 @@ import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { designationOptions, getDesignationProfile } from "@/lib/faculty/options";
 import { pbasApplicationSchema, type PbasSnapshot } from "@/lib/pbas/validators";
 import {
     uploadFile,
@@ -52,6 +54,77 @@ type PbasApp = {
     updatedAt: string;
 };
 
+type PbasDraftReferences = {
+    teachingSummaryId?: string;
+    teachingLoadIds: string[];
+    publicationIds: string[];
+    bookIds: string[];
+    patentIds: string[];
+    researchProjectIds: string[];
+    eventParticipationIds: string[];
+    adminRoleIds: string[];
+    institutionalContributionIds: string[];
+    socialExtensionIds: string[];
+};
+
+type PbasCandidateOption = {
+    id: string;
+    label: string;
+    sublabel?: string;
+    note?: string;
+};
+
+type PbasCandidatePools = {
+    category1: {
+        teachingSummary?: PbasCandidateOption;
+        teachingLoads: PbasCandidateOption[];
+    };
+    category2: {
+        researchPapers: PbasCandidateOption[];
+        books: PbasCandidateOption[];
+        patents: PbasCandidateOption[];
+        conferences: PbasCandidateOption[];
+        projects: PbasCandidateOption[];
+    };
+    category3: {
+        committees: PbasCandidateOption[];
+        administrativeDuties: PbasCandidateOption[];
+        examDuties: PbasCandidateOption[];
+        studentGuidance: PbasCandidateOption[];
+        extensionActivities: PbasCandidateOption[];
+    };
+};
+
+type PbasRevisionSummary = {
+    _id: string;
+    revisionNumber: number;
+    submittedAt: string;
+    approvedAt?: string;
+    backfillIntegrity?: string;
+    migrationSource?: string;
+    createdFromStatus: string;
+    apiScore: PbasApp["apiScore"];
+};
+
+type PbasDetail = PbasApp & {
+    draftReferences: PbasDraftReferences;
+    candidates: PbasCandidatePools;
+    draftSnapshot: PbasSnapshot;
+    activeRevision?: {
+        _id: string;
+        revisionNumber: number;
+        submittedAt: string;
+        approvedAt?: string;
+        backfillIntegrity?: string;
+        migrationSource?: string;
+        createdFromStatus: string;
+        apiScore: PbasApp["apiScore"];
+        snapshot: PbasSnapshot;
+        draftReferences: PbasDraftReferences;
+    } | null;
+    revisionHistory: PbasRevisionSummary[];
+};
+
 type PbasSummary = {
     activeYear?: { id: string; label: string; yearStart: number; yearEnd: number };
     submissionDeadline?: string;
@@ -82,15 +155,6 @@ type IndicatorEntry = {
     evidenceDocument?: { _id?: string; fileName?: string; fileUrl?: string; fileType?: string } | null;
     remarks?: string;
 };
-
-const designationOptions = [
-    "Assistant Professor (Stage 1)",
-    "Assistant Professor (Stage 2)",
-    "Assistant Professor (Stage 3)",
-    "Assistant Professor (Stage 4)",
-    "Associate Professor",
-    "Professor",
-] as const;
 
 function emptyForm(prefill?: Partial<PbasFormValues>): PbasFormValues {
     const year = new Date().getFullYear();
@@ -127,6 +191,21 @@ function toFormValues(application?: PbasApp, prefill?: Partial<PbasFormValues>):
         academicYear: application.academicYear,
         currentDesignation: application.currentDesignation,
         appraisalPeriod: application.appraisalPeriod,
+    };
+}
+
+function emptyDraftReferences(): PbasDraftReferences {
+    return {
+        teachingSummaryId: undefined,
+        teachingLoadIds: [],
+        publicationIds: [],
+        bookIds: [],
+        patentIds: [],
+        researchProjectIds: [],
+        eventParticipationIds: [],
+        adminRoleIds: [],
+        institutionalContributionIds: [],
+        socialExtensionIds: [],
     };
 }
 
@@ -264,6 +343,9 @@ export function PbasDashboard({
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [isPending, startTransition] = useTransition();
     const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved">("idle");
+    const [selectedDetail, setSelectedDetail] = useState<PbasDetail | null>(null);
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [detailError, setDetailError] = useState<string | null>(null);
     const [entries, setEntries] = useState<IndicatorEntry[]>([]);
     const [entryLoading, setEntryLoading] = useState(false);
     const [entryError, setEntryError] = useState<string | null>(null);
@@ -276,7 +358,7 @@ export function PbasDashboard({
     }, [entries]);
 
     const selected = applications.find((item) => item._id === selectedId);
-    const selectedSnapshot = selected?.snapshot ?? summary.snapshot;
+    const selectedSnapshot = selectedDetail?.snapshot ?? selected?.snapshot ?? summary.snapshot;
     const canEdit = !selected || ["Draft", "Rejected"].includes(selected.status);
     const defaultDraft = useMemo(() => emptyForm(summary?.meta), [summary]);
 
@@ -317,11 +399,55 @@ export function PbasDashboard({
     }, [selectedId, selected, form, defaultDraft, summary]);
 
     const watchedValues = useWatch({ control: form.control });
+    const designationProfile = useMemo(
+        () => getDesignationProfile(watchedValues.currentDesignation ?? selected?.currentDesignation ?? summary.meta.currentDesignation),
+        [watchedValues.currentDesignation, selected?.currentDesignation, summary.meta.currentDesignation]
+    );
     const resolved = pbasApplicationSchema.safeParse(watchedValues);
     const score = useMemo(
-        () => selected?.apiScore ?? computeScore(selectedSnapshot),
-        [selected, selectedSnapshot]
+        () => selectedDetail?.apiScore ?? selected?.apiScore ?? computeScore(selectedSnapshot),
+        [selectedDetail, selected, selectedSnapshot]
     );
+
+    useEffect(() => {
+        if (!selectedId) {
+            setSelectedDetail(null);
+            setDetailError(null);
+            return;
+        }
+
+        let cancelled = false;
+        setDetailLoading(true);
+        setDetailError(null);
+
+        fetch(`/api/pbas/${selectedId}`)
+            .then((response) => response.json())
+            .then((data) => {
+                if (cancelled) return;
+                if (!data?.application) {
+                    setDetailError("Unable to load PBAS application details.");
+                    setDetailLoading(false);
+                    return;
+                }
+
+                setSelectedDetail(data.application as PbasDetail);
+                setApplications((current) =>
+                    current.map((item) =>
+                        item._id === selectedId ? { ...item, ...(data.application as PbasApp) } : item
+                    )
+                );
+                setDetailLoading(false);
+            })
+            .catch(() => {
+                if (cancelled) return;
+                setDetailError("Unable to load PBAS application details.");
+                setDetailLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedId]);
 
     useEffect(() => {
         if (!selectedId || !form.formState.isDirty) {
@@ -351,6 +477,9 @@ export function PbasDashboard({
                 setApplications((current) =>
                     current.map((item) => (item._id === selectedId ? data.application! : item))
                 );
+                if (selectedId === data.application._id) {
+                    setSelectedDetail(data.application as PbasDetail);
+                }
                 setAutoSaveState("saved");
             } else {
                 setAutoSaveState("idle");
@@ -419,7 +548,7 @@ export function PbasDashboard({
                 return current.map((item) => (item._id === data.application!._id ? data.application! : item));
             });
             setSelectedId(data.application._id);
-            setCurrentStep(0);
+            setSelectedDetail(data.application as PbasDetail);
             setMessage({ type: "success", text: data.message ?? "PBAS draft created." });
         });
     }
@@ -442,7 +571,78 @@ export function PbasDashboard({
             setApplications((current) =>
                 current.map((item) => (item._id === selectedId ? data.application! : item))
             );
+            setSelectedDetail(data.application as PbasDetail);
             setMessage({ type: "success", text: data.message ?? "PBAS application submitted." });
+        });
+    }
+
+    async function persistReferences(nextReferences: PbasDraftReferences) {
+        if (!selectedId) return;
+
+        const response = await fetch(`/api/pbas/${selectedId}/references`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(nextReferences),
+        });
+        const data = (await response.json()) as { message?: string; application?: PbasDetail };
+
+        if (!response.ok || !data.application) {
+            throw new Error(data.message ?? "Unable to update PBAS references.");
+        }
+
+        setSelectedDetail(data.application);
+        setApplications((current) =>
+            current.map((item) => (item._id === selectedId ? data.application! : item))
+        );
+    }
+
+    function toggleReference(key: keyof Omit<PbasDraftReferences, "teachingSummaryId">, id: string) {
+        if (!selectedDetail) return;
+        const current = new Set(selectedDetail.draftReferences[key]);
+        if (current.has(id)) {
+            current.delete(id);
+        } else {
+            current.add(id);
+        }
+
+        const nextReferences = {
+            ...selectedDetail.draftReferences,
+            [key]: Array.from(current),
+        };
+
+        setSelectedDetail((currentDetail) =>
+            currentDetail
+                ? {
+                    ...currentDetail,
+                    draftReferences: nextReferences,
+                }
+                : currentDetail
+        );
+
+        void persistReferences(nextReferences).catch((error) => {
+            setMessage({ type: "error", text: error instanceof Error ? error.message : "Unable to update references." });
+        });
+    }
+
+    function toggleTeachingSummary(id: string) {
+        if (!selectedDetail) return;
+        const nextReferences = {
+            ...selectedDetail.draftReferences,
+            teachingSummaryId:
+                selectedDetail.draftReferences.teachingSummaryId === id ? undefined : id,
+        };
+
+        setSelectedDetail((currentDetail) =>
+            currentDetail
+                ? {
+                    ...currentDetail,
+                    draftReferences: nextReferences,
+                }
+                : currentDetail
+        );
+
+        void persistReferences(nextReferences).catch((error) => {
+            setMessage({ type: "error", text: error instanceof Error ? error.message : "Unable to update references." });
         });
     }
 
@@ -831,16 +1031,152 @@ export function PbasDashboard({
                             </div>
 
                             <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
-                                PBAS scores are derived from faculty teaching, research, and institutional records. Update source data in{" "}
-                                <a className="font-semibold text-zinc-900 hover:underline" href="/faculty/evidence">
-                                    Evidence Workspace
-                                </a>{" "}
-                                and{" "}
+                                PBAS scores are derived from faculty teaching, research, and institutional records. Update the source data in{" "}
                                 <a className="font-semibold text-zinc-900 hover:underline" href="/faculty/profile">
-                                    Faculty Profile
+                                    Faculty Workspace
                                 </a>
                                 .
                             </div>
+
+                            <div className="rounded-lg border border-zinc-200 bg-white p-4">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-semibold text-zinc-950">{designationProfile.label}</p>
+                                    <Badge variant="secondary">{watchedValues.currentDesignation || selected?.currentDesignation || "PBAS"}</Badge>
+                                </div>
+                                <p className="mt-2 text-sm text-zinc-600">{designationProfile.pbasFocus}</p>
+                                <div className="mt-3 flex flex-wrap gap-2 text-xs uppercase tracking-[0.12em] text-zinc-500">
+                                    {designationProfile.key === "early_assistant" ? (
+                                        <>
+                                            <span className="rounded-full border border-zinc-200 px-3 py-1">Teaching-heavy visibility</span>
+                                            <span className="rounded-full border border-zinc-200 px-3 py-1">Research growth</span>
+                                        </>
+                                    ) : null}
+                                    {designationProfile.key === "advanced_assistant" ? (
+                                        <>
+                                            <span className="rounded-full border border-zinc-200 px-3 py-1">Balanced teaching + research</span>
+                                            <span className="rounded-full border border-zinc-200 px-3 py-1">Institutional contribution visible</span>
+                                        </>
+                                    ) : null}
+                                    {designationProfile.key === "associate" ? (
+                                        <>
+                                            <span className="rounded-full border border-zinc-200 px-3 py-1">Research-first visibility</span>
+                                            <span className="rounded-full border border-zinc-200 px-3 py-1">Leadership contribution visible</span>
+                                        </>
+                                    ) : null}
+                                    {designationProfile.key === "professor" ? (
+                                        <>
+                                            <span className="rounded-full border border-zinc-200 px-3 py-1">Leadership-first visibility</span>
+                                            <span className="rounded-full border border-zinc-200 px-3 py-1">Mentoring and stewardship</span>
+                                        </>
+                                    ) : null}
+                                </div>
+                            </div>
+
+                            {detailLoading ? (
+                                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                                    Loading PBAS record selections...
+                                </div>
+                            ) : detailError ? (
+                                <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                                    {detailError}
+                                </div>
+                            ) : selectedDetail ? (
+                                <div className="grid gap-4 xl:grid-cols-3">
+                                    <ReferenceGroup
+                                        title="Teaching Sources"
+                                        description={
+                                            designationProfile.key === "professor"
+                                                ? "Teaching summary remains visible, but senior-role PBAS review will especially look at how it complements research leadership and mentoring."
+                                                : "Teaching summary and load records currently included in this PBAS draft."
+                                        }
+                                        singleOption={selectedDetail.candidates.category1.teachingSummary}
+                                        singleSelectedId={selectedDetail.draftReferences.teachingSummaryId}
+                                        onToggleSingle={toggleTeachingSummary}
+                                        items={selectedDetail.candidates.category1.teachingLoads}
+                                        selectedIds={selectedDetail.draftReferences.teachingLoadIds}
+                                        onToggleItem={(id) => toggleReference("teachingLoadIds", id)}
+                                        disabled={!canEdit}
+                                    />
+                                    <ReferenceGroup
+                                        title="Research Sources"
+                                        description={
+                                            designationProfile.key === "early_assistant"
+                                                ? "Publications, books, patents, projects, and conferences selected for this PBAS."
+                                                : "Research records are prominently surfaced for this designation because they drive the strongest PBAS differentiation."
+                                        }
+                                        items={[
+                                            ...selectedDetail.candidates.category2.researchPapers,
+                                            ...selectedDetail.candidates.category2.books,
+                                            ...selectedDetail.candidates.category2.patents,
+                                            ...selectedDetail.candidates.category2.projects,
+                                            ...selectedDetail.candidates.category2.conferences,
+                                        ]}
+                                        selectedIds={[
+                                            ...selectedDetail.draftReferences.publicationIds,
+                                            ...selectedDetail.draftReferences.bookIds,
+                                            ...selectedDetail.draftReferences.patentIds,
+                                            ...selectedDetail.draftReferences.researchProjectIds,
+                                            ...selectedDetail.draftReferences.eventParticipationIds,
+                                        ]}
+                                        onToggleItem={(id) => {
+                                            if (selectedDetail.candidates.category2.researchPapers.some((item) => item.id === id)) {
+                                                toggleReference("publicationIds", id);
+                                                return;
+                                            }
+                                            if (selectedDetail.candidates.category2.books.some((item) => item.id === id)) {
+                                                toggleReference("bookIds", id);
+                                                return;
+                                            }
+                                            if (selectedDetail.candidates.category2.patents.some((item) => item.id === id)) {
+                                                toggleReference("patentIds", id);
+                                                return;
+                                            }
+                                            if (selectedDetail.candidates.category2.projects.some((item) => item.id === id)) {
+                                                toggleReference("researchProjectIds", id);
+                                                return;
+                                            }
+                                            toggleReference("eventParticipationIds", id);
+                                        }}
+                                        disabled={!canEdit}
+                                    />
+                                    <ReferenceGroup
+                                        title="Institutional Sources"
+                                        description={
+                                            designationProfile.key === "early_assistant"
+                                                ? "Admin roles, guidance, and extension entries included in this PBAS."
+                                                : "Leadership, guidance, and institutional stewardship stay visible for this designation and should be curated carefully."
+                                        }
+                                        items={[
+                                            ...selectedDetail.candidates.category3.committees,
+                                            ...selectedDetail.candidates.category3.administrativeDuties,
+                                            ...selectedDetail.candidates.category3.examDuties,
+                                            ...selectedDetail.candidates.category3.studentGuidance,
+                                            ...selectedDetail.candidates.category3.extensionActivities,
+                                        ]}
+                                        selectedIds={[
+                                            ...selectedDetail.draftReferences.adminRoleIds,
+                                            ...selectedDetail.draftReferences.institutionalContributionIds,
+                                            ...selectedDetail.draftReferences.socialExtensionIds,
+                                        ]}
+                                        onToggleItem={(id) => {
+                                            if (
+                                                selectedDetail.candidates.category3.committees.some((item) => item.id === id) ||
+                                                selectedDetail.candidates.category3.administrativeDuties.some((item) => item.id === id) ||
+                                                selectedDetail.candidates.category3.examDuties.some((item) => item.id === id)
+                                            ) {
+                                                toggleReference("adminRoleIds", id);
+                                                return;
+                                            }
+                                            if (selectedDetail.candidates.category3.studentGuidance.some((item) => item.id === id)) {
+                                                toggleReference("institutionalContributionIds", id);
+                                                return;
+                                            }
+                                            toggleReference("socialExtensionIds", id);
+                                        }}
+                                        disabled={!canEdit}
+                                    />
+                                </div>
+                            ) : null}
 
                             <div className="grid gap-4 lg:grid-cols-3">
                                 <div className="rounded-lg border border-zinc-200 bg-white p-4">
@@ -880,6 +1216,35 @@ export function PbasDashboard({
                                     </p>
                                 </div>
                             </div>
+
+                            {selectedDetail?.revisionHistory?.length ? (
+                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+                                    <p className="text-sm font-semibold text-zinc-950">Submission Revisions</p>
+                                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                                        {selectedDetail.revisionHistory.map((revision) => (
+                                            <div key={revision._id} className="rounded-lg border border-zinc-200 bg-white p-3 text-sm text-zinc-600">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <p className="font-semibold text-zinc-950">Revision {revision.revisionNumber}</p>
+                                                    <Badge variant="secondary">{revision.apiScore.totalScore}</Badge>
+                                                </div>
+                                                <p className="mt-2">
+                                                    Submitted {new Date(revision.submittedAt).toLocaleString()}
+                                                </p>
+                                                <p>
+                                                    {revision.approvedAt
+                                                        ? `Approved ${new Date(revision.approvedAt).toLocaleString()}`
+                                                        : revision.createdFromStatus}
+                                                </p>
+                                                {revision.backfillIntegrity || revision.migrationSource ? (
+                                                    <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">
+                                                        {[revision.backfillIntegrity, revision.migrationSource].filter(Boolean).join(" • ")}
+                                                    </p>
+                                                ) : null}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
 
                             <div className="flex flex-wrap gap-3">
                                 {selectedId ? (
@@ -927,7 +1292,73 @@ function Metric({ label, value }: { label: string; value: string }) {
         </div>
     );
 }
-function setCurrentStep(arg0: number) {
-    throw new Error("Function not implemented.");
-}
 
+function ReferenceGroup({
+    title,
+    description,
+    items,
+    selectedIds,
+    onToggleItem,
+    disabled,
+    singleOption,
+    singleSelectedId,
+    onToggleSingle,
+}: {
+    title: string;
+    description: string;
+    items: PbasCandidateOption[];
+    selectedIds: string[];
+    onToggleItem: (id: string) => void;
+    disabled: boolean;
+    singleOption?: PbasCandidateOption;
+    singleSelectedId?: string;
+    onToggleSingle?: (id: string) => void;
+}) {
+    return (
+        <div className="rounded-lg border border-zinc-200 bg-white p-4">
+            <p className="text-sm font-semibold text-zinc-950">{title}</p>
+            <p className="mt-1 text-sm text-zinc-500">{description}</p>
+            <div className="mt-4 grid gap-3">
+                {singleOption ? (
+                    <label className="flex items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                        <Checkbox
+                            checked={singleSelectedId === singleOption.id}
+                            onCheckedChange={() => onToggleSingle?.(singleOption.id)}
+                            disabled={disabled}
+                        />
+                        <span className="grid gap-1">
+                            <span className="text-sm font-medium text-zinc-950">{singleOption.label}</span>
+                            {singleOption.sublabel ? (
+                                <span className="text-xs text-zinc-500">{singleOption.sublabel}</span>
+                            ) : null}
+                        </span>
+                    </label>
+                ) : null}
+                {items.length ? (
+                    items.map((item) => (
+                        <label key={item.id} className="flex items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                            <Checkbox
+                                checked={selectedIds.includes(item.id)}
+                                onCheckedChange={() => onToggleItem(item.id)}
+                                disabled={disabled}
+                            />
+                            <span className="grid gap-1">
+                                <span className="text-sm font-medium text-zinc-950">{item.label}</span>
+                                {item.sublabel ? (
+                                    <span className="text-xs text-zinc-500">{item.sublabel}</span>
+                                ) : null}
+                                {item.note ? (
+                                    <span className="text-xs uppercase tracking-[0.12em] text-zinc-400">{item.note}</span>
+                                ) : null}
+                            </span>
+                        </label>
+                    ))
+                ) : (
+                    <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                        No records available in this section for the selected academic year.
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}

@@ -13,7 +13,7 @@ import StudentActivity from "@/models/academic/student-activity";
 import SystemMisc from "@/models/engagement/system-misc";
 import Publication from "@/models/research/publication";
 import Project from "@/models/research/project";
-import PbasApplication from "@/models/core/pbas-application";
+import FacultyPbasForm from "@/models/core/faculty-pbas-form";
 import Faculty from "@/models/faculty/faculty";
 import FacultyAdminRole from "@/models/faculty/faculty-admin-role";
 import FacultyPublication from "@/models/faculty/faculty-publication";
@@ -170,7 +170,7 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         Faculty.find().select("qualifications administrativeResponsibilities"),
         FacultyTeachingLoad.find().select("facultyId courseName"),
         FacultyAdminRole.find().select("facultyId"),
-        PbasApplication.countDocuments({
+        FacultyPbasForm.countDocuments({
             academicYear,
             status: { $in: ["Approved", "Committee Review", "Under Review", "Submitted"] },
         }),

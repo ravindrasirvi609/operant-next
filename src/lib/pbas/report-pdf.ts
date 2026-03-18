@@ -3,8 +3,7 @@ import Faculty from "@/models/faculty/faculty";
 import User from "@/models/core/user";
 import Department from "@/models/reference/department";
 import Institution from "@/models/reference/institution";
-import AcademicYear from "@/models/reference/academic-year";
-import { buildPbasSnapshot } from "@/lib/pbas/service";
+import { getPbasSnapshotForApplication } from "@/lib/pbas/service";
 
 const PAGE_WIDTH = 595;
 const PAGE_HEIGHT = 842;
@@ -84,12 +83,7 @@ function makePdf(pages: string[]) {
 }
 
 export async function buildPbasReportPdf(application: InstanceType<typeof FacultyPbasForm>) {
-    const academicYear = await AcademicYear.findById(application.academicYearId).select("yearStart");
-    const snapshot = await buildPbasSnapshot(
-        application.facultyId,
-        application.academicYearId,
-        academicYear?.yearStart
-    );
+    const snapshot = await getPbasSnapshotForApplication(application);
     const faculty = await Faculty.findById(application.facultyId).select(
         "firstName lastName email designation departmentId institutionId userId"
     );

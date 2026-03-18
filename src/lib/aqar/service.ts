@@ -9,7 +9,6 @@ import Faculty from "@/models/faculty/faculty";
 import User from "@/models/core/user";
 import AqarApplication, { type AqarStatus } from "@/models/core/aqar-application";
 import { aqarApplicationSchema, aqarApprovalSchema, aqarReviewSchema } from "@/lib/aqar/validators";
-import { syncEvidenceFromAqar } from "@/lib/faculty-evidence/service";
 
 type SafeActor = {
     id: string;
@@ -146,8 +145,6 @@ export async function createAqarApplication(actor: SafeActor, rawInput: unknown)
         status: "Draft",
     });
 
-    await syncEvidenceFromAqar(actor.id, input);
-
     return application;
 }
 
@@ -217,8 +214,6 @@ export async function updateAqarApplication(actor: SafeActor, id: string, rawInp
 
     pushStatusLog(application, application.status, actor, "AQAR application draft auto-saved.");
     await application.save();
-    await syncEvidenceFromAqar(actor.id, input);
-
     return application;
 }
 

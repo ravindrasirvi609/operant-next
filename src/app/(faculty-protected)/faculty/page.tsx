@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireFaculty } from "@/lib/auth/user";
-import { getFacultyEvidence } from "@/lib/faculty-evidence/service";
 import { getFacultyWorkspace } from "@/lib/faculty/service";
 import { getFacultyAqarApplications } from "@/lib/aqar/service";
 import { getFacultyCasApplications } from "@/lib/cas/service";
@@ -16,10 +15,9 @@ function pendingCount(statuses: string[]) {
 
 export default async function FacultyHomePage() {
     const faculty = await requireFaculty();
-    const [workspace, evidence, pbasApplications, casApplications, aqarApplications] =
+    const [workspace, pbasApplications, casApplications, aqarApplications] =
         await Promise.all([
             getFacultyWorkspace(faculty.id),
-            getFacultyEvidence(faculty.id),
             getFacultyPbasApplications({
                 id: faculty.id,
                 name: faculty.name,
@@ -43,8 +41,12 @@ export default async function FacultyHomePage() {
     const profile = workspace.facultyRecord;
     const metrics = [
         { label: "Teaching loads", value: profile.teachingLoads.length, helper: "Mapped courses" },
-        { label: "Research outputs", value: evidence.publications.length + evidence.books.length + evidence.patents.length, helper: "Shared evidence" },
-        { label: "Projects", value: evidence.projects.length, helper: "Research pipeline" },
+        {
+            label: "Research outputs",
+            value: profile.publications.length + profile.books.length + profile.patents.length,
+            helper: "Faculty records",
+        },
+        { label: "Projects", value: profile.researchProjects.length, helper: "Research pipeline" },
         { label: "PBAS reports", value: pbasApplications.length, helper: "Annual appraisals" },
         { label: "CAS applications", value: casApplications.length, helper: "Promotion workflow" },
         { label: "AQAR drafts", value: aqarApplications.length, helper: "Quality contributions" },
@@ -76,9 +78,9 @@ export default async function FacultyHomePage() {
             href: "/faculty/aqar",
         },
         {
-            title: "Evidence completeness",
-            detail: `${evidence.publications.length + evidence.projects.length + evidence.conferences.length} shared evidence record(s) available`,
-            href: "/faculty/evidence",
+            title: "Faculty data completeness",
+            detail: `${profile.publications.length + profile.researchProjects.length + profile.eventParticipations.length} academic record(s) available`,
+            href: "/faculty/profile",
         },
     ];
 
@@ -86,8 +88,8 @@ export default async function FacultyHomePage() {
         !profile.employeeCode ? "Employee code is missing from the faculty profile." : null,
         !profile.highestQualification ? "Highest qualification is not filled yet." : null,
         !profile.teachingLoads.length ? "Teaching contribution entries are still empty." : null,
-        !evidence.publications.length && !evidence.projects.length
-            ? "Research evidence is still empty."
+        !profile.publications.length && !profile.researchProjects.length
+            ? "Research and publication records are still empty."
             : null,
     ].filter(Boolean) as string[];
 
@@ -106,14 +108,11 @@ export default async function FacultyHomePage() {
                         Welcome back, {faculty.name}
                     </h1>
                     <p className="mt-3 max-w-3xl text-base text-zinc-600">
-                        Your institutional faculty identity, teaching record, shared evidence, and accreditation workflows now operate from one connected workspace.
+                        Your institutional faculty identity, category-wise academic records, and accreditation workflows now operate from one connected workspace.
                     </p>
                     <div className="mt-6 flex flex-wrap gap-3">
                         <Button asChild>
                             <Link href="/faculty/profile">Open Faculty Workspace</Link>
-                        </Button>
-                        <Button asChild variant="outline">
-                            <Link href="/faculty/evidence">Open Evidence Workspace</Link>
                         </Button>
                         <Button asChild variant="outline">
                             <Link href="/faculty/pbas">Open PBAS</Link>
@@ -138,7 +137,7 @@ export default async function FacultyHomePage() {
                         <CardHeader>
                             <CardTitle>Compliance Snapshot</CardTitle>
                             <CardDescription>
-                                Current workflow and evidence status across PBAS, CAS, AQAR, and shared faculty evidence.
+                                Current workflow and source-record status across PBAS, CAS, and AQAR.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -174,7 +173,7 @@ export default async function FacultyHomePage() {
                                 ))
                             ) : (
                                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-                                    Faculty profile, teaching data, and shared evidence are available for current workflows.
+                                    Faculty profile and category-wise academic records are available for current workflows.
                                 </div>
                             )}
                             <div className="rounded-xl border border-zinc-200 p-4">
@@ -183,7 +182,7 @@ export default async function FacultyHomePage() {
                                     Employee Code: {profile.employeeCode || "Not set"} · Qualification: {profile.highestQualification || "Not set"}
                                 </p>
                                 <p className="mt-1 text-xs text-zinc-500">
-                                    Teaching records: {profile.teachingLoads.length} · Administrative roles: {profile.administrativeRoles.length}
+                                    Teaching records: {profile.teachingLoads.length} · Publications: {profile.publications.length} · Administrative roles: {profile.administrativeRoles.length}
                                 </p>
                             </div>
                         </CardContent>

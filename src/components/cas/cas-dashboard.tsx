@@ -1,7 +1,7 @@
 "use client";
 
 import { ShieldCheck, Trash2, Upload } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
@@ -13,6 +13,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+    designationOptions,
+    getAllowedCasPromotionTargets,
+    getDefaultCasTarget,
+    getDesignationProfile,
+} from "@/lib/faculty/options";
 import { casApplicationSchema } from "@/lib/cas/validators";
 import {
     uploadFile,
@@ -32,6 +38,7 @@ type PbasOption = {
     researchScore?: number;
     institutionalScore?: number;
     status?: string;
+    usableForSubmit?: boolean;
 };
 
 type CasApp = {
@@ -117,22 +124,14 @@ const steps = [
     "Review and Submit",
 ] as const;
 
-const designationOptions = [
-    "Assistant Professor (Stage 1)",
-    "Assistant Professor (Stage 2)",
-    "Assistant Professor (Stage 3)",
-    "Assistant Professor (Stage 4)",
-    "Associate Professor",
-    "Professor",
-];
-
 function emptyForm(): CasFormValues {
     const year = new Date().getFullYear();
+    const currentDesignation = "Assistant Professor (Stage 1)";
 
     return {
         applicationYear: `${year}-${year + 1}`,
-        currentDesignation: "Assistant Professor (Stage 1)",
-        applyingForDesignation: "Assistant Professor (Stage 2)",
+        currentDesignation,
+        applyingForDesignation: getDefaultCasTarget(currentDesignation),
         eligibilityPeriod: {
             fromYear: year - 4,
             toYear: year,
@@ -291,11 +290,11 @@ export function PBASSelector({
                                 </p>
                                 {item.status ? (
                                     <p className="mt-1 text-xs uppercase tracking-[0.12em] text-zinc-400">
-                                        {item.status}
+                                        {item.status}{item.usableForSubmit === false ? " • Preview only" : ""}
                                     </p>
                                 ) : null}
                             </div>
-                            <Badge>{isSelected ? "Selected" : "Available"}</Badge>
+                            <Badge>{isSelected ? "Selected" : item.usableForSubmit === false ? "Preview" : "Available"}</Badge>
                         </div>
                     </button>
                 );
@@ -432,8 +431,33 @@ export function CasDashboard({
     const watchedValues = useWatch({ control: form.control });
     const resolved = casApplicationSchema.safeParse(watchedValues);
     const normalizedValues = resolved.success ? resolved.data : casApplicationSchema.parse(emptyForm());
+    const designationProfile = useMemo(
+        () => getDesignationProfile(normalizedValues.currentDesignation),
+        [normalizedValues.currentDesignation]
+    );
+    const allowedPromotionTargets = useMemo(
+        () => getAllowedCasPromotionTargets(normalizedValues.currentDesignation),
+        [normalizedValues.currentDesignation]
+    );
     const score = computeScore(normalizedValues, pbasOptions);
     const computedEligibility = computeEligibility(normalizedValues, score.totalScore);
+
+    useEffect(() => {
+        const nextOptions = getAllowedCasPromotionTargets(form.getValues("currentDesignation"));
+        const selectedTarget = form.getValues("applyingForDesignation");
+        if (!nextOptions.includes(selectedTarget as (typeof nextOptions)[number])) {
+            form.setValue("applyingForDesignation", nextOptions[0], { shouldDirty: true, shouldValidate: true });
+        }
+    }, [form, watchedValues.currentDesignation]);
+
+    useEffect(() => {
+        if (!designationProfile.showCasPhdGuided && form.getValues("achievements.phdGuided") !== 0) {
+            form.setValue("achievements.phdGuided", 0, { shouldDirty: true, shouldValidate: true });
+        }
+        if (!designationProfile.showCasConferenceCount && form.getValues("achievements.conferences") !== 0) {
+            form.setValue("achievements.conferences", 0, { shouldDirty: true, shouldValidate: true });
+        }
+    }, [designationProfile, form]);
 
     useEffect(() => {
         if (!selectedId || !form.formState.isDirty) {
@@ -831,48 +855,57 @@ export function CasDashboard({
                     </CardHeader>
                     <CardContent className="space-y-6">
                         {currentStep === 0 ? (
-                            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                                <Field label="Application Year"><Input {...form.register("applicationYear")} /></Field>
-                                <Field label="Current Designation">
-                                    <Controller
-                                        control={form.control}
-                                        name="currentDesignation"
-                                        render={({ field }) => (
-                                            <Select value={field.value || undefined} onValueChange={field.onChange}>
-                                                <SelectTrigger className="w-full">
-                                                    <SelectValue placeholder="Select designation" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {designationOptions.map((option) => (
-                                                        <SelectItem key={option} value={option}>
-                                                            {option}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        )}
-                                    />
-                                </Field>
-                                <Field label="Applying For">
-                                    <Controller
-                                        control={form.control}
-                                        name="applyingForDesignation"
-                                        render={({ field }) => (
-                                            <Select value={field.value || undefined} onValueChange={field.onChange}>
-                                                <SelectTrigger className="w-full">
-                                                    <SelectValue placeholder="Select designation" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {designationOptions.map((option) => (
-                                                        <SelectItem key={option} value={option}>
-                                                            {option}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        )}
-                                    />
-                                </Field>
+                            <div className="space-y-4">
+                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                    <Field label="Application Year"><Input {...form.register("applicationYear")} /></Field>
+                                    <Field label="Current Designation">
+                                        <Controller
+                                            control={form.control}
+                                            name="currentDesignation"
+                                            render={({ field }) => (
+                                                <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Select designation" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {designationOptions.map((option) => (
+                                                            <SelectItem key={option} value={option}>
+                                                                {option}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
+                                        />
+                                    </Field>
+                                    <Field label="Applying For">
+                                        <Controller
+                                            control={form.control}
+                                            name="applyingForDesignation"
+                                            render={({ field }) => (
+                                                <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Select designation" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {allowedPromotionTargets.map((option) => (
+                                                            <SelectItem key={option} value={option}>
+                                                                {option}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
+                                        />
+                                    </Field>
+                                </div>
+                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+                                    <p className="font-semibold text-zinc-950">{designationProfile.label}</p>
+                                    <p className="mt-1">{designationProfile.casFocus}</p>
+                                    <p className="mt-2 text-xs uppercase tracking-[0.12em] text-zinc-500">
+                                        Allowed promotion path: {allowedPromotionTargets.join(" / ")}
+                                    </p>
+                                </div>
                             </div>
                         ) : null}
 
@@ -978,9 +1011,20 @@ export function CasDashboard({
                         ) : null}
 
                         {currentStep === 5 ? (
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <Field label="PhD Guided"><Input type="number" {...form.register("achievements.phdGuided", { valueAsNumber: true })} /></Field>
-                                <Field label="Conferences"><Input type="number" {...form.register("achievements.conferences", { valueAsNumber: true })} /></Field>
+                            <div className="space-y-4">
+                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+                                    {designationProfile.showCasPhdGuided
+                                        ? "This promotion path includes doctoral guidance as a visible CAS contribution field."
+                                        : "This promotion path keeps the academic contribution section lighter, with PBAS, publications, books, projects, and conference activity carrying most of the score."}
+                                </div>
+                                <div className={`grid gap-4 ${designationProfile.showCasPhdGuided && designationProfile.showCasConferenceCount ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
+                                    {designationProfile.showCasPhdGuided ? (
+                                        <Field label="PhD Guided"><Input type="number" {...form.register("achievements.phdGuided", { valueAsNumber: true })} /></Field>
+                                    ) : null}
+                                    {designationProfile.showCasConferenceCount ? (
+                                        <Field label="Conferences"><Input type="number" {...form.register("achievements.conferences", { valueAsNumber: true })} /></Field>
+                                    ) : null}
+                                </div>
                             </div>
                         ) : null}
 
@@ -1077,6 +1121,16 @@ export function CasDashboard({
                                     <p className="mt-1 text-sm text-zinc-600">
                                         Publications: {(watchedValues.achievements?.publications ?? []).length} | Books: {(watchedValues.achievements?.books ?? []).length} | Projects: {(watchedValues.achievements?.researchProjects ?? []).length}
                                     </p>
+                                    {designationProfile.showCasPhdGuided ? (
+                                        <p className="mt-1 text-sm text-zinc-600">
+                                            PhD guided: {Number(watchedValues.achievements?.phdGuided ?? 0)}
+                                        </p>
+                                    ) : null}
+                                    {designationProfile.showCasConferenceCount ? (
+                                        <p className="mt-1 text-sm text-zinc-600">
+                                            Conference contributions: {Number(watchedValues.achievements?.conferences ?? 0)}
+                                        </p>
+                                    ) : null}
                                 </div>
                                 <div className="flex flex-wrap gap-3">
                                     <Button type="button" onClick={submitApplication} disabled={isPending || !selectedId}>
