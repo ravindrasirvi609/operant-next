@@ -4,6 +4,7 @@ export interface IFacultyTeachingLoad extends Document {
     facultyId: Types.ObjectId;
     academicYearId: Types.ObjectId;
     programId: Types.ObjectId;
+    documentId?: Types.ObjectId;
     courseName: string;
     semester: number;
     subjectCode?: string;
@@ -20,6 +21,7 @@ const FacultyTeachingLoadSchema = new Schema<IFacultyTeachingLoad>(
         facultyId: { type: Schema.Types.ObjectId, ref: "Faculty", required: true, index: true },
         academicYearId: { type: Schema.Types.ObjectId, ref: "AcademicYear", required: true, index: true },
         programId: { type: Schema.Types.ObjectId, ref: "Program", required: true, index: true },
+        documentId: { type: Schema.Types.ObjectId, ref: "Document" },
         courseName: { type: String, required: true, trim: true },
         semester: { type: Number, required: true, min: 1 },
         subjectCode: { type: String, trim: true },

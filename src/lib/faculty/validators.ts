@@ -17,6 +17,7 @@ const researchProfileSchema = z.object({
 
 const teachingLoadSchema = z.object({
     _id: z.string().optional(),
+    documentId: z.string().trim().optional(),
     academicYear: z.string().trim().min(4, "Academic year is required."),
     programName: z.string().trim().min(2, "Program is required."),
     courseName: z.string().trim().min(2, "Course name is required."),
@@ -30,6 +31,7 @@ const teachingLoadSchema = z.object({
 
 const teachingSummarySchema = z.object({
     _id: z.string().optional(),
+    documentId: z.string().trim().optional(),
     academicYear: z.string().trim().min(4, "Academic year is required."),
     classesTaken: z.coerce.number().min(0).default(0),
     coursePreparationHours: z.coerce.number().min(0).default(0),
@@ -41,6 +43,7 @@ const teachingSummarySchema = z.object({
 
 const resultSummarySchema = z.object({
     _id: z.string().optional(),
+    documentId: z.string().trim().optional(),
     academicYear: z.string().trim().min(4, "Academic year is required."),
     subjectName: z.string().trim().min(2, "Subject name is required."),
     appearedStudents: z.coerce.number().int().min(0).default(0),
@@ -50,6 +53,7 @@ const resultSummarySchema = z.object({
 
 const administrativeRoleSchema = z.object({
     _id: z.string().optional(),
+    documentId: z.string().trim().optional(),
     academicYear: z.string().trim().optional(),
     roleName: z.string().trim().min(2, "Role name is required."),
     committeeName: z.string().trim().optional(),
@@ -58,6 +62,7 @@ const administrativeRoleSchema = z.object({
 
 const publicationSchema = z.object({
     _id: z.string().optional(),
+    documentId: z.string().trim().optional(),
     title: z.string().trim().min(2, "Publication title is required."),
     journalName: z.string().trim().optional(),
     publisher: z.string().trim().optional(),
@@ -72,6 +77,7 @@ const publicationSchema = z.object({
 
 const bookSchema = z.object({
     _id: z.string().optional(),
+    documentId: z.string().trim().optional(),
     title: z.string().trim().min(2, "Book title is required."),
     publisher: z.string().trim().optional(),
     isbn: z.string().trim().optional(),
@@ -81,6 +87,7 @@ const bookSchema = z.object({
 
 const patentSchema = z.object({
     _id: z.string().optional(),
+    documentId: z.string().trim().optional(),
     title: z.string().trim().min(2, "Patent title is required."),
     patentNumber: z.string().trim().optional(),
     status: z.enum(["Filed", "Published", "Granted"]).default("Filed"),
@@ -90,6 +97,7 @@ const patentSchema = z.object({
 
 const researchProjectSchema = z.object({
     _id: z.string().optional(),
+    documentId: z.string().trim().optional(),
     title: z.string().trim().min(2, "Project title is required."),
     fundingAgency: z.string().trim().optional(),
     projectType: z.enum(["Minor", "Major", "Industry"]).default("Minor"),
@@ -102,6 +110,7 @@ const researchProjectSchema = z.object({
 
 const eventParticipationSchema = z.object({
     _id: z.string().optional(),
+    documentId: z.string().trim().optional(),
     title: z.string().trim().min(2, "Event title is required."),
     organizer: z.string().trim().min(2, "Organizer is required."),
     eventType: z.enum(["Seminar", "Workshop", "Conference", "Symposium", "Webinar", "Other"]).default("Conference"),
@@ -117,6 +126,7 @@ const eventParticipationSchema = z.object({
 
 const fdpSchema = z.object({
     _id: z.string().optional(),
+    documentId: z.string().trim().optional(),
     title: z.string().trim().min(2, "Programme title is required."),
     sponsoredBy: z.string().trim().optional(),
     level: z.enum(["College", "State", "National", "International"]).default("College"),
@@ -127,6 +137,7 @@ const fdpSchema = z.object({
 
 const institutionalContributionSchema = z.object({
     _id: z.string().optional(),
+    documentId: z.string().trim().optional(),
     academicYear: z.string().trim().min(4, "Academic year is required."),
     activityTitle: z.string().trim().min(2, "Activity title is required."),
     role: z.string().trim().min(2, "Role is required."),
@@ -136,6 +147,7 @@ const institutionalContributionSchema = z.object({
 
 const socialExtensionSchema = z.object({
     _id: z.string().optional(),
+    documentId: z.string().trim().optional(),
     academicYear: z.string().trim().optional(),
     programName: z.string().trim().min(2, "Programme name is required."),
     activityName: z.string().trim().min(2, "Activity name is required."),

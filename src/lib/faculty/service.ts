@@ -221,6 +221,7 @@ export async function getFacultyWorkspace(userId: string) {
         },
         teachingSummaries: teachingSummaries.map((item) => ({
             _id: item._id.toString(),
+            documentId: item.documentId?.toString() ?? "",
             academicYear: toAcademicYearLabel(
                 (item.academicYearId as { yearStart?: number })?.yearStart,
                 (item.academicYearId as { yearEnd?: number })?.yearEnd
@@ -234,6 +235,7 @@ export async function getFacultyWorkspace(userId: string) {
         })),
         teachingLoads: teachingLoads.map((item) => ({
             _id: item._id.toString(),
+            documentId: item.documentId?.toString() ?? "",
             academicYear: toAcademicYearLabel(
                 (item.academicYearId as { yearStart?: number })?.yearStart,
                 (item.academicYearId as { yearEnd?: number })?.yearEnd
@@ -249,6 +251,7 @@ export async function getFacultyWorkspace(userId: string) {
         })),
         resultSummaries: resultSummaries.map((item) => ({
             _id: item._id.toString(),
+            documentId: item.documentId?.toString() ?? "",
             academicYear: toAcademicYearLabel(
                 (item.academicYearId as { yearStart?: number })?.yearStart,
                 (item.academicYearId as { yearEnd?: number })?.yearEnd
@@ -260,6 +263,7 @@ export async function getFacultyWorkspace(userId: string) {
         })),
         publications: publications.map((item) => ({
             _id: item._id.toString(),
+            documentId: item.documentId?.toString() ?? "",
             title: item.title,
             journalName: item.journalName ?? "",
             publisher: item.publisher ?? "",
@@ -273,6 +277,7 @@ export async function getFacultyWorkspace(userId: string) {
         })),
         books: books.map((item) => ({
             _id: item._id.toString(),
+            documentId: item.documentId?.toString() ?? "",
             title: item.title,
             publisher: item.publisher ?? "",
             isbn: item.isbn ?? "",
@@ -281,6 +286,7 @@ export async function getFacultyWorkspace(userId: string) {
         })),
         patents: patents.map((item) => ({
             _id: item._id.toString(),
+            documentId: item.documentId?.toString() ?? "",
             title: item.title,
             patentNumber: item.patentNumber ?? "",
             status: item.status,
@@ -289,6 +295,7 @@ export async function getFacultyWorkspace(userId: string) {
         })),
         researchProjects: researchProjects.map((item) => ({
             _id: item._id.toString(),
+            documentId: item.documentId?.toString() ?? "",
             title: item.title,
             fundingAgency: item.fundingAgency ?? "",
             projectType: item.projectType,
@@ -300,6 +307,7 @@ export async function getFacultyWorkspace(userId: string) {
         })),
         eventParticipations: eventParticipations.map((item) => ({
             _id: item._id.toString(),
+            documentId: item.documentId?.toString() ?? "",
             title: (item.eventId as { title?: string })?.title ?? "",
             organizer: (item.eventId as { organizedBy?: string })?.organizedBy ?? "",
             eventType:
@@ -318,6 +326,7 @@ export async function getFacultyWorkspace(userId: string) {
         })),
         administrativeRoles: administrativeRoles.map((item) => ({
             _id: item._id.toString(),
+            documentId: item.documentId?.toString() ?? "",
             academicYear: toAcademicYearLabel(
                 (item.academicYearId as { yearStart?: number })?.yearStart,
                 (item.academicYearId as { yearEnd?: number })?.yearEnd
@@ -328,6 +337,7 @@ export async function getFacultyWorkspace(userId: string) {
         })),
         institutionalContributions: institutionalContributions.map((item) => ({
             _id: item._id.toString(),
+            documentId: item.documentId?.toString() ?? "",
             academicYear: toAcademicYearLabel(
                 (item.academicYearId as { yearStart?: number })?.yearStart,
                 (item.academicYearId as { yearEnd?: number })?.yearEnd
@@ -339,6 +349,7 @@ export async function getFacultyWorkspace(userId: string) {
         })),
         facultyDevelopmentProgrammes: facultyDevelopmentProgrammes.map((item) => ({
             _id: item._id.toString(),
+            documentId: item.documentId?.toString() ?? "",
             title: item.title,
             sponsoredBy: item.sponsoredBy ?? "",
             level: item.level,
@@ -348,6 +359,7 @@ export async function getFacultyWorkspace(userId: string) {
         })),
         socialExtensionActivities: socialExtensionActivities.map((item) => ({
             _id: item._id.toString(),
+            documentId: item.documentId?.toString() ?? "",
             academicYear: toAcademicYearLabel(
                 (item.academicYearId as { yearStart?: number })?.yearStart,
                 (item.academicYearId as { yearEnd?: number })?.yearEnd
@@ -417,6 +429,7 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
         await FacultyTeachingSummary.create({
             facultyId: faculty._id,
             academicYearId: academicYear._id,
+            documentId: entry.documentId || undefined,
             classesTaken: entry.classesTaken,
             coursePreparationHours: entry.coursePreparationHours,
             coursesTaught: entry.coursesTaught,
@@ -438,6 +451,7 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
             facultyId: faculty._id,
             academicYearId: academicYear._id,
             programId: program._id,
+            documentId: entry.documentId || undefined,
             courseName: entry.courseName,
             semester: entry.semester,
             subjectCode: entry.subjectCode || undefined,
@@ -456,6 +470,7 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
         await FacultyResultSummary.create({
             facultyId: faculty._id,
             academicYearId: academicYear._id,
+            documentId: entry.documentId || undefined,
             subjectName: entry.subjectName,
             appearedStudents,
             passedStudents,
@@ -468,6 +483,7 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
     for (const entry of input.publications) {
         await FacultyPublication.create({
             facultyId: faculty._id,
+            documentId: entry.documentId || undefined,
             title: entry.title,
             journalName: entry.journalName || undefined,
             publisher: entry.publisher || undefined,
@@ -484,6 +500,7 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
     for (const entry of input.books) {
         await FacultyBook.create({
             facultyId: faculty._id,
+            documentId: entry.documentId || undefined,
             title: entry.title,
             publisher: entry.publisher || undefined,
             isbn: entry.isbn || undefined,
@@ -495,6 +512,7 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
     for (const entry of input.patents) {
         await FacultyPatent.create({
             facultyId: faculty._id,
+            documentId: entry.documentId || undefined,
             title: entry.title,
             patentNumber: entry.patentNumber || undefined,
             status: entry.status,
@@ -506,6 +524,7 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
     for (const entry of input.researchProjects) {
         await FacultyResearchProject.create({
             facultyId: faculty._id,
+            documentId: entry.documentId || undefined,
             title: entry.title,
             fundingAgency: entry.fundingAgency || undefined,
             projectType: entry.projectType,
@@ -535,6 +554,7 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
         await FacultyEventParticipation.create({
             facultyId: faculty._id,
             eventId: event._id,
+            documentId: entry.documentId || undefined,
             role: entry.role,
             paperPresented: entry.paperPresented,
             paperTitle: entry.paperTitle || undefined,
@@ -548,6 +568,7 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
         await FacultyAdminRole.create({
             facultyId: faculty._id,
             academicYearId: academicYear?._id,
+            documentId: entry.documentId || undefined,
             roleName: entry.roleName,
             committeeName: entry.committeeName || undefined,
             responsibilityDescription: entry.responsibilityDescription || undefined,
@@ -560,6 +581,7 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
         await FacultyInstitutionalContribution.create({
             facultyId: faculty._id,
             academicYearId: academicYear._id,
+            documentId: entry.documentId || undefined,
             activityTitle: entry.activityTitle,
             role: entry.role,
             impactLevel: entry.impactLevel,
@@ -570,6 +592,7 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
     for (const entry of input.facultyDevelopmentProgrammes) {
         await FacultyFdpConducted.create({
             facultyId: faculty._id,
+            documentId: entry.documentId || undefined,
             title: entry.title,
             sponsoredBy: entry.sponsoredBy || undefined,
             level: entry.level,
@@ -587,6 +610,7 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
             facultyId: faculty._id,
             programId: program._id,
             academicYearId: academicYear?._id,
+            documentId: entry.documentId || undefined,
             activityName: entry.activityName,
             hoursContributed: entry.hoursContributed,
         });

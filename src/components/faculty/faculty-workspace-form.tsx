@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
@@ -17,6 +17,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import {
+    uploadFile,
+    validateFile,
+    UploadValidationError,
+    type UploadProgress,
+} from "@/lib/upload/service";
 import {
     bookTypes,
     eventLevels,
@@ -280,12 +286,22 @@ export function FacultyWorkspaceForm({
                             <div className="grid gap-4">
                                 {qualifications.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
-                                        <Input placeholder="Level" {...form.register(`qualifications.${index}.level`)} />
-                                        <Input placeholder="Degree" {...form.register(`qualifications.${index}.degree`)} />
-                                        <Input placeholder="Subject" {...form.register(`qualifications.${index}.subject`)} />
-                                        <Input placeholder="Institution" {...form.register(`qualifications.${index}.institution`)} />
-                                        <Input placeholder="Year" {...form.register(`qualifications.${index}.year`)} />
-                                        <DeleteButton label={`Delete qualification ${index + 1}`} onClick={() => qualifications.remove(index)} />
+                                        <RowField label="Level">
+                                            <Input {...form.register(`qualifications.${index}.level`)} />
+                                        </RowField>
+                                        <RowField label="Degree">
+                                            <Input {...form.register(`qualifications.${index}.degree`)} />
+                                        </RowField>
+                                        <RowField label="Subject">
+                                            <Input {...form.register(`qualifications.${index}.subject`)} />
+                                        </RowField>
+                                        <RowField label="Institution">
+                                            <Input {...form.register(`qualifications.${index}.institution`)} />
+                                        </RowField>
+                                        <RowField label="Year">
+                                            <Input {...form.register(`qualifications.${index}.year`)} />
+                                        </RowField>
+                                        <DeleteField label={`Delete qualification ${index + 1}`} onClick={() => qualifications.remove(index)} />
                                     </EditableRow>
                                 ))}
                                 <Button type="button" variant="secondary" onClick={() => qualifications.append({ level: "", degree: "", subject: "", institution: "", year: "" })}>
@@ -300,40 +316,47 @@ export function FacultyWorkspaceForm({
                             <div className="grid gap-4">
                                 {teachingSummaries.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
-                                        <Input placeholder="Academic year" {...form.register(`teachingSummaries.${index}.academicYear`)} />
-                                        <Input type="number" placeholder="Classes taken" {...form.register(`teachingSummaries.${index}.classesTaken`, { valueAsNumber: true })} />
-                                        <Input
-                                            type="number"
-                                            placeholder="Course prep hours"
-                                            {...form.register(`teachingSummaries.${index}.coursePreparationHours`, { valueAsNumber: true })}
-                                        />
-                                        <Input type="number" placeholder="Mentoring count" {...form.register(`teachingSummaries.${index}.mentoringCount`, { valueAsNumber: true })} />
-                                        <Input
-                                            type="number"
-                                            placeholder="Lab supervision count"
-                                            {...form.register(`teachingSummaries.${index}.labSupervisionCount`, { valueAsNumber: true })}
-                                        />
-                                        <DeleteButton label={`Delete teaching summary ${index + 1}`} onClick={() => teachingSummaries.remove(index)} />
-                                        <Textarea
-                                            className="md:col-span-2 xl:col-span-3"
-                                            placeholder="Courses taught (comma separated)"
-                                            value={(form.watch(`teachingSummaries.${index}.coursesTaught`) ?? []).join(", ")}
-                                            onChange={(event) =>
-                                                form.setValue(
-                                                    `teachingSummaries.${index}.coursesTaught`,
-                                                    event.target.value
-                                                        .split(",")
-                                                        .map((item) => item.trim())
-                                                        .filter(Boolean),
-                                                    { shouldValidate: true }
-                                                )
-                                            }
-                                        />
-                                        <Textarea
-                                            className="md:col-span-2 xl:col-span-3"
-                                            placeholder="Feedback summary"
-                                            {...form.register(`teachingSummaries.${index}.feedbackSummary`)}
-                                        />
+                                        <RowField label="Academic year">
+                                            <Input {...form.register(`teachingSummaries.${index}.academicYear`)} />
+                                        </RowField>
+                                        <RowField label="Classes taken">
+                                            <Input type="number" {...form.register(`teachingSummaries.${index}.classesTaken`, { valueAsNumber: true })} />
+                                        </RowField>
+                                        <RowField label="Course prep hours">
+                                            <Input type="number" {...form.register(`teachingSummaries.${index}.coursePreparationHours`, { valueAsNumber: true })} />
+                                        </RowField>
+                                        <RowField label="Mentoring count">
+                                            <Input type="number" {...form.register(`teachingSummaries.${index}.mentoringCount`, { valueAsNumber: true })} />
+                                        </RowField>
+                                        <RowField label="Lab supervision count">
+                                            <Input type="number" {...form.register(`teachingSummaries.${index}.labSupervisionCount`, { valueAsNumber: true })} />
+                                        </RowField>
+                                        <DeleteField label={`Delete teaching summary ${index + 1}`} onClick={() => teachingSummaries.remove(index)} />
+                                        <RowField label="Evidence document">
+                                            <Controller
+                                                control={form.control}
+                                                name={`teachingSummaries.${index}.documentId`}
+                                                render={({ field }) => <DocumentUploadField userId={user.id} value={field.value} onChange={field.onChange} />}
+                                            />
+                                        </RowField>
+                                        <RowField label="Courses taught (comma separated)" className="md:col-span-2 xl:col-span-3">
+                                            <Textarea
+                                                value={(form.watch(`teachingSummaries.${index}.coursesTaught`) ?? []).join(", ")}
+                                                onChange={(event) =>
+                                                    form.setValue(
+                                                        `teachingSummaries.${index}.coursesTaught`,
+                                                        event.target.value
+                                                            .split(",")
+                                                            .map((item) => item.trim())
+                                                            .filter(Boolean),
+                                                        { shouldValidate: true }
+                                                    )
+                                                }
+                                            />
+                                        </RowField>
+                                        <RowField label="Feedback summary" className="md:col-span-2 xl:col-span-3">
+                                            <Textarea {...form.register(`teachingSummaries.${index}.feedbackSummary`)} />
+                                        </RowField>
                                     </EditableRow>
                                 ))}
                                 <Button
@@ -341,6 +364,7 @@ export function FacultyWorkspaceForm({
                                     variant="secondary"
                                     onClick={() =>
                                         teachingSummaries.append({
+                                            documentId: "",
                                             academicYear: "",
                                             classesTaken: 0,
                                             coursePreparationHours: 0,
@@ -360,18 +384,41 @@ export function FacultyWorkspaceForm({
                             <div className="grid gap-4">
                                 {teachingLoads.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
-                                        <Input placeholder="Academic year" {...form.register(`teachingLoads.${index}.academicYear`)} />
-                                        <Input placeholder="Program" {...form.register(`teachingLoads.${index}.programName`)} />
-                                        <Input placeholder="Course name" {...form.register(`teachingLoads.${index}.courseName`)} />
-                                        <Input type="number" placeholder="Semester" {...form.register(`teachingLoads.${index}.semester`, { valueAsNumber: true })} />
-                                        <Input placeholder="Subject code" {...form.register(`teachingLoads.${index}.subjectCode`)} />
-                                        <Input type="number" placeholder="Lecture hours" {...form.register(`teachingLoads.${index}.lectureHours`, { valueAsNumber: true })} />
-                                        <Input type="number" placeholder="Tutorial hours" {...form.register(`teachingLoads.${index}.tutorialHours`, { valueAsNumber: true })} />
-                                        <Input type="number" placeholder="Practical hours" {...form.register(`teachingLoads.${index}.practicalHours`, { valueAsNumber: true })} />
-                                        <DeleteButton label={`Delete teaching load ${index + 1}`} onClick={() => teachingLoads.remove(index)} />
+                                        <RowField label="Academic year">
+                                            <Input {...form.register(`teachingLoads.${index}.academicYear`)} />
+                                        </RowField>
+                                        <RowField label="Program">
+                                            <Input {...form.register(`teachingLoads.${index}.programName`)} />
+                                        </RowField>
+                                        <RowField label="Course name">
+                                            <Input {...form.register(`teachingLoads.${index}.courseName`)} />
+                                        </RowField>
+                                        <RowField label="Semester">
+                                            <Input type="number" {...form.register(`teachingLoads.${index}.semester`, { valueAsNumber: true })} />
+                                        </RowField>
+                                        <RowField label="Subject code">
+                                            <Input {...form.register(`teachingLoads.${index}.subjectCode`)} />
+                                        </RowField>
+                                        <RowField label="Lecture hours">
+                                            <Input type="number" {...form.register(`teachingLoads.${index}.lectureHours`, { valueAsNumber: true })} />
+                                        </RowField>
+                                        <RowField label="Tutorial hours">
+                                            <Input type="number" {...form.register(`teachingLoads.${index}.tutorialHours`, { valueAsNumber: true })} />
+                                        </RowField>
+                                        <RowField label="Practical hours">
+                                            <Input type="number" {...form.register(`teachingLoads.${index}.practicalHours`, { valueAsNumber: true })} />
+                                        </RowField>
+                                        <DeleteField label={`Delete teaching load ${index + 1}`} onClick={() => teachingLoads.remove(index)} />
+                                        <RowField label="Evidence document">
+                                            <Controller
+                                                control={form.control}
+                                                name={`teachingLoads.${index}.documentId`}
+                                                render={({ field }) => <DocumentUploadField userId={user.id} value={field.value} onChange={field.onChange} />}
+                                            />
+                                        </RowField>
                                     </EditableRow>
                                 ))}
-                                <Button type="button" variant="secondary" onClick={() => teachingLoads.append({ academicYear: "", programName: "", courseName: "", semester: 1, subjectCode: "", lectureHours: 0, tutorialHours: 0, practicalHours: 0, innovativePedagogy: "" })}>
+                                <Button type="button" variant="secondary" onClick={() => teachingLoads.append({ documentId: "", academicYear: "", programName: "", courseName: "", semester: 1, subjectCode: "", lectureHours: 0, tutorialHours: 0, practicalHours: 0, innovativePedagogy: "" })}>
                                     Add Teaching Contribution
                                 </Button>
                             </div>
@@ -381,15 +428,32 @@ export function FacultyWorkspaceForm({
                             <div className="grid gap-4">
                                 {resultSummaries.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
-                                        <Input placeholder="Academic year" {...form.register(`resultSummaries.${index}.academicYear`)} />
-                                        <Input placeholder="Subject name" {...form.register(`resultSummaries.${index}.subjectName`)} />
-                                        <Input type="number" placeholder="Appeared" {...form.register(`resultSummaries.${index}.appearedStudents`, { valueAsNumber: true })} />
-                                        <Input type="number" placeholder="Passed" {...form.register(`resultSummaries.${index}.passedStudents`, { valueAsNumber: true })} />
-                                        <Input type="number" placeholder="University rank students" {...form.register(`resultSummaries.${index}.universityRankStudents`, { valueAsNumber: true })} />
-                                        <DeleteButton label={`Delete result summary ${index + 1}`} onClick={() => resultSummaries.remove(index)} />
+                                        <RowField label="Academic year">
+                                            <Input {...form.register(`resultSummaries.${index}.academicYear`)} />
+                                        </RowField>
+                                        <RowField label="Subject name">
+                                            <Input {...form.register(`resultSummaries.${index}.subjectName`)} />
+                                        </RowField>
+                                        <RowField label="Appeared">
+                                            <Input type="number" {...form.register(`resultSummaries.${index}.appearedStudents`, { valueAsNumber: true })} />
+                                        </RowField>
+                                        <RowField label="Passed">
+                                            <Input type="number" {...form.register(`resultSummaries.${index}.passedStudents`, { valueAsNumber: true })} />
+                                        </RowField>
+                                        <RowField label="University rank students">
+                                            <Input type="number" {...form.register(`resultSummaries.${index}.universityRankStudents`, { valueAsNumber: true })} />
+                                        </RowField>
+                                        <DeleteField label={`Delete result summary ${index + 1}`} onClick={() => resultSummaries.remove(index)} />
+                                        <RowField label="Evidence document">
+                                            <Controller
+                                                control={form.control}
+                                                name={`resultSummaries.${index}.documentId`}
+                                                render={({ field }) => <DocumentUploadField userId={user.id} value={field.value} onChange={field.onChange} />}
+                                            />
+                                        </RowField>
                                     </EditableRow>
                                 ))}
-                                <Button type="button" variant="secondary" onClick={() => resultSummaries.append({ academicYear: "", subjectName: "", appearedStudents: 0, passedStudents: 0, universityRankStudents: 0 })}>
+                                <Button type="button" variant="secondary" onClick={() => resultSummaries.append({ documentId: "", academicYear: "", subjectName: "", appearedStudents: 0, passedStudents: 0, universityRankStudents: 0 })}>
                                     Add Result Summary
                                 </Button>
                             </div>
@@ -401,39 +465,66 @@ export function FacultyWorkspaceForm({
                             <div className="grid gap-4">
                                 {publications.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
-                                        <Input placeholder="Title" {...form.register(`publications.${index}.title`)} />
-                                        <Input placeholder="Journal name" {...form.register(`publications.${index}.journalName`)} />
-                                        <Input placeholder="Publisher" {...form.register(`publications.${index}.publisher`)} />
-                                        <Controller
-                                            control={form.control}
-                                            name={`publications.${index}.publicationType`}
-                                            render={({ field }) => (
-                                                <EnumSelect
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    options={publicationTypes}
-                                                    placeholder="Publication type"
-                                                />
-                                            )}
-                                        />
-                                        <Input placeholder="Indexed in" {...form.register(`publications.${index}.indexedIn`)} />
-                                        <DeleteButton label={`Delete publication ${index + 1}`} onClick={() => publications.remove(index)} />
-                                        <Input placeholder="ISBN / ISSN" {...form.register(`publications.${index}.isbnIssn`)} />
-                                        <Input placeholder="DOI" {...form.register(`publications.${index}.doi`)} />
-                                        <Input type="date" placeholder="Publication date" {...form.register(`publications.${index}.publicationDate`)} />
-                                        <Input type="number" placeholder="Impact factor" {...form.register(`publications.${index}.impactFactor`, { valueAsNumber: true })} />
-                                        <Controller
-                                            control={form.control}
-                                            name={`publications.${index}.authorPosition`}
-                                            render={({ field }) => (
-                                                <EnumSelect
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    options={publicationAuthorPositions}
-                                                    placeholder="Author position"
-                                                />
-                                            )}
-                                        />
+                                        <RowField label="Title">
+                                            <Input {...form.register(`publications.${index}.title`)} />
+                                        </RowField>
+                                        <RowField label="Journal name">
+                                            <Input {...form.register(`publications.${index}.journalName`)} />
+                                        </RowField>
+                                        <RowField label="Publisher">
+                                            <Input {...form.register(`publications.${index}.publisher`)} />
+                                        </RowField>
+                                        <RowField label="Publication type">
+                                            <Controller
+                                                control={form.control}
+                                                name={`publications.${index}.publicationType`}
+                                                render={({ field }) => (
+                                                    <EnumSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={publicationTypes}
+                                                        placeholder="Select publication type"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Indexed in">
+                                            <Input {...form.register(`publications.${index}.indexedIn`)} />
+                                        </RowField>
+                                        <DeleteField label={`Delete publication ${index + 1}`} onClick={() => publications.remove(index)} />
+                                        <RowField label="ISBN / ISSN">
+                                            <Input {...form.register(`publications.${index}.isbnIssn`)} />
+                                        </RowField>
+                                        <RowField label="DOI">
+                                            <Input {...form.register(`publications.${index}.doi`)} />
+                                        </RowField>
+                                        <RowField label="Publication date">
+                                            <Input type="date" {...form.register(`publications.${index}.publicationDate`)} />
+                                        </RowField>
+                                        <RowField label="Impact factor">
+                                            <Input type="number" {...form.register(`publications.${index}.impactFactor`, { valueAsNumber: true })} />
+                                        </RowField>
+                                        <RowField label="Author position">
+                                            <Controller
+                                                control={form.control}
+                                                name={`publications.${index}.authorPosition`}
+                                                render={({ field }) => (
+                                                    <EnumSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={publicationAuthorPositions}
+                                                        placeholder="Select author position"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Evidence document">
+                                            <Controller
+                                                control={form.control}
+                                                name={`publications.${index}.documentId`}
+                                                render={({ field }) => <DocumentUploadField userId={user.id} value={field.value} onChange={field.onChange} />}
+                                            />
+                                        </RowField>
                                     </EditableRow>
                                 ))}
                                 <Button
@@ -441,6 +532,7 @@ export function FacultyWorkspaceForm({
                                     variant="secondary"
                                     onClick={() =>
                                         publications.append({
+                                            documentId: "",
                                             title: "",
                                             journalName: "",
                                             publisher: "",
@@ -463,23 +555,40 @@ export function FacultyWorkspaceForm({
                             <div className="grid gap-4">
                                 {books.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
-                                        <Input placeholder="Title" {...form.register(`books.${index}.title`)} />
-                                        <Input placeholder="Publisher" {...form.register(`books.${index}.publisher`)} />
-                                        <Input placeholder="ISBN" {...form.register(`books.${index}.isbn`)} />
-                                        <Input type="date" placeholder="Publication date" {...form.register(`books.${index}.publicationDate`)} />
-                                        <Controller
-                                            control={form.control}
-                                            name={`books.${index}.bookType`}
-                                            render={({ field }) => (
-                                                <EnumSelect
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    options={bookTypes}
-                                                    placeholder="Book type"
-                                                />
-                                            )}
-                                        />
-                                        <DeleteButton label={`Delete book ${index + 1}`} onClick={() => books.remove(index)} />
+                                        <RowField label="Title">
+                                            <Input {...form.register(`books.${index}.title`)} />
+                                        </RowField>
+                                        <RowField label="Publisher">
+                                            <Input {...form.register(`books.${index}.publisher`)} />
+                                        </RowField>
+                                        <RowField label="ISBN">
+                                            <Input {...form.register(`books.${index}.isbn`)} />
+                                        </RowField>
+                                        <RowField label="Publication date">
+                                            <Input type="date" {...form.register(`books.${index}.publicationDate`)} />
+                                        </RowField>
+                                        <RowField label="Book type">
+                                            <Controller
+                                                control={form.control}
+                                                name={`books.${index}.bookType`}
+                                                render={({ field }) => (
+                                                    <EnumSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={bookTypes}
+                                                        placeholder="Select book type"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <DeleteField label={`Delete book ${index + 1}`} onClick={() => books.remove(index)} />
+                                        <RowField label="Evidence document">
+                                            <Controller
+                                                control={form.control}
+                                                name={`books.${index}.documentId`}
+                                                render={({ field }) => <DocumentUploadField userId={user.id} value={field.value} onChange={field.onChange} />}
+                                            />
+                                        </RowField>
                                     </EditableRow>
                                 ))}
                                 <Button
@@ -487,6 +596,7 @@ export function FacultyWorkspaceForm({
                                     variant="secondary"
                                     onClick={() =>
                                         books.append({
+                                            documentId: "",
                                             title: "",
                                             publisher: "",
                                             isbn: "",
@@ -504,23 +614,40 @@ export function FacultyWorkspaceForm({
                             <div className="grid gap-4">
                                 {patents.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
-                                        <Input placeholder="Patent title" {...form.register(`patents.${index}.title`)} />
-                                        <Input placeholder="Patent number" {...form.register(`patents.${index}.patentNumber`)} />
-                                        <Controller
-                                            control={form.control}
-                                            name={`patents.${index}.status`}
-                                            render={({ field }) => (
-                                                <EnumSelect
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    options={patentStatuses}
-                                                    placeholder="Patent status"
-                                                />
-                                            )}
-                                        />
-                                        <Input type="date" placeholder="Filing date" {...form.register(`patents.${index}.filingDate`)} />
-                                        <Input type="date" placeholder="Grant date" {...form.register(`patents.${index}.grantDate`)} />
-                                        <DeleteButton label={`Delete patent ${index + 1}`} onClick={() => patents.remove(index)} />
+                                        <RowField label="Patent title">
+                                            <Input {...form.register(`patents.${index}.title`)} />
+                                        </RowField>
+                                        <RowField label="Patent number">
+                                            <Input {...form.register(`patents.${index}.patentNumber`)} />
+                                        </RowField>
+                                        <RowField label="Patent status">
+                                            <Controller
+                                                control={form.control}
+                                                name={`patents.${index}.status`}
+                                                render={({ field }) => (
+                                                    <EnumSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={patentStatuses}
+                                                        placeholder="Select patent status"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Filing date">
+                                            <Input type="date" {...form.register(`patents.${index}.filingDate`)} />
+                                        </RowField>
+                                        <RowField label="Grant date">
+                                            <Input type="date" {...form.register(`patents.${index}.grantDate`)} />
+                                        </RowField>
+                                        <DeleteField label={`Delete patent ${index + 1}`} onClick={() => patents.remove(index)} />
+                                        <RowField label="Evidence document">
+                                            <Controller
+                                                control={form.control}
+                                                name={`patents.${index}.documentId`}
+                                                render={({ field }) => <DocumentUploadField userId={user.id} value={field.value} onChange={field.onChange} />}
+                                            />
+                                        </RowField>
                                     </EditableRow>
                                 ))}
                                 <Button
@@ -528,6 +655,7 @@ export function FacultyWorkspaceForm({
                                     variant="secondary"
                                     onClick={() =>
                                         patents.append({
+                                            documentId: "",
                                             title: "",
                                             patentNumber: "",
                                             status: "Filed",
@@ -541,47 +669,70 @@ export function FacultyWorkspaceForm({
 
                                 {researchProjects.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
-                                        <Input placeholder="Project title" {...form.register(`researchProjects.${index}.title`)} />
-                                        <Input placeholder="Funding agency" {...form.register(`researchProjects.${index}.fundingAgency`)} />
-                                        <Controller
-                                            control={form.control}
-                                            name={`researchProjects.${index}.projectType`}
-                                            render={({ field }) => (
-                                                <EnumSelect
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    options={researchProjectTypes}
-                                                    placeholder="Project type"
-                                                />
-                                            )}
-                                        />
-                                        <Input type="number" placeholder="Amount sanctioned" {...form.register(`researchProjects.${index}.amountSanctioned`, { valueAsNumber: true })} />
-                                        <Controller
-                                            control={form.control}
-                                            name={`researchProjects.${index}.status`}
-                                            render={({ field }) => (
-                                                <EnumSelect
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    options={researchProjectStatuses}
-                                                    placeholder="Project status"
-                                                />
-                                            )}
-                                        />
-                                        <DeleteButton label={`Delete research project ${index + 1}`} onClick={() => researchProjects.remove(index)} />
-                                        <Input type="date" placeholder="Start date" {...form.register(`researchProjects.${index}.startDate`)} />
-                                        <Input type="date" placeholder="End date" {...form.register(`researchProjects.${index}.endDate`)} />
-                                        <Controller
-                                            control={form.control}
-                                            name={`researchProjects.${index}.principalInvestigator`}
-                                            render={({ field }) => (
-                                                <CheckboxField
-                                                    checked={Boolean(field.value)}
-                                                    onCheckedChange={(checked) => field.onChange(Boolean(checked))}
-                                                    label="Principal investigator"
-                                                />
-                                            )}
-                                        />
+                                        <RowField label="Project title">
+                                            <Input {...form.register(`researchProjects.${index}.title`)} />
+                                        </RowField>
+                                        <RowField label="Funding agency">
+                                            <Input {...form.register(`researchProjects.${index}.fundingAgency`)} />
+                                        </RowField>
+                                        <RowField label="Project type">
+                                            <Controller
+                                                control={form.control}
+                                                name={`researchProjects.${index}.projectType`}
+                                                render={({ field }) => (
+                                                    <EnumSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={researchProjectTypes}
+                                                        placeholder="Select project type"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Amount sanctioned">
+                                            <Input type="number" {...form.register(`researchProjects.${index}.amountSanctioned`, { valueAsNumber: true })} />
+                                        </RowField>
+                                        <RowField label="Project status">
+                                            <Controller
+                                                control={form.control}
+                                                name={`researchProjects.${index}.status`}
+                                                render={({ field }) => (
+                                                    <EnumSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={researchProjectStatuses}
+                                                        placeholder="Select project status"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <DeleteField label={`Delete research project ${index + 1}`} onClick={() => researchProjects.remove(index)} />
+                                        <RowField label="Start date">
+                                            <Input type="date" {...form.register(`researchProjects.${index}.startDate`)} />
+                                        </RowField>
+                                        <RowField label="End date">
+                                            <Input type="date" {...form.register(`researchProjects.${index}.endDate`)} />
+                                        </RowField>
+                                        <RowField label="Principal investigator">
+                                            <Controller
+                                                control={form.control}
+                                                name={`researchProjects.${index}.principalInvestigator`}
+                                                render={({ field }) => (
+                                                    <CheckboxField
+                                                        checked={Boolean(field.value)}
+                                                        onCheckedChange={(checked) => field.onChange(Boolean(checked))}
+                                                        label="Principal investigator"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Evidence document">
+                                            <Controller
+                                                control={form.control}
+                                                name={`researchProjects.${index}.documentId`}
+                                                render={({ field }) => <DocumentUploadField userId={user.id} value={field.value} onChange={field.onChange} />}
+                                            />
+                                        </RowField>
                                     </EditableRow>
                                 ))}
                                 <Button
@@ -589,6 +740,7 @@ export function FacultyWorkspaceForm({
                                     variant="secondary"
                                     onClick={() =>
                                         researchProjects.append({
+                                            documentId: "",
                                             title: "",
                                             fundingAgency: "",
                                             projectType: "Minor",
@@ -609,71 +761,100 @@ export function FacultyWorkspaceForm({
                             <div className="grid gap-4">
                                 {eventParticipations.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
-                                        <Input placeholder="Event title" {...form.register(`eventParticipations.${index}.title`)} />
-                                        <Input placeholder="Organizer" {...form.register(`eventParticipations.${index}.organizer`)} />
-                                        <Controller
-                                            control={form.control}
-                                            name={`eventParticipations.${index}.eventType`}
-                                            render={({ field }) => (
-                                                <EnumSelect
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    options={eventTypes}
-                                                    placeholder="Event type"
-                                                />
-                                            )}
-                                        />
-                                        <Controller
-                                            control={form.control}
-                                            name={`eventParticipations.${index}.level`}
-                                            render={({ field }) => (
-                                                <EnumSelect
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    options={eventLevels}
-                                                    placeholder="Event level"
-                                                />
-                                            )}
-                                        />
-                                        <Controller
-                                            control={form.control}
-                                            name={`eventParticipations.${index}.role`}
-                                            render={({ field }) => (
-                                                <EnumSelect
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    options={eventRoles}
-                                                    placeholder="Participation role"
-                                                />
-                                            )}
-                                        />
-                                        <DeleteButton label={`Delete event participation ${index + 1}`} onClick={() => eventParticipations.remove(index)} />
-                                        <Input type="date" placeholder="Start date" {...form.register(`eventParticipations.${index}.startDate`)} />
-                                        <Input type="date" placeholder="End date" {...form.register(`eventParticipations.${index}.endDate`)} />
-                                        <Input placeholder="Location" {...form.register(`eventParticipations.${index}.location`)} />
-                                        <Input placeholder="Paper title" {...form.register(`eventParticipations.${index}.paperTitle`)} />
-                                        <Controller
-                                            control={form.control}
-                                            name={`eventParticipations.${index}.paperPresented`}
-                                            render={({ field }) => (
-                                                <CheckboxField
-                                                    checked={Boolean(field.value)}
-                                                    onCheckedChange={(checked) => field.onChange(Boolean(checked))}
-                                                    label="Paper presented"
-                                                />
-                                            )}
-                                        />
-                                        <Controller
-                                            control={form.control}
-                                            name={`eventParticipations.${index}.organized`}
-                                            render={({ field }) => (
-                                                <CheckboxField
-                                                    checked={Boolean(field.value)}
-                                                    onCheckedChange={(checked) => field.onChange(Boolean(checked))}
-                                                    label="Organized event"
-                                                />
-                                            )}
-                                        />
+                                        <RowField label="Event title">
+                                            <Input {...form.register(`eventParticipations.${index}.title`)} />
+                                        </RowField>
+                                        <RowField label="Organizer">
+                                            <Input {...form.register(`eventParticipations.${index}.organizer`)} />
+                                        </RowField>
+                                        <RowField label="Event type">
+                                            <Controller
+                                                control={form.control}
+                                                name={`eventParticipations.${index}.eventType`}
+                                                render={({ field }) => (
+                                                    <EnumSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={eventTypes}
+                                                        placeholder="Select event type"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Event level">
+                                            <Controller
+                                                control={form.control}
+                                                name={`eventParticipations.${index}.level`}
+                                                render={({ field }) => (
+                                                    <EnumSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={eventLevels}
+                                                        placeholder="Select event level"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Participation role">
+                                            <Controller
+                                                control={form.control}
+                                                name={`eventParticipations.${index}.role`}
+                                                render={({ field }) => (
+                                                    <EnumSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={eventRoles}
+                                                        placeholder="Select participation role"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <DeleteField label={`Delete event participation ${index + 1}`} onClick={() => eventParticipations.remove(index)} />
+                                        <RowField label="Start date">
+                                            <Input type="date" {...form.register(`eventParticipations.${index}.startDate`)} />
+                                        </RowField>
+                                        <RowField label="End date">
+                                            <Input type="date" {...form.register(`eventParticipations.${index}.endDate`)} />
+                                        </RowField>
+                                        <RowField label="Location">
+                                            <Input {...form.register(`eventParticipations.${index}.location`)} />
+                                        </RowField>
+                                        <RowField label="Paper title">
+                                            <Input {...form.register(`eventParticipations.${index}.paperTitle`)} />
+                                        </RowField>
+                                        <RowField label="Paper presented">
+                                            <Controller
+                                                control={form.control}
+                                                name={`eventParticipations.${index}.paperPresented`}
+                                                render={({ field }) => (
+                                                    <CheckboxField
+                                                        checked={Boolean(field.value)}
+                                                        onCheckedChange={(checked) => field.onChange(Boolean(checked))}
+                                                        label="Paper presented"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Organized event">
+                                            <Controller
+                                                control={form.control}
+                                                name={`eventParticipations.${index}.organized`}
+                                                render={({ field }) => (
+                                                    <CheckboxField
+                                                        checked={Boolean(field.value)}
+                                                        onCheckedChange={(checked) => field.onChange(Boolean(checked))}
+                                                        label="Organized event"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Evidence document">
+                                            <Controller
+                                                control={form.control}
+                                                name={`eventParticipations.${index}.documentId`}
+                                                render={({ field }) => <DocumentUploadField userId={user.id} value={field.value} onChange={field.onChange} />}
+                                            />
+                                        </RowField>
                                     </EditableRow>
                                 ))}
                                 <Button
@@ -681,6 +862,7 @@ export function FacultyWorkspaceForm({
                                     variant="secondary"
                                     onClick={() =>
                                         eventParticipations.append({
+                                            documentId: "",
                                             title: "",
                                             organizer: "",
                                             eventType: "Conference",
@@ -704,14 +886,29 @@ export function FacultyWorkspaceForm({
                             <div className="grid gap-4">
                                 {administrativeRoles.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
-                                        <Input placeholder="Academic year" {...form.register(`administrativeRoles.${index}.academicYear`)} />
-                                        <Input placeholder="Role name" {...form.register(`administrativeRoles.${index}.roleName`)} />
-                                        <Input placeholder="Committee name" {...form.register(`administrativeRoles.${index}.committeeName`)} />
-                                        <Input placeholder="Responsibility" {...form.register(`administrativeRoles.${index}.responsibilityDescription`)} />
-                                        <DeleteButton label={`Delete administrative role ${index + 1}`} onClick={() => administrativeRoles.remove(index)} />
+                                        <RowField label="Academic year">
+                                            <Input {...form.register(`administrativeRoles.${index}.academicYear`)} />
+                                        </RowField>
+                                        <RowField label="Role name">
+                                            <Input {...form.register(`administrativeRoles.${index}.roleName`)} />
+                                        </RowField>
+                                        <RowField label="Committee name">
+                                            <Input {...form.register(`administrativeRoles.${index}.committeeName`)} />
+                                        </RowField>
+                                        <RowField label="Responsibility">
+                                            <Input {...form.register(`administrativeRoles.${index}.responsibilityDescription`)} />
+                                        </RowField>
+                                        <DeleteField label={`Delete administrative role ${index + 1}`} onClick={() => administrativeRoles.remove(index)} />
+                                        <RowField label="Evidence document">
+                                            <Controller
+                                                control={form.control}
+                                                name={`administrativeRoles.${index}.documentId`}
+                                                render={({ field }) => <DocumentUploadField userId={user.id} value={field.value} onChange={field.onChange} />}
+                                            />
+                                        </RowField>
                                     </EditableRow>
                                 ))}
-                                <Button type="button" variant="secondary" onClick={() => administrativeRoles.append({ academicYear: "", roleName: "", committeeName: "", responsibilityDescription: "" })}>
+                                <Button type="button" variant="secondary" onClick={() => administrativeRoles.append({ documentId: "", academicYear: "", roleName: "", committeeName: "", responsibilityDescription: "" })}>
                                     Add Administrative Role
                                 </Button>
                             </div>
@@ -721,23 +918,40 @@ export function FacultyWorkspaceForm({
                             <div className="grid gap-4">
                                 {institutionalContributions.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
-                                        <Input placeholder="Academic year" {...form.register(`institutionalContributions.${index}.academicYear`)} />
-                                        <Input placeholder="Activity title" {...form.register(`institutionalContributions.${index}.activityTitle`)} />
-                                        <Input placeholder="Role" {...form.register(`institutionalContributions.${index}.role`)} />
-                                        <Controller
-                                            control={form.control}
-                                            name={`institutionalContributions.${index}.impactLevel`}
-                                            render={({ field }) => (
-                                                <EnumSelect
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    options={institutionalImpactLevels}
-                                                    placeholder="Impact level"
-                                                />
-                                            )}
-                                        />
-                                        <Input type="number" placeholder="Score weightage" {...form.register(`institutionalContributions.${index}.scoreWeightage`, { valueAsNumber: true })} />
-                                        <DeleteButton label={`Delete institutional contribution ${index + 1}`} onClick={() => institutionalContributions.remove(index)} />
+                                        <RowField label="Academic year">
+                                            <Input {...form.register(`institutionalContributions.${index}.academicYear`)} />
+                                        </RowField>
+                                        <RowField label="Activity title">
+                                            <Input {...form.register(`institutionalContributions.${index}.activityTitle`)} />
+                                        </RowField>
+                                        <RowField label="Role">
+                                            <Input {...form.register(`institutionalContributions.${index}.role`)} />
+                                        </RowField>
+                                        <RowField label="Impact level">
+                                            <Controller
+                                                control={form.control}
+                                                name={`institutionalContributions.${index}.impactLevel`}
+                                                render={({ field }) => (
+                                                    <EnumSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={institutionalImpactLevels}
+                                                        placeholder="Select impact level"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Score weightage">
+                                            <Input type="number" {...form.register(`institutionalContributions.${index}.scoreWeightage`, { valueAsNumber: true })} />
+                                        </RowField>
+                                        <DeleteField label={`Delete institutional contribution ${index + 1}`} onClick={() => institutionalContributions.remove(index)} />
+                                        <RowField label="Evidence document">
+                                            <Controller
+                                                control={form.control}
+                                                name={`institutionalContributions.${index}.documentId`}
+                                                render={({ field }) => <DocumentUploadField userId={user.id} value={field.value} onChange={field.onChange} />}
+                                            />
+                                        </RowField>
                                     </EditableRow>
                                 ))}
                                 <Button
@@ -745,6 +959,7 @@ export function FacultyWorkspaceForm({
                                     variant="secondary"
                                     onClick={() =>
                                         institutionalContributions.append({
+                                            documentId: "",
                                             academicYear: "",
                                             activityTitle: "",
                                             role: "",
@@ -762,27 +977,46 @@ export function FacultyWorkspaceForm({
                             <div className="grid gap-4">
                                 {facultyDevelopmentProgrammes.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
-                                        <Input placeholder="Programme title" {...form.register(`facultyDevelopmentProgrammes.${index}.title`)} />
-                                        <Input placeholder="Sponsored by" {...form.register(`facultyDevelopmentProgrammes.${index}.sponsoredBy`)} />
-                                        <Controller
-                                            control={form.control}
-                                            name={`facultyDevelopmentProgrammes.${index}.level`}
-                                            render={({ field }) => (
-                                                <EnumSelect
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    options={facultyProgrammeLevels}
-                                                    placeholder="Programme level"
-                                                />
-                                            )}
-                                        />
-                                        <Input type="date" placeholder="Start date" {...form.register(`facultyDevelopmentProgrammes.${index}.startDate`)} />
-                                        <Input type="date" placeholder="End date" {...form.register(`facultyDevelopmentProgrammes.${index}.endDate`)} />
-                                        <Input type="number" placeholder="Participants" {...form.register(`facultyDevelopmentProgrammes.${index}.participantsCount`, { valueAsNumber: true })} />
-                                        <DeleteButton label={`Delete FDP ${index + 1}`} onClick={() => facultyDevelopmentProgrammes.remove(index)} />
+                                        <RowField label="Programme title">
+                                            <Input {...form.register(`facultyDevelopmentProgrammes.${index}.title`)} />
+                                        </RowField>
+                                        <RowField label="Sponsored by">
+                                            <Input {...form.register(`facultyDevelopmentProgrammes.${index}.sponsoredBy`)} />
+                                        </RowField>
+                                        <RowField label="Programme level">
+                                            <Controller
+                                                control={form.control}
+                                                name={`facultyDevelopmentProgrammes.${index}.level`}
+                                                render={({ field }) => (
+                                                    <EnumSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={facultyProgrammeLevels}
+                                                        placeholder="Select programme level"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Start date">
+                                            <Input type="date" {...form.register(`facultyDevelopmentProgrammes.${index}.startDate`)} />
+                                        </RowField>
+                                        <RowField label="End date">
+                                            <Input type="date" {...form.register(`facultyDevelopmentProgrammes.${index}.endDate`)} />
+                                        </RowField>
+                                        <RowField label="Participants">
+                                            <Input type="number" {...form.register(`facultyDevelopmentProgrammes.${index}.participantsCount`, { valueAsNumber: true })} />
+                                        </RowField>
+                                        <DeleteField label={`Delete FDP ${index + 1}`} onClick={() => facultyDevelopmentProgrammes.remove(index)} />
+                                        <RowField label="Evidence document">
+                                            <Controller
+                                                control={form.control}
+                                                name={`facultyDevelopmentProgrammes.${index}.documentId`}
+                                                render={({ field }) => <DocumentUploadField userId={user.id} value={field.value} onChange={field.onChange} />}
+                                            />
+                                        </RowField>
                                     </EditableRow>
                                 ))}
-                                <Button type="button" variant="secondary" onClick={() => facultyDevelopmentProgrammes.append({ title: "", sponsoredBy: "", level: "College", startDate: "", endDate: "", participantsCount: 0 })}>
+                                <Button type="button" variant="secondary" onClick={() => facultyDevelopmentProgrammes.append({ documentId: "", title: "", sponsoredBy: "", level: "College", startDate: "", endDate: "", participantsCount: 0 })}>
                                     Add FDP Record
                                 </Button>
                             </div>
@@ -792,14 +1026,29 @@ export function FacultyWorkspaceForm({
                             <div className="grid gap-4">
                                 {socialExtensionActivities.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
-                                        <Input placeholder="Academic year" {...form.register(`socialExtensionActivities.${index}.academicYear`)} />
-                                        <Input placeholder="Programme name" {...form.register(`socialExtensionActivities.${index}.programName`)} />
-                                        <Input placeholder="Activity name" {...form.register(`socialExtensionActivities.${index}.activityName`)} />
-                                        <Input type="number" placeholder="Hours contributed" {...form.register(`socialExtensionActivities.${index}.hoursContributed`, { valueAsNumber: true })} />
-                                        <DeleteButton label={`Delete extension activity ${index + 1}`} onClick={() => socialExtensionActivities.remove(index)} />
+                                        <RowField label="Academic year">
+                                            <Input {...form.register(`socialExtensionActivities.${index}.academicYear`)} />
+                                        </RowField>
+                                        <RowField label="Programme name">
+                                            <Input {...form.register(`socialExtensionActivities.${index}.programName`)} />
+                                        </RowField>
+                                        <RowField label="Activity name">
+                                            <Input {...form.register(`socialExtensionActivities.${index}.activityName`)} />
+                                        </RowField>
+                                        <RowField label="Hours contributed">
+                                            <Input type="number" {...form.register(`socialExtensionActivities.${index}.hoursContributed`, { valueAsNumber: true })} />
+                                        </RowField>
+                                        <DeleteField label={`Delete extension activity ${index + 1}`} onClick={() => socialExtensionActivities.remove(index)} />
+                                        <RowField label="Evidence document">
+                                            <Controller
+                                                control={form.control}
+                                                name={`socialExtensionActivities.${index}.documentId`}
+                                                render={({ field }) => <DocumentUploadField userId={user.id} value={field.value} onChange={field.onChange} />}
+                                            />
+                                        </RowField>
                                     </EditableRow>
                                 ))}
-                                <Button type="button" variant="secondary" onClick={() => socialExtensionActivities.append({ academicYear: "", programName: "", activityName: "", hoursContributed: 0 })}>
+                                <Button type="button" variant="secondary" onClick={() => socialExtensionActivities.append({ documentId: "", academicYear: "", programName: "", activityName: "", hoursContributed: 0 })}>
                                     Add Extension Activity
                                 </Button>
                             </div>
@@ -938,6 +1187,99 @@ function CsvField({
     );
 }
 
+function DocumentUploadField({
+    userId,
+    value,
+    onChange,
+}: {
+    userId: string;
+    value?: string;
+    onChange: (next: string) => void;
+}) {
+    const inputId = useId();
+    const [progress, setProgress] = useState<UploadProgress | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [fileName, setFileName] = useState<string>("");
+
+    async function handleUpload(file: File) {
+        setError(null);
+
+        try {
+            validateFile(file, "evidence");
+        } catch (err) {
+            if (err instanceof UploadValidationError) {
+                setError(err.message);
+            }
+            return;
+        }
+
+        setProgress({ percent: 0, bytesTransferred: 0, totalBytes: file.size });
+
+        try {
+            const result = await uploadFile(file, "evidence", userId, (next) => {
+                setProgress(next);
+            });
+
+            const response = await fetch("/api/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    fileName: file.name,
+                    fileUrl: result.downloadURL,
+                    fileType: file.type,
+                }),
+            });
+
+            const data = (await response.json()) as {
+                document?: { _id?: string; fileName?: string };
+                message?: string;
+            };
+
+            if (!response.ok || !data.document?._id) {
+                throw new Error(data.message ?? "Unable to save document.");
+            }
+
+            onChange(data.document._id);
+            setFileName(data.document.fileName ?? file.name);
+            setProgress(null);
+        } catch (err) {
+            setProgress(null);
+            setError(err instanceof Error ? err.message : "Document upload failed.");
+        }
+    }
+
+    return (
+        <div className="grid gap-2 rounded-md border border-dashed border-zinc-300 bg-white p-3">
+            <Label htmlFor={inputId} className="text-xs text-zinc-600">
+                Upload PDF or image
+            </Label>
+            <Input
+                id={inputId}
+                type="file"
+                accept="application/pdf,image/*"
+                onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) {
+                        void handleUpload(file);
+                    }
+
+                    event.target.value = "";
+                }}
+            />
+            <input type="hidden" value={value ?? ""} onChange={() => undefined} />
+            <p className="text-xs text-zinc-600">
+                {fileName
+                    ? `Uploaded: ${fileName}`
+                    : value
+                      ? "Document linked"
+                      : "No document linked"}
+                {progress ? ` (Uploading ${progress.percent}%)` : ""}
+            </p>
+            {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+        </div>
+    );
+}
+
 function EnumSelect({
     value,
     onChange,
@@ -984,6 +1326,37 @@ function CheckboxField({
 
 function EditableRow({ children }: { children: React.ReactNode }) {
     return <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2 xl:grid-cols-6">{children}</div>;
+}
+
+function RowField({
+    label,
+    children,
+    className,
+}: {
+    label: string;
+    children: React.ReactNode;
+    className?: string;
+}) {
+    return (
+        <div className={`grid gap-2 ${className ?? ""}`.trim()}>
+            <Label className="text-xs font-medium tracking-wide text-zinc-600">{label}</Label>
+            {children}
+        </div>
+    );
+}
+
+function DeleteField({
+    label,
+    onClick,
+}: {
+    label: string;
+    onClick: () => void;
+}) {
+    return (
+        <div className="flex items-end justify-end">
+            <DeleteButton label={label} onClick={onClick} />
+        </div>
+    );
 }
 
 function DeleteButton({

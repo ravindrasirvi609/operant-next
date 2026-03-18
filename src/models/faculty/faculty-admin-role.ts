@@ -5,6 +5,7 @@ export interface IFacultyAdminRole extends Document {
     roleName: string;
     committeeName?: string;
     academicYearId?: Types.ObjectId;
+    documentId?: Types.ObjectId;
     responsibilityDescription?: string;
     createdAt: Date;
     updatedAt: Date;
@@ -16,6 +17,7 @@ const FacultyAdminRoleSchema = new Schema<IFacultyAdminRole>(
         roleName: { type: String, required: true, trim: true, index: true },
         committeeName: { type: String, trim: true },
         academicYearId: { type: Schema.Types.ObjectId, ref: "AcademicYear", index: true },
+        documentId: { type: Schema.Types.ObjectId, ref: "Document" },
         responsibilityDescription: { type: String, trim: true },
     },
     { timestamps: true, collection: "faculty_admin_roles" }

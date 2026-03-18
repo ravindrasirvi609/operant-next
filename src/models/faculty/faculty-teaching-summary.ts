@@ -3,6 +3,7 @@ import mongoose, { Document, Model, Schema, Types } from "mongoose";
 export interface IFacultyTeachingSummary extends Document {
     facultyId: Types.ObjectId;
     academicYearId: Types.ObjectId;
+    documentId?: Types.ObjectId;
     classesTaken: number;
     coursePreparationHours: number;
     coursesTaught: string[];
@@ -17,6 +18,7 @@ const FacultyTeachingSummarySchema = new Schema<IFacultyTeachingSummary>(
     {
         facultyId: { type: Schema.Types.ObjectId, ref: "Faculty", required: true, index: true },
         academicYearId: { type: Schema.Types.ObjectId, ref: "AcademicYear", required: true, index: true },
+        documentId: { type: Schema.Types.ObjectId, ref: "Document" },
         classesTaken: { type: Number, min: 0, default: 0 },
         coursePreparationHours: { type: Number, min: 0, default: 0 },
         coursesTaught: { type: [String], default: [] },
