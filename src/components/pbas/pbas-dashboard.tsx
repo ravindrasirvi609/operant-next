@@ -10,11 +10,11 @@ import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getDesignationProfile } from "@/lib/faculty/options";
 import { pbasApplicationSchema, type PbasSnapshot } from "@/lib/pbas/validators";
@@ -73,6 +73,35 @@ type PbasCandidateOption = {
     sublabel?: string;
     note?: string;
 };
+
+type PbasReferenceKey = keyof Omit<PbasDraftReferences, "teachingSummaryId"> | "teachingSummaryId";
+
+type PbasSourceRow = {
+    id: string;
+    sourceType: string;
+    title: string;
+    subtitle?: string;
+    note?: string;
+    included: boolean;
+    referenceKey: PbasReferenceKey;
+    sourceHref: string;
+};
+
+type PbasSourceStep = "teaching" | "research" | "institutional";
+
+type PbasSourceGroup = {
+    title: string;
+    description?: string;
+    rows: PbasSourceRow[];
+};
+
+type PbasSourceStepConfig = {
+    label: string;
+    description: string;
+    groups: PbasSourceGroup[];
+};
+
+type PbasSourceTables = Record<PbasSourceStep, PbasSourceStepConfig>;
 
 type PbasCandidatePools = {
     category1: {
@@ -195,21 +224,6 @@ function toFormValues(application?: PbasApp, prefill?: Partial<PbasFormValues>):
     };
 }
 
-function emptyDraftReferences(): PbasDraftReferences {
-    return {
-        teachingSummaryId: undefined,
-        teachingLoadIds: [],
-        publicationIds: [],
-        bookIds: [],
-        patentIds: [],
-        researchProjectIds: [],
-        eventParticipationIds: [],
-        adminRoleIds: [],
-        institutionalContributionIds: [],
-        socialExtensionIds: [],
-    };
-}
-
 function computeScore(values: PbasSnapshot) {
     const teachingActivities = Math.min(
         100,
@@ -264,6 +278,10 @@ function computeScore(values: PbasSnapshot) {
         totalScore:
             teachingActivities + researchAcademicContribution + institutionalResponsibilities,
     };
+}
+
+function buildProfileEditHref(section: string, id: string) {
+    return `/faculty/profile?section=${encodeURIComponent(section)}&editId=${encodeURIComponent(id)}`;
 }
 
 export function PBASScoreCalculator({
@@ -352,6 +370,7 @@ export function PbasDashboard({
     const [entryError, setEntryError] = useState<string | null>(null);
     const [uploadProgress, setUploadProgress] = useState<Record<string, UploadProgress | null>>({});
     const [uploadError, setUploadError] = useState<Record<string, string>>({});
+    const [activeSourceStep, setActiveSourceStep] = useState<PbasSourceStep>("teaching");
     const activeStatuses = useMemo(
         () => new Set(["Draft", "Rejected", "Submitted", "Under Review", "Committee Review"]),
         []
@@ -433,6 +452,191 @@ export function PbasDashboard({
         () => selectedDetail?.apiScore ?? selected?.apiScore ?? computeScore(selectedSnapshot),
         [selectedDetail, selected, selectedSnapshot]
     );
+    const sourceTables = useMemo<PbasSourceTables | null>(() => {
+        if (!selectedDetail) {
+            return null;
+        }
+
+        const { draftReferences, candidates } = selectedDetail;
+
+        const toRows = (
+            options: PbasCandidateOption[],
+            sourceType: string,
+            referenceKey: PbasReferenceKey,
+            includedIds: string[],
+            section: string
+        ): PbasSourceRow[] =>
+            options.map((item) => ({
+                id: item.id,
+                sourceType,
+                title: item.label,
+                subtitle: item.sublabel,
+                note: item.note,
+                included: includedIds.includes(item.id),
+                referenceKey,
+                sourceHref: buildProfileEditHref(section, item.id),
+            }));
+
+        const teachingSummaryRows: PbasSourceRow[] = candidates.category1.teachingSummary
+            ? [
+                {
+                    id: candidates.category1.teachingSummary.id,
+                    sourceType: "Teaching Summary",
+                    title: candidates.category1.teachingSummary.label,
+                    subtitle: candidates.category1.teachingSummary.sublabel,
+                    note: candidates.category1.teachingSummary.note,
+                    included:
+                        draftReferences.teachingSummaryId === candidates.category1.teachingSummary.id,
+                    referenceKey: "teachingSummaryId" as const,
+                    sourceHref: buildProfileEditHref("teaching-summary", candidates.category1.teachingSummary.id),
+                },
+            ]
+            : [];
+
+        const teachingLoadRows = toRows(
+            candidates.category1.teachingLoads,
+            "Teaching Load",
+            "teachingLoadIds",
+            draftReferences.teachingLoadIds,
+            "teaching-load"
+        );
+
+        return {
+            teaching: {
+                label: "Teaching Sources",
+                description:
+                    designationProfile.key === "professor"
+                        ? "Senior-role PBAS focuses on how teaching complements leadership and mentoring."
+                        : "Teaching summary and load records for this PBAS draft.",
+                groups: [
+                    { title: "Teaching Summary", rows: teachingSummaryRows },
+                    { title: "Teaching Load", rows: teachingLoadRows },
+                ],
+            },
+            research: {
+                label: "Research Sources",
+                description:
+                    designationProfile.key === "early_assistant"
+                        ? "Publications, books, patents, projects, and conferences included in this PBAS."
+                        : "Research records are emphasized for PBAS differentiation at your designation.",
+                groups: [
+                    {
+                        title: "Publications",
+                        rows: toRows(
+                            candidates.category2.researchPapers,
+                            "Publication",
+                            "publicationIds",
+                            draftReferences.publicationIds,
+                            "publications"
+                        ),
+                    },
+                    {
+                        title: "Books",
+                        rows: toRows(candidates.category2.books, "Book", "bookIds", draftReferences.bookIds, "books"),
+                    },
+                    {
+                        title: "Patents",
+                        rows: toRows(candidates.category2.patents, "Patent", "patentIds", draftReferences.patentIds, "patents"),
+                    },
+                    {
+                        title: "Research Projects",
+                        rows: toRows(
+                            candidates.category2.projects,
+                            "Research Project",
+                            "researchProjectIds",
+                            draftReferences.researchProjectIds,
+                            "projects"
+                        ),
+                    },
+                    {
+                        title: "Conferences / Events",
+                        rows: toRows(
+                            candidates.category2.conferences,
+                            "Conference/Event",
+                            "eventParticipationIds",
+                            draftReferences.eventParticipationIds,
+                            "events"
+                        ),
+                    },
+                ],
+            },
+            institutional: {
+                label: "Institutional Sources",
+                description:
+                    designationProfile.key === "early_assistant"
+                        ? "Admin roles, guidance, and extension entries included in this PBAS."
+                        : "Leadership and stewardship records included for institutional contribution.",
+                groups: [
+                    {
+                        title: "Committees",
+                        rows: toRows(
+                            candidates.category3.committees,
+                            "Committee",
+                            "adminRoleIds",
+                            draftReferences.adminRoleIds,
+                            "admin-roles"
+                        ),
+                    },
+                    {
+                        title: "Administrative Duties",
+                        rows: toRows(
+                            candidates.category3.administrativeDuties,
+                            "Administrative Duty",
+                            "adminRoleIds",
+                            draftReferences.adminRoleIds,
+                            "admin-roles"
+                        ),
+                    },
+                    {
+                        title: "Exam Duties",
+                        rows: toRows(
+                            candidates.category3.examDuties,
+                            "Exam Duty",
+                            "adminRoleIds",
+                            draftReferences.adminRoleIds,
+                            "admin-roles"
+                        ),
+                    },
+                    {
+                        title: "Student Guidance",
+                        rows: toRows(
+                            candidates.category3.studentGuidance,
+                            "Student Guidance",
+                            "institutionalContributionIds",
+                            draftReferences.institutionalContributionIds,
+                            "institutional-contributions"
+                        ),
+                    },
+                    {
+                        title: "Extension Activities",
+                        rows: toRows(
+                            candidates.category3.extensionActivities,
+                            "Extension Activity",
+                            "socialExtensionIds",
+                            draftReferences.socialExtensionIds,
+                            "social-extension"
+                        ),
+                    },
+                ],
+            },
+        };
+    }, [designationProfile.key, selectedDetail]);
+
+    const sourceStepOrder: PbasSourceStep[] = ["teaching", "research", "institutional"];
+    const activeSourceStepIndex = sourceStepOrder.indexOf(activeSourceStep);
+
+    useEffect(() => {
+        setActiveSourceStep("teaching");
+    }, [selectedId]);
+
+    function removeFromPbas(row: PbasSourceRow) {
+        if (row.referenceKey === "teachingSummaryId") {
+            toggleTeachingSummary(row.id);
+            return;
+        }
+
+        toggleReference(row.referenceKey, row.id);
+    }
 
     useEffect(() => {
         if (!selectedId) {
@@ -922,9 +1126,7 @@ export function PbasDashboard({
                         </CardHeader>
                         <CardContent className="space-y-3">
                             {entryLoading ? (
-                                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                                    Loading PBAS indicators...
-                                </div>
+                                <PbasIndicatorTableSkeleton />
                             ) : entryError ? (
                                 <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                                     {entryError}
@@ -1113,108 +1315,80 @@ export function PbasDashboard({
                             </div>
 
                             {detailLoading ? (
-                                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                                    Loading PBAS record selections...
-                                </div>
+                                <PbasReferenceSkeleton />
                             ) : detailError ? (
                                 <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                                     {detailError}
                                 </div>
                             ) : selectedDetail ? (
-                                <div className="grid gap-4 xl:grid-cols-3">
-                                    <ReferenceGroup
-                                        title="Teaching Sources"
-                                        description={
-                                            designationProfile.key === "professor"
-                                                ? "Teaching summary remains visible, but senior-role PBAS review will especially look at how it complements research leadership and mentoring."
-                                                : "Teaching summary and load records currently included in this PBAS draft."
-                                        }
-                                        singleOption={selectedDetail.candidates.category1.teachingSummary}
-                                        singleSelectedId={selectedDetail.draftReferences.teachingSummaryId}
-                                        onToggleSingle={toggleTeachingSummary}
-                                        items={selectedDetail.candidates.category1.teachingLoads}
-                                        selectedIds={selectedDetail.draftReferences.teachingLoadIds}
-                                        onToggleItem={(id) => toggleReference("teachingLoadIds", id)}
-                                        disabled={!canEdit}
-                                    />
-                                    <ReferenceGroup
-                                        title="Research Sources"
-                                        description={
-                                            designationProfile.key === "early_assistant"
-                                                ? "Publications, books, patents, projects, and conferences selected for this PBAS."
-                                                : "Research records are prominently surfaced for this designation because they drive the strongest PBAS differentiation."
-                                        }
-                                        items={[
-                                            ...selectedDetail.candidates.category2.researchPapers,
-                                            ...selectedDetail.candidates.category2.books,
-                                            ...selectedDetail.candidates.category2.patents,
-                                            ...selectedDetail.candidates.category2.projects,
-                                            ...selectedDetail.candidates.category2.conferences,
-                                        ]}
-                                        selectedIds={[
-                                            ...selectedDetail.draftReferences.publicationIds,
-                                            ...selectedDetail.draftReferences.bookIds,
-                                            ...selectedDetail.draftReferences.patentIds,
-                                            ...selectedDetail.draftReferences.researchProjectIds,
-                                            ...selectedDetail.draftReferences.eventParticipationIds,
-                                        ]}
-                                        onToggleItem={(id) => {
-                                            if (selectedDetail.candidates.category2.researchPapers.some((item) => item.id === id)) {
-                                                toggleReference("publicationIds", id);
-                                                return;
-                                            }
-                                            if (selectedDetail.candidates.category2.books.some((item) => item.id === id)) {
-                                                toggleReference("bookIds", id);
-                                                return;
-                                            }
-                                            if (selectedDetail.candidates.category2.patents.some((item) => item.id === id)) {
-                                                toggleReference("patentIds", id);
-                                                return;
-                                            }
-                                            if (selectedDetail.candidates.category2.projects.some((item) => item.id === id)) {
-                                                toggleReference("researchProjectIds", id);
-                                                return;
-                                            }
-                                            toggleReference("eventParticipationIds", id);
-                                        }}
-                                        disabled={!canEdit}
-                                    />
-                                    <ReferenceGroup
-                                        title="Institutional Sources"
-                                        description={
-                                            designationProfile.key === "early_assistant"
-                                                ? "Admin roles, guidance, and extension entries included in this PBAS."
-                                                : "Leadership, guidance, and institutional stewardship stay visible for this designation and should be curated carefully."
-                                        }
-                                        items={[
-                                            ...selectedDetail.candidates.category3.committees,
-                                            ...selectedDetail.candidates.category3.administrativeDuties,
-                                            ...selectedDetail.candidates.category3.examDuties,
-                                            ...selectedDetail.candidates.category3.studentGuidance,
-                                            ...selectedDetail.candidates.category3.extensionActivities,
-                                        ]}
-                                        selectedIds={[
-                                            ...selectedDetail.draftReferences.adminRoleIds,
-                                            ...selectedDetail.draftReferences.institutionalContributionIds,
-                                            ...selectedDetail.draftReferences.socialExtensionIds,
-                                        ]}
-                                        onToggleItem={(id) => {
-                                            if (
-                                                selectedDetail.candidates.category3.committees.some((item) => item.id === id) ||
-                                                selectedDetail.candidates.category3.administrativeDuties.some((item) => item.id === id) ||
-                                                selectedDetail.candidates.category3.examDuties.some((item) => item.id === id)
-                                            ) {
-                                                toggleReference("adminRoleIds", id);
-                                                return;
-                                            }
-                                            if (selectedDetail.candidates.category3.studentGuidance.some((item) => item.id === id)) {
-                                                toggleReference("institutionalContributionIds", id);
-                                                return;
-                                            }
-                                            toggleReference("socialExtensionIds", id);
-                                        }}
-                                        disabled={!canEdit}
-                                    />
+                                <div className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {sourceStepOrder.map((stepKey, index) => {
+                                            const isActive = activeSourceStep === stepKey;
+                                            const step = sourceTables?.[stepKey];
+                                            const label = step?.label ?? stepKey;
+
+                                            return (
+                                                <Button
+                                                    key={stepKey}
+                                                    type="button"
+                                                    size="sm"
+                                                    variant={isActive ? "default" : "outline"}
+                                                    onClick={() => setActiveSourceStep(stepKey)}
+                                                >
+                                                    {index + 1}. {label}
+                                                </Button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+                                        <p className="text-sm font-semibold text-zinc-950">
+                                            Step {activeSourceStepIndex + 1}: {sourceTables?.[activeSourceStep]?.label}
+                                        </p>
+                                        <p className="mt-1 text-sm text-zinc-600">
+                                            {sourceTables?.[activeSourceStep]?.description}
+                                        </p>
+                                    </div>
+
+                                    <div className="grid gap-4">
+                                        {(sourceTables?.[activeSourceStep]?.groups ?? []).map((group) => (
+                                            <ReadonlySourceTable
+                                                key={`${activeSourceStep}-${group.title}`}
+                                                title={group.title}
+                                                rows={group.rows}
+                                                canEdit={canEdit}
+                                                onRemove={removeFromPbas}
+                                            />
+                                        ))}
+                                    </div>
+
+                                    <div className="flex flex-wrap justify-between gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={activeSourceStepIndex <= 0}
+                                            onClick={() => {
+                                                const previous = sourceStepOrder[activeSourceStepIndex - 1];
+                                                if (previous) setActiveSourceStep(previous);
+                                            }}
+                                        >
+                                            Previous Step
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={activeSourceStepIndex >= sourceStepOrder.length - 1}
+                                            onClick={() => {
+                                                const next = sourceStepOrder[activeSourceStepIndex + 1];
+                                                if (next) setActiveSourceStep(next);
+                                            }}
+                                        >
+                                            Next Step
+                                        </Button>
+                                    </div>
                                 </div>
                             ) : null}
 
@@ -1336,72 +1510,109 @@ function Metric({ label, value }: { label: string; value: string }) {
     );
 }
 
-function ReferenceGroup({
+function PbasIndicatorTableSkeleton() {
+    return (
+        <div className="rounded-lg border border-zinc-200 bg-white p-4">
+            <div className="grid gap-3">
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+            </div>
+        </div>
+    );
+}
+
+function PbasReferenceSkeleton() {
+    return (
+        <div className="grid gap-4 xl:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+                <div key={`reference-skeleton-${index}`} className="rounded-lg border border-zinc-200 bg-white p-4">
+                    <div className="grid gap-3">
+                        <Skeleton className="h-4 w-2/3" />
+                        <Skeleton className="h-3 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function ReadonlySourceTable({
     title,
-    description,
-    items,
-    selectedIds,
-    onToggleItem,
-    disabled,
-    singleOption,
-    singleSelectedId,
-    onToggleSingle,
+    rows,
+    canEdit,
+    onRemove,
 }: {
     title: string;
-    description: string;
-    items: PbasCandidateOption[];
-    selectedIds: string[];
-    onToggleItem: (id: string) => void;
-    disabled: boolean;
-    singleOption?: PbasCandidateOption;
-    singleSelectedId?: string;
-    onToggleSingle?: (id: string) => void;
+    rows: PbasSourceRow[];
+    canEdit: boolean;
+    onRemove: (row: PbasSourceRow) => void;
 }) {
     return (
         <div className="rounded-lg border border-zinc-200 bg-white p-4">
             <p className="text-sm font-semibold text-zinc-950">{title}</p>
-            <p className="mt-1 text-sm text-zinc-500">{description}</p>
-            <div className="mt-4 grid gap-3">
-                {singleOption ? (
-                    <label className="flex items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-                        <Checkbox
-                            checked={singleSelectedId === singleOption.id}
-                            onCheckedChange={() => onToggleSingle?.(singleOption.id)}
-                            disabled={disabled}
-                        />
-                        <span className="grid gap-1">
-                            <span className="text-sm font-medium text-zinc-950">{singleOption.label}</span>
-                            {singleOption.sublabel ? (
-                                <span className="text-xs text-zinc-500">{singleOption.sublabel}</span>
-                            ) : null}
-                        </span>
-                    </label>
-                ) : null}
-                {items.length ? (
-                    items.map((item) => (
-                        <label key={item.id} className="flex items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-                            <Checkbox
-                                checked={selectedIds.includes(item.id)}
-                                onCheckedChange={() => onToggleItem(item.id)}
-                                disabled={disabled}
-                            />
-                            <span className="grid gap-1">
-                                <span className="text-sm font-medium text-zinc-950">{item.label}</span>
-                                {item.sublabel ? (
-                                    <span className="text-xs text-zinc-500">{item.sublabel}</span>
-                                ) : null}
-                                {item.note ? (
-                                    <span className="text-xs uppercase tracking-[0.12em] text-zinc-400">{item.note}</span>
-                                ) : null}
-                            </span>
-                        </label>
-                    ))
-                ) : (
-                    <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
-                        No records available in this section for the selected academic year.
-                    </div>
-                )}
-            </div>
+            {rows.length ? (
+                <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Source</TableHead>
+                                <TableHead>Details</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {rows.map((row) => (
+                                <TableRow key={`${title}-${row.id}`}>
+                                    <TableCell className="align-top text-sm font-medium text-zinc-900">
+                                        {row.sourceType}
+                                    </TableCell>
+                                    <TableCell className="align-top">
+                                        <p className="text-sm font-medium text-zinc-950">{row.title}</p>
+                                        {row.subtitle ? <p className="text-xs text-zinc-500">{row.subtitle}</p> : null}
+                                        {row.note ? (
+                                            <p className="text-xs uppercase tracking-[0.12em] text-zinc-400">{row.note}</p>
+                                        ) : null}
+                                    </TableCell>
+                                    <TableCell className="align-top">
+                                        <Badge variant={row.included ? "default" : "secondary"}>
+                                            {row.included ? "Included" : "Excluded"}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="align-top text-right">
+                                        <div className="flex justify-end gap-2">
+                                            <Button asChild type="button" size="sm" variant="outline">
+                                                <a href={row.sourceHref}>Edit Source</a>
+                                            </Button>
+                                            {row.included ? (
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    disabled={!canEdit}
+                                                    onClick={() => onRemove(row)}
+                                                >
+                                                    Remove from PBAS
+                                                </Button>
+                                            ) : null}
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            ) : (
+                <div className="mt-4 rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                    No records available in this section for the selected academic year.
+                </div>
+            )}
         </div>
     );
 }
