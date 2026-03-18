@@ -17,6 +17,7 @@ const researchProfileSchema = z.object({
 
 const teachingLoadSchema = z.object({
     _id: z.string().optional(),
+    courseId: z.string().trim().optional(),
     documentId: z.string().trim().optional(),
     academicYear: z.string().trim().min(4, "Academic year is required."),
     programName: z.string().trim().min(2, "Program is required."),

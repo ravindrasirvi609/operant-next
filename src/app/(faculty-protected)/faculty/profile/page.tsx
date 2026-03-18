@@ -22,6 +22,9 @@ export default async function FacultyProfilePage() {
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 <FacultyWorkspaceForm
                     facultyRecord={JSON.parse(JSON.stringify(workspace.facultyRecord))}
+                    academicYearOptions={workspace.academicYearOptions ?? []}
+                    programOptions={workspace.programOptions ?? []}
+                    courseOptions={workspace.courseOptions ?? []}
                     user={facultyUser}
                 />
             </div>

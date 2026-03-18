@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createApiErrorResponse } from "@/lib/auth/http";
 import { assertAdminApiAccess } from "@/lib/auth/user";
-import { updateAcademicYear } from "@/lib/admin/academics";
+import { deleteAcademicYear, updateAcademicYear } from "@/lib/admin/academics";
 
 type RouteContext = {
     params: Promise<{
@@ -17,6 +17,17 @@ export async function PATCH(request: Request, context: RouteContext) {
         const body = await request.json();
         const academicYear = await updateAcademicYear(id, body);
         return NextResponse.json({ academicYear });
+    } catch (error) {
+        return createApiErrorResponse(error);
+    }
+}
+
+export async function DELETE(_request: Request, context: RouteContext) {
+    try {
+        await assertAdminApiAccess();
+        const { id } = await context.params;
+        await deleteAcademicYear(id);
+        return NextResponse.json({ message: "Academic year deleted." });
     } catch (error) {
         return createApiErrorResponse(error);
     }

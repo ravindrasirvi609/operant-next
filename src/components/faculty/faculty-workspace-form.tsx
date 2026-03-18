@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
-import { useId, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,6 +58,12 @@ type ExistingRecord = FacultyWorkspaceResolvedValues & {
     _id?: string;
 };
 
+type CourseOption = {
+    name: string;
+    subjectCode?: string;
+    programName?: string;
+};
+
 function toCsv(value?: string[]) {
     return value?.join(", ") ?? "";
 }
@@ -64,9 +71,15 @@ function toCsv(value?: string[]) {
 export function FacultyWorkspaceForm({
     user,
     facultyRecord,
+    academicYearOptions,
+    programOptions,
+    courseOptions,
 }: {
     user: FacultyUser;
     facultyRecord: ExistingRecord;
+    academicYearOptions: string[];
+    programOptions: string[];
+    courseOptions: CourseOption[];
 }) {
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [isPending, startTransition] = useTransition();
@@ -124,6 +137,49 @@ export function FacultyWorkspaceForm({
         control: form.control,
         name: "socialExtensionActivities",
     });
+
+    const uniqueProgramOptions = useMemo(
+        () => Array.from(new Set(programOptions.filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+        [programOptions]
+    );
+
+    const uniqueCourseOptions = useMemo(
+        () =>
+            Array.from(
+                new Set(courseOptions.map((option) => option.name).filter(Boolean))
+            ).sort((a, b) => a.localeCompare(b)),
+        [courseOptions]
+    );
+
+    function getCourseOptionsForProgram(programName?: string) {
+        if (!programName) {
+            return uniqueCourseOptions;
+        }
+
+        const scoped = courseOptions
+            .filter((option) => option.programName === programName)
+            .map((option) => option.name)
+            .filter(Boolean);
+
+        if (!scoped.length) {
+            return uniqueCourseOptions;
+        }
+
+        return Array.from(new Set(scoped)).sort((a, b) => a.localeCompare(b));
+    }
+
+    function getSubjectCodeOptions(programName?: string, courseName?: string) {
+        const scoped = courseOptions
+            .filter((option) => {
+                const byProgram = programName ? option.programName === programName : true;
+                const byCourse = courseName ? option.name === courseName : true;
+                return byProgram && byCourse;
+            })
+            .map((option) => option.subjectCode ?? "")
+            .filter(Boolean);
+
+        return Array.from(new Set(scoped)).sort((a, b) => a.localeCompare(b));
+    }
 
     function setCsvField(
         field:
@@ -317,7 +373,17 @@ export function FacultyWorkspaceForm({
                                 {teachingSummaries.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
                                         <RowField label="Academic year">
-                                            <Input {...form.register(`teachingSummaries.${index}.academicYear`)} />
+                                            <Controller
+                                                control={form.control}
+                                                name={`teachingSummaries.${index}.academicYear`}
+                                                render={({ field }) => (
+                                                    <AcademicYearSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={academicYearOptions}
+                                                    />
+                                                )}
+                                            />
                                         </RowField>
                                         <RowField label="Classes taken">
                                             <Input type="number" {...form.register(`teachingSummaries.${index}.classesTaken`, { valueAsNumber: true })} />
@@ -339,19 +405,18 @@ export function FacultyWorkspaceForm({
                                                 render={({ field }) => <DocumentUploadField userId={user.id} value={field.value} onChange={field.onChange} />}
                                             />
                                         </RowField>
-                                        <RowField label="Courses taught (comma separated)" className="md:col-span-2 xl:col-span-3">
-                                            <Textarea
-                                                value={(form.watch(`teachingSummaries.${index}.coursesTaught`) ?? []).join(", ")}
-                                                onChange={(event) =>
-                                                    form.setValue(
-                                                        `teachingSummaries.${index}.coursesTaught`,
-                                                        event.target.value
-                                                            .split(",")
-                                                            .map((item) => item.trim())
-                                                            .filter(Boolean),
-                                                        { shouldValidate: true }
-                                                    )
-                                                }
+                                        <RowField label="Courses taught" className="md:col-span-2 xl:col-span-3">
+                                            <Controller
+                                                control={form.control}
+                                                name={`teachingSummaries.${index}.coursesTaught`}
+                                                render={({ field }) => (
+                                                    <MultiSelectField
+                                                        options={uniqueCourseOptions}
+                                                        value={field.value ?? []}
+                                                        onChange={field.onChange}
+                                                        placeholder="Select courses taught"
+                                                    />
+                                                )}
                                             />
                                         </RowField>
                                         <RowField label="Feedback summary" className="md:col-span-2 xl:col-span-3">
@@ -385,19 +450,133 @@ export function FacultyWorkspaceForm({
                                 {teachingLoads.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
                                         <RowField label="Academic year">
-                                            <Input {...form.register(`teachingLoads.${index}.academicYear`)} />
+                                            <Controller
+                                                control={form.control}
+                                                name={`teachingLoads.${index}.academicYear`}
+                                                render={({ field }) => (
+                                                    <AcademicYearSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={academicYearOptions}
+                                                    />
+                                                )}
+                                            />
                                         </RowField>
                                         <RowField label="Program">
-                                            <Input {...form.register(`teachingLoads.${index}.programName`)} />
+                                            <Controller
+                                                control={form.control}
+                                                name={`teachingLoads.${index}.programName`}
+                                                render={({ field }) => (
+                                                    <Select
+                                                        value={field.value || undefined}
+                                                        onValueChange={(value) => {
+                                                            field.onChange(value);
+                                                            form.setValue(`teachingLoads.${index}.courseName`, "", { shouldValidate: true });
+                                                            form.setValue(`teachingLoads.${index}.subjectCode`, "", { shouldValidate: true });
+                                                        }}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select program" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {uniqueProgramOptions.map((option) => (
+                                                                <SelectItem key={option} value={option}>
+                                                                    {option}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
+                                            />
                                         </RowField>
                                         <RowField label="Course name">
-                                            <Input {...form.register(`teachingLoads.${index}.courseName`)} />
+                                            <Controller
+                                                control={form.control}
+                                                name={`teachingLoads.${index}.courseName`}
+                                                render={({ field }) => {
+                                                    const programName = form.getValues(`teachingLoads.${index}.programName`);
+                                                    const options = getCourseOptionsForProgram(programName);
+
+                                                    return (
+                                                        <Select
+                                                            value={field.value || undefined}
+                                                            onValueChange={(value) => {
+                                                                field.onChange(value);
+                                                                const subjectCodes = getSubjectCodeOptions(programName, value);
+                                                                if (subjectCodes.length === 1) {
+                                                                    form.setValue(`teachingLoads.${index}.subjectCode`, subjectCodes[0], {
+                                                                        shouldValidate: true,
+                                                                    });
+                                                                }
+                                                            }}
+                                                        >
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select course" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {options.map((option) => (
+                                                                    <SelectItem key={option} value={option}>
+                                                                        {option}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    );
+                                                }}
+                                            />
                                         </RowField>
                                         <RowField label="Semester">
-                                            <Input type="number" {...form.register(`teachingLoads.${index}.semester`, { valueAsNumber: true })} />
+                                            <Controller
+                                                control={form.control}
+                                                name={`teachingLoads.${index}.semester`}
+                                                render={({ field }) => (
+                                                    <Select
+                                                        value={String(field.value || "")}
+                                                        onValueChange={(value) => field.onChange(Number(value))}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select semester" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {Array.from({ length: 12 }, (_, idx) => idx + 1).map((sem) => (
+                                                                <SelectItem key={sem} value={String(sem)}>
+                                                                    Semester {sem}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
+                                            />
                                         </RowField>
                                         <RowField label="Subject code">
-                                            <Input {...form.register(`teachingLoads.${index}.subjectCode`)} />
+                                            <Controller
+                                                control={form.control}
+                                                name={`teachingLoads.${index}.subjectCode`}
+                                                render={({ field }) => {
+                                                    const programName = form.getValues(`teachingLoads.${index}.programName`);
+                                                    const courseName = form.getValues(`teachingLoads.${index}.courseName`);
+                                                    const subjectCodes = getSubjectCodeOptions(programName, courseName);
+
+                                                    if (!subjectCodes.length) {
+                                                        return <Input value={field.value ?? ""} placeholder="No mapped subject code" readOnly />;
+                                                    }
+
+                                                    return (
+                                                        <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select subject code" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {subjectCodes.map((option) => (
+                                                                    <SelectItem key={option} value={option}>
+                                                                        {option}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    );
+                                                }}
+                                            />
                                         </RowField>
                                         <RowField label="Lecture hours">
                                             <Input type="number" {...form.register(`teachingLoads.${index}.lectureHours`, { valueAsNumber: true })} />
@@ -429,10 +608,37 @@ export function FacultyWorkspaceForm({
                                 {resultSummaries.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
                                         <RowField label="Academic year">
-                                            <Input {...form.register(`resultSummaries.${index}.academicYear`)} />
+                                            <Controller
+                                                control={form.control}
+                                                name={`resultSummaries.${index}.academicYear`}
+                                                render={({ field }) => (
+                                                    <AcademicYearSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={academicYearOptions}
+                                                    />
+                                                )}
+                                            />
                                         </RowField>
                                         <RowField label="Subject name">
-                                            <Input {...form.register(`resultSummaries.${index}.subjectName`)} />
+                                            <Controller
+                                                control={form.control}
+                                                name={`resultSummaries.${index}.subjectName`}
+                                                render={({ field }) => (
+                                                    <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select subject" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {uniqueCourseOptions.map((option) => (
+                                                                <SelectItem key={option} value={option}>
+                                                                    {option}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
+                                            />
                                         </RowField>
                                         <RowField label="Appeared">
                                             <Input type="number" {...form.register(`resultSummaries.${index}.appearedStudents`, { valueAsNumber: true })} />
@@ -887,7 +1093,17 @@ export function FacultyWorkspaceForm({
                                 {administrativeRoles.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
                                         <RowField label="Academic year">
-                                            <Input {...form.register(`administrativeRoles.${index}.academicYear`)} />
+                                            <Controller
+                                                control={form.control}
+                                                name={`administrativeRoles.${index}.academicYear`}
+                                                render={({ field }) => (
+                                                    <AcademicYearSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={academicYearOptions}
+                                                    />
+                                                )}
+                                            />
                                         </RowField>
                                         <RowField label="Role name">
                                             <Input {...form.register(`administrativeRoles.${index}.roleName`)} />
@@ -919,7 +1135,17 @@ export function FacultyWorkspaceForm({
                                 {institutionalContributions.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
                                         <RowField label="Academic year">
-                                            <Input {...form.register(`institutionalContributions.${index}.academicYear`)} />
+                                            <Controller
+                                                control={form.control}
+                                                name={`institutionalContributions.${index}.academicYear`}
+                                                render={({ field }) => (
+                                                    <AcademicYearSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={academicYearOptions}
+                                                    />
+                                                )}
+                                            />
                                         </RowField>
                                         <RowField label="Activity title">
                                             <Input {...form.register(`institutionalContributions.${index}.activityTitle`)} />
@@ -1027,7 +1253,17 @@ export function FacultyWorkspaceForm({
                                 {socialExtensionActivities.fields.map((field, index) => (
                                     <EditableRow key={field.id}>
                                         <RowField label="Academic year">
-                                            <Input {...form.register(`socialExtensionActivities.${index}.academicYear`)} />
+                                            <Controller
+                                                control={form.control}
+                                                name={`socialExtensionActivities.${index}.academicYear`}
+                                                render={({ field }) => (
+                                                    <AcademicYearSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={academicYearOptions}
+                                                    />
+                                                )}
+                                            />
                                         </RowField>
                                         <RowField label="Programme name">
                                             <Input {...form.register(`socialExtensionActivities.${index}.programName`)} />
@@ -1277,6 +1513,78 @@ function DocumentUploadField({
             </p>
             {error ? <p className="text-xs text-rose-600">{error}</p> : null}
         </div>
+    );
+}
+
+function AcademicYearSelect({
+    value,
+    onChange,
+    options,
+}: {
+    value?: string;
+    onChange: (value: string) => void;
+    options: string[];
+}) {
+    return (
+        <Select value={value || undefined} onValueChange={onChange}>
+            <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select academic year" />
+            </SelectTrigger>
+            <SelectContent>
+                {options.map((option) => (
+                    <SelectItem key={option} value={option}>
+                        {option}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+}
+
+function MultiSelectField({
+    options,
+    value,
+    onChange,
+    placeholder,
+}: {
+    options: string[];
+    value: string[];
+    onChange: (next: string[]) => void;
+    placeholder: string;
+}) {
+    const selected = value ?? [];
+
+    function toggle(option: string) {
+        const next = selected.includes(option)
+            ? selected.filter((item) => item !== option)
+            : [...selected, option];
+        onChange(next);
+    }
+
+    return (
+        <Popover>
+            <PopoverTrigger asChild>
+                <Button type="button" variant="outline" className="w-full justify-between text-left font-normal">
+                    <span className="truncate">
+                        {selected.length ? selected.join(", ") : placeholder}
+                    </span>
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[320px] p-3" align="start">
+                <div className="grid max-h-60 gap-2 overflow-auto">
+                    {options.map((option) => (
+                        <label key={option} className="flex items-center gap-2 rounded-md border border-zinc-200 px-2 py-1.5 text-sm">
+                            <Checkbox
+                                checked={selected.includes(option)}
+                                onCheckedChange={() => toggle(option)}
+                            />
+                            <span>{option}</span>
+                        </label>
+                    ))}
+                    {!options.length ? <p className="text-xs text-zinc-500">No options available.</p> : null}
+                </div>
+            </PopoverContent>
+        </Popover>
     );
 }
 

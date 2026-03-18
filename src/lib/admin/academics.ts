@@ -6,19 +6,23 @@ import AcademicYear from "@/models/reference/academic-year";
 import Institution from "@/models/reference/institution";
 import Department from "@/models/reference/department";
 import Program from "@/models/academic/program";
+import Course from "@/models/academic/course";
 import Semester from "@/models/reference/semester";
+import FacultyTeachingLoad from "@/models/faculty/faculty-teaching-load";
 import {
     academicYearSchema,
     academicYearUpdateSchema,
+    courseSchema,
+    courseUpdateSchema,
     programSchema,
     programUpdateSchema,
     semesterSchema,
     semesterUpdateSchema,
 } from "@/lib/admin/academics-validators";
 
-type AcademicYearInput = import("zod").output<typeof academicYearSchema>;
 type ProgramInput = import("zod").output<typeof programSchema>;
 type SemesterInput = import("zod").output<typeof semesterSchema>;
+type CourseInput = import("zod").output<typeof courseSchema>;
 
 export async function listAcademicYears() {
     await dbConnect();
@@ -93,6 +97,29 @@ export async function updateAcademicYear(id: string, rawInput: unknown) {
     } finally {
         await session.endSession();
     }
+}
+
+export async function deleteAcademicYear(id: string) {
+    await dbConnect();
+
+    const existing = await AcademicYear.findById(id).select("_id");
+    if (!existing) {
+        throw new AuthError("Academic year not found.", 404);
+    }
+
+    const [usedByPrograms, usedBySemesters] = await Promise.all([
+        Program.exists({ startAcademicYearId: id }),
+        Semester.exists({ academicYearId: id }),
+    ]);
+
+    if (usedByPrograms || usedBySemesters) {
+        throw new AuthError(
+            "Academic year is mapped to programs or semesters and cannot be deleted.",
+            409
+        );
+    }
+
+    await AcademicYear.findByIdAndDelete(id);
 }
 
 export async function listPrograms() {
@@ -267,6 +294,30 @@ export async function updateProgram(id: string, rawInput: unknown) {
     return updated;
 }
 
+export async function deleteProgram(id: string) {
+    await dbConnect();
+
+    const existing = await Program.findById(id).select("_id");
+    if (!existing) {
+        throw new AuthError("Program not found.", 404);
+    }
+
+    const [hasSemesters, hasCourses, hasTeachingLoads] = await Promise.all([
+        Semester.exists({ programId: id }),
+        Course.exists({ programId: id }),
+        FacultyTeachingLoad.exists({ programId: id }),
+    ]);
+
+    if (hasSemesters || hasCourses || hasTeachingLoads) {
+        throw new AuthError(
+            "Program is linked to semesters, courses, or faculty teaching loads and cannot be deleted.",
+            409
+        );
+    }
+
+    await Program.findByIdAndDelete(id);
+}
+
 export async function listSemesters() {
     await dbConnect();
     return Semester.find({})
@@ -346,4 +397,152 @@ export async function updateSemester(id: string, rawInput: unknown) {
     }
 
     return updated;
+}
+
+export async function deleteSemester(id: string) {
+    await dbConnect();
+
+    const existing = await Semester.findById(id).select("_id");
+    if (!existing) {
+        throw new AuthError("Semester not found.", 404);
+    }
+
+    const hasCourses = await Course.exists({ semesterId: id });
+    if (hasCourses) {
+        throw new AuthError(
+            "Semester is linked to one or more courses and cannot be deleted.",
+            409
+        );
+    }
+
+    await Semester.findByIdAndDelete(id);
+}
+
+export async function listCourses() {
+    await dbConnect();
+    return Course.find({})
+        .populate("programId", "name")
+        .populate({
+            path: "semesterId",
+            select: "semesterNumber academicYearId",
+            populate: { path: "academicYearId", select: "yearStart yearEnd" },
+        })
+        .sort({ name: 1 })
+        .lean();
+}
+
+export async function createCourse(rawInput: unknown) {
+    await dbConnect();
+    const input = courseSchema.parse(rawInput) as CourseInput;
+
+    const program = await Program.findById(input.programId).select("_id durationYears");
+    if (!program) {
+        throw new AuthError("Program not found.", 404);
+    }
+
+    const semester = await Semester.findById(input.semesterId).select("_id programId semesterNumber");
+    if (!semester) {
+        throw new AuthError("Semester not found.", 404);
+    }
+
+    if (semester.programId.toString() !== program._id.toString()) {
+        throw new AuthError("Semester does not belong to the selected program.", 400);
+    }
+
+    const maxSemester = program.durationYears * 2;
+    if (semester.semesterNumber > maxSemester) {
+        throw new AuthError("Semester mapping exceeds program duration.", 400);
+    }
+
+    const course = await Course.create({
+        name: input.name,
+        subjectCode: input.subjectCode || undefined,
+        courseType: input.courseType,
+        credits: input.credits,
+        isActive: input.isActive,
+        programId: program._id,
+        semesterId: semester._id,
+    });
+
+    return Course.findById(course._id)
+        .populate("programId", "name")
+        .populate({
+            path: "semesterId",
+            select: "semesterNumber academicYearId",
+            populate: { path: "academicYearId", select: "yearStart yearEnd" },
+        });
+}
+
+export async function updateCourse(id: string, rawInput: unknown) {
+    await dbConnect();
+    const input = courseUpdateSchema.parse(rawInput) as Partial<CourseInput>;
+
+    const existing = await Course.findById(id);
+    if (!existing) {
+        throw new AuthError("Course not found.", 404);
+    }
+
+    const nextProgramId = input.programId ?? existing.programId.toString();
+    const nextSemesterId = input.semesterId ?? existing.semesterId.toString();
+
+    const program = await Program.findById(nextProgramId).select("_id durationYears");
+    if (!program) {
+        throw new AuthError("Program not found.", 404);
+    }
+
+    const semester = await Semester.findById(nextSemesterId).select("_id programId semesterNumber");
+    if (!semester) {
+        throw new AuthError("Semester not found.", 404);
+    }
+
+    if (semester.programId.toString() !== program._id.toString()) {
+        throw new AuthError("Semester does not belong to the selected program.", 400);
+    }
+
+    const maxSemester = program.durationYears * 2;
+    if (semester.semesterNumber > maxSemester) {
+        throw new AuthError("Semester mapping exceeds program duration.", 400);
+    }
+
+    const updated = await Course.findByIdAndUpdate(
+        id,
+        {
+            $set: {
+                ...input,
+                subjectCode: input.subjectCode || undefined,
+            },
+        },
+        { new: true }
+    )
+        .populate("programId", "name")
+        .populate({
+            path: "semesterId",
+            select: "semesterNumber academicYearId",
+            populate: { path: "academicYearId", select: "yearStart yearEnd" },
+        });
+
+    if (!updated) {
+        throw new AuthError("Course update failed.", 500);
+    }
+
+    return updated;
+}
+
+export async function deleteCourse(id: string) {
+    await dbConnect();
+
+    const existing = await Course.findById(id).select("_id");
+    if (!existing) {
+        throw new AuthError("Course not found.", 404);
+    }
+
+    const hasTeachingLoads = await FacultyTeachingLoad.exists({ courseId: id });
+    if (hasTeachingLoads) {
+        throw new AuthError(
+            "Course is linked to faculty teaching loads and cannot be deleted.",
+            409
+        );
+    }
+
+    await Course.findByIdAndDelete(id);
 }

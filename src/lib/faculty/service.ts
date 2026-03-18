@@ -3,7 +3,9 @@ import { facultyRecordSchema } from "@/lib/faculty/validators";
 import { ensureFacultyContext } from "@/lib/faculty/migration";
 import AcademicYear from "@/models/reference/academic-year";
 import Event from "@/models/reference/event";
+import Course from "@/models/academic/course";
 import Program from "@/models/academic/program";
+import Semester from "@/models/reference/semester";
 import SocialProgram from "@/models/reference/social-program";
 import FacultyAdminRole from "@/models/faculty/faculty-admin-role";
 import FacultyBook from "@/models/faculty/faculty-book";
@@ -106,6 +108,58 @@ async function ensureSocialProgram(name: string) {
     return program;
 }
 
+async function ensureSemesterMapping(
+    programId: string,
+    academicYearId: string,
+    semesterNumber: number
+) {
+    let semester = await Semester.findOne({
+        programId,
+        academicYearId,
+        semesterNumber,
+    });
+
+    if (!semester) {
+        semester = await Semester.create({
+            programId,
+            academicYearId,
+            semesterNumber,
+        });
+    }
+
+    return semester;
+}
+
+async function ensureCourse(
+    programId: string,
+    semesterId: string,
+    courseName: string,
+    subjectCode?: string
+) {
+    let course = await Course.findOne({
+        programId,
+        semesterId,
+        $or: [
+            ...(subjectCode ? [{ subjectCode }] : []),
+            { name: courseName },
+        ],
+    });
+
+    if (!course) {
+        course = await Course.create({
+            name: courseName,
+            subjectCode: subjectCode || undefined,
+            courseType: "Theory",
+            credits: 0,
+            isActive: true,
+            programId,
+            semesterId,
+        });
+    }
+
+    return course;
+}
+
 async function ensureEvent(
     institutionId: string,
     departmentId: string,
@@ -149,6 +203,30 @@ export async function getFacultyWorkspace(userId: string) {
 
     const { user, faculty } = await ensureFacultyContext(userId);
 
+    const academicYears = await AcademicYear.find({})
+        .sort({ yearStart: -1, yearEnd: -1 })
+        .select("yearStart yearEnd")
+        .lean();
+
+    const programMasters = await Program.find({
+        institutionId: faculty.institutionId,
+        departmentId: faculty.departmentId,
+        isActive: true,
+    })
+        .select("name")
+        .sort({ name: 1 })
+        .lean();
+
+    const programIds = programMasters.map((item) => item._id);
+    const courseMasters = await Course.find({
+        programId: { $in: programIds },
+        isActive: true,
+    })
+        .populate("programId", "name")
+        .select("name subjectCode programId")
+        .sort({ name: 1 })
+        .lean();
+
     const [
         teachingSummaries,
         teachingLoads,
@@ -170,6 +248,7 @@ export async function getFacultyWorkspace(userId: string) {
             FacultyTeachingLoad.find({ facultyId: faculty._id })
                 .populate("academicYearId", "yearStart yearEnd")
                 .populate("programId", "name")
+                .populate("courseId", "name subjectCode")
                 .sort({ updatedAt: -1 }),
             FacultyResultSummary.find({ facultyId: faculty._id })
                 .populate("academicYearId", "yearStart yearEnd")
@@ -235,15 +314,16 @@ export async function getFacultyWorkspace(userId: string) {
         })),
         teachingLoads: teachingLoads.map((item) => ({
             _id: item._id.toString(),
+            courseId: item.courseId?.toString() ?? "",
             documentId: item.documentId?.toString() ?? "",
             academicYear: toAcademicYearLabel(
                 (item.academicYearId as { yearStart?: number })?.yearStart,
                 (item.academicYearId as { yearEnd?: number })?.yearEnd
             ),
             programName: (item.programId as { name?: string })?.name ?? "",
-            courseName: item.courseName,
+            courseName: (item.courseId as { name?: string })?.name ?? item.courseName,
             semester: item.semester,
-            subjectCode: item.subjectCode ?? "",
+            subjectCode: (item.courseId as { subjectCode?: string })?.subjectCode ?? item.subjectCode ?? "",
             lectureHours: item.lectureHours,
             tutorialHours: item.tutorialHours,
             practicalHours: item.practicalHours,
@@ -370,7 +450,20 @@ export async function getFacultyWorkspace(userId: string) {
         })),
     };
 
-    return { user, faculty, facultyRecord };
+    return {
+        user,
+        faculty,
+        facultyRecord,
+        academicYearOptions: academicYears
+            .map((item) => toAcademicYearLabel(item.yearStart, item.yearEnd))
+            .filter(Boolean),
+        programOptions: programMasters.map((item) => item.name),
+        courseOptions: courseMasters.map((item) => ({
+            name: item.name,
+            subjectCode: item.subjectCode ?? "",
+            programName: (item.programId as { name?: string })?.name ?? "",
+        })),
+    };
 }
 
 export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
@@ -446,11 +539,23 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
             faculty.departmentId.toString(),
             entry.programName
         );
+        const semester = await ensureSemesterMapping(
+            program._id.toString(),
+            academicYear._id.toString(),
+            entry.semester
+        );
+        const course = await ensureCourse(
+            program._id.toString(),
+            semester._id.toString(),
+            entry.courseName,
+            entry.subjectCode
+        );
 
         await FacultyTeachingLoad.create({
             facultyId: faculty._id,
             academicYearId: academicYear._id,
             programId: program._id,
+            courseId: course._id,
             documentId: entry.documentId || undefined,
             courseName: entry.courseName,
             semester: entry.semester,

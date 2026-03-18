@@ -36,3 +36,15 @@ export const semesterSchema = z.object({
 });
 
 export const semesterUpdateSchema = semesterSchema.partial();
+
+export const courseSchema = z.object({
+    name: z.string().trim().min(2, "Course name is required."),
+    programId: z.string().trim().min(1, "Program is required."),
+    semesterId: z.string().trim().min(1, "Semester is required."),
+    subjectCode: z.string().trim().optional(),
+    courseType: z.enum(["Theory", "Lab", "Project", "Other"]).default("Theory"),
+    credits: z.coerce.number().min(0).max(40).default(0),
+    isActive: z.boolean().default(true),
+});
+
+export const courseUpdateSchema = courseSchema.partial();
