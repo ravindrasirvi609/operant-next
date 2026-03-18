@@ -127,6 +127,7 @@ type PbasDetail = PbasApp & {
 
 type PbasSummary = {
     activeYear?: { id: string; label: string; yearStart: number; yearEnd: number };
+    academicYearOptions: Array<{ id: string; label: string; isActive: boolean }>;
     submissionDeadline?: string;
     lastApprovedApiScore?: number;
     lastApprovedYear?: string;
@@ -360,6 +361,22 @@ export function PbasDashboard({
     const selected = applications.find((item) => item._id === selectedId);
     const selectedSnapshot = selectedDetail?.snapshot ?? selected?.snapshot ?? summary.snapshot;
     const canEdit = !selected || ["Draft", "Rejected"].includes(selected.status);
+    const academicYearOptions = useMemo(() => {
+        if (summary.academicYearOptions?.length) {
+            return summary.academicYearOptions;
+        }
+
+        if (summary.activeYear?.label) {
+            return [{ id: summary.activeYear.id, label: summary.activeYear.label, isActive: true }];
+        }
+
+        return [{ id: summary.meta.academicYear, label: summary.meta.academicYear, isActive: true }];
+    }, [summary]);
+    const submitDisabledReason = !selectedId
+        ? "Create and select a PBAS draft to submit."
+        : !canEdit
+            ? `Submission is available only in Draft or Rejected status. Current status: ${selected?.status ?? "Unknown"}.`
+            : null;
     const defaultDraft = useMemo(() => emptyForm(summary?.meta), [summary]);
 
     function deleteApplication(applicationId: string) {
@@ -996,7 +1013,28 @@ export function PbasDashboard({
                         <CardContent className="space-y-6">
                             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                                 <Field label="Academic Year">
-                                    <Input {...form.register("academicYear")} disabled={!canEdit} />
+                                    <Controller
+                                        control={form.control}
+                                        name="academicYear"
+                                        render={({ field }) => (
+                                            <Select
+                                                value={field.value || undefined}
+                                                onValueChange={field.onChange}
+                                                disabled={!canEdit}
+                                            >
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue placeholder="Select academic year" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {academicYearOptions.map((option) => (
+                                                        <SelectItem key={option.id} value={option.label}>
+                                                            {option.label}{option.isActive ? " (Active)" : ""}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    />
                                 </Field>
                                 <Field label="Current Designation">
                                     <Controller
@@ -1261,6 +1299,9 @@ export function PbasDashboard({
                                     Submit PBAS Application
                                 </Button>
                             </div>
+                            {submitDisabledReason ? (
+                                <p className="text-sm text-amber-700">{submitDisabledReason}</p>
+                            ) : null}
                         </CardContent>
                 </Card>
             </div>

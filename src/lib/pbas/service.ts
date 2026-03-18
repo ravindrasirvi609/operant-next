@@ -505,6 +505,11 @@ export type PbasSummary = {
         yearStart: number;
         yearEnd: number;
     };
+    academicYearOptions: Array<{
+        id: string;
+        label: string;
+        isActive: boolean;
+    }>;
     submissionDeadline?: string;
     lastApprovedApiScore?: number;
     lastApprovedYear?: string;
@@ -535,6 +540,7 @@ export async function getPbasSummaryForFaculty(actor: SafeActor): Promise<PbasSu
     }
 
     const { faculty } = await ensureFacultyContext(actor.id);
+    const academicYears = await AcademicYear.find({}).sort({ yearStart: -1 }).lean();
     const activeYear =
         (await AcademicYear.findOne({ isActive: true }).sort({ yearStart: -1 })) ||
         (await AcademicYear.findOne({}).sort({ yearStart: -1 }));
@@ -646,6 +652,11 @@ export async function getPbasSummaryForFaculty(actor: SafeActor): Promise<PbasSu
                 yearEnd: activeYear.yearEnd,
             }
             : undefined,
+        academicYearOptions: academicYears.map((year) => ({
+            id: year._id.toString(),
+            label: toAcademicYearLabel(year.yearStart, year.yearEnd),
+            isActive: Boolean(year.isActive),
+        })),
         submissionDeadline,
         lastApprovedApiScore: lastApproved?.apiScore?.totalScore,
         lastApprovedYear: lastApproved?.academicYear,

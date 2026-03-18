@@ -95,7 +95,7 @@ export default async function FacultyHomePage() {
 
     return (
         <main className="min-h-screen bg-zinc-50">
-            <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+            <div className="w-full space-y-6 px-4 py-8 sm:px-6 lg:px-8 xl:px-10">
                 <section className="rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm">
                     <div className="flex flex-wrap items-center gap-3">
                         <Badge variant="outline">Faculty Dashboard</Badge>
