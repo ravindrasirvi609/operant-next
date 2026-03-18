@@ -83,7 +83,8 @@ type PbasSourceRow = {
     subtitle?: string;
     note?: string;
     included: boolean;
-    referenceKey: PbasReferenceKey;
+    referenceKey?: PbasReferenceKey;
+    removable?: boolean;
     sourceHref: string;
 };
 
@@ -107,6 +108,7 @@ type PbasCandidatePools = {
     category1: {
         teachingSummary?: PbasCandidateOption;
         teachingLoads: PbasCandidateOption[];
+        resultSummaries: PbasCandidateOption[];
     };
     category2: {
         researchPapers: PbasCandidateOption[];
@@ -501,6 +503,17 @@ export function PbasDashboard({
             "teaching-load"
         );
 
+        const resultSummaryRows: PbasSourceRow[] = candidates.category1.resultSummaries.map((item) => ({
+            id: item.id,
+            sourceType: "Result Summary",
+            title: item.label,
+            subtitle: item.sublabel,
+            note: item.note,
+            included: true,
+            removable: false,
+            sourceHref: buildProfileEditHref("result-summary", item.id),
+        }));
+
         return {
             teaching: {
                 label: "Teaching Sources",
@@ -511,6 +524,7 @@ export function PbasDashboard({
                 groups: [
                     { title: "Teaching Summary", rows: teachingSummaryRows },
                     { title: "Teaching Load", rows: teachingLoadRows },
+                    { title: "Result Summary", rows: resultSummaryRows },
                 ],
             },
             research: {
@@ -630,6 +644,10 @@ export function PbasDashboard({
     }, [selectedId]);
 
     function removeFromPbas(row: PbasSourceRow) {
+        if (!row.referenceKey) {
+            return;
+        }
+
         if (row.referenceKey === "teachingSummaryId") {
             toggleTeachingSummary(row.id);
             return;
@@ -1590,7 +1608,7 @@ function ReadonlySourceTable({
                                             <Button asChild type="button" size="sm" variant="outline">
                                                 <a href={row.sourceHref}>Edit Source</a>
                                             </Button>
-                                            {row.included ? (
+                                            {row.included && row.removable !== false ? (
                                                 <Button
                                                     type="button"
                                                     size="sm"

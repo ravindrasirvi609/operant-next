@@ -11,6 +11,7 @@ import FacultyPublication from "@/models/faculty/faculty-publication";
 import FacultyResearchProject from "@/models/faculty/faculty-research-project";
 import FacultySocialExtension from "@/models/faculty/faculty-social-extension";
 import FacultyTeachingLoad from "@/models/faculty/faculty-teaching-load";
+import FacultyResultSummary from "@/models/faculty/faculty-result-summary";
 import FacultyTeachingSummary from "@/models/faculty/faculty-teaching-summary";
 import type { IPbasDraftReferences } from "@/models/core/pbas-reference-schema";
 import { pbasDraftReferencesSchema, pbasSnapshotSchema, type PbasDraftReferencesInput, type PbasSnapshot } from "@/lib/pbas/validators";
@@ -35,6 +36,93 @@ type EventParticipationCandidate = CandidateItem & {
     };
 };
 
+type TeachingSummaryCandidate = CandidateItem & {
+    classesTaken?: number;
+    coursePreparationHours?: number;
+    coursesTaught?: string[];
+    mentoringCount?: number;
+    labSupervisionCount?: number;
+    feedbackSummary?: string;
+};
+
+type TeachingLoadCandidate = CandidateItem & {
+    courseName?: string;
+    semester?: string | number;
+    subjectCode?: string;
+    totalHours?: number;
+    lectureHours?: number;
+    practicalHours?: number;
+};
+
+type ResultSummaryCandidate = CandidateItem & {
+    subjectName?: string;
+    studentsAppeared?: number;
+    studentsPassed?: number;
+    passPercentage?: number;
+};
+
+type PublicationCandidate = CandidateItem & {
+    title?: string;
+    journalName?: string;
+    publisher?: string;
+    publicationDate?: Date;
+    isbnIssn?: string;
+    indexedIn?: string;
+    publicationType?: string;
+};
+
+type BookCandidate = CandidateItem & {
+    title?: string;
+    publisher?: string;
+    publicationDate?: Date;
+    bookType?: string;
+    isbn?: string;
+};
+
+type PatentCandidate = CandidateItem & {
+    title?: string;
+    status?: string;
+    filingDate?: Date;
+    grantDate?: Date;
+    patentNumber?: string;
+};
+
+type ProjectCandidate = CandidateItem & {
+    title?: string;
+    fundingAgency?: string;
+    amountSanctioned?: number;
+    startDate?: Date;
+    projectType?: string;
+};
+
+type AdminRoleCandidate = CandidateItem & {
+    committeeName?: string;
+    roleName?: string;
+    responsibilityDescription?: string;
+};
+
+type InstitutionalContributionCandidate = CandidateItem & {
+    activityTitle?: string;
+    role?: string;
+    scoreWeightage?: number;
+};
+
+type SocialExtensionCandidate = CandidateItem & {
+    activityName?: string;
+    hoursContributed?: number;
+    programId?: Types.ObjectId | {
+        name?: string;
+    } | null;
+};
+
+function getProgramName(programId: SocialExtensionCandidate["programId"]) {
+    if (!programId || programId instanceof Types.ObjectId) {
+        return undefined;
+    }
+
+    return programId.name;
+}
+
 export type PbasCandidateOption = {
     id: string;
     label: string;
@@ -46,6 +134,7 @@ export type PbasCandidatePools = {
     category1: {
         teachingSummary?: PbasCandidateOption;
         teachingLoads: PbasCandidateOption[];
+        resultSummaries: PbasCandidateOption[];
     };
     category2: {
         researchPapers: PbasCandidateOption[];
@@ -69,16 +158,17 @@ export type PbasReferenceContext = {
         yearStart: number;
         yearEnd: number;
     };
-    teachingSummary: any | null;
-    teachingLoads: any[];
-    publications: any[];
-    books: any[];
-    patents: any[];
-    projects: any[];
+    teachingSummary: TeachingSummaryCandidate | null;
+    teachingLoads: TeachingLoadCandidate[];
+    resultSummaries: ResultSummaryCandidate[];
+    publications: PublicationCandidate[];
+    books: BookCandidate[];
+    patents: PatentCandidate[];
+    projects: ProjectCandidate[];
     eventParticipations: EventParticipationCandidate[];
-    adminRoles: any[];
-    institutionalContributions: any[];
-    socialExtensions: any[];
+    adminRoles: AdminRoleCandidate[];
+    institutionalContributions: InstitutionalContributionCandidate[];
+    socialExtensions: SocialExtensionCandidate[];
 };
 
 function formatDate(date?: Date | null) {
@@ -214,6 +304,7 @@ export async function loadPbasReferenceContext(facultyId: Types.ObjectId, academ
     const [
         teachingSummary,
         teachingLoads,
+        resultSummaries,
         publications,
         books,
         patents,
@@ -225,6 +316,7 @@ export async function loadPbasReferenceContext(facultyId: Types.ObjectId, academ
     ] = await Promise.all([
         FacultyTeachingSummary.findOne({ facultyId, academicYearId }).lean(),
         FacultyTeachingLoad.find({ facultyId, academicYearId }).sort({ updatedAt: -1 }).lean(),
+        FacultyResultSummary.find({ facultyId, academicYearId }).sort({ updatedAt: -1 }).lean(),
         FacultyPublication.find({
             facultyId,
             publicationType: { $ne: "Book" },
@@ -308,6 +400,7 @@ export async function loadPbasReferenceContext(facultyId: Types.ObjectId, academ
         },
         teachingSummary,
         teachingLoads,
+        resultSummaries,
         publications,
         books,
         patents,
@@ -486,7 +579,7 @@ export function resolvePbasSnapshotFromReferences(
                 count: Math.round(item.scoreWeightage || 0),
             })),
             extensionActivities: selectedExtensions.map((item) => ({
-                title: item.activityName || (item.programId as { name?: string } | undefined)?.name || "Extension Activity",
+                title: item.activityName || getProgramName(item.programId) || "Extension Activity",
                 role: undefined,
                 year: fallbackYear,
             })),
@@ -508,27 +601,33 @@ export function serializePbasCandidatePools(context: PbasReferenceContext): Pbas
                 : undefined,
             teachingLoads: context.teachingLoads.map((item) => ({
                 id: item._id.toString(),
-                label: item.courseName,
+                label: item.courseName || "Teaching Load",
                 sublabel: `Semester ${item.semester} • ${item.totalHours ?? 0} hrs`,
                 note: item.subjectCode || undefined,
+            })),
+            resultSummaries: context.resultSummaries.map((item) => ({
+                id: item._id.toString(),
+                label: item.subjectName || "Result Summary",
+                sublabel: `Appeared ${item.studentsAppeared ?? 0} • Passed ${item.studentsPassed ?? 0}`,
+                note: typeof item.passPercentage === "number" ? `Pass ${item.passPercentage}%` : undefined,
             })),
         },
         category2: {
             researchPapers: context.publications.map((item) => ({
                 id: item._id.toString(),
-                label: item.title,
+                label: item.title || "Publication",
                 sublabel: `${item.journalName || item.publisher || "Journal"} • ${formatDate(item.publicationDate)}`,
                 note: item.indexedIn || item.publicationType,
             })),
             books: context.books.map((item) => ({
                 id: item._id.toString(),
-                label: item.title,
+                label: item.title || "Book",
                 sublabel: `${item.publisher || "Publisher"} • ${formatDate(item.publicationDate)}`,
                 note: item.bookType,
             })),
             patents: context.patents.map((item) => ({
                 id: item._id.toString(),
-                label: item.title,
+                label: item.title || "Patent",
                 sublabel: `${item.status} • ${formatDate(item.filingDate || item.grantDate)}`,
                 note: item.patentNumber || undefined,
             })),
@@ -540,7 +639,7 @@ export function serializePbasCandidatePools(context: PbasReferenceContext): Pbas
             })),
             projects: context.projects.map((item) => ({
                 id: item._id.toString(),
-                label: item.title,
+                label: item.title || "Research Project",
                 sublabel: `${item.fundingAgency || "Funding Agency"} • ${formatDate(item.startDate)}`,
                 note: item.projectType,
             })),
@@ -558,25 +657,25 @@ export function serializePbasCandidatePools(context: PbasReferenceContext): Pbas
                 .filter((item) => !item.committeeName && !isExamRole(item))
                 .map((item) => ({
                     id: item._id.toString(),
-                    label: item.roleName,
+                    label: item.roleName || "Administrative Duty",
                     sublabel: item.responsibilityDescription || "Administrative responsibility",
                 })),
             examDuties: adminRoles
                 .filter((item) => isExamRole(item))
                 .map((item) => ({
                     id: item._id.toString(),
-                    label: item.committeeName || item.roleName,
+                    label: item.committeeName || item.roleName || "Exam Duty",
                     sublabel: "Exam duty",
                 })),
             studentGuidance: context.institutionalContributions.map((item) => ({
                 id: item._id.toString(),
-                label: item.activityTitle,
+                label: item.activityTitle || "Student Guidance",
                 sublabel: `${item.role} • Weight ${Math.round(item.scoreWeightage || 0)}`,
             })),
             extensionActivities: context.socialExtensions.map((item) => ({
                 id: item._id.toString(),
-                label: item.activityName || (item.programId as { name?: string } | undefined)?.name || "Extension Activity",
-                sublabel: `${(item.programId as { name?: string } | undefined)?.name || "Program"} • ${item.hoursContributed ?? 0} hrs`,
+                label: item.activityName || getProgramName(item.programId) || "Extension Activity",
+                sublabel: `${getProgramName(item.programId) || "Program"} • ${item.hoursContributed ?? 0} hrs`,
             })),
         },
     };

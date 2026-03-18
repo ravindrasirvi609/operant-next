@@ -129,6 +129,7 @@ export async function buildPbasSnapshot(
                 },
                 teachingSummary: null,
                 teachingLoads: [],
+                resultSummaries: [],
                 publications: [],
                 books: [],
                 patents: [],
