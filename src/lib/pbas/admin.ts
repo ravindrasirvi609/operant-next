@@ -2,6 +2,9 @@ import { Types } from "mongoose";
 import { z } from "zod";
 
 import dbConnect from "@/lib/dbConnect";
+import { DEFAULT_PBAS_SCORING_WEIGHTS } from "@/lib/pbas/service";
+import { pbasScoringSettingsSchema, pbasScoringWeightsSchema } from "@/lib/pbas/validators";
+import MasterData from "@/models/core/master-data";
 import PbasCategoryMaster from "@/models/core/pbas-category-master";
 import PbasIndicatorMaster from "@/models/core/pbas-indicator-master";
 
@@ -160,4 +163,75 @@ export async function updatePbasIndicator(id: string, input: unknown) {
     }
 
     return indicator;
+}
+
+export async function getPbasScoringSettings() {
+    await dbConnect();
+
+    const [weightsEntry, deadlineEntry] = await Promise.all([
+        MasterData.findOne({ category: "pbas_settings", key: "scoring_weights" }).lean(),
+        MasterData.findOne({ category: "pbas_settings", key: "submission_deadline" }).lean(),
+    ]);
+
+    const parsedWeights = pbasScoringWeightsSchema.safeParse(
+        (weightsEntry?.metadata as { value?: unknown } | undefined)?.value ??
+            weightsEntry?.metadata
+    );
+
+    return {
+        submissionDeadline:
+            ((deadlineEntry?.metadata as { value?: string } | undefined)?.value || deadlineEntry?.label || "").trim(),
+        scoringWeights: parsedWeights.success ? parsedWeights.data : DEFAULT_PBAS_SCORING_WEIGHTS,
+    };
+}
+
+export async function updatePbasScoringSettings(input: unknown, actorId?: string) {
+    await dbConnect();
+
+    const parsed = pbasScoringSettingsSchema.parse(input);
+    const now = new Date();
+    const actorObjectId = actorId ? new Types.ObjectId(actorId) : undefined;
+
+    await Promise.all([
+        MasterData.updateOne(
+            { category: "pbas_settings", key: "scoring_weights" },
+            {
+                $set: {
+                    category: "pbas_settings",
+                    key: "scoring_weights",
+                    label: "PBAS Scoring Weights",
+                    description: "Configurable PBAS scoring weight matrix.",
+                    metadata: { value: parsed.scoringWeights, updatedAt: now.toISOString() },
+                    isActive: true,
+                    updatedBy: actorObjectId,
+                },
+                $setOnInsert: {
+                    sortOrder: 1,
+                    createdBy: actorObjectId,
+                },
+            },
+            { upsert: true }
+        ),
+        MasterData.updateOne(
+            { category: "pbas_settings", key: "submission_deadline" },
+            {
+                $set: {
+                    category: "pbas_settings",
+                    key: "submission_deadline",
+                    label: parsed.submissionDeadline || "",
+                    description: "PBAS submission deadline in YYYY-MM-DD or ISO date format.",
+                    metadata: { value: parsed.submissionDeadline || "", updatedAt: now.toISOString() },
+                    isActive: true,
+                    updatedBy: actorObjectId,
+                },
+                $setOnInsert: {
+                    sortOrder: 2,
+                    createdBy: actorObjectId,
+                },
+            },
+            { upsert: true }
+        ),
+    ]);
+
+    return getPbasScoringSettings();
 }

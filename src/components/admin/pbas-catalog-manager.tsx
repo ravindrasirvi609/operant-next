@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { pbasScoringWeightsSchema } from "@/lib/pbas/validators";
 
 type PbasCategory = {
     _id: string;
@@ -26,6 +27,11 @@ type PbasIndicator = {
     description?: string;
     maxScore: number;
     naacCriteriaCode?: string;
+};
+
+type PbasScoringSettings = {
+    submissionDeadline?: string;
+    scoringWeights: Record<string, unknown>;
 };
 
 async function requestJson<T>(url: string, options?: RequestInit) {
@@ -57,12 +63,22 @@ function emptyIndicatorForm(categoryId?: string) {
     };
 }
 
+function formatIssuePath(path: Array<string | number>) {
+    if (!path.length) {
+        return "scoringWeights";
+    }
+
+    return `scoringWeights.${path.join(".")}`;
+}
+
 export function PbasCatalogManager({
     initialCategories,
     initialIndicators,
+    initialSettings,
 }: {
     initialCategories: PbasCategory[];
     initialIndicators: PbasIndicator[];
+    initialSettings: PbasScoringSettings;
 }) {
     const [categories, setCategories] = useState<PbasCategory[]>(initialCategories);
     const [indicators, setIndicators] = useState<PbasIndicator[]>(initialIndicators);
@@ -73,9 +89,36 @@ export function PbasCatalogManager({
     const [categoryMessage, setCategoryMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [indicatorMessage, setIndicatorMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [seedMessage, setSeedMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [settingsMessage, setSettingsMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [filterCategory, setFilterCategory] = useState<string>("all");
+    const [submissionDeadline, setSubmissionDeadline] = useState(initialSettings.submissionDeadline ?? "");
+    const [scoringWeightsText, setScoringWeightsText] = useState(
+        JSON.stringify(initialSettings.scoringWeights, null, 2)
+    );
     const [isPending, startTransition] = useTransition();
     const [isSeeding, startSeedTransition] = useTransition();
+    const [isSavingSettings, startSettingsTransition] = useTransition();
+
+    const scoringWeightsValidation = useMemo(() => {
+        try {
+            const parsedJson = JSON.parse(scoringWeightsText);
+            const parsed = pbasScoringWeightsSchema.safeParse(parsedJson);
+
+            if (parsed.success) {
+                return { valid: true, errors: [] as string[] };
+            }
+
+            return {
+                valid: false,
+                errors: parsed.error.issues.map((issue) => `${formatIssuePath(issue.path)}: ${issue.message}`),
+            };
+        } catch (error) {
+            return {
+                valid: false,
+                errors: [error instanceof Error ? `JSON parse error: ${error.message}` : "Invalid JSON."],
+            };
+        }
+    }, [scoringWeightsText]);
 
     const categoryOptions = useMemo(() => {
         return [...categories].sort((a, b) => a.displayOrder - b.displayOrder);
@@ -213,8 +256,94 @@ export function PbasCatalogManager({
         });
     }
 
+    function handleSaveSettings() {
+        setSettingsMessage(null);
+
+        if (!scoringWeightsValidation.valid) {
+            setSettingsMessage({ type: "error", text: "Fix scoring weight validation errors before saving." });
+            return;
+        }
+
+        startSettingsTransition(async () => {
+            try {
+                const parsedWeights = JSON.parse(scoringWeightsText);
+                const data = await requestJson<{ settings: PbasScoringSettings }>("/api/admin/pbas/settings", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        submissionDeadline,
+                        scoringWeights: parsedWeights,
+                    }),
+                });
+
+                setSubmissionDeadline(data.settings.submissionDeadline ?? "");
+                setScoringWeightsText(JSON.stringify(data.settings.scoringWeights, null, 2));
+                setSettingsMessage({ type: "success", text: "PBAS scoring settings updated." });
+            } catch (error) {
+                setSettingsMessage({
+                    type: "error",
+                    text: error instanceof Error ? error.message : "Unable to update PBAS settings.",
+                });
+            }
+        });
+    }
+
     return (
         <div className="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>PBAS Scoring Settings</CardTitle>
+                    <CardDescription>
+                        Configure submission deadline and scoring weights used by the PBAS scoring engine.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {settingsMessage ? <FormMessage message={settingsMessage.text} type={settingsMessage.type} /> : null}
+                    <Field label="Submission Deadline (YYYY-MM-DD)">
+                        <Input
+                            type="date"
+                            value={submissionDeadline}
+                            onChange={(event) => setSubmissionDeadline(event.target.value)}
+                            disabled={isSavingSettings}
+                        />
+                    </Field>
+                    <Field label="Scoring Weights JSON">
+                        <textarea
+                            value={scoringWeightsText}
+                            onChange={(event) => setScoringWeightsText(event.target.value)}
+                            disabled={isSavingSettings}
+                            className={`min-h-[280px] w-full rounded-md bg-white px-3 py-2 text-sm font-mono ${
+                                scoringWeightsValidation.valid
+                                    ? "border border-zinc-200"
+                                    : "border border-rose-300 bg-rose-50"
+                            }`}
+                        />
+                    </Field>
+                    {scoringWeightsValidation.valid ? (
+                        <p className="text-xs text-emerald-700">Scoring weights JSON is valid.</p>
+                    ) : (
+                        <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                            <p className="font-medium">Fix these fields before saving:</p>
+                            <ul className="mt-2 list-disc space-y-1 pl-5">
+                                {scoringWeightsValidation.errors.map((errorText) => (
+                                    <li key={errorText}>{errorText}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                    <div className="flex flex-wrap gap-3">
+                        <Button
+                            type="button"
+                            onClick={handleSaveSettings}
+                            disabled={isSavingSettings || !scoringWeightsValidation.valid}
+                        >
+                            {isSavingSettings ? <Spinner /> : null}
+                            Save PBAS Settings
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
             <Card>
                 <CardHeader>
                     <CardTitle>PBAS Catalog Configuration</CardTitle>

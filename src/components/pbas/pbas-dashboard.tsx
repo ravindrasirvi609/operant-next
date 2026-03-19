@@ -174,6 +174,45 @@ type PbasSummary = {
     };
     meta: PbasFormValues;
     snapshot: PbasSnapshot;
+    scoringWeights: {
+        caps: {
+            teachingActivities: number;
+            researchAcademicContribution: number;
+            institutionalResponsibilities: number;
+        };
+        category1: {
+            classesTaken: number;
+            coursePreparationHours: number;
+            coursesTaught: number;
+            mentoringCount: number;
+            labSupervisionCount: number;
+        };
+        category2: {
+            researchPaperHigh: number;
+            researchPaperMedium: number;
+            researchPaperDefault: number;
+            book: number;
+            patentGranted: number;
+            patentPublished: number;
+            patentDefault: number;
+            conferenceInternational: number;
+            conferenceNational: number;
+            conferenceDefault: number;
+            projectLargeAmount: number;
+            projectMediumAmount: number;
+            projectLarge: number;
+            projectMedium: number;
+            projectDefault: number;
+        };
+        category3: {
+            committee: number;
+            administrativeDuty: number;
+            examDuty: number;
+            studentGuidancePerUnit: number;
+            studentGuidanceMaxPerEntry: number;
+            extensionActivity: number;
+        };
+    };
 };
 
 type IndicatorEntry = {
@@ -226,51 +265,59 @@ function toFormValues(application?: PbasApp, prefill?: Partial<PbasFormValues>):
     };
 }
 
-function computeScore(values: PbasSnapshot) {
+function computeScore(values: PbasSnapshot, weights: PbasSummary["scoringWeights"]) {
     const teachingActivities = Math.min(
-        100,
-        values.category1.classesTaken * 2 +
-            values.category1.coursePreparationHours * 0.4 +
-            values.category1.coursesTaught.length * 4 +
-            values.category1.mentoringCount * 3 +
-            values.category1.labSupervisionCount * 3
+        weights.caps.teachingActivities,
+        values.category1.classesTaken * weights.category1.classesTaken +
+            values.category1.coursePreparationHours * weights.category1.coursePreparationHours +
+            values.category1.coursesTaught.length * weights.category1.coursesTaught +
+            values.category1.mentoringCount * weights.category1.mentoringCount +
+            values.category1.labSupervisionCount * weights.category1.labSupervisionCount
     );
 
     const researchAcademicContribution = Math.min(
-        120,
+        weights.caps.researchAcademicContribution,
         values.category2.researchPapers.reduce((sum, paper) => {
             const indexing = (paper.indexing ?? "").toLowerCase();
-            if (indexing.includes("scopus") || indexing.includes("ugc care") || indexing.includes("web")) return sum + 15;
-            if (indexing.includes("peer") || indexing.includes("issn")) return sum + 10;
-            return sum + 6;
+            if (indexing.includes("scopus") || indexing.includes("ugc care") || indexing.includes("web")) return sum + weights.category2.researchPaperHigh;
+            if (indexing.includes("peer") || indexing.includes("issn")) return sum + weights.category2.researchPaperMedium;
+            return sum + weights.category2.researchPaperDefault;
         }, 0) +
-            values.category2.books.length * 18 +
+            values.category2.books.length * weights.category2.book +
             values.category2.patents.reduce((sum, patent) => {
                 const status = patent.status.toLowerCase();
-                if (status.includes("granted")) return sum + 20;
-                if (status.includes("published")) return sum + 12;
-                return sum + 8;
+                if (status.includes("granted")) return sum + weights.category2.patentGranted;
+                if (status.includes("published")) return sum + weights.category2.patentPublished;
+                return sum + weights.category2.patentDefault;
             }, 0) +
             values.category2.conferences.reduce((sum, conference) => {
                 const type = conference.type.toLowerCase();
-                if (type.includes("international")) return sum + 8;
-                if (type.includes("national")) return sum + 5;
-                return sum + 3;
+                if (type.includes("international")) return sum + weights.category2.conferenceInternational;
+                if (type.includes("national")) return sum + weights.category2.conferenceNational;
+                return sum + weights.category2.conferenceDefault;
             }, 0) +
             values.category2.projects.reduce((sum, project) => {
-                if (project.amount >= 1000000) return sum + 15;
-                if (project.amount >= 250000) return sum + 10;
-                return sum + 6;
+                if (project.amount >= weights.category2.projectLargeAmount) return sum + weights.category2.projectLarge;
+                if (project.amount >= weights.category2.projectMediumAmount) return sum + weights.category2.projectMedium;
+                return sum + weights.category2.projectDefault;
             }, 0)
     );
 
     const institutionalResponsibilities = Math.min(
-        80,
-        values.category3.committees.length * 4 +
-            values.category3.administrativeDuties.length * 5 +
-            values.category3.examDuties.length * 3 +
-            values.category3.studentGuidance.reduce((sum, item) => sum + Math.min(item.count, 10), 0) +
-            values.category3.extensionActivities.length * 4
+        weights.caps.institutionalResponsibilities,
+        values.category3.committees.length * weights.category3.committee +
+            values.category3.administrativeDuties.length * weights.category3.administrativeDuty +
+            values.category3.examDuties.length * weights.category3.examDuty +
+            values.category3.studentGuidance.reduce(
+                (sum, item) =>
+                    sum +
+                    Math.min(
+                        item.count * weights.category3.studentGuidancePerUnit,
+                        weights.category3.studentGuidanceMaxPerEntry
+                    ),
+                0
+            ) +
+            values.category3.extensionActivities.length * weights.category3.extensionActivity
     );
 
     return {
@@ -451,8 +498,8 @@ export function PbasDashboard({
     );
     const resolved = pbasApplicationSchema.safeParse(watchedValues);
     const score = useMemo(
-        () => selectedDetail?.apiScore ?? selected?.apiScore ?? computeScore(selectedSnapshot),
-        [selectedDetail, selected, selectedSnapshot]
+        () => selectedDetail?.apiScore ?? selected?.apiScore ?? computeScore(selectedSnapshot, summary.scoringWeights),
+        [selectedDetail, selected, selectedSnapshot, summary.scoringWeights]
     );
     const sourceTables = useMemo<PbasSourceTables | null>(() => {
         if (!selectedDetail) {

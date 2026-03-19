@@ -145,6 +145,62 @@ export const pbasApprovalSchema = z.object({
     decision: z.enum(["Approve", "Reject"]),
 });
 
+export const pbasScoringWeightsSchema = z.object({
+    caps: z.object({
+        teachingActivities: z.coerce.number().min(0),
+        researchAcademicContribution: z.coerce.number().min(0),
+        institutionalResponsibilities: z.coerce.number().min(0),
+    }),
+    category1: z.object({
+        classesTaken: z.coerce.number().min(0),
+        coursePreparationHours: z.coerce.number().min(0),
+        coursesTaught: z.coerce.number().min(0),
+        mentoringCount: z.coerce.number().min(0),
+        labSupervisionCount: z.coerce.number().min(0),
+    }),
+    category2: z.object({
+        researchPaperHigh: z.coerce.number().min(0),
+        researchPaperMedium: z.coerce.number().min(0),
+        researchPaperDefault: z.coerce.number().min(0),
+        book: z.coerce.number().min(0),
+        patentGranted: z.coerce.number().min(0),
+        patentPublished: z.coerce.number().min(0),
+        patentDefault: z.coerce.number().min(0),
+        conferenceInternational: z.coerce.number().min(0),
+        conferenceNational: z.coerce.number().min(0),
+        conferenceDefault: z.coerce.number().min(0),
+        projectLargeAmount: z.coerce.number().min(0),
+        projectMediumAmount: z.coerce.number().min(0),
+        projectLarge: z.coerce.number().min(0),
+        projectMedium: z.coerce.number().min(0),
+        projectDefault: z.coerce.number().min(0),
+    }),
+    category3: z.object({
+        committee: z.coerce.number().min(0),
+        administrativeDuty: z.coerce.number().min(0),
+        examDuty: z.coerce.number().min(0),
+        studentGuidancePerUnit: z.coerce.number().min(0),
+        studentGuidanceMaxPerEntry: z.coerce.number().min(0),
+        extensionActivity: z.coerce.number().min(0),
+    }),
+});
+
+export const pbasScoringSettingsSchema = z.object({
+    submissionDeadline: z.string().trim().optional(),
+    scoringWeights: pbasScoringWeightsSchema,
+});
+
+export const pbasEntryModerationSchema = z.object({
+    updates: z.array(
+        z.object({
+            indicatorId: z.string().trim().min(1),
+            approvedScore: z.coerce.number().min(0),
+            remarks: z.string().trim().optional(),
+        })
+    ).min(1),
+});
+
 export type PbasApplicationMetaInput = z.infer<typeof pbasApplicationSchema>;
 export type PbasDraftReferencesInput = z.infer<typeof pbasDraftReferencesSchema>;
 export type PbasSnapshot = z.infer<typeof pbasSnapshotSchema>;
+export type PbasScoringWeights = z.infer<typeof pbasScoringWeightsSchema>;

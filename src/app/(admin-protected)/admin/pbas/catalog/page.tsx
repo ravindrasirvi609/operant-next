@@ -1,11 +1,11 @@
 import { PbasCatalogManager } from "@/components/admin/pbas-catalog-manager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireAdmin } from "@/lib/auth/user";
-import { getPbasCatalog } from "@/lib/pbas/admin";
+import { getPbasCatalog, getPbasScoringSettings } from "@/lib/pbas/admin";
 
 export default async function AdminPbasCatalogPage() {
     await requireAdmin();
-    const catalog = await getPbasCatalog();
+    const [catalog, settings] = await Promise.all([getPbasCatalog(), getPbasScoringSettings()]);
 
     const safeCategories = JSON.parse(JSON.stringify(catalog.categories));
     const safeIndicators = JSON.parse(JSON.stringify(catalog.indicators));
@@ -23,6 +23,7 @@ export default async function AdminPbasCatalogPage() {
                     <PbasCatalogManager
                         initialCategories={safeCategories}
                         initialIndicators={safeIndicators}
+                        initialSettings={JSON.parse(JSON.stringify(settings))}
                     />
                 </CardContent>
             </Card>
