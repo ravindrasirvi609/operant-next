@@ -63,12 +63,16 @@ function emptyIndicatorForm(categoryId?: string) {
     };
 }
 
-function formatIssuePath(path: Array<string | number>) {
+function formatIssuePath(path: Array<PropertyKey>) {
     if (!path.length) {
         return "scoringWeights";
     }
 
-    return `scoringWeights.${path.join(".")}`;
+    const normalized = path.map((segment) =>
+        typeof segment === "symbol" ? segment.toString() : segment
+    );
+
+    return `scoringWeights.${normalized.join(".")}`;
 }
 
 export function PbasCatalogManager({

@@ -184,7 +184,7 @@ export async function createProgram(rawInput: unknown) {
 
     const session = await mongoose.startSession();
     try {
-        let created: InstanceType<typeof Program> | null = null;
+        let createdProgramId: string | null = null;
         await session.withTransaction(async () => {
             const [doc] = await Program.create(
                 [
@@ -200,7 +200,7 @@ export async function createProgram(rawInput: unknown) {
                 ],
                 { session }
             );
-            created = doc;
+            createdProgramId = doc._id.toString();
 
             const semesters: SemesterInput[] = [];
             academicYears.forEach((year, index) => {
@@ -226,11 +226,11 @@ export async function createProgram(rawInput: unknown) {
             );
         });
 
-        if (!created) {
+        if (!createdProgramId) {
             throw new AuthError("Program creation failed.", 500);
         }
 
-        return Program.findById(created._id)
+        return Program.findById(createdProgramId)
             .populate("institutionId", "name")
             .populate("departmentId", "name")
             .populate("startAcademicYearId", "yearStart yearEnd isActive");

@@ -82,7 +82,7 @@ function buildDocumentMatch(status: EvidenceStatus) {
     return { verificationStatus: status };
 }
 
-async function populateStudent(query: any) {
+function populateStudent(query: any) {
     return query.populate({
         path: "studentId",
         select: "firstName lastName enrollmentNo departmentId programId",

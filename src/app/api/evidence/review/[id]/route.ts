@@ -6,7 +6,7 @@ import { updateEvidenceVerification } from "@/lib/evidence/service";
 
 export async function PATCH(
     request: Request,
-    { params }: { params: { id: string } }
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
         const user = await getCurrentUser();
@@ -23,9 +23,11 @@ export async function PATCH(
             return NextResponse.json({ message: "Status is required." }, { status: 400 });
         }
 
+        const { id } = await context.params;
+
         const document = await updateEvidenceVerification(
             { id: user.id, name: user.name, role: user.role },
-            params.id,
+            id,
             body.status,
             body.remarks
         );

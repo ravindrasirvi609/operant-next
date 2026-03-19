@@ -109,7 +109,7 @@ async function resolveDocumentId(documentId?: string, userId?: string) {
 
 export async function getAllStudentRecords(userId: string) {
     await dbConnect();
-    const { student, user } = await resolveStudent(userId);
+    const { student } = await resolveStudent(userId);
     const studentId = student._id;
 
     const [
@@ -341,7 +341,7 @@ export async function createStudentRecord(
     const parsedType = recordTypeSchema.parse(type) as RecordType;
     const schema = recordSchemaMap[parsedType];
     const data = schema.parse(rawData);
-    const { student } = await resolveStudent(userId);
+    const { student, user } = await resolveStudent(userId);
     const studentId = student._id;
 
     switch (parsedType) {
