@@ -5,6 +5,7 @@ import * as LucideIcons from "lucide-react";
 import { useId, useMemo, useState, useTransition } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import * as XLSX from "xlsx";
 import type { z } from "zod";
 
 import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
@@ -17,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -88,6 +90,7 @@ export function FacultyWorkspaceForm({
 }) {
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [isPending, startTransition] = useTransition();
+    const [activeTab, setActiveTab] = useState("profile");
 
     const form = useForm<FacultyWorkspaceValues, unknown, FacultyWorkspaceResolvedValues>({
         resolver: zodResolver(facultyRecordSchema),
@@ -156,6 +159,17 @@ export function FacultyWorkspaceForm({
         [courseOptions]
     );
 
+    const qualificationExcelInputId = useId();
+    const [qualificationDraft, setQualificationDraft] = useState({
+        level: "",
+        degree: "",
+        subject: "",
+        institution: "",
+        year: "",
+    });
+    const [editingQualificationIndex, setEditingQualificationIndex] = useState<number | null>(null);
+    const [qualificationDraftError, setQualificationDraftError] = useState<string | null>(null);
+
     const watchedValues = useWatch({ control: form.control });
 
     const completion = useMemo(() => {
@@ -213,6 +227,172 @@ export function FacultyWorkspaceForm({
             evidenceCount,
         };
     }, [watchedValues]);
+
+    function resetQualificationDraft() {
+        setQualificationDraft({
+            level: "",
+            degree: "",
+            subject: "",
+            institution: "",
+            year: "",
+        });
+        setEditingQualificationIndex(null);
+        setQualificationDraftError(null);
+    }
+
+    function saveQualificationToTable() {
+        if (qualificationDraft.level.trim().length < 2 || qualificationDraft.degree.trim().length < 2) {
+            setQualificationDraftError("Level and degree are required (minimum 2 characters).");
+            return false;
+        }
+
+        const payload = {
+            level: qualificationDraft.level.trim(),
+            degree: qualificationDraft.degree.trim(),
+            subject: qualificationDraft.subject.trim(),
+            institution: qualificationDraft.institution.trim(),
+            year: qualificationDraft.year.trim(),
+        };
+
+        if (editingQualificationIndex !== null) {
+            qualifications.update(editingQualificationIndex, payload);
+        } else {
+            qualifications.append(payload);
+        }
+
+        resetQualificationDraft();
+        return true;
+    }
+
+    function handleTabChange(nextTab: string) {
+        const hasDraftContent = Object.values(qualificationDraft).some((value) => value.trim().length > 0);
+        if (activeTab === "profile" && nextTab !== "profile" && hasDraftContent) {
+            const saved = saveQualificationToTable();
+            if (!saved) {
+                return;
+            }
+        }
+
+        setActiveTab(nextTab);
+    }
+
+    function editQualificationFromTable(index: number) {
+        const selected = form.getValues(`qualifications.${index}`);
+        if (!selected) return;
+
+        setQualificationDraft({
+            level: selected.level ?? "",
+            degree: selected.degree ?? "",
+            subject: selected.subject ?? "",
+            institution: selected.institution ?? "",
+            year: selected.year ?? "",
+        });
+        setEditingQualificationIndex(index);
+        setQualificationDraftError(null);
+    }
+
+    function normalizeQualificationHeader(header: string) {
+        return header.trim().toLowerCase().replace(/\s+/g, "_");
+    }
+
+    async function handleQualificationExcelUpload(file: File) {
+        const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+        const firstSheet = workbook.SheetNames[0];
+
+        if (!firstSheet) {
+            setQualificationDraftError("Excel file does not contain any sheet.");
+            return;
+        }
+
+        const worksheet = workbook.Sheets[firstSheet];
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+            defval: "",
+        });
+
+        if (!rows.length) {
+            setQualificationDraftError("Excel file must include at least one data row.");
+            return;
+        }
+
+        const parsedRows = rows.map((row) => {
+            const normalized = Object.fromEntries(
+                Object.entries(row).map(([key, value]) => [normalizeQualificationHeader(key), value])
+            );
+
+            return {
+                level: String(normalized.level ?? "").trim(),
+                degree: String(normalized.degree ?? "").trim(),
+                subject: String(normalized.subject ?? "").trim(),
+                institution: String(normalized.institution ?? normalized.university ?? "").trim(),
+                year: String(normalized.year ?? "").trim(),
+            };
+        });
+
+        const validRows = parsedRows.filter(
+            (row) => row.level.length >= 2 && row.degree.length >= 2
+        );
+
+        if (!validRows.length) {
+            setQualificationDraftError("No valid rows found. Ensure level and degree are provided.");
+            return;
+        }
+
+        qualifications.replace(validRows);
+        resetQualificationDraft();
+    }
+
+    function downloadQualificationExcel() {
+        const rows = qualifications.fields.map((row) => ({
+            level: row.level ?? "",
+            degree: row.degree ?? "",
+            subject: row.subject ?? "",
+            institution: row.institution ?? "",
+            year: row.year ?? "",
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(rows.length ? rows : [{
+            level: "",
+            degree: "",
+            subject: "",
+            institution: "",
+            year: "",
+        }]);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Qualifications");
+        XLSX.writeFile(workbook, "faculty-qualifications.xlsx");
+    }
+
+    function downloadQualificationTemplateExcel() {
+        const workbook = XLSX.utils.book_new();
+        const templateRows = [
+            {
+                level: "Ph.D",
+                degree: "Ph.D Computer Science",
+                subject: "Computer Science",
+                institution: "IIT Bombay",
+                year: "2019",
+            },
+        ];
+
+        const templateSheet = XLSX.utils.json_to_sheet(templateRows, {
+            header: ["level", "degree", "subject", "institution", "year"],
+        });
+        const instructionsSheet = XLSX.utils.aoa_to_sheet([
+            ["Faculty Qualification Upload Template"],
+            ["Required columns: level, degree"],
+            ["Optional columns: subject, institution, year"],
+            ["Accepts .xlsx and .xls files"],
+        ]);
+
+        XLSX.utils.book_append_sheet(workbook, templateSheet, "Template");
+        XLSX.utils.book_append_sheet(workbook, instructionsSheet, "Instructions");
+        XLSX.writeFile(workbook, "faculty-qualifications-template.xlsx");
+    }
+
+    // Kept for Turbopack HMR compatibility when older handler references remain hot-loaded.
+    function downloadQualificationCsv() {
+        downloadQualificationExcel();
+    }
 
     function getCourseOptionsForProgram(programName?: string) {
         if (!programName) {
@@ -358,7 +538,7 @@ export function FacultyWorkspaceForm({
             {message ? <FormMessage message={message.text} type={message.type} /> : null}
 
             <form onSubmit={form.handleSubmit(submit)} className="space-y-6">
-                <Tabs defaultValue="profile" className="space-y-6">
+                <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
                     <div className="w-full">
                         <TabsList className="grid h-auto w-full grid-cols-2 lg:grid-cols-4">
                             <TabsTrigger value="profile">
@@ -430,29 +610,157 @@ export function FacultyWorkspaceForm({
 
                         <SectionCard title="Educational Qualifications" description="Maintain the academic qualification timeline for your institutional faculty record.">
                             <div className="grid gap-4">
-                                {qualifications.fields.map((field, index) => (
-                                    <EditableRow key={field.id}>
-                                        <RowField label="Level">
-                                            <Input {...form.register(`qualifications.${index}.level`)} />
-                                        </RowField>
-                                        <RowField label="Degree">
-                                            <Input {...form.register(`qualifications.${index}.degree`)} />
-                                        </RowField>
-                                        <RowField label="Subject">
-                                            <Input {...form.register(`qualifications.${index}.subject`)} />
-                                        </RowField>
-                                        <RowField label="Institution">
-                                            <Input {...form.register(`qualifications.${index}.institution`)} />
-                                        </RowField>
-                                        <RowField label="Year">
-                                            <Input {...form.register(`qualifications.${index}.year`)} />
-                                        </RowField>
-                                        <DeleteField label={`Delete qualification ${index + 1}`} onClick={() => qualifications.remove(index)} />
-                                    </EditableRow>
-                                ))}
-                                <Button type="button" variant="secondary" onClick={() => qualifications.append({ level: "", degree: "", subject: "", institution: "", year: "" })}>
-                                    Add Qualification
-                                </Button>
+                                <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 md:grid-cols-2 xl:grid-cols-5">
+                                    <Field label="Level" id="qualificationLevel">
+                                        <Input
+                                            id="qualificationLevel"
+                                            value={qualificationDraft.level}
+                                            onChange={(event) =>
+                                                setQualificationDraft((prev) => ({ ...prev, level: event.target.value }))
+                                            }
+                                        />
+                                    </Field>
+                                    <Field label="Degree" id="qualificationDegree">
+                                        <Input
+                                            id="qualificationDegree"
+                                            value={qualificationDraft.degree}
+                                            onChange={(event) =>
+                                                setQualificationDraft((prev) => ({ ...prev, degree: event.target.value }))
+                                            }
+                                        />
+                                    </Field>
+                                    <Field label="Subject" id="qualificationSubject">
+                                        <Input
+                                            id="qualificationSubject"
+                                            value={qualificationDraft.subject}
+                                            onChange={(event) =>
+                                                setQualificationDraft((prev) => ({ ...prev, subject: event.target.value }))
+                                            }
+                                        />
+                                    </Field>
+                                    <Field label="Institution" id="qualificationInstitution">
+                                        <Input
+                                            id="qualificationInstitution"
+                                            value={qualificationDraft.institution}
+                                            onChange={(event) =>
+                                                setQualificationDraft((prev) => ({ ...prev, institution: event.target.value }))
+                                            }
+                                        />
+                                    </Field>
+                                    <Field label="Year" id="qualificationYear">
+                                        <Input
+                                            id="qualificationYear"
+                                            value={qualificationDraft.year}
+                                            onChange={(event) =>
+                                                setQualificationDraft((prev) => ({ ...prev, year: event.target.value }))
+                                            }
+                                        />
+                                    </Field>
+                                </div>
+
+                                {qualificationDraftError ? (
+                                    <p className="text-sm text-destructive">{qualificationDraftError}</p>
+                                ) : null}
+
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Button type="button" onClick={saveQualificationToTable}>
+                                        <LucideIcons.Save className="mr-1 size-4" />
+                                        {editingQualificationIndex !== null ? "Update in Table" : "Save to Table"}
+                                    </Button>
+                                    <Button type="button" variant="outline" onClick={resetQualificationDraft}>
+                                        Clear Form
+                                    </Button>
+                                    <Button type="button" variant="outline" onClick={downloadQualificationCsv}>
+                                        <LucideIcons.Download className="mr-1 size-4" />
+                                        Download Excel
+                                    </Button>
+                                    <Button type="button" variant="outline" onClick={downloadQualificationTemplateExcel}>
+                                        <LucideIcons.FileSpreadsheet className="mr-1 size-4" />
+                                        Download Template
+                                    </Button>
+                                    <input
+                                        id={qualificationExcelInputId}
+                                        type="file"
+                                        accept=".xlsx,.xls"
+                                        className="hidden"
+                                        onChange={(event) => {
+                                            const file = event.target.files?.[0];
+                                            if (file) {
+                                                void handleQualificationExcelUpload(file);
+                                            }
+                                            event.target.value = "";
+                                        }}
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => document.getElementById(qualificationExcelInputId)?.click()}
+                                    >
+                                        <LucideIcons.Upload className="mr-1 size-4" />
+                                        Bulk Upload Excel
+                                    </Button>
+                                </div>
+
+                                <div className="rounded-lg border">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Level</TableHead>
+                                                <TableHead>Degree</TableHead>
+                                                <TableHead>Subject</TableHead>
+                                                <TableHead>Institution</TableHead>
+                                                <TableHead>Year</TableHead>
+                                                <TableHead className="text-right">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {qualifications.fields.length ? (
+                                                qualifications.fields.map((field, index) => (
+                                                    <TableRow key={field.id}>
+                                                        <TableCell>{field.level || "-"}</TableCell>
+                                                        <TableCell>{field.degree || "-"}</TableCell>
+                                                        <TableCell>{field.subject || "-"}</TableCell>
+                                                        <TableCell>{field.institution || "-"}</TableCell>
+                                                        <TableCell>{field.year || "-"}</TableCell>
+                                                        <TableCell className="text-right">
+                                                            <div className="flex justify-end gap-1">
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="icon-sm"
+                                                                    onClick={() => editQualificationFromTable(index)}
+                                                                    aria-label={`Edit qualification ${index + 1}`}
+                                                                >
+                                                                    <LucideIcons.Pencil className="size-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="icon-sm"
+                                                                    onClick={() => {
+                                                                        qualifications.remove(index);
+                                                                        if (editingQualificationIndex === index) {
+                                                                            resetQualificationDraft();
+                                                                        }
+                                                                    }}
+                                                                    aria-label={`Delete qualification ${index + 1}`}
+                                                                >
+                                                                    <LucideIcons.Trash2 className="size-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            ) : (
+                                                <TableRow>
+                                                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                                                        No qualification entries yet. Fill the form above and click Save to Table.
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </div>
                         </SectionCard>
                     </TabsContent>

@@ -17,6 +17,7 @@ import FacultyPbasForm from "@/models/core/faculty-pbas-form";
 import Faculty from "@/models/faculty/faculty";
 import FacultyAdminRole from "@/models/faculty/faculty-admin-role";
 import FacultyPublication from "@/models/faculty/faculty-publication";
+import FacultyQualification from "@/models/faculty/faculty-qualification";
 import FacultyResearchProject from "@/models/faculty/faculty-research-project";
 import FacultyTeachingLoad from "@/models/faculty/faculty-teaching-load";
 
@@ -143,6 +144,7 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         universityCount,
         programCount,
         facultyRecords,
+        qualifiedFacultyIds,
         facultyTeachingLoads,
         facultyAdminRoles,
         approvedPbasCount,
@@ -167,7 +169,8 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         Organization.countDocuments({ type: "College", isActive: true }),
         Organization.countDocuments({ type: "University", isActive: true }),
         Program.countDocuments(),
-        Faculty.find().select("qualifications administrativeResponsibilities"),
+        Faculty.find().select("administrativeResponsibilities"),
+        FacultyQualification.distinct("facultyId"),
         FacultyTeachingLoad.find().select("facultyId courseName"),
         FacultyAdminRole.find().select("facultyId"),
         FacultyPbasForm.countDocuments({
@@ -199,8 +202,7 @@ async function buildCriteriaSections(academicYear: string): Promise<{
               )
             : 0;
 
-    const qualifiedFaculty =
-        facultyRecords.filter((record) => (record.qualifications?.length ?? 0) > 0).length;
+    const qualifiedFaculty = qualifiedFacultyIds.length;
 
     const totalAdministrativeResponsibilities = facultyRecords.reduce(
         (sum, record) => sum + (record.administrativeResponsibilities?.length ?? 0),

@@ -147,7 +147,6 @@ export async function registerUser(rawInput: unknown) {
         collegeName: input.collegeName,
         designation: input.role === "Faculty" ? input.designation : undefined,
         accountStatus: "Active",
-        qualifications: [],
         experience: [],
         emailVerified: false,
     });
@@ -549,7 +548,6 @@ export async function bootstrapAdmin(rawInput: unknown) {
         department: input.department,
         collegeName: input.collegeName,
         designation: "System Administrator",
-        qualifications: [],
         experience: [],
         emailVerified: true,
         isActive: true,

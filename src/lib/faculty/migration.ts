@@ -227,13 +227,6 @@ export async function ensureFacultyContext(userId: string) {
             professionalMemberships: legacyRecord?.professionalMemberships ?? [],
             certifications: legacyRecord?.certifications ?? [],
             administrativeResponsibilities: legacyRecord?.administrativeResponsibilities ?? [],
-            qualifications: (legacyRecord?.degrees ?? []).map((degree) => ({
-                level: degree.level,
-                degree: degree.degree,
-                subject: degree.subject,
-                institution: degree.institution,
-                year: degree.year,
-            })),
             highestQualification:
                 legacyRecord?.degrees?.[legacyRecord.degrees.length - 1]?.degree ?? undefined,
             specialization: legacyRecord?.specialization,
@@ -291,17 +284,6 @@ export async function ensureFacultyContext(userId: string) {
             faculty.administrativeResponsibilities = legacyRecord.administrativeResponsibilities;
             changed = true;
         }
-        if (!(faculty.qualifications?.length ?? 0) && legacyRecord?.degrees?.length) {
-            faculty.qualifications = legacyRecord.degrees.map((degree) => ({
-                level: degree.level,
-                degree: degree.degree,
-                subject: degree.subject,
-                institution: degree.institution,
-                year: degree.year,
-            }));
-            changed = true;
-        }
-
         if (changed) {
             await faculty.save();
         }

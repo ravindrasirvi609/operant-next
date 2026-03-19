@@ -14,6 +14,7 @@ import FacultyFdpConducted from "@/models/faculty/faculty-fdp-conducted";
 import FacultyInstitutionalContribution from "@/models/faculty/faculty-institutional-contribution";
 import FacultyPatent from "@/models/faculty/faculty-patent";
 import FacultyPublication from "@/models/faculty/faculty-publication";
+import FacultyQualification from "@/models/faculty/faculty-qualification";
 import FacultyResearchProject from "@/models/faculty/faculty-research-project";
 import FacultyResultSummary from "@/models/faculty/faculty-result-summary";
 import FacultySocialExtension from "@/models/faculty/faculty-social-extension";
@@ -228,6 +229,7 @@ export async function getFacultyWorkspace(userId: string) {
         .lean();
 
     const [
+        qualifications,
         teachingSummaries,
         teachingLoads,
         resultSummaries,
@@ -242,6 +244,7 @@ export async function getFacultyWorkspace(userId: string) {
         socialExtensionActivities,
     ] =
         await Promise.all([
+            FacultyQualification.find({ facultyId: faculty._id }).sort({ updatedAt: -1 }),
             FacultyTeachingSummary.find({ facultyId: faculty._id })
                 .populate("academicYearId", "yearStart yearEnd")
                 .sort({ updatedAt: -1 }),
@@ -285,7 +288,7 @@ export async function getFacultyWorkspace(userId: string) {
         professionalMemberships: faculty.professionalMemberships ?? [],
         certifications: faculty.certifications ?? [],
         administrativeResponsibilities: faculty.administrativeResponsibilities ?? [],
-        qualifications: (faculty.qualifications ?? []).map((item) => ({
+        qualifications: (qualifications ?? []).map((item) => ({
             level: item.level,
             degree: item.degree,
             subject: item.subject ?? "",
@@ -481,13 +484,6 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
     faculty.professionalMemberships = input.professionalMemberships;
     faculty.certifications = input.certifications;
     faculty.administrativeResponsibilities = input.administrativeResponsibilities;
-    faculty.qualifications = input.qualifications.map((item) => ({
-        level: item.level,
-        degree: item.degree,
-        subject: item.subject || undefined,
-        institution: item.institution || undefined,
-        year: item.year || undefined,
-    }));
     faculty.researchProfile = {
         orcidId: input.researchProfile.orcidId || undefined,
         scopusId: input.researchProfile.scopusId || undefined,
@@ -502,6 +498,7 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
     await user.save();
 
     await Promise.all([
+        FacultyQualification.deleteMany({ facultyId: faculty._id }),
         FacultyTeachingSummary.deleteMany({ facultyId: faculty._id }),
         FacultyTeachingLoad.deleteMany({ facultyId: faculty._id }),
         FacultyResultSummary.deleteMany({ facultyId: faculty._id }),
@@ -515,6 +512,17 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
         FacultyFdpConducted.deleteMany({ facultyId: faculty._id }),
         FacultySocialExtension.deleteMany({ facultyId: faculty._id }),
     ]);
+
+    for (const entry of input.qualifications) {
+        await FacultyQualification.create({
+            facultyId: faculty._id,
+            level: entry.level,
+            degree: entry.degree,
+            subject: entry.subject || undefined,
+            institution: entry.institution || undefined,
+            year: entry.year || undefined,
+        });
+    }
 
     for (const entry of input.teachingSummaries) {
         const academicYear = await ensureAcademicYear(entry.academicYear);

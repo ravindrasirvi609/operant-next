@@ -233,7 +233,6 @@ export async function createProvisionedStudent(rawInput: unknown) {
                         universityName: input.universityName,
                         collegeName: input.collegeName,
                         department: input.department,
-                        qualifications: [],
                         experience: [],
                         emailVerified: true,
                         isActive: true,
@@ -322,7 +321,6 @@ export async function createProvisionedFaculty(rawInput: unknown) {
                         professionalMemberships: [],
                         certifications: [],
                         administrativeResponsibilities: [],
-                        qualifications: [],
                     },
                 ],
                 { session }
@@ -343,7 +341,6 @@ export async function createProvisionedFaculty(rawInput: unknown) {
                         collegeName: input.collegeName,
                         department: input.department,
                         designation: input.designation,
-                        qualifications: [],
                         experience: [],
                         emailVerified: true,
                         isActive: true,

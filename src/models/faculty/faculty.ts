@@ -4,14 +4,6 @@ export type FacultyEmploymentType = "Permanent" | "AdHoc" | "Guest";
 export type FacultyStatus = "Active" | "OnLeave" | "Retired" | "Inactive";
 export type FacultyGender = "Male" | "Female" | "Other";
 
-export interface IFacultyQualification {
-    level: string;
-    degree: string;
-    subject?: string;
-    institution?: string;
-    year?: string;
-}
-
 export interface IFacultyResearchProfile {
     orcidId?: string;
     scopusId?: string;
@@ -38,7 +30,6 @@ export interface IFaculty extends Document {
     professionalMemberships: string[];
     certifications: string[];
     administrativeResponsibilities: string[];
-    qualifications: IFacultyQualification[];
     researchProfile?: IFacultyResearchProfile;
     highestQualification?: string;
     specialization?: string;
@@ -47,17 +38,6 @@ export interface IFaculty extends Document {
     createdAt: Date;
     updatedAt: Date;
 }
-
-const FacultyQualificationSchema = new Schema<IFacultyQualification>(
-    {
-        level: { type: String, required: true, trim: true },
-        degree: { type: String, required: true, trim: true },
-        subject: { type: String, trim: true },
-        institution: { type: String, trim: true },
-        year: { type: String, trim: true },
-    },
-    { _id: false }
-);
 
 const FacultyResearchProfileSchema = new Schema<IFacultyResearchProfile>(
     {
@@ -95,7 +75,6 @@ const FacultySchema = new Schema<IFaculty>(
         professionalMemberships: { type: [String], default: [] },
         certifications: { type: [String], default: [] },
         administrativeResponsibilities: { type: [String], default: [] },
-        qualifications: { type: [FacultyQualificationSchema], default: [] },
         researchProfile: FacultyResearchProfileSchema,
         highestQualification: { type: String, trim: true },
         specialization: { type: String, trim: true },

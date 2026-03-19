@@ -2,14 +2,6 @@ import mongoose, { Document, Model, Schema } from "mongoose";
 
 // --- Subdocument Schemas ---
 
-const QualificationSchema = new Schema({
-    degree: { type: String, required: true },
-    subject: { type: String },
-    university: { type: String },
-    year: { type: String },
-    percentage: { type: String },
-}, { _id: false });
-
 const ExperienceSchema = new Schema({
     designation: { type: String, required: true },
     organization: { type: String, required: true },
@@ -38,14 +30,6 @@ export type UserRole =
     | "Sports"
     | "Swayam"
     | "Placement";
-
-export interface IQualification {
-    degree: string;
-    subject?: string;
-    university?: string;
-    year?: string;
-    percentage?: string;
-}
 
 export interface IExperience {
     designation: string;
@@ -141,7 +125,6 @@ export interface IUser extends Document {
     collegeName?: string;
     designation?: string;
     phone?: string;
-    qualifications: IQualification[];
     experience: IExperience[];
     researchProfile?: IResearchProfile;
     studentDetails?: IStudentDetails;
@@ -186,7 +169,6 @@ const UserSchema = new Schema<IUser>(
         phone: { type: String, trim: true },
 
         // Embedded Faculty Data
-        qualifications: [QualificationSchema],
         experience: [ExperienceSchema],
         researchProfile: ResearchProfileSchema,
 
