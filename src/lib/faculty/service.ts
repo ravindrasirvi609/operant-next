@@ -137,28 +137,72 @@ async function ensureCourse(
     courseName: string,
     subjectCode?: string
 ) {
+    const normalizedName = courseName.trim();
+    const normalizedSubjectCode = subjectCode?.trim() || undefined;
+
+    if (normalizedSubjectCode) {
+        return Course.findOneAndUpdate(
+            { programId, subjectCode: normalizedSubjectCode },
+            {
+                $setOnInsert: {
+                    name: normalizedName,
+                    subjectCode: normalizedSubjectCode,
+                    courseType: "Theory",
+                    credits: 0,
+                    isActive: true,
+                    programId,
+                    semesterId,
+                },
+            },
+            { upsert: true, new: true }
+        );
+    }
+
     let course = await Course.findOne({
         programId,
         semesterId,
-        $or: [
-            ...(subjectCode ? [{ subjectCode }] : []),
-            { name: courseName },
-        ],
+        name: normalizedName,
     });
 
-    if (!course) {
+    if (course) {
+        return course;
+    }
+
+    try {
         course = await Course.create({
-            name: courseName,
-            subjectCode: subjectCode || undefined,
+            name: normalizedName,
+            subjectCode: undefined,
             courseType: "Theory",
             credits: 0,
             isActive: true,
             programId,
             semesterId,
         });
-    }
 
-    return course;
+        return course;
+    } catch (error) {
+        const isDuplicateKeyError =
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            (error as { code?: number }).code === 11000;
+
+        if (!isDuplicateKeyError) {
+            throw error;
+        }
+
+        const existing = await Course.findOne({
+            programId,
+            semesterId,
+            name: normalizedName,
+        });
+
+        if (!existing) {
+            throw error;
+        }
+
+        return existing;
+    }
 }
 
 async function ensureEvent(
