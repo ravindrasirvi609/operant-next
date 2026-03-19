@@ -109,25 +109,23 @@ export function ProfilePhotoUpload({
     }
 
     return (
-        <div className="flex items-center gap-6">
-            {/* Avatar / Preview */}
-            <div className="relative size-24 shrink-0 overflow-hidden rounded-full border-2 border-zinc-200 bg-zinc-100">
+        <div className="flex w-full max-w-[210px] flex-col items-center gap-3">
+            <div className="relative size-28 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm">
                 {photoURL ? (
                     <Image
                         src={photoURL}
                         alt="Profile photo"
                         fill
                         className="object-cover"
-                        sizes="96px"
+                        sizes="112px"
                         unoptimized
                     />
                 ) : (
-                    <div className="flex size-full items-center justify-center text-zinc-400">
-                        <Camera className="size-8" />
+                    <div className="flex size-full items-center justify-center text-slate-400">
+                        <Camera className="size-9" />
                     </div>
                 )}
 
-                {/* Progress overlay */}
                 {progress && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-xs font-bold text-white">
                         {progress.percent}%
@@ -135,8 +133,7 @@ export function ProfilePhotoUpload({
                 )}
             </div>
 
-            {/* Actions */}
-            <div className="grid gap-2">
+            <div className="grid w-full gap-2">
                 <input
                     ref={inputRef}
                     type="file"
@@ -145,7 +142,7 @@ export function ProfilePhotoUpload({
                     onChange={handleFileChange}
                 />
 
-                <div className="flex gap-2">
+                <div className="flex justify-center gap-2">
                     <Button
                         type="button"
                         variant="secondary"
@@ -172,12 +169,12 @@ export function ProfilePhotoUpload({
                     )}
                 </div>
 
-                <p className="text-xs text-zinc-500">
+                <p className="text-center text-xs text-slate-500">
                     JPG, PNG, or WebP — max 2 MB
                 </p>
 
                 {error && (
-                    <p className="text-sm text-rose-700">{error}</p>
+                    <p className="text-center text-sm text-rose-700">{error}</p>
                 )}
             </div>
         </div>
