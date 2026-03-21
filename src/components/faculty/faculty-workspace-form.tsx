@@ -10,15 +10,18 @@ import type { z } from "zod";
 
 import { FormMessage } from "@/components/auth/auth-helpers";
 import { ProfilePhotoUpload } from "@/components/faculty/profile-photo-upload";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -91,6 +94,7 @@ export function FacultyWorkspaceForm({
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [activeTab, setActiveTab] = useState("profile");
+    const [isExportDialogOpen, setExportDialogOpen] = useState(false);
     const didInitAutoSave = useRef(false);
     const lastAutoSaveAttemptKey = useRef("");
     const suppressedAutoSaveKey = useRef("");
@@ -1050,9 +1054,125 @@ export function FacultyWorkspaceForm({
                         <Badge variant="secondary">
                             {selectedAcademicYear}
                         </Badge>
-                        <Button type="button" variant="outline" size="sm">
-                            Export Dossier
-                        </Button>
+                                <Dialog open={isExportDialogOpen} onOpenChange={setExportDialogOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button type="button" variant="outline" size="sm">
+                                            Export Dossier
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-lg">
+                                        <DialogHeader>
+                                            <DialogTitle>Export Dossier</DialogTitle>
+                                            <DialogDescription>
+                                                Download your saved section files. If you have drafts, jump to the relevant
+                                                tab and click <span className="font-medium">Save to Table</span> first.
+                                            </DialogDescription>
+                                        </DialogHeader>
+
+                                        <Alert>
+                                            <AlertTitle>Pro tip</AlertTitle>
+                                            <AlertDescription>
+                                                Use the quick tab jumps below to auto-save drafts when needed.
+                                            </AlertDescription>
+                                        </Alert>
+
+                                        <Separator />
+
+                                        <div className="grid gap-2 sm:grid-cols-2">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    handleTabChange("profile");
+                                                    setExportDialogOpen(false);
+                                                }}
+                                            >
+                                                Jump to Profile
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    handleTabChange("teaching");
+                                                    setExportDialogOpen(false);
+                                                }}
+                                            >
+                                                Jump to Teaching
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    handleTabChange("activities");
+                                                    setExportDialogOpen(false);
+                                                }}
+                                            >
+                                                Jump to Activities
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    handleTabChange("compliance");
+                                                    setExportDialogOpen(false);
+                                                }}
+                                            >
+                                                Jump to Compliance
+                                            </Button>
+                                        </div>
+
+                                        <Separator />
+
+                                        <div className="grid gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                onClick={() => {
+                                                    downloadQualificationExcel();
+                                                    setExportDialogOpen(false);
+                                                }}
+                                            >
+                                                Download Identity & Qualification (Excel)
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                onClick={() => {
+                                                    downloadTeachingSummaryExcel();
+                                                    setExportDialogOpen(false);
+                                                }}
+                                            >
+                                                Download Teaching Summary (Excel)
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                onClick={() => {
+                                                    downloadTeachingLoadExcel();
+                                                    setExportDialogOpen(false);
+                                                }}
+                                            >
+                                                Download Teaching Load (Excel)
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                onClick={() => {
+                                                    downloadResultSummaryExcel();
+                                                    setExportDialogOpen(false);
+                                                }}
+                                            >
+                                                Download Result Summary (Excel)
+                                            </Button>
+                                        </div>
+
+                                        <DialogFooter>
+                                            <Button type="button" variant="ghost" onClick={() => setExportDialogOpen(false)}>
+                                                Close
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
                     </div>
                 </div>
             </div>

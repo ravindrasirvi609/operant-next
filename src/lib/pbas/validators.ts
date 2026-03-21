@@ -1,6 +1,35 @@
 import { z } from "zod";
 import { designationOptions } from "@/lib/faculty/options";
 
+function parseAcademicYear(value: string) {
+    const match = value.trim().match(/^(\d{4})\s*-\s*(\d{2,4})$/);
+    if (!match) {
+        return null;
+    }
+
+    const start = Number(match[1]);
+    const endValue = Number(match[2]);
+    const end =
+        endValue < 100
+            ? Number(`${String(start).slice(0, 2)}${String(endValue).padStart(2, "0")}`)
+            : endValue;
+
+    if (!Number.isInteger(start) || !Number.isInteger(end) || end < start) {
+        return null;
+    }
+
+    return { start, end };
+}
+
+function parseDateInput(value: string) {
+    const trimmed = value.trim();
+    const dateOnly = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+        ? new Date(`${trimmed}T00:00:00.000Z`)
+        : new Date(trimmed);
+
+    return Number.isNaN(dateOnly.getTime()) ? null : dateOnly;
+}
+
 export const pbasStatusValues = [
     "Draft",
     "Submitted",
@@ -108,12 +137,56 @@ const category3Schema = z.object({
 });
 
 export const pbasApplicationSchema = z.object({
-    academicYear: z.string().trim().min(4, "Academic year is required."),
+    academicYear: z.string().trim().min(4, "Academic year is required.").refine(
+        (value) => Boolean(parseAcademicYear(value)),
+        "Academic year must be in YYYY-YYYY format."
+    ),
     currentDesignation: z.enum(designationOptions, { message: "Select a valid designation." }),
     appraisalPeriod: z.object({
-        fromDate: z.string().trim().min(4, "Appraisal start date is required."),
-        toDate: z.string().trim().min(4, "Appraisal end date is required."),
+        fromDate: z.string().trim().min(4, "Appraisal start date is required.").refine(
+            (value) => Boolean(parseDateInput(value)),
+            "Appraisal start date must be a valid date."
+        ),
+        toDate: z.string().trim().min(4, "Appraisal end date is required.").refine(
+            (value) => Boolean(parseDateInput(value)),
+            "Appraisal end date must be a valid date."
+        ),
     }),
+}).superRefine((data, ctx) => {
+    const from = parseDateInput(data.appraisalPeriod.fromDate);
+    const to = parseDateInput(data.appraisalPeriod.toDate);
+    const year = parseAcademicYear(data.academicYear);
+
+    if (!from || !to || !year) {
+        return;
+    }
+
+    if (from > to) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["appraisalPeriod", "toDate"],
+            message: "Appraisal end date must be on or after appraisal start date.",
+        });
+    }
+
+    const fromYear = from.getUTCFullYear();
+    const toYear = to.getUTCFullYear();
+
+    if (fromYear < year.start || fromYear > year.end) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["appraisalPeriod", "fromDate"],
+            message: "Appraisal start date must fall within the selected academic year.",
+        });
+    }
+
+    if (toYear < year.start || toYear > year.end) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["appraisalPeriod", "toDate"],
+            message: "Appraisal end date must fall within the selected academic year.",
+        });
+    }
 });
 
 export const pbasDraftReferencesSchema = z.object({
@@ -183,6 +256,32 @@ export const pbasScoringWeightsSchema = z.object({
         studentGuidanceMaxPerEntry: z.coerce.number().min(0),
         extensionActivity: z.coerce.number().min(0),
     }),
+    phase2: z.object({
+        innovativePedagogyPoints: z.coerce.number().min(0),
+        curriculumDevPerCourse: z.coerce.number().min(0),
+        econtentDevelopmentPerItem: z.coerce.number().min(0),
+        studentFeedbackDivisor: z.coerce.number().positive(),
+        assessmentInnovationPerHighOutcome: z.coerce.number().min(0),
+        researchGuidanceCompleted: z.coerce.number().min(0),
+        researchGuidanceOngoing: z.coerce.number().min(0),
+        consultancyPerProject: z.coerce.number().min(0),
+        researchEcontentPerItem: z.coerce.number().min(0),
+        moocCompletionPerCourse: z.coerce.number().min(0),
+        awardsInternational: z.coerce.number().min(0),
+        awardsNational: z.coerce.number().min(0),
+        awardsState: z.coerce.number().min(0),
+        awardsCollege: z.coerce.number().min(0),
+        researchImpactHigh: z.coerce.number().min(0),
+        researchImpactMedium: z.coerce.number().min(0),
+        researchImpactLow: z.coerce.number().min(0),
+        editorialReviewPerRole: z.coerce.number().min(0),
+        fdpPerItem: z.coerce.number().min(0),
+        professionalBodyPerMembership: z.coerce.number().min(0),
+        communityServicePerActivity: z.coerce.number().min(0),
+        outreachPerActivity: z.coerce.number().min(0),
+        resourcePersonPerEvent: z.coerce.number().min(0),
+        governancePerRole: z.coerce.number().min(0),
+    }),
 });
 
 export const pbasScoringSettingsSchema = z.object({
@@ -194,10 +293,22 @@ export const pbasEntryModerationSchema = z.object({
     updates: z.array(
         z.object({
             indicatorId: z.string().trim().min(1),
-            approvedScore: z.coerce.number().min(0),
+            approvedScore: z.coerce.number().finite().min(0),
             remarks: z.string().trim().optional(),
         })
     ).min(1),
+}).superRefine((data, ctx) => {
+    const seen = new Set<string>();
+    data.updates.forEach((item, index) => {
+        if (seen.has(item.indicatorId)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["updates", index, "indicatorId"],
+                message: "Duplicate indicator updates are not allowed in one moderation request.",
+            });
+        }
+        seen.add(item.indicatorId);
+    });
 });
 
 export type PbasApplicationMetaInput = z.infer<typeof pbasApplicationSchema>;

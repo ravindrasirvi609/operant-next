@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 
 import dbConnect from "@/lib/dbConnect";
 import { AuthError } from "@/lib/auth/errors";
@@ -24,6 +24,7 @@ import { ensurePbasDynamicMigration, resolveCanonicalPbasId, syncPbasTotalEntrie
 import AcademicYear from "@/models/reference/academic-year";
 import ApprovalWorkflow from "@/models/core/approval-workflow";
 import AuditLog from "@/models/core/audit-log";
+import DocumentModel from "@/models/reference/document";
 import type { IPbasDraftReferences } from "@/models/core/pbas-reference-schema";
 import FacultyTeachingLoad from "@/models/faculty/faculty-teaching-load";
 import FacultyPublication from "@/models/faculty/faculty-publication";
@@ -39,12 +40,14 @@ import {
     deriveAutoDraftReferences,
     emptyPbasDraftReferences,
     loadPbasReferenceContext,
+    type PbasReferenceContext,
     parsePbasDraftReferences,
     resolvePbasSnapshotFromReferences,
     sanitizeDraftReferences,
     serializePbasCandidatePools,
     serializePbasDraftReferences,
 } from "@/lib/pbas/references";
+import { assertPbasTransition, deriveReviewTransition } from "@/lib/pbas/workflow";
 
 type SafeActor = {
     id: string;
@@ -98,6 +101,32 @@ export const DEFAULT_PBAS_SCORING_WEIGHTS: PbasScoringWeights = {
         studentGuidancePerUnit: 1,
         studentGuidanceMaxPerEntry: 10,
         extensionActivity: 4,
+    },
+    phase2: {
+        innovativePedagogyPoints: 5,
+        curriculumDevPerCourse: 2,
+        econtentDevelopmentPerItem: 2,
+        studentFeedbackDivisor: 10,
+        assessmentInnovationPerHighOutcome: 2,
+        researchGuidanceCompleted: 10,
+        researchGuidanceOngoing: 5,
+        consultancyPerProject: 5,
+        researchEcontentPerItem: 3,
+        moocCompletionPerCourse: 2,
+        awardsInternational: 4,
+        awardsNational: 3,
+        awardsState: 2,
+        awardsCollege: 1,
+        researchImpactHigh: 3,
+        researchImpactMedium: 2,
+        researchImpactLow: 1,
+        editorialReviewPerRole: 2,
+        fdpPerItem: 3,
+        professionalBodyPerMembership: 2,
+        communityServicePerActivity: 2,
+        outreachPerActivity: 2,
+        resourcePersonPerEvent: 2,
+        governancePerRole: 2,
     },
 };
 
@@ -153,6 +182,225 @@ function scoreProject(amount: number, weights: PbasScoringWeights) {
     }
 
     return weights.category2.projectDefault;
+}
+
+function roundScore(value: number) {
+    return Math.round(value * 100) / 100;
+}
+
+function buildIndicatorClaimedScores(
+    snapshot: PbasSnapshot,
+    apiScore: ReturnType<typeof computePbasApiScore>,
+    weights: PbasScoringWeights,
+    context?: PbasReferenceContext
+) {
+    const a1TeachingLoad = snapshot.category1.classesTaken * weights.category1.classesTaken;
+    const a2CoursePrep = snapshot.category1.coursePreparationHours * weights.category1.coursePreparationHours;
+    const a3Mentoring = snapshot.category1.mentoringCount * weights.category1.mentoringCount;
+    const a4Lab = snapshot.category1.labSupervisionCount * weights.category1.labSupervisionCount;
+
+    const b1ResearchPapers = snapshot.category2.researchPapers.reduce(
+        (sum, paper) => sum + scoreResearchPaper(paper.indexing, weights),
+        0
+    );
+    const b2Books = snapshot.category2.books.length * weights.category2.book;
+    const b3Patents = snapshot.category2.patents.reduce(
+        (sum, patent) => sum + scorePatent(patent.status, weights),
+        0
+    );
+    const b4Conferences = snapshot.category2.conferences.reduce(
+        (sum, conference) => sum + scoreConference(conference.type, weights),
+        0
+    );
+    const b5Projects = snapshot.category2.projects.reduce(
+        (sum, project) => sum + scoreProject(project.amount, weights),
+        0
+    );
+
+    const c1AdminRoles =
+        snapshot.category3.committees.length * weights.category3.committee +
+        snapshot.category3.administrativeDuties.length * weights.category3.administrativeDuty;
+    const c2Exam = snapshot.category3.examDuties.length * weights.category3.examDuty;
+    const c3Guidance = snapshot.category3.studentGuidance.reduce(
+        (sum, entry) =>
+            sum +
+            Math.min(
+                entry.count * weights.category3.studentGuidancePerUnit,
+                weights.category3.studentGuidanceMaxPerEntry
+            ),
+        0
+    );
+    const c4Extension = snapshot.category3.extensionActivities.length * weights.category3.extensionActivity;
+    const avgResultPercentage = context?.resultSummaries?.length
+        ? context.resultSummaries.reduce(
+            (sum, item) => sum + Number(item.passPercentage ?? item.resultPercentage ?? 0),
+            0
+        ) /
+            context.resultSummaries.length
+        : 0;
+    const highOutcomeCount =
+        context?.resultSummaries?.filter((item) => Number(item.universityRankStudents || 0) > 0).length ?? 0;
+    const innovationSignal = Number(Boolean(snapshot.category1.feedbackSummary?.trim()));
+    const authoredCurriculaSignal = snapshot.category1.coursesTaught.length;
+
+    const b6ResearchGuidance = (context?.phdGuidance ?? []).reduce((sum, item) => {
+        if (item.status === "completed") {
+            return sum + weights.phase2.researchGuidanceCompleted;
+        }
+        return sum + weights.phase2.researchGuidanceOngoing;
+    }, 0);
+    const b7Consultancy = (context?.consultancies?.length ?? 0) * weights.phase2.consultancyPerProject;
+    const b8Econtent = (context?.econtentItems?.length ?? 0) * weights.phase2.researchEcontentPerItem;
+    const b9Mooc = (context?.moocCourses?.length ?? 0) * weights.phase2.moocCompletionPerCourse;
+    const b10Awards = (context?.awards ?? []).reduce((sum, item) => {
+        if (item.awardLevel === "International") return sum + weights.phase2.awardsInternational;
+        if (item.awardLevel === "National") return sum + weights.phase2.awardsNational;
+        if (item.awardLevel === "State") return sum + weights.phase2.awardsState;
+        return sum + weights.phase2.awardsCollege;
+    }, 0);
+    const b11ResearchImpact = (context?.publications ?? []).reduce((sum, item) => {
+        const impactFactor = Number(item.impactFactor ?? 0);
+        if (impactFactor >= 5) return sum + weights.phase2.researchImpactHigh;
+        if (impactFactor >= 2) return sum + weights.phase2.researchImpactMedium;
+        if (impactFactor > 0) return sum + weights.phase2.researchImpactLow;
+        return sum;
+    }, 0);
+    const b12EditorialReview =
+        (context?.eventParticipations?.filter((item) => item.role === "Chair" || item.role === "ResourcePerson")
+            .length ?? 0) * weights.phase2.editorialReviewPerRole;
+
+    const c5Fdp = (context?.fdps?.length ?? 0) * weights.phase2.fdpPerItem;
+    const c6ProfessionalBody = (context?.institutionalContributions ?? []).filter((item) => {
+        const role = (item.role ?? "").toLowerCase();
+        const title = (item.activityTitle ?? "").toLowerCase();
+        return role.includes("membership") || role.includes("professional") || title.includes("professional");
+    }).length * weights.phase2.professionalBodyPerMembership;
+    const c7CommunityService = (context?.socialExtensions?.length ?? 0) * weights.phase2.communityServicePerActivity;
+    const c8Outreach = (context?.socialExtensions?.length ?? 0) * weights.phase2.outreachPerActivity;
+    const c9ResourcePerson =
+        (context?.eventParticipations?.filter((item) => item.role === "ResourcePerson").length ?? 0) * weights.phase2.resourcePersonPerEvent;
+    const c10Governance = (context?.adminRoles ?? []).filter((item) => {
+        const role = (item.roleName ?? "").toLowerCase();
+        return (
+            role.includes("head") ||
+            role.includes("dean") ||
+            role.includes("coordinator") ||
+            role.includes("chair") ||
+            role.includes("governance") ||
+            role.includes("iqac")
+        );
+    }).length * weights.phase2.governancePerRole;
+
+    return {
+        A1_TEACHING_LOAD: roundScore(a1TeachingLoad),
+        A2_COURSE_PREP: roundScore(a2CoursePrep),
+        A3_MENTORING: roundScore(a3Mentoring),
+        A4_LAB_SUPERVISION: roundScore(a4Lab),
+        A5_INNOVATIVE_PEDAGOGY: roundScore(innovationSignal * weights.phase2.innovativePedagogyPoints),
+        A6_CURRICULUM_DEV: roundScore(authoredCurriculaSignal * weights.phase2.curriculumDevPerCourse),
+        A7_ECONTENT_DEVELOPMENT: roundScore(
+            (context?.econtentItems?.length ?? 0) * weights.phase2.econtentDevelopmentPerItem
+        ),
+        A8_STUDENT_FEEDBACK: roundScore(avgResultPercentage / weights.phase2.studentFeedbackDivisor),
+        A9_ASSESSMENT_INNOVATION: roundScore(
+            highOutcomeCount * weights.phase2.assessmentInnovationPerHighOutcome
+        ),
+        B1_RESEARCH_PAPERS: roundScore(b1ResearchPapers),
+        B2_BOOKS_CHAPTERS: roundScore(b2Books),
+        B3_PATENTS: roundScore(b3Patents),
+        B4_CONFERENCES: roundScore(b4Conferences),
+        B5_PROJECTS: roundScore(b5Projects),
+        B6_RESEARCH_GUIDANCE: roundScore(b6ResearchGuidance),
+        B7_CONSULTANCY: roundScore(b7Consultancy),
+        B8_ECONTENT: roundScore(b8Econtent),
+        B9_MOOC_COMPLETION: roundScore(b9Mooc),
+        B10_AWARDS: roundScore(b10Awards),
+        B11_RESEARCH_IMPACT: roundScore(b11ResearchImpact),
+        B12_EDITORIAL_REVIEW: roundScore(b12EditorialReview),
+        C1_ADMIN_ROLES: roundScore(c1AdminRoles),
+        C2_EXAM_DUTIES: roundScore(c2Exam),
+        C3_STUDENT_GUIDANCE: roundScore(c3Guidance),
+        C4_EXTENSION: roundScore(c4Extension),
+        C5_FDP_WORKSHOPS: roundScore(c5Fdp),
+        C6_PROFESSIONAL_BODY: roundScore(c6ProfessionalBody),
+        C7_COMMUNITY_SERVICE: roundScore(c7CommunityService),
+        C8_OUTREACH_PROGRAMS: roundScore(c8Outreach),
+        C9_RESOURCE_PERSON: roundScore(c9ResourcePerson),
+        C10_GOVERNANCE_ROLE: roundScore(c10Governance),
+        A_TOTAL: roundScore(apiScore.teachingActivities),
+        B_TOTAL: roundScore(apiScore.researchAcademicContribution),
+        C_TOTAL: roundScore(apiScore.institutionalResponsibilities),
+        API_TOTAL: roundScore(apiScore.totalScore),
+    } as const;
+}
+
+async function upsertComputedIndicatorEntries(
+    application: InstanceType<typeof FacultyPbasForm>,
+    snapshot: PbasSnapshot,
+    apiScore: ReturnType<typeof computePbasApiScore>,
+    weights: PbasScoringWeights,
+    options: {
+        revisionId?: Types.ObjectId;
+        session?: mongoose.ClientSession;
+        context?: PbasReferenceContext;
+    } = {}
+) {
+    const scoreByCode = buildIndicatorClaimedScores(snapshot, apiScore, weights, options.context);
+    const indicatorCodes = Object.keys(scoreByCode);
+
+    const indicators = await PbasIndicatorMaster.find({
+        indicatorCode: { $in: indicatorCodes },
+    })
+        .select("_id indicatorCode maxScore")
+        .lean()
+        .session(options.session ?? null);
+
+    const revisionId = options.revisionId;
+
+    await Promise.all(
+        indicators.map((indicator) => {
+            const rawScore = scoreByCode[indicator.indicatorCode as keyof typeof scoreByCode] ?? 0;
+            const claimedScore = roundScore(Math.min(Math.max(rawScore, 0), indicator.maxScore));
+
+            return FacultyPbasEntry.updateOne(
+                revisionId
+                    ? {
+                        pbasFormId: application._id,
+                        pbasRevisionId: revisionId,
+                        indicatorId: indicator._id,
+                    }
+                    : {
+                        pbasFormId: application._id,
+                        pbasRevisionId: { $exists: false },
+                        indicatorId: indicator._id,
+                    },
+                revisionId
+                    ? {
+                        $set: {
+                            pbasFormId: application._id,
+                            pbasRevisionId: revisionId,
+                            indicatorId: indicator._id,
+                            facultyId: application.facultyId,
+                            academicYearId: application.academicYearId,
+                            claimedScore,
+                        },
+                    }
+                    : {
+                        $set: {
+                            pbasFormId: application._id,
+                            indicatorId: indicator._id,
+                            facultyId: application.facultyId,
+                            academicYearId: application.academicYearId,
+                            claimedScore,
+                        },
+                        $unset: {
+                            pbasRevisionId: 1,
+                        },
+                    },
+                { upsert: true, session: options.session }
+            );
+        })
+    );
 }
 
 function parseSubmissionDeadlineValue(value?: string | null) {
@@ -234,6 +482,12 @@ export async function buildPbasSnapshot(
                 adminRoles: [],
                 institutionalContributions: [],
                 socialExtensions: [],
+                fdps: [],
+                moocCourses: [],
+                econtentItems: [],
+                phdGuidance: [],
+                awards: [],
+                consultancies: [],
             },
             emptyPbasDraftReferences()
         );
@@ -398,12 +652,13 @@ async function buildApplicationResponse(application: InstanceType<typeof Faculty
 
 async function cloneDraftEntriesToRevision(
     application: InstanceType<typeof FacultyPbasForm>,
-    revisionId: Types.ObjectId
+    revisionId: Types.ObjectId,
+    session?: mongoose.ClientSession
 ) {
     const draftEntries = await FacultyPbasEntry.find({
         pbasFormId: application._id,
         pbasRevisionId: { $exists: false },
-    });
+    }).session(session ?? null);
 
     await Promise.all(
         draftEntries.map((entry) =>
@@ -422,7 +677,7 @@ async function cloneDraftEntriesToRevision(
                         remarks: entry.remarks,
                     },
                 },
-                { upsert: true }
+                { upsert: true, session }
             )
         )
     );
@@ -437,15 +692,16 @@ async function createRevisionFromDraft(
         forcedSnapshot?: PbasSnapshot;
         forcedReferences?: IPbasDraftReferences;
         forcedApiScore?: ReturnType<typeof computePbasApiScore>;
+        session?: mongoose.ClientSession;
     } = {}
 ) {
     const draftState = await resolveDraftState(application);
-    const revisionCount = await FacultyPbasRevision.countDocuments({ pbasFormId: application._id });
+    const revisionCount = await FacultyPbasRevision.countDocuments({ pbasFormId: application._id }).session(options.session ?? null);
     const references = options.forcedReferences ?? draftState.draftReferences;
     const snapshot = options.forcedSnapshot ?? draftState.snapshot;
     const apiScore = options.forcedApiScore ?? computePbasApiScore(snapshot, draftState.scoringWeights);
 
-    const revision = await FacultyPbasRevision.create({
+    const revision = new FacultyPbasRevision({
         pbasFormId: application._id,
         revisionNumber: revisionCount + 1,
         createdFromStatus: application.status,
@@ -457,19 +713,25 @@ async function createRevisionFromDraft(
         snapshot,
         apiScore,
     });
+    await revision.save({ session: options.session });
 
     application.activeRevisionId = revision._id;
     application.latestSubmittedRevisionId = revision._id;
     application.apiScore = apiScore;
-    await application.save();
+    await application.save({ session: options.session });
 
-    await cloneDraftEntriesToRevision(application, revision._id as Types.ObjectId);
+    await upsertComputedIndicatorEntries(application, snapshot, apiScore, draftState.scoringWeights, {
+        revisionId: revision._id as Types.ObjectId,
+        session: options.session,
+        context: draftState.context,
+    });
+    await cloneDraftEntriesToRevision(application, revision._id as Types.ObjectId, options.session);
     await syncPbasTotalEntries(application._id.toString(), revision._id.toString());
 
     return revision;
 }
 
-async function markRevisionApproved(revisionId?: Types.ObjectId | null, actor?: SafeActor) {
+async function markRevisionApproved(revisionId?: Types.ObjectId | null, actor?: SafeActor, session?: mongoose.ClientSession) {
     if (!revisionId) {
         return;
     }
@@ -481,7 +743,8 @@ async function markRevisionApproved(revisionId?: Types.ObjectId | null, actor?: 
                 approvedAt: new Date(),
                 approvedBy: actor ? new Types.ObjectId(actor.id) : undefined,
             },
-        }
+        },
+        { session }
     );
 
     await FacultyPbasEntry.updateMany(
@@ -492,7 +755,8 @@ async function markRevisionApproved(revisionId?: Types.ObjectId | null, actor?: 
                     approvedScore: { $ifNull: ["$approvedScore", "$claimedScore"] },
                 },
             },
-        ]
+        ],
+        { session }
     );
 }
 
@@ -579,6 +843,40 @@ function parseAcademicYearLabel(value: string) {
     return { start, end };
 }
 
+function parseDateInput(value: string) {
+    const trimmed = value.trim();
+    const dateOnly = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+        ? new Date(`${trimmed}T00:00:00.000Z`)
+        : new Date(trimmed);
+
+    return Number.isNaN(dateOnly.getTime()) ? null : dateOnly;
+}
+
+function assertAppraisalPeriodWithinAcademicYear(input: { academicYear: string; appraisalPeriod: { fromDate: string; toDate: string } }) {
+    const parsedYear = parseAcademicYearLabel(input.academicYear);
+    const fromDate = parseDateInput(input.appraisalPeriod.fromDate);
+    const toDate = parseDateInput(input.appraisalPeriod.toDate);
+
+    if (!fromDate || !toDate) {
+        throw new AuthError("Appraisal period dates must be valid.", 400);
+    }
+
+    if (fromDate > toDate) {
+        throw new AuthError("Appraisal end date must be on or after appraisal start date.", 400);
+    }
+
+    const fromYear = fromDate.getUTCFullYear();
+    const toYear = toDate.getUTCFullYear();
+
+    if (fromYear < parsedYear.start || fromYear > parsedYear.end) {
+        throw new AuthError("Appraisal start date must fall within the selected academic year.", 400);
+    }
+
+    if (toYear < parsedYear.start || toYear > parsedYear.end) {
+        throw new AuthError("Appraisal end date must fall within the selected academic year.", 400);
+    }
+}
+
 async function ensureAcademicYear(value: string) {
     const parsed = parseAcademicYearLabel(value);
     let academicYear = await AcademicYear.findOne({
@@ -605,7 +903,14 @@ function toAcademicYearLabel(yearStart?: number, yearEnd?: number) {
     return `${yearStart}-${yearEnd}`;
 }
 
-async function upsertWorkflow(moduleName: "PBAS", recordId: string, actorRole: string, status: string, remarks?: string) {
+async function upsertWorkflow(
+    moduleName: "PBAS",
+    recordId: string,
+    actorRole: string,
+    status: string,
+    remarks?: string,
+    session?: mongoose.ClientSession
+) {
     await ApprovalWorkflow.updateOne(
         { moduleName, recordId },
         {
@@ -617,19 +922,27 @@ async function upsertWorkflow(moduleName: "PBAS", recordId: string, actorRole: s
                 remarks,
             },
         },
-        { upsert: true }
+        { upsert: true, session }
     );
 }
 
-async function audit(actor: SafeActor | undefined, action: string, tableName: string, recordId?: string, oldData?: unknown, newData?: unknown) {
-    await AuditLog.create({
+async function audit(
+    actor: SafeActor | undefined,
+    action: string,
+    tableName: string,
+    recordId?: string,
+    oldData?: unknown,
+    newData?: unknown,
+    session?: mongoose.ClientSession
+) {
+    await AuditLog.create([{
         userId: actor ? new Types.ObjectId(actor.id) : undefined,
         action,
         tableName,
         recordId,
         oldData,
         newData,
-    });
+    }], { session });
 }
 
 const ACTIVE_PBAS_STATUSES: ReadonlyArray<PbasStatus> = [
@@ -874,7 +1187,7 @@ export async function upsertPbasEntryForForm(
         throw new AuthError("PBAS entries can only be updated in Draft or Rejected status.", 409);
     }
 
-    const indicator = await PbasIndicatorMaster.findById(input.indicatorId).select("_id indicatorCode");
+    const indicator = await PbasIndicatorMaster.findById(input.indicatorId).select("_id indicatorCode maxScore");
     if (!indicator) {
         throw new AuthError("PBAS indicator not found.", 404);
     }
@@ -890,6 +1203,55 @@ export async function upsertPbasEntryForForm(
             ? input.claimedScore
             : existing?.claimedScore ?? 0;
 
+    if (!Number.isFinite(claimedScore) || claimedScore < 0) {
+        throw new AuthError("Claimed score must be a non-negative number.", 400);
+    }
+
+    if (claimedScore > indicator.maxScore) {
+        throw new AuthError(
+            `Claimed score cannot exceed indicator maximum of ${indicator.maxScore}.`,
+            400
+        );
+    }
+
+    let evidenceDocumentId: Types.ObjectId | undefined = existing?.evidenceDocumentId;
+    if (input.evidenceDocumentId !== undefined) {
+        if (!Types.ObjectId.isValid(input.evidenceDocumentId)) {
+            throw new AuthError("Invalid evidence document id.", 400);
+        }
+
+        const evidenceDocument = await DocumentModel.findById(input.evidenceDocumentId)
+            .select("_id uploadedBy")
+            .lean();
+
+        if (!evidenceDocument) {
+            throw new AuthError("Evidence document not found.", 404);
+        }
+
+        if (!evidenceDocument.uploadedBy || evidenceDocument.uploadedBy.toString() !== actor.id) {
+            throw new AuthError("You can only attach evidence documents uploaded by your account.", 403);
+        }
+
+        const conflict = await FacultyPbasEntry.findOne({
+            evidenceDocumentId: new Types.ObjectId(input.evidenceDocumentId),
+            $or: [
+                { facultyId: { $ne: application.facultyId } },
+                { academicYearId: { $ne: application.academicYearId } },
+            ],
+        })
+            .select("_id")
+            .lean();
+
+        if (conflict) {
+            throw new AuthError(
+                "This evidence document is already linked to another faculty or academic-year PBAS record.",
+                409
+            );
+        }
+
+        evidenceDocumentId = new Types.ObjectId(input.evidenceDocumentId);
+    }
+
     await FacultyPbasEntry.updateOne(
         { pbasFormId: application._id, indicatorId: indicator._id },
         {
@@ -899,9 +1261,7 @@ export async function upsertPbasEntryForForm(
                 facultyId: application.facultyId,
                 academicYearId: application.academicYearId,
                 claimedScore,
-                evidenceDocumentId: input.evidenceDocumentId
-                    ? new Types.ObjectId(input.evidenceDocumentId)
-                    : existing?.evidenceDocumentId,
+                evidenceDocumentId,
                 remarks: input.remarks ?? existing?.remarks,
             },
             $unset: {
@@ -938,8 +1298,29 @@ export async function moderatePbasEntriesForForm(actor: SafeActor, id: string, r
         throw new AuthError("No active PBAS revision found for moderation.", 409);
     }
 
+    const indicatorIds = Array.from(new Set(input.updates.map((item) => item.indicatorId)));
+    if (indicatorIds.some((id) => !Types.ObjectId.isValid(id))) {
+        throw new AuthError("One or more indicator ids are invalid.", 400);
+    }
+
+    const indicators = await PbasIndicatorMaster.find({
+        _id: { $in: indicatorIds.map((entry) => new Types.ObjectId(entry)) },
+    })
+        .select("_id maxScore")
+        .lean();
+    const indicatorById = new Map(indicators.map((item) => [item._id.toString(), item]));
+
+    if (indicatorById.size !== indicatorIds.length) {
+        throw new AuthError("One or more PBAS indicators were not found.", 404);
+    }
+
     await Promise.all(
         input.updates.map(async (item) => {
+            const indicator = indicatorById.get(item.indicatorId);
+            if (!indicator) {
+                throw new AuthError("PBAS indicator not found.", 404);
+            }
+
             const existing = await FacultyPbasEntry.findOne({
                 pbasFormId: application._id,
                 pbasRevisionId: revisionId,
@@ -947,6 +1328,18 @@ export async function moderatePbasEntriesForForm(actor: SafeActor, id: string, r
             })
                 .select("claimedScore remarks")
                 .lean();
+
+            const claimedScore = existing?.claimedScore ?? 0;
+            if (item.approvedScore > indicator.maxScore) {
+                throw new AuthError(
+                    `Approved score cannot exceed indicator maximum of ${indicator.maxScore}.`,
+                    400
+                );
+            }
+
+            if (item.approvedScore > claimedScore) {
+                throw new AuthError("Approved score cannot exceed claimed score.", 400);
+            }
 
             await FacultyPbasEntry.updateOne(
                 {
@@ -961,7 +1354,7 @@ export async function moderatePbasEntriesForForm(actor: SafeActor, id: string, r
                         indicatorId: new Types.ObjectId(item.indicatorId),
                         facultyId: application.facultyId,
                         academicYearId: application.academicYearId,
-                        claimedScore: existing?.claimedScore ?? 0,
+                        claimedScore,
                         approvedScore: item.approvedScore,
                         remarks: item.remarks ?? existing?.remarks,
                     },
@@ -981,6 +1374,7 @@ export async function moderatePbasEntriesForForm(actor: SafeActor, id: string, r
 
 export async function createPbasApplication(actor: SafeActor, rawInput: unknown) {
     const input = pbasApplicationSchema.parse(rawInput);
+    assertAppraisalPeriodWithinAcademicYear(input);
     await dbConnect();
     await ensurePbasDynamicMigration();
 
@@ -1043,6 +1437,9 @@ export async function createPbasApplication(actor: SafeActor, rawInput: unknown)
         status: "Draft",
     });
 
+    await upsertComputedIndicatorEntries(application, snapshot, apiScore, scoringWeights, {
+        context,
+    });
     await syncPbasTotalEntries(application._id.toString());
     await upsertWorkflow("PBAS", application._id.toString(), actor.role, application.status, "PBAS draft created.");
     await audit(actor, "PBAS_CREATE", "faculty_pbas_forms", application._id.toString(), undefined, {
@@ -1125,6 +1522,7 @@ export async function getPbasApplicationById(actor: SafeActor, id: string) {
 
 export async function updatePbasApplication(actor: SafeActor, id: string, rawInput: unknown) {
     const input = pbasApplicationSchema.parse(rawInput);
+    assertAppraisalPeriodWithinAcademicYear(input);
     const application = await getPbasApplicationById(actor, id);
     const facultyContext = actor.role === "Faculty" ? await ensureFacultyContext(actor.id) : null;
 
@@ -1161,8 +1559,10 @@ export async function updatePbasApplication(actor: SafeActor, id: string, rawInp
     application.apiScore = computePbasApiScore(snapshot, scoringWeights);
     application.submissionStatus = ["Draft", "Rejected"].includes(application.status) ? "Draft" : "Submitted";
 
-    pushStatusLog(application, application.status, actor, "PBAS application draft auto-saved.");
     await application.save();
+    await upsertComputedIndicatorEntries(application, snapshot, application.apiScore, scoringWeights, {
+        context,
+    });
     await syncPbasTotalEntries(application._id.toString());
     await upsertWorkflow("PBAS", application._id.toString(), actor.role, application.status, "PBAS draft updated.");
     await audit(actor, "PBAS_UPDATE", "faculty_pbas_forms", application._id.toString(), oldState, application.toObject());
@@ -1194,6 +1594,9 @@ export async function updatePbasDraftReferences(actor: SafeActor, id: string, ra
     application.draftReferences = safeReferences;
     application.apiScore = computePbasApiScore(snapshot, scoringWeights);
     await application.save();
+    await upsertComputedIndicatorEntries(application, snapshot, application.apiScore, scoringWeights, {
+        context,
+    });
     await syncPbasTotalEntries(application._id.toString());
 
     return buildApplicationResponse(application);
@@ -1217,7 +1620,35 @@ export async function deletePbasApplication(actor: SafeActor, id: string) {
         throw new AuthError("Only draft PBAS applications can be deleted.", 409);
     }
 
-    await FacultyPbasForm.deleteOne({ _id: application._id });
+    const session = await mongoose.startSession();
+    let deletedRevisions = 0;
+    let deletedEntries = 0;
+
+    try {
+        await session.withTransaction(async () => {
+            const entryDeleteResult = await FacultyPbasEntry.deleteMany({ pbasFormId: application._id }, { session });
+            deletedEntries = entryDeleteResult.deletedCount ?? 0;
+
+            const revisionDeleteResult = await FacultyPbasRevision.deleteMany({ pbasFormId: application._id }, { session });
+            deletedRevisions = revisionDeleteResult.deletedCount ?? 0;
+
+            await ApprovalWorkflow.deleteOne(
+                { moduleName: "PBAS", recordId: application._id.toString() },
+                { session }
+            );
+
+            await FacultyPbasForm.deleteOne({ _id: application._id }, { session });
+        });
+    } finally {
+        await session.endSession();
+    }
+
+    await audit(actor, "PBAS_DELETE", "faculty_pbas_forms", application._id.toString(), {
+        status: application.status,
+    }, {
+        deletedEntries,
+        deletedRevisions,
+    });
 
     return application;
 }
@@ -1233,8 +1664,15 @@ export async function submitPbasApplication(actor: SafeActor, id: string) {
         throw new AuthError("Only the faculty owner can submit this PBAS application.", 403);
     }
 
-    if (!["Draft", "Rejected"].includes(application.status)) {
-        throw new AuthError("Only draft or rejected applications can be submitted.", 409);
+    try {
+        assertPbasTransition(application.status, "Submitted", { actionLabel: "submit" });
+    } catch (error) {
+        throw new AuthError(
+            error instanceof Error
+                ? error.message
+                : "Only draft or rejected applications can be submitted.",
+            409
+        );
     }
 
     const { parsedDeadline, rawDeadline } = await getPbasSubmissionDeadline();
@@ -1253,24 +1691,52 @@ export async function submitPbasApplication(actor: SafeActor, id: string) {
         throw new AuthError("PBAS application must contain academic activity before submission.", 400);
     }
 
-    await application.save();
-    await createRevisionFromDraft(application, actor, {
-        migrationSource: "runtime_submit",
-        forcedSnapshot: draftState.snapshot,
-        forcedReferences: draftState.draftReferences,
-        forcedApiScore: draftState.apiScore,
-    });
+    const session = await mongoose.startSession();
+    try {
+        await session.withTransaction(async () => {
+            const txApplication = await FacultyPbasForm.findById(application._id).session(session);
+            if (!txApplication) {
+                throw new AuthError("PBAS application not found.", 404);
+            }
 
-    application.status = "Submitted";
-    application.submissionStatus = "Submitted";
-    application.submittedAt = new Date();
-    pushStatusLog(application, "Submitted", actor, "Faculty submitted PBAS application.");
-    await application.save();
+            txApplication.draftReferences = draftState.draftReferences;
+            txApplication.apiScore = draftState.apiScore;
+            await txApplication.save({ session });
+            await upsertComputedIndicatorEntries(
+                txApplication,
+                draftState.snapshot,
+                draftState.apiScore,
+                draftState.scoringWeights,
+                { session, context: draftState.context }
+            );
+
+            await createRevisionFromDraft(txApplication, actor, {
+                migrationSource: "runtime_submit",
+                forcedSnapshot: draftState.snapshot,
+                forcedReferences: draftState.draftReferences,
+                forcedApiScore: draftState.apiScore,
+                session,
+            });
+
+            txApplication.status = "Submitted";
+            txApplication.submissionStatus = "Submitted";
+            txApplication.submittedAt = new Date();
+            pushStatusLog(txApplication, "Submitted", actor, "Faculty submitted PBAS application.");
+            await txApplication.save({ session });
+            await upsertWorkflow("PBAS", txApplication._id.toString(), actor.role, txApplication.status, "PBAS submitted.", session);
+            await audit(actor, "PBAS_SUBMIT", "faculty_pbas_forms", txApplication._id.toString(), undefined, undefined, session);
+        });
+    } finally {
+        await session.endSession();
+    }
+
     await syncPbasTotalEntries(application._id.toString());
-    await upsertWorkflow("PBAS", application._id.toString(), actor.role, application.status, "PBAS submitted.");
-    await audit(actor, "PBAS_SUBMIT", "faculty_pbas_forms", application._id.toString());
+    const refreshed = await FacultyPbasForm.findById(application._id);
+    if (!refreshed) {
+        throw new AuthError("PBAS application not found after submit.", 404);
+    }
 
-    return buildApplicationResponse(application);
+    return buildApplicationResponse(refreshed);
 }
 
 export async function reviewPbasApplication(actor: SafeActor, id: string, rawInput: unknown) {
@@ -1283,56 +1749,88 @@ export async function reviewPbasApplication(actor: SafeActor, id: string, rawInp
         throw new AuthError("You are not authorized to review this PBAS application.", 403);
     }
 
-    if (input.decision === "Reject") {
-        application.status = "Rejected";
-        application.submissionStatus = "Draft";
-        application.reviewCommittee.push({
-            reviewerId: new Types.ObjectId(actor.id),
-            reviewerName: actor.name,
-            reviewerRole: actor.role,
-            designation: actor.role === "Admin" ? "Admin Reviewer" : "Department Head",
-            remarks: input.remarks,
-            decision: input.decision,
-            stage: isDepartmentHead ? "Department Head" : "PBAS Committee",
-            reviewedAt: new Date(),
-        });
-        pushStatusLog(application, "Rejected", actor, input.remarks);
-        await application.save();
-        await upsertWorkflow("PBAS", application._id.toString(), actor.role, application.status, input.remarks);
-        await audit(actor, "PBAS_REVIEW_REJECT", "faculty_pbas_forms", application._id.toString(), undefined, {
-            status: application.status,
-            remarks: input.remarks,
-        });
-
-        return buildApplicationResponse(application);
+    try {
+        deriveReviewTransition(application.status, input.decision);
+    } catch (error) {
+        throw new AuthError(
+            error instanceof Error ? error.message : "Invalid PBAS review transition.",
+            409
+        );
     }
 
-    const nextStatus: PbasStatus =
-        application.status === "Submitted" ? "Under Review" : "Committee Review";
+    const session = await mongoose.startSession();
+    try {
+        await session.withTransaction(async () => {
+            const txApplication = await FacultyPbasForm.findById(application._id).session(session);
+            if (!txApplication) {
+                throw new AuthError("PBAS application not found.", 404);
+            }
 
-    application.status = nextStatus;
-    application.reviewCommittee.push({
-        reviewerId: new Types.ObjectId(actor.id),
-        reviewerName: actor.name,
-        reviewerRole: actor.role,
-        designation:
-            nextStatus === "Under Review"
-                ? "Department Head Reviewer"
-                : "PBAS Committee Reviewer",
-        remarks: input.remarks,
-        decision: input.decision,
-        stage: nextStatus === "Under Review" ? "Department Head" : "PBAS Committee",
-        reviewedAt: new Date(),
-    });
-    pushStatusLog(application, nextStatus, actor, input.remarks);
-    await application.save();
-    await upsertWorkflow("PBAS", application._id.toString(), actor.role, application.status, input.remarks);
-    await audit(actor, "PBAS_REVIEW", "faculty_pbas_forms", application._id.toString(), undefined, {
-        status: application.status,
-        remarks: input.remarks,
-    });
+            let nextStatus: PbasStatus;
+            try {
+                nextStatus = deriveReviewTransition(txApplication.status, input.decision);
+            } catch (error) {
+                throw new AuthError(
+                    error instanceof Error ? error.message : "Invalid PBAS review transition.",
+                    409
+                );
+            }
 
-    return buildApplicationResponse(application);
+            if (nextStatus === "Rejected") {
+                txApplication.status = nextStatus;
+                txApplication.submissionStatus = "Draft";
+                txApplication.reviewCommittee.push({
+                    reviewerId: new Types.ObjectId(actor.id),
+                    reviewerName: actor.name,
+                    reviewerRole: actor.role,
+                    designation: actor.role === "Admin" ? "Admin Reviewer" : "Department Head",
+                    remarks: input.remarks,
+                    decision: input.decision,
+                    stage: isDepartmentHead ? "Department Head" : "PBAS Committee",
+                    reviewedAt: new Date(),
+                });
+                pushStatusLog(txApplication, "Rejected", actor, input.remarks);
+                await txApplication.save({ session });
+                await upsertWorkflow("PBAS", txApplication._id.toString(), actor.role, txApplication.status, input.remarks, session);
+                await audit(actor, "PBAS_REVIEW_REJECT", "faculty_pbas_forms", txApplication._id.toString(), undefined, {
+                    status: txApplication.status,
+                    remarks: input.remarks,
+                }, session);
+                return;
+            }
+
+            txApplication.status = nextStatus;
+            txApplication.reviewCommittee.push({
+                reviewerId: new Types.ObjectId(actor.id),
+                reviewerName: actor.name,
+                reviewerRole: actor.role,
+                designation:
+                    nextStatus === "Under Review"
+                        ? "Department Head Reviewer"
+                        : "PBAS Committee Reviewer",
+                remarks: input.remarks,
+                decision: input.decision,
+                stage: nextStatus === "Under Review" ? "Department Head" : "PBAS Committee",
+                reviewedAt: new Date(),
+            });
+            pushStatusLog(txApplication, nextStatus, actor, input.remarks);
+            await txApplication.save({ session });
+            await upsertWorkflow("PBAS", txApplication._id.toString(), actor.role, txApplication.status, input.remarks, session);
+            await audit(actor, "PBAS_REVIEW", "faculty_pbas_forms", txApplication._id.toString(), undefined, {
+                status: txApplication.status,
+                remarks: input.remarks,
+            }, session);
+        });
+    } finally {
+        await session.endSession();
+    }
+
+    const refreshed = await FacultyPbasForm.findById(application._id);
+    if (!refreshed) {
+        throw new AuthError("PBAS application not found after review.", 404);
+    }
+
+    return buildApplicationResponse(refreshed);
 }
 
 export async function approvePbasApplication(actor: SafeActor, id: string, rawInput: unknown) {
@@ -1343,39 +1841,78 @@ export async function approvePbasApplication(actor: SafeActor, id: string, rawIn
     }
 
     const application = await getPbasApplicationById(actor, id);
+    const finalStatus: PbasStatus = input.decision === "Approve" ? "Approved" : "Rejected";
 
-    application.status = input.decision === "Approve" ? "Approved" : "Rejected";
-    application.submissionStatus = input.decision === "Approve" ? "Locked" : "Draft";
-    application.verifiedBy = new Types.ObjectId(actor.id);
-    application.verifiedAt = new Date();
-    application.remarks = input.remarks;
-    application.reviewCommittee.push({
-        reviewerId: new Types.ObjectId(actor.id),
-        reviewerName: actor.name,
-        reviewerRole: actor.role,
-        designation: "Admin Final Approver",
-        remarks: input.remarks,
-        decision: input.decision,
-        stage: "Admin",
-        reviewedAt: new Date(),
-    });
-    pushStatusLog(application, application.status, actor, input.remarks);
-    await application.save();
-    if (input.decision === "Approve") {
-        await markRevisionApproved(application.activeRevisionId, actor);
+    try {
+        assertPbasTransition(application.status, finalStatus, { actionLabel: "final approval" });
+    } catch (error) {
+        throw new AuthError(
+            error instanceof Error ? error.message : "Invalid PBAS final approval transition.",
+            409
+        );
     }
+
+    const session = await mongoose.startSession();
+    let revisionIdForTotals: string | undefined;
+    try {
+        await session.withTransaction(async () => {
+            const txApplication = await FacultyPbasForm.findById(application._id).session(session);
+            if (!txApplication) {
+                throw new AuthError("PBAS application not found.", 404);
+            }
+
+            try {
+                assertPbasTransition(txApplication.status, finalStatus, { actionLabel: "final approval" });
+            } catch (error) {
+                throw new AuthError(
+                    error instanceof Error ? error.message : "Invalid PBAS final approval transition.",
+                    409
+                );
+            }
+
+            txApplication.status = finalStatus;
+            txApplication.submissionStatus = input.decision === "Approve" ? "Locked" : "Draft";
+            txApplication.verifiedBy = new Types.ObjectId(actor.id);
+            txApplication.verifiedAt = new Date();
+            txApplication.remarks = input.remarks;
+            txApplication.reviewCommittee.push({
+                reviewerId: new Types.ObjectId(actor.id),
+                reviewerName: actor.name,
+                reviewerRole: actor.role,
+                designation: "Admin Final Approver",
+                remarks: input.remarks,
+                decision: input.decision,
+                stage: "Admin",
+                reviewedAt: new Date(),
+            });
+            pushStatusLog(txApplication, txApplication.status, actor, input.remarks);
+            await txApplication.save({ session });
+            if (input.decision === "Approve") {
+                await markRevisionApproved(txApplication.activeRevisionId, actor, session);
+            }
+            revisionIdForTotals = txApplication.activeRevisionId?.toString();
+            await upsertWorkflow("PBAS", txApplication._id.toString(), actor.role, txApplication.status, input.remarks, session);
+            await audit(actor, "PBAS_APPROVE", "faculty_pbas_forms", txApplication._id.toString(), undefined, {
+                status: txApplication.status,
+                decision: input.decision,
+                remarks: input.remarks,
+            }, session);
+        });
+    } finally {
+        await session.endSession();
+    }
+
     await syncPbasTotalEntries(
         application._id.toString(),
-        application.activeRevisionId?.toString()
+        revisionIdForTotals
     );
-    await upsertWorkflow("PBAS", application._id.toString(), actor.role, application.status, input.remarks);
-    await audit(actor, "PBAS_APPROVE", "faculty_pbas_forms", application._id.toString(), undefined, {
-        status: application.status,
-        decision: input.decision,
-        remarks: input.remarks,
-    });
 
-    return buildApplicationResponse(application);
+    const refreshed = await FacultyPbasForm.findById(application._id);
+    if (!refreshed) {
+        throw new AuthError("PBAS application not found after approval.", 404);
+    }
+
+    return buildApplicationResponse(refreshed);
 }
 
 export async function getPbasReviewQueue(actor: SafeActor) {

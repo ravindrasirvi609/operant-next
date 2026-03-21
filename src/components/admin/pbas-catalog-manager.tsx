@@ -34,6 +34,98 @@ type PbasScoringSettings = {
     scoringWeights: Record<string, unknown>;
 };
 
+const PBAS_SCORING_TEMPLATE = {
+    caps: {
+        teachingActivities: 100,
+        researchAcademicContribution: 120,
+        institutionalResponsibilities: 80,
+    },
+    category1: {
+        classesTaken: 2,
+        coursePreparationHours: 0.4,
+        coursesTaught: 4,
+        mentoringCount: 3,
+        labSupervisionCount: 3,
+    },
+    category2: {
+        researchPaperHigh: 15,
+        researchPaperMedium: 10,
+        researchPaperDefault: 6,
+        book: 18,
+        patentGranted: 20,
+        patentPublished: 12,
+        patentDefault: 8,
+        conferenceInternational: 8,
+        conferenceNational: 5,
+        conferenceDefault: 3,
+        projectLargeAmount: 1000000,
+        projectMediumAmount: 250000,
+        projectLarge: 15,
+        projectMedium: 10,
+        projectDefault: 6,
+    },
+    category3: {
+        committee: 4,
+        administrativeDuty: 5,
+        examDuty: 3,
+        studentGuidancePerUnit: 1,
+        studentGuidanceMaxPerEntry: 10,
+        extensionActivity: 4,
+    },
+    phase2: {
+        innovativePedagogyPoints: 5,
+        curriculumDevPerCourse: 2,
+        econtentDevelopmentPerItem: 2,
+        studentFeedbackDivisor: 10,
+        assessmentInnovationPerHighOutcome: 2,
+        researchGuidanceCompleted: 10,
+        researchGuidanceOngoing: 5,
+        consultancyPerProject: 5,
+        researchEcontentPerItem: 3,
+        moocCompletionPerCourse: 2,
+        awardsInternational: 4,
+        awardsNational: 3,
+        awardsState: 2,
+        awardsCollege: 1,
+        researchImpactHigh: 3,
+        researchImpactMedium: 2,
+        researchImpactLow: 1,
+        editorialReviewPerRole: 2,
+        fdpPerItem: 3,
+        professionalBodyPerMembership: 2,
+        communityServicePerActivity: 2,
+        outreachPerActivity: 2,
+        resourcePersonPerEvent: 2,
+        governancePerRole: 2,
+    },
+};
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function deepMergeMissingKeys<T extends Record<string, unknown>>(
+    currentValue: unknown,
+    templateValue: T
+): T {
+    const current = isPlainObject(currentValue) ? currentValue : {};
+    const merged: Record<string, unknown> = { ...current };
+
+    for (const [key, templateEntry] of Object.entries(templateValue)) {
+        const currentEntry = current[key];
+        if (isPlainObject(templateEntry)) {
+            merged[key] = deepMergeMissingKeys(currentEntry, templateEntry);
+            continue;
+        }
+
+        if (currentEntry === undefined) {
+            merged[key] = templateEntry;
+        }
+    }
+
+    return merged as T;
+}
+
 async function requestJson<T>(url: string, options?: RequestInit) {
     const response = await fetch(url, options);
     const data = (await response.json()) as T & { message?: string };
@@ -292,6 +384,36 @@ export function PbasCatalogManager({
         });
     }
 
+    function handleLoadScoringTemplate() {
+        setSettingsMessage(null);
+        setScoringWeightsText(JSON.stringify(PBAS_SCORING_TEMPLATE, null, 2));
+        setSettingsMessage({
+            type: "success",
+            text: "Default PBAS scoring template loaded. Review values and save settings to apply.",
+        });
+    }
+
+    function handleMergeMissingScoringKeys() {
+        setSettingsMessage(null);
+
+        try {
+            const parsed = JSON.parse(scoringWeightsText);
+            const merged = deepMergeMissingKeys(parsed, PBAS_SCORING_TEMPLATE);
+            setScoringWeightsText(JSON.stringify(merged, null, 2));
+            setSettingsMessage({
+                type: "success",
+                text: "Missing scoring keys added from default template. Existing custom values were preserved.",
+            });
+        } catch (error) {
+            setSettingsMessage({
+                type: "error",
+                text: error instanceof Error
+                    ? `Unable to merge missing keys: ${error.message}`
+                    : "Unable to merge missing keys. Fix JSON first.",
+            });
+        }
+    }
+
     return (
         <div className="space-y-6">
             <Card>
@@ -336,6 +458,22 @@ export function PbasCatalogManager({
                         </div>
                     )}
                     <div className="flex flex-wrap gap-3">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleMergeMissingScoringKeys}
+                            disabled={isSavingSettings}
+                        >
+                            Merge Missing Keys
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleLoadScoringTemplate}
+                            disabled={isSavingSettings}
+                        >
+                            Load Default Template
+                        </Button>
                         <Button
                             type="button"
                             onClick={handleSaveSettings}

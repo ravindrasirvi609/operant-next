@@ -13,6 +13,12 @@ import FacultySocialExtension from "@/models/faculty/faculty-social-extension";
 import FacultyTeachingLoad from "@/models/faculty/faculty-teaching-load";
 import FacultyResultSummary from "@/models/faculty/faculty-result-summary";
 import FacultyTeachingSummary from "@/models/faculty/faculty-teaching-summary";
+import FacultyFdpConducted from "@/models/faculty/faculty-fdp-conducted";
+import FacultyMoocCourse from "@/models/faculty/faculty-mooc-course";
+import FacultyEcontent from "@/models/faculty/faculty-econtent";
+import FacultyPhdGuidance from "@/models/faculty/faculty-phd-guidance";
+import FacultyAward from "@/models/faculty/faculty-award";
+import FacultyConsultancy from "@/models/faculty/faculty-consultancy";
 import type { IPbasDraftReferences } from "@/models/core/pbas-reference-schema";
 import { pbasDraftReferencesSchema, pbasSnapshotSchema, type PbasDraftReferencesInput, type PbasSnapshot } from "@/lib/pbas/validators";
 
@@ -59,6 +65,8 @@ type ResultSummaryCandidate = CandidateItem & {
     studentsAppeared?: number;
     studentsPassed?: number;
     passPercentage?: number;
+    resultPercentage?: number;
+    universityRankStudents?: number;
 };
 
 type PublicationCandidate = CandidateItem & {
@@ -66,6 +74,7 @@ type PublicationCandidate = CandidateItem & {
     journalName?: string;
     publisher?: string;
     publicationDate?: Date;
+    impactFactor?: number;
     isbnIssn?: string;
     indexedIn?: string;
     publicationType?: string;
@@ -113,6 +122,46 @@ type SocialExtensionCandidate = CandidateItem & {
     programId?: Types.ObjectId | {
         name?: string;
     } | null;
+};
+
+type FdpCandidate = CandidateItem & {
+    title?: string;
+    level?: string;
+    startDate?: Date;
+    endDate?: Date;
+};
+
+type MoocCourseCandidate = CandidateItem & {
+    courseName?: string;
+    platform?: string;
+    completionDate?: Date;
+};
+
+type EcontentCandidate = CandidateItem & {
+    title?: string;
+    platform?: string;
+    contentType?: string;
+};
+
+type PhdGuidanceCandidate = CandidateItem & {
+    scholarName?: string;
+    thesisTitle?: string;
+    status?: "ongoing" | "completed";
+    registrationYear?: number;
+    completionYear?: number;
+};
+
+type AwardCandidate = CandidateItem & {
+    title?: string;
+    awardLevel?: "College" | "State" | "National" | "International";
+    awardDate?: Date;
+};
+
+type ConsultancyCandidate = CandidateItem & {
+    projectTitle?: string;
+    clientName?: string;
+    startDate?: Date;
+    endDate?: Date;
 };
 
 function getProgramName(programId: SocialExtensionCandidate["programId"]) {
@@ -169,6 +218,12 @@ export type PbasReferenceContext = {
     adminRoles: AdminRoleCandidate[];
     institutionalContributions: InstitutionalContributionCandidate[];
     socialExtensions: SocialExtensionCandidate[];
+    fdps: FdpCandidate[];
+    moocCourses: MoocCourseCandidate[];
+    econtentItems: EcontentCandidate[];
+    phdGuidance: PhdGuidanceCandidate[];
+    awards: AwardCandidate[];
+    consultancies: ConsultancyCandidate[];
 };
 
 function formatDate(date?: Date | null) {
@@ -313,6 +368,12 @@ export async function loadPbasReferenceContext(facultyId: Types.ObjectId, academ
         adminRoles,
         institutionalContributions,
         socialExtensions,
+        fdps,
+        moocCourses,
+        econtentItems,
+        phdGuidance,
+        awards,
+        consultancies,
     ] = await Promise.all([
         FacultyTeachingSummary.findOne({ facultyId, academicYearId }).lean(),
         FacultyTeachingLoad.find({ facultyId, academicYearId }).sort({ updatedAt: -1 }).lean(),
@@ -390,6 +451,70 @@ export async function loadPbasReferenceContext(facultyId: Types.ObjectId, academ
             .populate("programId", "name")
             .sort({ updatedAt: -1 })
             .lean(),
+        FacultyFdpConducted.find({
+            facultyId,
+            $or: [
+                { startDate: { $gte: start, $lte: end } },
+                { endDate: { $gte: start, $lte: end } },
+                {
+                    startDate: { $lte: end },
+                    endDate: { $gte: start },
+                },
+                { startDate: { $exists: false } },
+                { startDate: null },
+            ],
+        })
+            .sort({ updatedAt: -1 })
+            .lean(),
+        FacultyMoocCourse.find({
+            facultyId,
+            completionDate: { $gte: start, $lte: end },
+        })
+            .sort({ completionDate: -1 })
+            .lean(),
+        FacultyEcontent.find({
+            facultyId,
+            academicYearId,
+        })
+            .sort({ updatedAt: -1 })
+            .lean(),
+        FacultyPhdGuidance.find({
+            facultyId,
+            $or: [
+                { completionYear: { $gte: academicYear.yearStart, $lte: academicYear.yearEnd } },
+                {
+                    status: "ongoing",
+                    registrationYear: { $lte: academicYear.yearEnd },
+                },
+            ],
+        })
+            .sort({ updatedAt: -1 })
+            .lean(),
+        FacultyAward.find({
+            facultyId,
+            $or: [
+                { awardDate: { $gte: start, $lte: end } },
+                { awardDate: { $exists: false } },
+                { awardDate: null },
+            ],
+        })
+            .sort({ updatedAt: -1 })
+            .lean(),
+        FacultyConsultancy.find({
+            facultyId,
+            $or: [
+                { startDate: { $gte: start, $lte: end } },
+                { endDate: { $gte: start, $lte: end } },
+                {
+                    startDate: { $lte: end },
+                    endDate: { $gte: start },
+                },
+                { startDate: { $exists: false } },
+                { startDate: null },
+            ],
+        })
+            .sort({ updatedAt: -1 })
+            .lean(),
     ]);
 
     return {
@@ -409,6 +534,12 @@ export async function loadPbasReferenceContext(facultyId: Types.ObjectId, academ
         adminRoles,
         institutionalContributions,
         socialExtensions,
+        fdps,
+        moocCourses,
+        econtentItems,
+        phdGuidance,
+        awards,
+        consultancies,
     };
 }
 
