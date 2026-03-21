@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import dbConnect from "@/lib/dbConnect";
 import { AuthError } from "@/lib/auth/errors";
 import { ensureFacultyContext } from "@/lib/faculty/migration";
+import { getFacultyReportDefaults } from "@/lib/faculty/report-defaults";
 import Organization from "@/models/core/organization";
 import Department from "@/models/reference/department";
 import Faculty from "@/models/faculty/faculty";
@@ -24,6 +25,26 @@ type SafeActor = {
     role: string;
     department?: string;
 };
+
+type CasAchievementBucket = {
+    publications: Array<{ title: string; journal: string; year: number; issn?: string; indexing?: string }>;
+    books: Array<{ title: string; publisher: string; isbn?: string; year: number }>;
+    researchProjects: Array<{ title: string; fundingAgency: string; amount: number; year: number }>;
+    phdGuided: number;
+    conferences: number;
+};
+
+async function buildLinkedAchievementsForFaculty(facultyUserId: string): Promise<CasAchievementBucket> {
+    const defaults = await getFacultyReportDefaults(facultyUserId);
+
+    return {
+        publications: defaults.cas.publications,
+        books: defaults.cas.books,
+        researchProjects: defaults.cas.researchProjects,
+        phdGuided: 0,
+        conferences: defaults.cas.conferences,
+    };
+}
 
 function scorePublication(indexing?: string) {
     const value = (indexing ?? "").toLowerCase();
@@ -49,23 +70,27 @@ export async function computeCasApiScore(
         100,
         selectedPbas.reduce((sum, entry) => sum + Number(entry.apiScore?.teachingActivities ?? 0), 0)
     );
+    const researchFromPbas = selectedPbas.reduce(
+        (sum, entry) => sum + Number(entry.apiScore?.researchAcademicContribution ?? 0),
+        0
+    );
 
-    const publicationScore = input.achievements.publications.reduce(
+    const publicationScore = input.manualAchievements.publications.reduce(
         (sum, publication) => sum + scorePublication(publication.indexing),
         0
     );
-    const booksScore = input.achievements.books.length * 15;
-    const projectScore = input.achievements.researchProjects.reduce((sum, project) => {
+    const booksScore = input.manualAchievements.books.length * 15;
+    const projectScore = input.manualAchievements.researchProjects.reduce((sum, project) => {
         if (project.amount >= 1000000) return sum + 12;
         if (project.amount >= 250000) return sum + 8;
         return sum + 5;
     }, 0);
-    const phdScore = input.achievements.phdGuided * 12;
-    const conferenceScore = input.achievements.conferences * 4;
+    const phdScore = input.manualAchievements.phdGuided * 12;
+    const conferenceScore = input.manualAchievements.conferences * 4;
 
     const researchPublication = Math.min(
         150,
-        publicationScore + booksScore + projectScore + phdScore + conferenceScore
+        researchFromPbas + publicationScore + booksScore + projectScore + phdScore + conferenceScore
     );
 
     const academicContribution = Math.min(
@@ -73,7 +98,7 @@ export async function computeCasApiScore(
         selectedPbas.reduce(
             (sum, entry) => sum + Number(entry.apiScore?.institutionalResponsibilities ?? 0),
             0
-        ) + Math.min(input.achievements.conferences * 2, 20)
+        ) + Math.min(input.manualAchievements.conferences * 2, 20)
     );
 
     return {
@@ -396,6 +421,7 @@ export async function createCasApplication(actor: SafeActor, rawInput: unknown) 
     }
 
     const { faculty } = await ensureFacultyContext(actor.id);
+    const linkedAchievements = await buildLinkedAchievementsForFaculty(actor.id);
     const apiScore = await computeCasApiScore(faculty._id.toString(), input);
     const eligibility = evaluateCasEligibility(input, apiScore.totalScore);
 
@@ -410,7 +436,9 @@ export async function createCasApplication(actor: SafeActor, rawInput: unknown) 
         pbasReports: input.pbasReports.map((id) => new Types.ObjectId(id)),
         apiScoreCalculated: apiScore.totalScore,
         apiScore,
-        achievements: input.achievements,
+        linkedAchievements,
+        manualAchievements: input.manualAchievements,
+        achievements: undefined,
         eligibility,
         reviewCommittee: [],
         statusLogs: [
@@ -497,6 +525,7 @@ export async function updateCasApplication(actor: SafeActor, id: string, rawInpu
     }
 
     const oldState = application.toObject();
+    const linkedAchievements = await buildLinkedAchievementsForFaculty(actor.id);
     const apiScore = await computeCasApiScore(facultyContext.faculty._id.toString(), input);
     const eligibility = evaluateCasEligibility(input, apiScore.totalScore);
 
@@ -508,7 +537,9 @@ export async function updateCasApplication(actor: SafeActor, id: string, rawInpu
     application.pbasReports = input.pbasReports.map((entry) => new Types.ObjectId(entry));
     application.apiScoreCalculated = apiScore.totalScore;
     application.apiScore = apiScore;
-    application.achievements = input.achievements;
+    application.linkedAchievements = linkedAchievements;
+    application.manualAchievements = input.manualAchievements;
+    application.achievements = undefined;
     application.eligibility = eligibility;
 
     pushStatusLog(application, application.status, actor, "CAS application draft auto-saved.");

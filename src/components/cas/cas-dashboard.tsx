@@ -61,7 +61,22 @@ type CasApp = {
         minimumExperienceYears?: number;
         minimumApiScore?: number;
     };
-    achievements: {
+    linkedAchievements?: {
+        publications: Array<{ title: string; journal: string; year: number; issn?: string; indexing?: string }>;
+        books: Array<{ title: string; publisher: string; isbn?: string; year: number }>;
+        researchProjects: Array<{ title: string; fundingAgency: string; amount: number; year: number }>;
+        phdGuided: number;
+        conferences: number;
+    };
+    manualAchievements?: {
+        publications: Array<{ title: string; journal: string; year: number; issn?: string; indexing?: string }>;
+        books: Array<{ title: string; publisher: string; isbn?: string; year: number }>;
+        researchProjects: Array<{ title: string; fundingAgency: string; amount: number; year: number }>;
+        phdGuided: number;
+        conferences: number;
+    };
+    // Legacy combined field for old records.
+    achievements?: {
         publications: Array<{ title: string; journal: string; year: number; issn?: string; indexing?: string }>;
         books: Array<{ title: string; publisher: string; isbn?: string; year: number }>;
         researchProjects: Array<{ title: string; fundingAgency: string; amount: number; year: number }>;
@@ -117,8 +132,8 @@ const steps = [
     "Basic Details",
     "Eligibility Period",
     "PBAS Reports",
-    "Research Publications",
-    "Books and Projects",
+    "Publications (Optional)",
+    "Books & Projects (Optional)",
     "Academic Contributions",
     "Documents & Checklist",
     "Review and Submit",
@@ -138,13 +153,23 @@ function emptyForm(): CasFormValues {
         },
         experienceYears: 0,
         pbasReports: [],
-        achievements: {
+        manualAchievements: {
             publications: [],
             books: [],
             researchProjects: [],
             phdGuided: 0,
             conferences: 0,
         },
+    };
+}
+
+function emptyAchievements() {
+    return {
+        publications: [],
+        books: [],
+        researchProjects: [],
+        phdGuided: 0,
+        conferences: 0,
     };
 }
 
@@ -160,7 +185,7 @@ function toFormValues(application?: CasApp): CasFormValues {
         eligibilityPeriod: application.eligibilityPeriod,
         experienceYears: application.experienceYears,
         pbasReports: application.pbasReports,
-        achievements: application.achievements,
+        manualAchievements: application.manualAchievements ?? application.achievements ?? emptyAchievements(),
     };
 }
 
@@ -168,24 +193,30 @@ function computeScore(values: CasResolvedValues, pbasOptions: PbasOption[]) {
     const selected = pbasOptions.filter((entry) => values.pbasReports.includes(entry._id));
     const teachingLearning = Math.min(100, selected.reduce((sum, item) => sum + Number(item.teachingScore ?? 0), 0));
     const researchFromPbas = selected.reduce((sum, item) => sum + Number(item.researchScore ?? 0), 0);
-    const researchPublications = values.achievements.publications.reduce((sum, item) => {
+    const researchPublications = values.manualAchievements.publications.reduce((sum, item) => {
         const indexing = (item.indexing ?? "").toLowerCase();
         if (indexing.includes("scopus") || indexing.includes("ugc care") || indexing.includes("web")) return sum + 12;
         if (indexing.includes("peer")) return sum + 8;
+        return sum + 5;
+    }, 0);
+    const projectScore = values.manualAchievements.researchProjects.reduce((sum, project) => {
+        if (project.amount >= 1000000) return sum + 12;
+        if (project.amount >= 250000) return sum + 8;
         return sum + 5;
     }, 0);
     const researchPublication = Math.min(
         150,
         researchFromPbas +
             researchPublications +
-            values.achievements.books.length * 15 +
-            values.achievements.researchProjects.length * 8 +
-            values.achievements.phdGuided * 12 +
-            values.achievements.conferences * 4
+            values.manualAchievements.books.length * 15 +
+            projectScore +
+            values.manualAchievements.phdGuided * 12 +
+            values.manualAchievements.conferences * 4
     );
     const academicContribution = Math.min(
         100,
-        selected.reduce((sum, item) => sum + Number(item.institutionalScore ?? 0), 0) + values.achievements.conferences * 2
+        selected.reduce((sum, item) => sum + Number(item.institutionalScore ?? 0), 0) +
+            Math.min(values.manualAchievements.conferences * 2, 20)
     );
 
     return {
@@ -259,6 +290,125 @@ export function AchievementTable({
             </CardHeader>
             <CardContent className="grid gap-4">{children}</CardContent>
         </Card>
+    );
+}
+
+function LinkedAchievementsReadonly({
+    linkedAchievements,
+}: {
+    linkedAchievements: NonNullable<CasApp["linkedAchievements"]>;
+}) {
+    return (
+        <div className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-700">
+            <div>
+                <p className="font-semibold text-zinc-950">Linked profile achievements (read-only)</p>
+                <p className="mt-1 text-zinc-600">
+                    These records are reused from profile data and are not editable in CAS.
+                </p>
+            </div>
+
+            <details className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                <summary className="cursor-pointer font-medium text-zinc-900">
+                    Publications ({linkedAchievements.publications.length})
+                </summary>
+                {linkedAchievements.publications.length ? (
+                    <div className="mt-3 overflow-x-auto">
+                        <table className="min-w-full text-left text-xs">
+                            <thead className="text-zinc-500">
+                                <tr>
+                                    <th className="px-2 py-1 font-medium">Title</th>
+                                    <th className="px-2 py-1 font-medium">Journal</th>
+                                    <th className="px-2 py-1 font-medium">Year</th>
+                                    <th className="px-2 py-1 font-medium">ISSN</th>
+                                    <th className="px-2 py-1 font-medium">Indexing</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {linkedAchievements.publications.map((item, index) => (
+                                    <tr key={`${item.title}-${index}`} className="border-t border-zinc-200">
+                                        <td className="px-2 py-1 text-zinc-900">{item.title}</td>
+                                        <td className="px-2 py-1">{item.journal || "-"}</td>
+                                        <td className="px-2 py-1">{item.year}</td>
+                                        <td className="px-2 py-1">{item.issn || "-"}</td>
+                                        <td className="px-2 py-1">{item.indexing || "-"}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <p className="mt-2 text-xs text-zinc-500">No linked publications available.</p>
+                )}
+            </details>
+
+            <details className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                <summary className="cursor-pointer font-medium text-zinc-900">
+                    Books ({linkedAchievements.books.length})
+                </summary>
+                {linkedAchievements.books.length ? (
+                    <div className="mt-3 overflow-x-auto">
+                        <table className="min-w-full text-left text-xs">
+                            <thead className="text-zinc-500">
+                                <tr>
+                                    <th className="px-2 py-1 font-medium">Title</th>
+                                    <th className="px-2 py-1 font-medium">Publisher</th>
+                                    <th className="px-2 py-1 font-medium">Year</th>
+                                    <th className="px-2 py-1 font-medium">ISBN</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {linkedAchievements.books.map((item, index) => (
+                                    <tr key={`${item.title}-${index}`} className="border-t border-zinc-200">
+                                        <td className="px-2 py-1 text-zinc-900">{item.title}</td>
+                                        <td className="px-2 py-1">{item.publisher || "-"}</td>
+                                        <td className="px-2 py-1">{item.year}</td>
+                                        <td className="px-2 py-1">{item.isbn || "-"}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <p className="mt-2 text-xs text-zinc-500">No linked books available.</p>
+                )}
+            </details>
+
+            <details className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                <summary className="cursor-pointer font-medium text-zinc-900">
+                    Research Projects ({linkedAchievements.researchProjects.length})
+                </summary>
+                {linkedAchievements.researchProjects.length ? (
+                    <div className="mt-3 overflow-x-auto">
+                        <table className="min-w-full text-left text-xs">
+                            <thead className="text-zinc-500">
+                                <tr>
+                                    <th className="px-2 py-1 font-medium">Title</th>
+                                    <th className="px-2 py-1 font-medium">Funding Agency</th>
+                                    <th className="px-2 py-1 font-medium">Amount</th>
+                                    <th className="px-2 py-1 font-medium">Year</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {linkedAchievements.researchProjects.map((item, index) => (
+                                    <tr key={`${item.title}-${index}`} className="border-t border-zinc-200">
+                                        <td className="px-2 py-1 text-zinc-900">{item.title}</td>
+                                        <td className="px-2 py-1">{item.fundingAgency || "-"}</td>
+                                        <td className="px-2 py-1">{item.amount}</td>
+                                        <td className="px-2 py-1">{item.year}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <p className="mt-2 text-xs text-zinc-500">No linked research projects available.</p>
+                )}
+            </details>
+
+            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+                Linked conference count: {linkedAchievements.conferences}
+            </div>
+        </div>
     );
 }
 
@@ -372,9 +522,9 @@ export function CasDashboard({
     facultyName: string;
     facultyId: string;
     evidenceDefaults: {
-        publications: CasFormValues["achievements"]["publications"];
-        books: CasFormValues["achievements"]["books"];
-        researchProjects: CasFormValues["achievements"]["researchProjects"];
+        publications: Array<{ title: string; journal: string; year: number; issn?: string; indexing?: string }>;
+        books: Array<{ title: string; publisher: string; isbn?: string; year: number }>;
+        researchProjects: Array<{ title: string; fundingAgency: string; amount: number; year: number }>;
         conferences: number;
     };
     eligibility: CasEligibility;
@@ -395,37 +545,22 @@ export function CasDashboard({
     const [workflowError, setWorkflowError] = useState<string | null>(null);
 
     const selected = applications.find((item) => item._id === selectedId);
+    const linkedAchievements = selected?.linkedAchievements ?? {
+        ...emptyAchievements(),
+        ...evidenceDefaults,
+        phdGuided: 0,
+    };
     const form = useForm<CasFormValues, unknown, CasResolvedValues>({
         resolver: zodResolver(casApplicationSchema),
-        defaultValues: selected
-            ? toFormValues(selected)
-            : {
-                  ...emptyForm(),
-                  achievements: {
-                      ...emptyForm().achievements,
-                      ...evidenceDefaults,
-                      phdGuided: 0,
-                  },
-              },
+        defaultValues: selected ? toFormValues(selected) : emptyForm(),
     });
 
-    const publicationFields = useFieldArray({ control: form.control, name: "achievements.publications" });
-    const bookFields = useFieldArray({ control: form.control, name: "achievements.books" });
-    const projectFields = useFieldArray({ control: form.control, name: "achievements.researchProjects" });
+    const publicationFields = useFieldArray({ control: form.control, name: "manualAchievements.publications" });
+    const bookFields = useFieldArray({ control: form.control, name: "manualAchievements.books" });
+    const projectFields = useFieldArray({ control: form.control, name: "manualAchievements.researchProjects" });
 
     useEffect(() => {
-        form.reset(
-            selected
-                ? toFormValues(selected)
-                : {
-                      ...emptyForm(),
-                      achievements: {
-                          ...emptyForm().achievements,
-                          ...evidenceDefaults,
-                          phdGuided: 0,
-                      },
-                  }
-        );
+        form.reset(selected ? toFormValues(selected) : emptyForm());
     }, [selectedId, selected, form, evidenceDefaults]);
 
     const watchedValues = useWatch({ control: form.control });
@@ -451,11 +586,11 @@ export function CasDashboard({
     }, [form, watchedValues.currentDesignation]);
 
     useEffect(() => {
-        if (!designationProfile.showCasPhdGuided && form.getValues("achievements.phdGuided") !== 0) {
-            form.setValue("achievements.phdGuided", 0, { shouldDirty: true, shouldValidate: true });
+        if (!designationProfile.showCasPhdGuided && form.getValues("manualAchievements.phdGuided") !== 0) {
+            form.setValue("manualAchievements.phdGuided", 0, { shouldDirty: true, shouldValidate: true });
         }
-        if (!designationProfile.showCasConferenceCount && form.getValues("achievements.conferences") !== 0) {
-            form.setValue("achievements.conferences", 0, { shouldDirty: true, shouldValidate: true });
+        if (!designationProfile.showCasConferenceCount && form.getValues("manualAchievements.conferences") !== 0) {
+            form.setValue("manualAchievements.conferences", 0, { shouldDirty: true, shouldValidate: true });
         }
     }, [designationProfile, form]);
 
@@ -918,29 +1053,36 @@ export function CasDashboard({
                         ) : null}
 
                         {currentStep === 2 ? (
-                            <PBASSelector
-                                options={pbasOptions}
-                                selectedIds={watchedValues.pbasReports ?? []}
-                                onToggle={(id) => {
-                                    const current = form.getValues("pbasReports") ?? [];
-                                    form.setValue(
-                                        "pbasReports",
-                                        current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
-                                        { shouldDirty: true }
-                                    );
-                                }}
-                            />
+                            <div className="space-y-4">
+                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+                                    Select approved PBAS reports. CAS API scoring primarily reuses linked PBAS data, so you only
+                                    add achievements below when something is not already captured.
+                                </div>
+                                <LinkedAchievementsReadonly linkedAchievements={linkedAchievements} />
+                                <PBASSelector
+                                    options={pbasOptions}
+                                    selectedIds={watchedValues.pbasReports ?? []}
+                                    onToggle={(id) => {
+                                        const current = form.getValues("pbasReports") ?? [];
+                                        form.setValue(
+                                            "pbasReports",
+                                            current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+                                            { shouldDirty: true }
+                                        );
+                                    }}
+                                />
+                            </div>
                         ) : null}
 
                         {currentStep === 3 ? (
-                            <AchievementTable title="Research Publications" description="Add journal and publication records to support CAS research evidence.">
+                            <AchievementTable title="Research Publications (Optional Additions)" description="Add only missing publications that are not already covered in your PBAS-linked data.">
                                 {publicationFields.fields.map((field, index) => (
                                     <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2 xl:grid-cols-5" key={field.id}>
-                                        <Input placeholder="Title" {...form.register(`achievements.publications.${index}.title`)} />
-                                        <Input placeholder="Journal" {...form.register(`achievements.publications.${index}.journal`)} />
-                                        <Input placeholder="Year" type="number" {...form.register(`achievements.publications.${index}.year`, { valueAsNumber: true })} />
-                                        <Input placeholder="ISSN" {...form.register(`achievements.publications.${index}.issn`)} />
-                                        <Input placeholder="Indexing" {...form.register(`achievements.publications.${index}.indexing`)} />
+                                        <Input placeholder="Title" {...form.register(`manualAchievements.publications.${index}.title`)} />
+                                        <Input placeholder="Journal" {...form.register(`manualAchievements.publications.${index}.journal`)} />
+                                        <Input placeholder="Year" type="number" {...form.register(`manualAchievements.publications.${index}.year`, { valueAsNumber: true })} />
+                                        <Input placeholder="ISSN" {...form.register(`manualAchievements.publications.${index}.issn`)} />
+                                        <Input placeholder="Indexing" {...form.register(`manualAchievements.publications.${index}.indexing`)} />
                                         <Button
                                             type="button"
                                             variant="ghost"
@@ -954,7 +1096,7 @@ export function CasDashboard({
                                     </div>
                                 ))}
                                 <Button type="button" variant="secondary" onClick={() => publicationFields.append({ title: "", journal: "", year: new Date().getFullYear(), issn: "", indexing: "" })}>
-                                    Add Publication
+                                    Add Extra Publication
                                 </Button>
                             </AchievementTable>
                         ) : null}
@@ -964,10 +1106,10 @@ export function CasDashboard({
                                 <AchievementTable title="Books" description="Record published books and chapters relevant to CAS review.">
                                     {bookFields.fields.map((field, index) => (
                                         <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2 xl:grid-cols-4" key={field.id}>
-                                            <Input placeholder="Title" {...form.register(`achievements.books.${index}.title`)} />
-                                            <Input placeholder="Publisher" {...form.register(`achievements.books.${index}.publisher`)} />
-                                            <Input placeholder="ISBN" {...form.register(`achievements.books.${index}.isbn`)} />
-                                            <Input placeholder="Year" type="number" {...form.register(`achievements.books.${index}.year`, { valueAsNumber: true })} />
+                                            <Input placeholder="Title" {...form.register(`manualAchievements.books.${index}.title`)} />
+                                            <Input placeholder="Publisher" {...form.register(`manualAchievements.books.${index}.publisher`)} />
+                                            <Input placeholder="ISBN" {...form.register(`manualAchievements.books.${index}.isbn`)} />
+                                            <Input placeholder="Year" type="number" {...form.register(`manualAchievements.books.${index}.year`, { valueAsNumber: true })} />
                                             <Button
                                                 type="button"
                                                 variant="ghost"
@@ -981,16 +1123,16 @@ export function CasDashboard({
                                         </div>
                                     ))}
                                     <Button type="button" variant="secondary" onClick={() => bookFields.append({ title: "", publisher: "", isbn: "", year: new Date().getFullYear() })}>
-                                        Add Book
+                                        Add Extra Book
                                     </Button>
                                 </AchievementTable>
-                                <AchievementTable title="Research Projects" description="Capture funded projects for CAS evidence and scoring.">
+                                <AchievementTable title="Research Projects" description="Capture only additional funded projects that are not already represented in PBAS-linked records.">
                                     {projectFields.fields.map((field, index) => (
                                         <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2 xl:grid-cols-4" key={field.id}>
-                                            <Input placeholder="Title" {...form.register(`achievements.researchProjects.${index}.title`)} />
-                                            <Input placeholder="Funding Agency" {...form.register(`achievements.researchProjects.${index}.fundingAgency`)} />
-                                            <Input placeholder="Amount" type="number" {...form.register(`achievements.researchProjects.${index}.amount`, { valueAsNumber: true })} />
-                                            <Input placeholder="Year" type="number" {...form.register(`achievements.researchProjects.${index}.year`, { valueAsNumber: true })} />
+                                            <Input placeholder="Title" {...form.register(`manualAchievements.researchProjects.${index}.title`)} />
+                                            <Input placeholder="Funding Agency" {...form.register(`manualAchievements.researchProjects.${index}.fundingAgency`)} />
+                                            <Input placeholder="Amount" type="number" {...form.register(`manualAchievements.researchProjects.${index}.amount`, { valueAsNumber: true })} />
+                                            <Input placeholder="Year" type="number" {...form.register(`manualAchievements.researchProjects.${index}.year`, { valueAsNumber: true })} />
                                             <Button
                                                 type="button"
                                                 variant="ghost"
@@ -1004,7 +1146,7 @@ export function CasDashboard({
                                         </div>
                                     ))}
                                     <Button type="button" variant="secondary" onClick={() => projectFields.append({ title: "", fundingAgency: "", amount: 0, year: new Date().getFullYear() })}>
-                                        Add Project
+                                        Add Extra Project
                                     </Button>
                                 </AchievementTable>
                             </div>
@@ -1019,10 +1161,10 @@ export function CasDashboard({
                                 </div>
                                 <div className={`grid gap-4 ${designationProfile.showCasPhdGuided && designationProfile.showCasConferenceCount ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
                                     {designationProfile.showCasPhdGuided ? (
-                                        <Field label="PhD Guided"><Input type="number" {...form.register("achievements.phdGuided", { valueAsNumber: true })} /></Field>
+                                        <Field label="PhD Guided"><Input type="number" {...form.register("manualAchievements.phdGuided", { valueAsNumber: true })} /></Field>
                                     ) : null}
                                     {designationProfile.showCasConferenceCount ? (
-                                        <Field label="Conferences"><Input type="number" {...form.register("achievements.conferences", { valueAsNumber: true })} /></Field>
+                                        <Field label="Conferences"><Input type="number" {...form.register("manualAchievements.conferences", { valueAsNumber: true })} /></Field>
                                     ) : null}
                                 </div>
                             </div>
@@ -1119,16 +1261,19 @@ export function CasDashboard({
                                         {watchedValues.currentDesignation ?? ""} to {watchedValues.applyingForDesignation ?? ""} | PBAS linked: {(watchedValues.pbasReports ?? []).length}
                                     </p>
                                     <p className="mt-1 text-sm text-zinc-600">
-                                        Publications: {(watchedValues.achievements?.publications ?? []).length} | Books: {(watchedValues.achievements?.books ?? []).length} | Projects: {(watchedValues.achievements?.researchProjects ?? []).length}
+                                        Linked publications/books/projects: {linkedAchievements.publications.length}/{linkedAchievements.books.length}/{linkedAchievements.researchProjects.length}
+                                    </p>
+                                    <p className="mt-1 text-sm text-zinc-600">
+                                        Manual additions publications/books/projects: {(watchedValues.manualAchievements?.publications ?? []).length}/{(watchedValues.manualAchievements?.books ?? []).length}/{(watchedValues.manualAchievements?.researchProjects ?? []).length}
                                     </p>
                                     {designationProfile.showCasPhdGuided ? (
                                         <p className="mt-1 text-sm text-zinc-600">
-                                            PhD guided: {Number(watchedValues.achievements?.phdGuided ?? 0)}
+                                            PhD guided: {Number(watchedValues.manualAchievements?.phdGuided ?? 0)}
                                         </p>
                                     ) : null}
                                     {designationProfile.showCasConferenceCount ? (
                                         <p className="mt-1 text-sm text-zinc-600">
-                                            Conference contributions: {Number(watchedValues.achievements?.conferences ?? 0)}
+                                            Conference contributions: {Number(watchedValues.manualAchievements?.conferences ?? 0)}
                                         </p>
                                     ) : null}
                                 </div>

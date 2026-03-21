@@ -45,6 +45,36 @@ export async function GET(request: Request) {
                 );
             }
 
+            const legacyAchievements = entry.achievements;
+            const linkedAchievements = entry.linkedAchievements;
+            const manualAchievements = entry.manualAchievements;
+
+            const publicationCount =
+                (linkedAchievements?.publications?.length ?? 0) +
+                (manualAchievements?.publications?.length ?? 0) ||
+                legacyAchievements?.publications?.length ||
+                0;
+            const bookCount =
+                (linkedAchievements?.books?.length ?? 0) +
+                (manualAchievements?.books?.length ?? 0) ||
+                legacyAchievements?.books?.length ||
+                0;
+            const projectCount =
+                (linkedAchievements?.researchProjects?.length ?? 0) +
+                (manualAchievements?.researchProjects?.length ?? 0) ||
+                legacyAchievements?.researchProjects?.length ||
+                0;
+            const conferenceCount =
+                (linkedAchievements?.conferences ?? 0) +
+                (manualAchievements?.conferences ?? 0) ||
+                legacyAchievements?.conferences ||
+                0;
+            const phdSupervisionCount =
+                (linkedAchievements?.phdGuided ?? 0) +
+                (manualAchievements?.phdGuided ?? 0) ||
+                legacyAchievements?.phdGuided ||
+                0;
+
             normalizedEntry = {
                 type: "cas" as const,
                 data: {
@@ -54,14 +84,14 @@ export async function GET(request: Request) {
                     assessmentPeriodEnd: String(entry.eligibilityPeriod?.toYear ?? ""),
                     currentStage: entry.currentDesignation,
                     teachingExperienceYears: entry.experienceYears,
-                    publicationCount: entry.achievements?.publications?.length ?? 0,
-                    bookCount: entry.achievements?.books?.length ?? 0,
-                    conferenceCount: entry.achievements?.conferences ?? 0,
+                    publicationCount,
+                    bookCount,
+                    conferenceCount,
                     workshopCount: 0,
-                    projectCount: entry.achievements?.researchProjects?.length ?? 0,
-                    phdSupervisionCount: entry.achievements?.phdGuided ?? 0,
+                    projectCount,
+                    phdSupervisionCount,
                     adminResponsibilitySummary: entry.eligibility?.message ?? "",
-                    researchSummary: `${entry.achievements?.publications?.length ?? 0} publications, ${entry.achievements?.researchProjects?.length ?? 0} projects`,
+                    researchSummary: `${publicationCount} publications, ${projectCount} projects`,
                     apiScoreClaimed: entry.apiScore?.totalScore ?? 0,
                 },
             };

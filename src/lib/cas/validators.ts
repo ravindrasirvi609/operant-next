@@ -31,6 +31,22 @@ const researchProjectSchema = z.object({
     year: z.coerce.number().int().min(1900).max(2100),
 });
 
+const achievementBucketSchema = z.object({
+    publications: z.array(publicationSchema).default([]),
+    books: z.array(bookSchema).default([]),
+    researchProjects: z.array(researchProjectSchema).default([]),
+    phdGuided: z.coerce.number().min(0).default(0),
+    conferences: z.coerce.number().min(0).default(0),
+});
+
+const emptyAchievementBucket: z.infer<typeof achievementBucketSchema> = {
+    publications: [],
+    books: [],
+    researchProjects: [],
+    phdGuided: 0,
+    conferences: 0,
+};
+
 export const casApplicationSchema = z.object({
     applicationYear: z.string().trim().min(4, "Application year is required."),
     currentDesignation: z.string().trim().min(2, "Current designation is required."),
@@ -41,14 +57,21 @@ export const casApplicationSchema = z.object({
     }),
     experienceYears: z.coerce.number().min(0),
     pbasReports: z.array(z.string().trim().min(1)).default([]),
-    achievements: z.object({
-        publications: z.array(publicationSchema).default([]),
-        books: z.array(bookSchema).default([]),
-        researchProjects: z.array(researchProjectSchema).default([]),
-        phdGuided: z.coerce.number().min(0).default(0),
-        conferences: z.coerce.number().min(0).default(0),
-    }),
-});
+    // Legacy field retained for backward compatibility with old drafts.
+    achievements: achievementBucketSchema.optional(),
+    manualAchievements: achievementBucketSchema.optional(),
+}).transform((value) => ({
+    applicationYear: value.applicationYear,
+    currentDesignation: value.currentDesignation,
+    applyingForDesignation: value.applyingForDesignation,
+    eligibilityPeriod: value.eligibilityPeriod,
+    experienceYears: value.experienceYears,
+    pbasReports: value.pbasReports,
+    manualAchievements:
+        value.manualAchievements ??
+        value.achievements ??
+        emptyAchievementBucket,
+}));
 
 export const casReviewSchema = z.object({
     remarks: z.string().trim().min(2, "Review remarks are required."),

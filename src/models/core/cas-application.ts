@@ -70,7 +70,22 @@ export interface ICasApplication extends Document {
         academicContribution: number;
         totalScore: number;
     };
-    achievements: {
+    linkedAchievements: {
+        publications: ICasPublication[];
+        books: ICasBook[];
+        researchProjects: ICasResearchProject[];
+        phdGuided: number;
+        conferences: number;
+    };
+    manualAchievements: {
+        publications: ICasPublication[];
+        books: ICasBook[];
+        researchProjects: ICasResearchProject[];
+        phdGuided: number;
+        conferences: number;
+    };
+    // Legacy combined field retained for old persisted records.
+    achievements?: {
         publications: ICasPublication[];
         books: ICasBook[];
         researchProjects: ICasResearchProject[];
@@ -118,6 +133,17 @@ const CasResearchProjectSchema = new Schema<ICasResearchProject>(
         fundingAgency: { type: String, required: true, trim: true },
         amount: { type: Number, default: 0 },
         year: { type: Number, required: true },
+    },
+    { _id: false }
+);
+
+const CasAchievementBucketSchema = new Schema(
+    {
+        publications: { type: [CasPublicationSchema], default: [] },
+        books: { type: [CasBookSchema], default: [] },
+        researchProjects: { type: [CasResearchProjectSchema], default: [] },
+        phdGuided: { type: Number, default: 0 },
+        conferences: { type: Number, default: 0 },
     },
     { _id: false }
 );
@@ -177,13 +203,9 @@ const CasApplicationSchema = new Schema<ICasApplication>(
             academicContribution: { type: Number, default: 0 },
             totalScore: { type: Number, default: 0 },
         },
-        achievements: {
-            publications: { type: [CasPublicationSchema], default: [] },
-            books: { type: [CasBookSchema], default: [] },
-            researchProjects: { type: [CasResearchProjectSchema], default: [] },
-            phdGuided: { type: Number, default: 0 },
-            conferences: { type: Number, default: 0 },
-        },
+        linkedAchievements: { type: CasAchievementBucketSchema, default: () => ({}) },
+        manualAchievements: { type: CasAchievementBucketSchema, default: () => ({}) },
+        achievements: { type: CasAchievementBucketSchema, required: false, default: undefined },
         eligibility: {
             isEligible: { type: Boolean, default: false },
             message: { type: String, trim: true },
