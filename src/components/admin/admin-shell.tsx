@@ -6,6 +6,7 @@ import { BookOpen, FileStack, GitBranch, LayoutDashboard, ListTree, Megaphone, U
 
 import { Badge } from "@/components/ui/badge";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { NotificationCenter } from "@/components/notifications/notification-center";
 
 const navigation = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
@@ -16,6 +17,7 @@ const navigation = [
     { href: "/admin/evidence", label: "Evidence Review", icon: FileStack },
     { href: "/admin/pbas/catalog", label: "PBAS Catalog", icon: ListTree },
     { href: "/admin/aqar", label: "AQAR", icon: FileStack },
+    { href: "/admin/report-templates", label: "Report Templates", icon: FileStack },
     { href: "/admin/master-data", label: "Master Data", icon: ListTree },
     { href: "/admin/users", label: "Users", icon: Users2 },
     { href: "/admin/system", label: "System Updates", icon: Megaphone },
@@ -47,7 +49,10 @@ export function AdminShell({
                             </p>
                         </div>
 
-                        <Badge>Signed in as {adminName}</Badge>
+                        <div className="flex items-center gap-2">
+                            <Badge>Signed in as {adminName}</Badge>
+                            <NotificationCenter />
+                        </div>
 
                         <nav className="grid gap-2">
                             {navigation.map((item) => {

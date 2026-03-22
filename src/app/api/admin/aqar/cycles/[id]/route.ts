@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getRequestAuditContext } from "@/lib/audit/request";
 import { createApiErrorResponse } from "@/lib/auth/http";
 import { getCurrentUser } from "@/lib/auth/user";
 import { getAqarCycleById, updateAqarCycle } from "@/lib/aqar-cycle/service";
@@ -32,7 +33,16 @@ export async function PATCH(request: Request, context: RouteContext) {
 
         const { id } = await context.params;
         const body = await request.json();
-        const cycle = await updateAqarCycle({ id: user.id, name: user.name, role: user.role }, id, body);
+        const cycle = await updateAqarCycle(
+            {
+                id: user.id,
+                name: user.name,
+                role: user.role,
+                auditContext: getRequestAuditContext(request),
+            },
+            id,
+            body
+        );
         return NextResponse.json({ message: "AQAR cycle updated successfully.", cycle });
     } catch (error) {
         return createApiErrorResponse(error);

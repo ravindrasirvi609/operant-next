@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 
+import { createAuditLog, type AuditActor, type AuditRequestContext } from "@/lib/audit/service";
 import {
     organizationSchema,
     organizationTypes,
@@ -87,7 +88,10 @@ export async function getHierarchyData() {
     };
 }
 
-export async function createOrganization(rawInput: unknown) {
+export async function createOrganization(
+    rawInput: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     const input = organizationSchema.parse(rawInput);
 
     await dbConnect();
@@ -100,7 +104,7 @@ export async function createOrganization(rawInput: unknown) {
     const hierarchy = buildHierarchyValues(input.type, input.name, parent);
     const head = await getHeadSnapshot(input.headUserId);
 
-    return Organization.create({
+    const organization = await Organization.create({
         name: input.name,
         type: input.type,
         code: input.code || undefined,
@@ -118,9 +122,26 @@ export async function createOrganization(rawInput: unknown) {
         website: input.website || undefined,
         isActive: input.isActive,
     });
+
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "ORGANIZATION_CREATE",
+            tableName: "organizations",
+            recordId: organization._id.toString(),
+            newData: organization,
+            auditContext: options.auditContext,
+        });
+    }
+
+    return organization;
 }
 
-export async function updateOrganization(id: string, rawInput: unknown) {
+export async function updateOrganization(
+    id: string,
+    rawInput: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     const input = organizationUpdateSchema.parse(rawInput);
 
     await dbConnect();
@@ -130,6 +151,8 @@ export async function updateOrganization(id: string, rawInput: unknown) {
     if (!organization) {
         throw new AuthError("Organization not found.", 404);
     }
+
+    const oldState = organization.toObject();
 
     const parent =
         input.parentOrganizationId && Types.ObjectId.isValid(input.parentOrganizationId)
@@ -180,6 +203,18 @@ export async function updateOrganization(id: string, rawInput: unknown) {
     }
 
     await organization.save();
+
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "ORGANIZATION_UPDATE",
+            tableName: "organizations",
+            recordId: organization._id.toString(),
+            oldData: oldState,
+            newData: organization.toObject(),
+            auditContext: options.auditContext,
+        });
+    }
 
     return organization;
 }

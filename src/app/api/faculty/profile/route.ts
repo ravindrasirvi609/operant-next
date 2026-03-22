@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getRequestAuditContext } from "@/lib/audit/request";
 import { createApiErrorResponse } from "@/lib/auth/http";
 import { getCurrentUser } from "@/lib/auth/user";
 import { getFacultyWorkspace, saveFacultyWorkspace } from "@/lib/faculty/service";
@@ -29,7 +30,10 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const result = await saveFacultyWorkspace(user.id, body);
+        const result = await saveFacultyWorkspace(user.id, body, {
+            actor: { id: user.id, name: user.name, role: user.role },
+            auditContext: getRequestAuditContext(request),
+        });
 
         return NextResponse.json({
             message: result.message,

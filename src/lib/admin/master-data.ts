@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 
+import { createAuditLog, type AuditActor, type AuditRequestContext } from "@/lib/audit/service";
 import dbConnect from "@/lib/dbConnect";
 import { masterDataSchema, masterDataUpdateSchema } from "@/lib/admin/validators";
 import MasterData, { type IMasterData } from "@/models/core/master-data";
@@ -266,18 +267,33 @@ export async function getActiveMasterDataOptions(categories: string[]) {
 
 export async function createMasterDataEntry(
     rawInput: unknown,
-    adminUserId: string
+    adminUserId: string,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
 ) {
     const input = masterDataSchema.parse(rawInput);
     await dbConnect();
 
     const adminObjectId = new Types.ObjectId(adminUserId);
-    return insertMasterDataEntry(input, adminObjectId);
+    const item = await insertMasterDataEntry(input, adminObjectId);
+
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "MASTER_DATA_CREATE",
+            tableName: "master_data",
+            recordId: item._id.toString(),
+            newData: item,
+            auditContext: options.auditContext,
+        });
+    }
+
+    return item;
 }
 
 export async function createMasterDataEntriesBulk(
     rawEntries: unknown,
-    adminUserId: string
+    adminUserId: string,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
 ): Promise<MasterDataBulkResult> {
     if (!Array.isArray(rawEntries)) {
         throw new Error("Bulk payload must provide an entries array.");
@@ -326,13 +342,29 @@ export async function createMasterDataEntriesBulk(
         }
     }
 
+    if (options?.actor && (created.length || failed.length)) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "MASTER_DATA_BULK_CREATE",
+            tableName: "master_data",
+            newData: {
+                createdCount: created.length,
+                failedCount: failed.length,
+                createdIds: created.map((item) => item._id.toString()),
+                failed,
+            },
+            auditContext: options.auditContext,
+        });
+    }
+
     return { created, failed };
 }
 
 export async function updateMasterDataEntry(
     id: string,
     rawInput: unknown,
-    adminUserId: string
+    adminUserId: string,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
 ) {
     const input = masterDataUpdateSchema.parse(rawInput);
     await dbConnect();
@@ -344,6 +376,8 @@ export async function updateMasterDataEntry(
     if (!item) {
         throw new Error("Master data entry not found.");
     }
+
+    const oldState = item.toObject();
 
     if (input.category) {
         const category = slugify(input.category);
@@ -389,6 +423,18 @@ export async function updateMasterDataEntry(
 
     item.updatedBy = adminObjectId;
     await item.save();
+
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "MASTER_DATA_UPDATE",
+            tableName: "master_data",
+            recordId: item._id.toString(),
+            oldData: oldState,
+            newData: item.toObject(),
+            auditContext: options.auditContext,
+        });
+    }
 
     return item;
 }

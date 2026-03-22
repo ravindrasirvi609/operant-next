@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getRequestAuditContext } from "@/lib/audit/request";
 import { createApiErrorResponse } from "@/lib/auth/http";
 import { assertAdminApiAccess } from "@/lib/auth/user";
 import { createSemester, listSemesters } from "@/lib/admin/academics";
@@ -16,9 +17,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
-        await assertAdminApiAccess();
+        const admin = await assertAdminApiAccess();
         const body = await request.json();
-        const semester = await createSemester(body);
+        const semester = await createSemester(body, {
+            actor: { id: admin.id, name: admin.name, role: admin.role },
+            auditContext: getRequestAuditContext(request),
+        });
         return NextResponse.json({ semester }, { status: 201 });
     } catch (error) {
         return createApiErrorResponse(error);

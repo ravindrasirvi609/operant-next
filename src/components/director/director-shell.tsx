@@ -6,10 +6,12 @@ import { Building2, ClipboardList, FileStack } from "lucide-react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Badge } from "@/components/ui/badge";
+import { NotificationCenter } from "@/components/notifications/notification-center";
 
 const navigation = [
     { href: "/director", label: "Overview", icon: Building2 },
     { href: "/director/approvals", label: "Approvals", icon: ClipboardList },
+    { href: "/director/evidence", label: "Evidence Review", icon: FileStack },
     { href: "/director/cas", label: "CAS Reviews", icon: FileStack },
     { href: "/director/pbas", label: "PBAS Reviews", icon: FileStack },
     { href: "/director/aqar", label: "AQAR Reviews", icon: FileStack },
@@ -41,7 +43,10 @@ export function DirectorShell({
                             </p>
                         </div>
 
-                        <Badge>Signed in as {directorName}</Badge>
+                        <div className="flex items-center gap-2">
+                            <Badge>Signed in as {directorName}</Badge>
+                            <NotificationCenter />
+                        </div>
 
                         <nav className="grid gap-2">
                             {navigation.map((item) => {

@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 
 import dbConnect from "@/lib/dbConnect";
+import { createAuditLog, type AuditRequestContext } from "@/lib/audit/service";
 import { AuthError } from "@/lib/auth/errors";
 import { ensureFacultyContext } from "@/lib/faculty/migration";
 import { getFacultyReportDefaults } from "@/lib/faculty/report-defaults";
@@ -14,19 +15,32 @@ import { getPbasReportsByIdsForFaculty } from "@/lib/pbas/service";
 import CasApiScoreBreakup from "@/models/core/cas-api-score-breakup";
 import CasPromotionHistory from "@/models/core/cas-promotion-history";
 import CasPromotionRule from "@/models/core/cas-promotion-rule";
-import ApprovalWorkflow from "@/models/core/approval-workflow";
-import AuditLog from "@/models/core/audit-log";
 import FacultyPbasForm from "@/models/core/faculty-pbas-form";
 import CasSupportingDocument from "@/models/core/cas-supporting-document";
 import CasScreeningCommitteeMember from "@/models/core/cas-screening-committee";
 import DocumentModel from "@/models/reference/document";
 import { getDefaultCasTarget } from "@/lib/faculty/options";
+import {
+    canActorProcessWorkflowStage,
+    getActiveWorkflowDefinition,
+    getWorkflowInstanceStatus,
+    getWorkflowPendingStatuses,
+    getWorkflowStageByStatus,
+    listPendingWorkflowRecordIds,
+    resolveWorkflowTransition,
+    syncWorkflowInstanceState,
+} from "@/lib/workflow/engine";
+import {
+    notifyUser,
+    notifyWorkflowStageAssignees,
+} from "@/lib/notifications/service";
 
 type SafeActor = {
     id: string;
     name: string;
     role: string;
     department?: string;
+    auditContext?: AuditRequestContext;
 };
 
 type CasAchievementBucket = {
@@ -387,6 +401,55 @@ export async function getCasEligibilityForFaculty(actor: SafeActor): Promise<Cas
     };
 }
 
+export async function ensureCasEligibilityReminderForFaculty(
+    actor: Pick<SafeActor, "id" | "name" | "role" | "department">
+) {
+    if (actor.role !== "Faculty") {
+        return;
+    }
+
+    const eligibility = await getCasEligibilityForFaculty({
+        id: actor.id,
+        name: actor.name,
+        role: actor.role,
+        department: actor.department,
+    });
+
+    if (!eligibility.eligible || !eligibility.nextDesignation) {
+        return;
+    }
+
+    const { faculty } = await ensureFacultyContext(actor.id);
+    const activeApplication = await CasApplication.findOne({
+        facultyId: faculty._id,
+        applyingForDesignation: eligibility.nextDesignation,
+        status: { $in: ["Draft", "Submitted", "Under Review", "Committee Review"] },
+    }).select("_id");
+
+    if (activeApplication) {
+        return;
+    }
+
+    await notifyUser({
+        userId: actor.id,
+        kind: "reminder",
+        moduleName: "CAS",
+        entityId: `eligibility:${eligibility.nextDesignation}`,
+        href: "/faculty/cas",
+        title: "CAS eligibility unlocked",
+        message: `You are now eligible to apply for ${eligibility.nextDesignation}. Open CAS and start your application while your approved PBAS records are current.`,
+        metadata: {
+            reminderType: "cas_eligibility",
+            nextDesignation: eligibility.nextDesignation,
+            currentDesignation: eligibility.currentDesignation,
+            approvedPbasCount: eligibility.approvedPbasCount,
+            lastApprovedYear: eligibility.lastApprovedYear,
+            dedupeKey: `cas-eligibility:${eligibility.currentDesignation ?? "unknown"}:${eligibility.nextDesignation}:${eligibility.lastApprovedYear ?? "na"}:${eligibility.approvedPbasCount}`,
+            dedupeWindowHours: 24 * 45,
+        },
+    });
+}
+
 async function upsertCasBreakup(application: InstanceType<typeof CasApplication>) {
     const rule = await getCasPromotionRule(
         application.currentDesignation,
@@ -433,30 +496,37 @@ async function upsertCasBreakup(application: InstanceType<typeof CasApplication>
     );
 }
 
-async function upsertWorkflow(moduleName: "CAS", recordId: string, actorRole: string, status: string, remarks?: string) {
-    await ApprovalWorkflow.updateOne(
-        { moduleName, recordId },
-        {
-            $set: {
-                moduleName,
-                recordId,
-                currentApproverRole: actorRole,
-                status,
-                remarks,
-            },
-        },
-        { upsert: true }
-    );
+async function getCasWorkflowDepartmentName(application: InstanceType<typeof CasApplication>) {
+    const faculty = await getUserForApplication(application);
+    return faculty.department;
+}
+
+async function upsertWorkflow(
+    application: InstanceType<typeof CasApplication>,
+    actor: SafeActor | undefined,
+    remarks?: string,
+    action?: "submit" | "approve" | "reject"
+) {
+    await syncWorkflowInstanceState({
+        moduleName: "CAS",
+        recordId: application._id.toString(),
+        status: application.status,
+        subjectDepartmentName: await getCasWorkflowDepartmentName(application),
+        actor,
+        remarks,
+        action,
+    });
 }
 
 async function audit(actor: SafeActor | undefined, action: string, tableName: string, recordId?: string, oldData?: unknown, newData?: unknown) {
-    await AuditLog.create({
-        userId: actor ? new Types.ObjectId(actor.id) : undefined,
+    await createAuditLog({
+        actor,
         action,
         tableName,
         recordId,
         oldData,
         newData,
+        auditContext: actor?.auditContext,
     });
 }
 
@@ -510,6 +580,52 @@ async function getUserForApplication(application: InstanceType<typeof CasApplica
         department: department?.name ?? user.department,
         designation: faculty.designation || user.designation,
     };
+}
+
+async function notifyCasStageAssignment(
+    application: InstanceType<typeof CasApplication>,
+    stage: { key: string; label: string; approverRoles: string[] } | null,
+    actor: SafeActor
+) {
+    if (!stage) {
+        return;
+    }
+
+    await notifyWorkflowStageAssignees({
+        stage: {
+            key: stage.key,
+            label: stage.label,
+            approverRoles: stage.approverRoles as Array<"DEPARTMENT_HEAD" | "DIRECTOR" | "IQAC" | "PRINCIPAL" | "ADMIN" | "FACULTY">,
+        },
+        subjectDepartmentName: await getCasWorkflowDepartmentName(application),
+        moduleName: "CAS",
+        entityId: application._id.toString(),
+        href: stage.key === "final_approval" ? "/admin/cas" : "/director/cas",
+        title: `CAS moved to ${stage.label}`,
+        message: `${actor.name} moved CAS application ${application.applicationYear} to ${stage.label}.`,
+        actor,
+    });
+}
+
+async function notifyCasFacultyOutcome(
+    application: InstanceType<typeof CasApplication>,
+    actor: SafeActor,
+    decision: "Approve" | "Reject"
+) {
+    const facultyUser = await getUserForApplication(application);
+
+    await notifyUser({
+        userId: facultyUser._id?.toString(),
+        moduleName: "CAS",
+        entityId: application._id.toString(),
+        href: "/faculty/cas",
+        title: decision === "Approve" ? "CAS approved" : "CAS returned for changes",
+        message:
+            decision === "Approve"
+                ? `Your CAS application for ${application.applicationYear} was approved by ${actor.name}.`
+                : `Your CAS application for ${application.applicationYear} was returned by ${actor.name}. Review remarks and resubmit.`,
+        actor,
+    });
 }
 
 async function loadCasCommitteeReviews(applicationIds: string[]) {
@@ -708,7 +824,7 @@ export async function createCasApplication(actor: SafeActor, rawInput: unknown) 
     });
 
     await upsertCasBreakup(application);
-    await upsertWorkflow("CAS", application._id.toString(), "Faculty", application.status, "CAS draft created.");
+    await upsertWorkflow(application, actor, "CAS draft created.");
     await audit(actor, "CAS_CREATE", "cas_applications", application._id.toString(), undefined, {
         facultyId: application.facultyId,
         applicationYear: application.applicationYear,
@@ -774,7 +890,7 @@ export async function updateCasApplication(actor: SafeActor, id: string, rawInpu
     pushStatusLog(application, application.status, actor, "CAS application draft auto-saved.");
     await application.save();
     await upsertCasBreakup(application);
-    await upsertWorkflow("CAS", application._id.toString(), "Faculty", application.status, "CAS draft updated.");
+    await upsertWorkflow(application, actor, "CAS draft updated.");
     await audit(actor, "CAS_UPDATE", "cas_applications", application._id.toString(), oldState, application.toObject());
 
     return serializeCasApplication(application);
@@ -783,6 +899,7 @@ export async function updateCasApplication(actor: SafeActor, id: string, rawInpu
 export async function submitCasApplication(actor: SafeActor, id: string) {
     const application = await getCasApplicationDocumentById(actor, id);
     const facultyContext = actor.role === "Faculty" ? await ensureFacultyContext(actor.id) : null;
+    const workflowDefinition = await getActiveWorkflowDefinition("CAS");
 
     if (
         actor.role !== "Faculty" ||
@@ -822,13 +939,21 @@ export async function submitCasApplication(actor: SafeActor, id: string) {
         throw new AuthError("Upload all mandatory CAS documents before submission.", 400);
     }
 
-    application.status = "Submitted";
+    const submitTransition = resolveWorkflowTransition(workflowDefinition, application.status, "submit");
+
+    application.status = submitTransition.status as CasStatus;
     application.submittedAt = new Date();
-    pushStatusLog(application, "Submitted", actor, "Faculty submitted CAS application.");
+    pushStatusLog(
+        application,
+        submitTransition.status as CasStatus,
+        actor,
+        "Faculty submitted CAS application."
+    );
     await application.save();
     await upsertCasBreakup(application);
-    await upsertWorkflow("CAS", application._id.toString(), "Director", application.status, "CAS submitted.");
+    await upsertWorkflow(application, actor, "CAS submitted.", "submit");
     await audit(actor, "CAS_SUBMIT", "cas_applications", application._id.toString());
+    await notifyCasStageAssignment(application, submitTransition.stage, actor);
 
     return serializeCasApplication(application);
 }
@@ -836,93 +961,106 @@ export async function submitCasApplication(actor: SafeActor, id: string) {
 export async function reviewCasApplication(actor: SafeActor, id: string, rawInput: unknown) {
     const input = casReviewSchema.parse(rawInput);
     const application = await getCasApplicationDocumentById(actor, id);
+    const workflowDefinition = await getActiveWorkflowDefinition("CAS");
+    const canReview = await canActorProcessWorkflowStage({
+        actor,
+        moduleName: "CAS",
+        recordId: application._id.toString(),
+        status: application.status,
+        subjectDepartmentName: await getCasWorkflowDepartmentName(application),
+        stageKinds: ["review"],
+    });
 
-    const faculty = await getUserForApplication(application);
-    const headedDepartment = await getDepartmentHeadedByUser(actor.id);
-    const isDepartmentHead =
-        Boolean(headedDepartment) && faculty.department === headedDepartment?.name;
-    const isCommitteeReviewer = actor.role === "Admin" || actor.role === "Director";
-
-    if (!isDepartmentHead && !isCommitteeReviewer) {
+    if (!canReview) {
         throw new AuthError("You are not authorized to review this CAS application.", 403);
     }
 
-    if (!["Submitted", "Under Review"].includes(application.status)) {
+    const currentStage = getWorkflowStageByStatus(workflowDefinition, application.status);
+    if (!currentStage || currentStage.kind !== "review") {
         throw new AuthError("Only submitted or under-review CAS applications can be reviewed.", 409);
     }
 
     const reviewStage =
-        application.status === "Submitted" ? "Department Head" : "CAS Committee";
-
-    if (reviewStage === "Department Head" && !isDepartmentHead && actor.role !== "Director") {
-        throw new AuthError("This CAS application is waiting for department-level review.", 403);
-    }
-
-    if (reviewStage === "CAS Committee" && !isCommitteeReviewer) {
-        throw new AuthError("This CAS application is waiting for committee review.", 403);
-    }
+        currentStage.key === "department_head_review" ? "Department Head" : "CAS Committee";
+    const reviewTransition = resolveWorkflowTransition(
+        workflowDefinition,
+        application.status,
+        input.decision === "Reject" ? "reject" : "approve"
+    );
 
     if (input.decision === "Reject") {
-        application.status = "Rejected";
+        application.status = reviewTransition.status as CasStatus;
         await recordCasCommitteeReview(application, actor, input, reviewStage);
         pushStatusLog(application, "Rejected", actor, input.remarks);
         await application.save();
-        await upsertWorkflow("CAS", application._id.toString(), actor.role, application.status, input.remarks);
+        await upsertWorkflow(application, actor, input.remarks, "reject");
         await audit(actor, "CAS_REVIEW_REJECT", "cas_applications", application._id.toString(), undefined, {
             status: application.status,
             remarks: input.remarks,
         });
+        await notifyCasFacultyOutcome(application, actor, "Reject");
         return serializeCasApplication(application);
     }
 
-    const nextStatus: CasStatus =
-        application.status === "Submitted"
-            ? "Under Review"
-            : "Committee Review";
+    const nextStatus = reviewTransition.status as CasStatus;
 
     application.status = nextStatus;
     await recordCasCommitteeReview(application, actor, input, reviewStage);
     pushStatusLog(application, nextStatus, actor, input.remarks);
     await application.save();
-    await upsertWorkflow(
-        "CAS",
-        application._id.toString(),
-        nextStatus === "Under Review" ? "Director" : "Admin",
-        application.status,
-        input.remarks
-    );
+    await upsertWorkflow(application, actor, input.remarks, "approve");
     await audit(actor, "CAS_REVIEW", "cas_applications", application._id.toString(), undefined, {
         status: application.status,
         remarks: input.remarks,
     });
+    await notifyCasStageAssignment(application, reviewTransition.stage, actor);
 
     return serializeCasApplication(application);
 }
 
 export async function approveCasApplication(actor: SafeActor, id: string, rawInput: unknown) {
     const input = casApprovalSchema.parse(rawInput);
+    const workflowDefinition = await getActiveWorkflowDefinition("CAS");
 
     if (actor.role !== "Admin") {
         throw new AuthError("Only admin users can finalize CAS approval.", 403);
     }
 
     const application = await getCasApplicationDocumentById(actor, id);
+    const canFinalize = await canActorProcessWorkflowStage({
+        actor,
+        moduleName: "CAS",
+        recordId: application._id.toString(),
+        status: application.status,
+        subjectDepartmentName: await getCasWorkflowDepartmentName(application),
+        stageKinds: ["final"],
+    });
 
-    if (application.status !== "Committee Review") {
+    if (!canFinalize) {
         throw new AuthError("Only committee-reviewed CAS applications can be finalized.", 409);
     }
 
-    application.status = input.decision === "Approve" ? "Approved" : "Rejected";
+    application.status = resolveWorkflowTransition(
+        workflowDefinition,
+        application.status,
+        input.decision === "Approve" ? "approve" : "reject"
+    ).status as CasStatus;
     await recordCasCommitteeReview(application, actor, input, "Admin");
     pushStatusLog(application, application.status, actor, input.remarks);
     await application.save();
     await upsertCasBreakup(application);
-    await upsertWorkflow("CAS", application._id.toString(), actor.role, application.status, input.remarks);
+    await upsertWorkflow(
+        application,
+        actor,
+        input.remarks,
+        input.decision === "Approve" ? "approve" : "reject"
+    );
     await audit(actor, "CAS_APPROVE", "cas_applications", application._id.toString(), undefined, {
         status: application.status,
         decision: input.decision,
         remarks: input.remarks,
     });
+    await notifyCasFacultyOutcome(application, actor, input.decision);
 
     if (application.status === "Approved") {
         await CasPromotionHistory.create({
@@ -968,23 +1106,9 @@ export async function getCasDocuments(actor: SafeActor, id: string) {
 export async function getCasWorkflowStatus(actor: SafeActor, id: string) {
     await dbConnect();
     const application = await getCasApplicationDocumentById(actor, id);
+    await upsertWorkflow(application, undefined);
 
-    const workflow = await ApprovalWorkflow.findOne({
-        moduleName: "CAS",
-        recordId: application._id.toString(),
-    }).lean();
-
-    return workflow
-        ? {
-            moduleName: workflow.moduleName,
-            recordId: workflow.recordId,
-            currentApproverRole: workflow.currentApproverRole,
-            status: workflow.status,
-            remarks: workflow.remarks,
-            createdAt: workflow.createdAt,
-            updatedAt: workflow.updatedAt,
-        }
-        : null;
+    return getWorkflowInstanceStatus("CAS", application._id.toString());
 }
 
 export async function saveCasDocument(
@@ -1025,32 +1149,19 @@ export async function saveCasDocument(
 export async function getCasReviewQueue(actor: SafeActor) {
     await dbConnect();
     await ensureCasPromotionRules();
-
-    if (actor.role === "Admin") {
-        return CasApplication.find({
-            status: "Committee Review",
-        }).sort({ updatedAt: -1 });
-    }
-
-    if (actor.role === "Director") {
-        return CasApplication.find({
-            status: { $in: ["Submitted", "Under Review"] },
-        }).sort({ updatedAt: -1 });
-    }
-
-    const headedDepartment = await getDepartmentHeadedByUser(actor.id);
-
-    if (!headedDepartment) {
-        return [];
-    }
-
-    const departments = await Department.find({ name: headedDepartment.name }).select("_id");
-    const facultyUsers = await Faculty.find({
-        departmentId: { $in: departments.map((item) => item._id) },
-    }).select("_id");
-
-    return CasApplication.find({
-        facultyId: { $in: facultyUsers.map((item) => item._id) },
-        status: { $in: ["Submitted", "Under Review"] },
+    const workflowDefinition = await getActiveWorkflowDefinition("CAS");
+    const applications = await CasApplication.find({
+        status: { $in: getWorkflowPendingStatuses(workflowDefinition) },
     }).sort({ updatedAt: -1 });
+
+    await Promise.all(applications.map((application) => upsertWorkflow(application, undefined)));
+
+    const recordIds = await listPendingWorkflowRecordIds({
+        actor,
+        moduleName: "CAS",
+        stageKinds: actor.role === "Admin" ? ["final"] : ["review"],
+    });
+    const recordIdSet = new Set(recordIds);
+
+    return applications.filter((application) => recordIdSet.has(application._id.toString()));
 }

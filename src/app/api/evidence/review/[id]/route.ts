@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getRequestAuditContext } from "@/lib/audit/request";
 import { createApiErrorResponse } from "@/lib/auth/http";
 import { getCurrentUser } from "@/lib/auth/user";
 import { updateEvidenceVerification } from "@/lib/evidence/service";
@@ -26,7 +27,12 @@ export async function PATCH(
         const { id } = await context.params;
 
         const document = await updateEvidenceVerification(
-            { id: user.id, name: user.name, role: user.role },
+            {
+                id: user.id,
+                name: user.name,
+                role: user.role,
+                auditContext: getRequestAuditContext(request),
+            },
             id,
             body.status,
             body.remarks

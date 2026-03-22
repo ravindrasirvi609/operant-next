@@ -1,3 +1,4 @@
+import { createAuditLog, type AuditActor, type AuditRequestContext } from "@/lib/audit/service";
 import dbConnect from "@/lib/dbConnect";
 import { facultyRecordSchema } from "@/lib/faculty/validators";
 import { ensureFacultyContext } from "@/lib/faculty/migration";
@@ -631,8 +632,13 @@ export async function getFacultyWorkspace(userId: string) {
     };
 }
 
-export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
+export async function saveFacultyWorkspace(
+    userId: string,
+    rawInput: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     const input = facultyRecordSchema.parse(rawInput);
+    const previousWorkspace = options?.actor ? await getFacultyWorkspace(userId) : null;
     const { user, faculty } = await ensureFacultyContext(userId);
 
     faculty.employeeCode = input.employeeCode?.trim() || faculty.employeeCode;
@@ -1045,6 +1051,18 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
     });
 
     const workspace = await getFacultyWorkspace(userId);
+
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "FACULTY_WORKSPACE_SAVE",
+            tableName: "faculty_workspace",
+            recordId: faculty._id.toString(),
+            oldData: previousWorkspace?.facultyRecord,
+            newData: workspace.facultyRecord,
+            auditContext: options.auditContext,
+        });
+    }
 
     return {
         user: workspace.user,

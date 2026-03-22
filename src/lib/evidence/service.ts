@@ -1,7 +1,9 @@
 import { Types } from "mongoose";
 
+import { createAuditLog, type AuditRequestContext } from "@/lib/audit/service";
 import dbConnect from "@/lib/dbConnect";
 import { AuthError } from "@/lib/auth/errors";
+import { notifyUser } from "@/lib/notifications/service";
 import DocumentModel from "@/models/reference/document";
 import Organization from "@/models/core/organization";
 import Department from "@/models/reference/department";
@@ -20,6 +22,7 @@ type SafeActor = {
     id: string;
     name: string;
     role: string;
+    auditContext?: AuditRequestContext;
 };
 
 type EvidenceStatus = "Pending" | "Verified" | "Rejected" | "All";
@@ -45,6 +48,25 @@ type EvidenceItem = {
         verificationStatus?: string;
         verificationRemarks?: string;
     };
+};
+
+export type EvidenceDashboardSummary = {
+    totalItems: number;
+    pendingCount: number;
+    verifiedCount: number;
+    rejectedCount: number;
+    departmentCount: number;
+    recentUploadsCount: number;
+    stalePendingCount: number;
+    recordTypeBreakdown: Array<{
+        label: string;
+        count: number;
+    }>;
+    departmentBreakdown: Array<{
+        label: string;
+        count: number;
+        pendingCount: number;
+    }>;
 };
 
 async function getDepartmentHeadedByUser(userId: string) {
@@ -275,6 +297,57 @@ export async function listStudentEvidenceForReview(
         .sort((a, b) => (b.document.uploadedAt?.getTime() ?? 0) - (a.document.uploadedAt?.getTime() ?? 0));
 }
 
+export async function getEvidenceDashboardSummary(actor: SafeActor): Promise<EvidenceDashboardSummary> {
+    const items = await listStudentEvidenceForReview(actor, "All");
+    const now = Date.now();
+    const recordTypeCounts = new Map<string, number>();
+    const departmentCounts = new Map<string, { count: number; pendingCount: number }>();
+
+    for (const item of items) {
+        const recordKey = item.recordType || "other";
+        recordTypeCounts.set(recordKey, (recordTypeCounts.get(recordKey) ?? 0) + 1);
+
+        const departmentKey = item.student.departmentName?.trim() || "Unassigned";
+        const current = departmentCounts.get(departmentKey) ?? { count: 0, pendingCount: 0 };
+        current.count += 1;
+        if (item.document.verificationStatus === "Pending") {
+            current.pendingCount += 1;
+        }
+        departmentCounts.set(departmentKey, current);
+    }
+
+    return {
+        totalItems: items.length,
+        pendingCount: items.filter((item) => item.document.verificationStatus === "Pending").length,
+        verifiedCount: items.filter((item) => item.document.verificationStatus === "Verified").length,
+        rejectedCount: items.filter((item) => item.document.verificationStatus === "Rejected").length,
+        departmentCount: new Set(
+            items.map((item) => item.student.departmentName?.trim()).filter(Boolean)
+        ).size,
+        recentUploadsCount: items.filter((item) => {
+            const uploadedAt = item.document.uploadedAt ? new Date(item.document.uploadedAt).getTime() : 0;
+            return uploadedAt >= now - 7 * 24 * 60 * 60 * 1000;
+        }).length,
+        stalePendingCount: items.filter((item) => {
+            if (item.document.verificationStatus !== "Pending" || !item.document.uploadedAt) {
+                return false;
+            }
+
+            return new Date(item.document.uploadedAt).getTime() < now - 7 * 24 * 60 * 60 * 1000;
+        }).length,
+        recordTypeBreakdown: Array.from(recordTypeCounts.entries())
+            .map(([label, count]) => ({ label, count }))
+            .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label)),
+        departmentBreakdown: Array.from(departmentCounts.entries())
+            .map(([label, counts]) => ({
+                label,
+                count: counts.count,
+                pendingCount: counts.pendingCount,
+            }))
+            .sort((left, right) => right.pendingCount - left.pendingCount || right.count - left.count),
+    };
+}
+
 async function ensureStudentEvidence(documentId: string, departmentId?: string) {
     const query = { documentId: new Types.ObjectId(documentId) };
     const studentFilter = departmentId
@@ -322,6 +395,9 @@ export async function updateEvidenceVerification(
         throw new AuthError("Document not found.", 404);
     }
 
+    const oldState = document.toObject();
+    const previousStatus = document.verificationStatus;
+
     document.verificationStatus = status;
     document.verified = status === "Verified";
     document.verifiedBy = new Types.ObjectId(actor.id);
@@ -329,6 +405,36 @@ export async function updateEvidenceVerification(
     document.verificationRemarks = remarks?.trim() || undefined;
 
     await document.save();
+
+    await createAuditLog({
+        actor,
+        action: status === "Verified" ? "EVIDENCE_VERIFY" : "EVIDENCE_REJECT",
+        tableName: "documents",
+        recordId: document._id.toString(),
+        oldData: oldState,
+        newData: document.toObject(),
+        auditContext: actor.auditContext,
+    });
+
+    if (document.uploadedBy && previousStatus !== status) {
+        await notifyUser({
+            userId: document.uploadedBy.toString(),
+            kind: "document",
+            moduleName: "EVIDENCE",
+            entityId: document._id.toString(),
+            href: "/student/records",
+            title: status === "Verified" ? "Evidence verified" : "Evidence returned for changes",
+            message:
+                status === "Verified"
+                    ? `${actor.name} verified your uploaded evidence document.`
+                    : `${actor.name} rejected your uploaded evidence document${remarks?.trim() ? ` with remarks: ${remarks.trim()}` : "."}`,
+            actor,
+            metadata: {
+                reviewStatus: status,
+                verificationRemarks: remarks?.trim() || undefined,
+            },
+        });
+    }
 
     return document;
 }

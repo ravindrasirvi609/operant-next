@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getRequestAuditContext } from "@/lib/audit/request";
 import { createSystemUpdate, getSystemUpdates } from "@/lib/admin/system";
 import { createApiErrorResponse } from "@/lib/auth/http";
 import { assertAdminApiAccess } from "@/lib/auth/user";
@@ -17,9 +18,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
-        await assertAdminApiAccess();
+        const admin = await assertAdminApiAccess();
         const body = await request.json();
-        const item = await createSystemUpdate(body);
+        const item = await createSystemUpdate(body, {
+            actor: { id: admin.id, name: admin.name, role: admin.role },
+            auditContext: getRequestAuditContext(request),
+        });
 
         return NextResponse.json(item, { status: 201 });
     } catch (error) {

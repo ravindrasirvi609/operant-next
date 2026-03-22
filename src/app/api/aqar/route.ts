@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getRequestAuditContext } from "@/lib/audit/request";
 import { createApiErrorResponse } from "@/lib/auth/http";
 import { getCurrentUser } from "@/lib/auth/user";
 import { createAqarApplication } from "@/lib/aqar/service";
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
                 name: user.name,
                 role: user.role,
                 department: user.department,
+                auditContext: getRequestAuditContext(request),
             },
             body
         );

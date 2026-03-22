@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { createAuditLog, type AuditActor, type AuditRequestContext } from "@/lib/audit/service";
 import dbConnect from "@/lib/dbConnect";
 import { designationOptions, getAllowedCasPromotionTargets } from "@/lib/faculty/options";
 import CasPromotionRule from "@/models/core/cas-promotion-rule";
@@ -76,7 +77,10 @@ export async function getCasPromotionRules() {
         .lean();
 }
 
-export async function createCasPromotionRule(input: unknown) {
+export async function createCasPromotionRule(
+    input: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     await dbConnect();
 
     const data = casPromotionRuleSchema.parse(input);
@@ -92,10 +96,25 @@ export async function createCasPromotionRule(input: unknown) {
         isActive: data.isActive,
     });
 
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "CAS_RULE_CREATE",
+            tableName: "cas_promotion_rules",
+            recordId: rule._id.toString(),
+            newData: rule,
+            auditContext: options.auditContext,
+        });
+    }
+
     return rule;
 }
 
-export async function updateCasPromotionRule(id: string, input: unknown) {
+export async function updateCasPromotionRule(
+    id: string,
+    input: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     await dbConnect();
 
     const existing = await CasPromotionRule.findById(id);
@@ -103,6 +122,8 @@ export async function updateCasPromotionRule(id: string, input: unknown) {
     if (!existing) {
         throw new Error("CAS promotion rule not found.");
     }
+
+    const oldState = existing.toObject();
 
     const data = casPromotionRuleUpdateSchema.parse(input);
     const currentDesignation = data.currentDesignation ?? existing.currentDesignation;
@@ -133,16 +154,42 @@ export async function updateCasPromotionRule(id: string, input: unknown) {
 
     await existing.save();
 
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "CAS_RULE_UPDATE",
+            tableName: "cas_promotion_rules",
+            recordId: existing._id.toString(),
+            oldData: oldState,
+            newData: existing.toObject(),
+            auditContext: options.auditContext,
+        });
+    }
+
     return existing;
 }
 
-export async function deleteCasPromotionRule(id: string) {
+export async function deleteCasPromotionRule(
+    id: string,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     await dbConnect();
 
     const deleted = await CasPromotionRule.findByIdAndDelete(id);
 
     if (!deleted) {
         throw new Error("CAS promotion rule not found.");
+    }
+
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "CAS_RULE_DELETE",
+            tableName: "cas_promotion_rules",
+            recordId: deleted._id.toString(),
+            oldData: deleted,
+            auditContext: options.auditContext,
+        });
     }
 
     return deleted;

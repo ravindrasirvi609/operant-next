@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 
 import { createApiErrorResponse } from "@/lib/auth/http";
 import { getCurrentUser } from "@/lib/auth/user";
-import { listStudentEvidenceForReview } from "@/lib/evidence/service";
+import {
+    getEvidenceDashboardSummary,
+    listStudentEvidenceForReview,
+} from "@/lib/evidence/service";
 
 export async function GET(request: Request) {
     try {
@@ -18,12 +21,13 @@ export async function GET(request: Request) {
             | "Rejected"
             | "All";
 
-        const items = await listStudentEvidenceForReview(
-            { id: user.id, name: user.name, role: user.role },
-            status
-        );
+        const actor = { id: user.id, name: user.name, role: user.role };
+        const [items, summary] = await Promise.all([
+            listStudentEvidenceForReview(actor, status),
+            getEvidenceDashboardSummary(actor),
+        ]);
 
-        return NextResponse.json({ items });
+        return NextResponse.json({ items, summary });
     } catch (error) {
         return createApiErrorResponse(error);
     }

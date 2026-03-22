@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+import { createAuditLog, type AuditActor, type AuditRequestContext } from "@/lib/audit/service";
 import dbConnect from "@/lib/dbConnect";
 import { AuthError } from "@/lib/auth/errors";
 import AcademicYear from "@/models/reference/academic-year";
@@ -29,7 +30,10 @@ export async function listAcademicYears() {
     return AcademicYear.find({}).sort({ yearStart: -1 }).lean();
 }
 
-export async function createAcademicYear(rawInput: unknown) {
+export async function createAcademicYear(
+    rawInput: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     await dbConnect();
     const input = academicYearSchema.parse(rawInput);
 
@@ -51,13 +55,29 @@ export async function createAcademicYear(rawInput: unknown) {
         if (!created) {
             throw new AuthError("Academic year creation failed.", 500);
         }
-        return created;
+        const createdAcademicYear = created;
+        if (options?.actor) {
+            await createAuditLog({
+                actor: options.actor,
+                action: "ACADEMIC_YEAR_CREATE",
+                tableName: "academic_years",
+                recordId: String((createdAcademicYear as { _id: unknown })._id),
+                newData: createdAcademicYear,
+                auditContext: options.auditContext,
+            });
+        }
+
+        return createdAcademicYear;
     } finally {
         await session.endSession();
     }
 }
 
-export async function updateAcademicYear(id: string, rawInput: unknown) {
+export async function updateAcademicYear(
+    id: string,
+    rawInput: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     await dbConnect();
     const input = academicYearUpdateSchema.parse(rawInput);
 
@@ -65,6 +85,8 @@ export async function updateAcademicYear(id: string, rawInput: unknown) {
     if (!existing) {
         throw new AuthError("Academic year not found.", 404);
     }
+
+    const oldState = existing.toObject();
 
     const nextYearStart = input.yearStart ?? existing.yearStart;
     const nextYearEnd = input.yearEnd ?? existing.yearEnd;
@@ -93,13 +115,29 @@ export async function updateAcademicYear(id: string, rawInput: unknown) {
         if (!updated) {
             throw new AuthError("Academic year update failed.", 500);
         }
-        return updated;
+        const updatedAcademicYear = updated;
+        if (options?.actor) {
+            await createAuditLog({
+                actor: options.actor,
+                action: "ACADEMIC_YEAR_UPDATE",
+                tableName: "academic_years",
+                recordId: String((updatedAcademicYear as { _id: unknown })._id),
+                oldData: oldState,
+                newData: updatedAcademicYear,
+                auditContext: options.auditContext,
+            });
+        }
+
+        return updatedAcademicYear;
     } finally {
         await session.endSession();
     }
 }
 
-export async function deleteAcademicYear(id: string) {
+export async function deleteAcademicYear(
+    id: string,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     await dbConnect();
 
     const existing = await AcademicYear.findById(id).select("_id");
@@ -119,7 +157,19 @@ export async function deleteAcademicYear(id: string) {
         );
     }
 
+    const deletedState = existing.toObject();
     await AcademicYear.findByIdAndDelete(id);
+
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "ACADEMIC_YEAR_DELETE",
+            tableName: "academic_years",
+            recordId: id,
+            oldData: deletedState,
+            auditContext: options.auditContext,
+        });
+    }
 }
 
 export async function listPrograms() {
@@ -155,7 +205,10 @@ async function resolveRequiredAcademicYears(startYearStart: number, durationYear
     return existing;
 }
 
-export async function createProgram(rawInput: unknown) {
+export async function createProgram(
+    rawInput: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     await dbConnect();
     const input = programSchema.parse(rawInput) as ProgramInput;
 
@@ -230,16 +283,33 @@ export async function createProgram(rawInput: unknown) {
             throw new AuthError("Program creation failed.", 500);
         }
 
-        return Program.findById(createdProgramId)
+        const createdProgram = await Program.findById(createdProgramId)
             .populate("institutionId", "name")
             .populate("departmentId", "name")
             .populate("startAcademicYearId", "yearStart yearEnd isActive");
+
+        if (createdProgram && options?.actor) {
+            await createAuditLog({
+                actor: options.actor,
+                action: "PROGRAM_CREATE",
+                tableName: "programs",
+                recordId: createdProgram._id.toString(),
+                newData: createdProgram,
+                auditContext: options.auditContext,
+            });
+        }
+
+        return createdProgram;
     } finally {
         await session.endSession();
     }
 }
 
-export async function updateProgram(id: string, rawInput: unknown) {
+export async function updateProgram(
+    id: string,
+    rawInput: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     await dbConnect();
     const input = programUpdateSchema.parse(rawInput) as Partial<ProgramInput>;
 
@@ -247,6 +317,8 @@ export async function updateProgram(id: string, rawInput: unknown) {
     if (!program) {
         throw new AuthError("Program not found.", 404);
     }
+
+    const oldState = program.toObject();
 
     const semestersExist = await Semester.exists({ programId: program._id });
     if (
@@ -291,10 +363,25 @@ export async function updateProgram(id: string, rawInput: unknown) {
         throw new AuthError("Program update failed.", 500);
     }
 
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "PROGRAM_UPDATE",
+            tableName: "programs",
+            recordId: updated._id.toString(),
+            oldData: oldState,
+            newData: updated,
+            auditContext: options.auditContext,
+        });
+    }
+
     return updated;
 }
 
-export async function deleteProgram(id: string) {
+export async function deleteProgram(
+    id: string,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     await dbConnect();
 
     const existing = await Program.findById(id).select("_id");
@@ -315,7 +402,19 @@ export async function deleteProgram(id: string) {
         );
     }
 
+    const deletedState = existing.toObject();
     await Program.findByIdAndDelete(id);
+
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "PROGRAM_DELETE",
+            tableName: "programs",
+            recordId: id,
+            oldData: deletedState,
+            auditContext: options.auditContext,
+        });
+    }
 }
 
 export async function listSemesters() {
@@ -327,7 +426,10 @@ export async function listSemesters() {
         .lean();
 }
 
-export async function createSemester(rawInput: unknown) {
+export async function createSemester(
+    rawInput: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     await dbConnect();
     const input = semesterSchema.parse(rawInput) as SemesterInput;
 
@@ -356,12 +458,29 @@ export async function createSemester(rawInput: unknown) {
         semesterNumber: input.semesterNumber,
     });
 
-    return Semester.findById(semester._id)
+    const createdSemester = await Semester.findById(semester._id)
         .populate("programId", "name")
         .populate("academicYearId", "yearStart yearEnd");
+
+    if (createdSemester && options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "SEMESTER_CREATE",
+            tableName: "semesters",
+            recordId: createdSemester._id.toString(),
+            newData: createdSemester,
+            auditContext: options.auditContext,
+        });
+    }
+
+    return createdSemester;
 }
 
-export async function updateSemester(id: string, rawInput: unknown) {
+export async function updateSemester(
+    id: string,
+    rawInput: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     await dbConnect();
     const input = semesterUpdateSchema.parse(rawInput) as Partial<SemesterInput>;
 
@@ -369,6 +488,8 @@ export async function updateSemester(id: string, rawInput: unknown) {
     if (!existing) {
         throw new AuthError("Semester not found.", 404);
     }
+
+    const oldState = existing.toObject();
 
     const nextProgramId = input.programId ?? existing.programId.toString();
     const nextAcademicYearId = input.academicYearId ?? existing.academicYearId.toString();
@@ -396,10 +517,25 @@ export async function updateSemester(id: string, rawInput: unknown) {
         throw new AuthError("Semester update failed.", 500);
     }
 
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "SEMESTER_UPDATE",
+            tableName: "semesters",
+            recordId: updated._id.toString(),
+            oldData: oldState,
+            newData: updated,
+            auditContext: options.auditContext,
+        });
+    }
+
     return updated;
 }
 
-export async function deleteSemester(id: string) {
+export async function deleteSemester(
+    id: string,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     await dbConnect();
 
     const existing = await Semester.findById(id).select("_id");
@@ -415,7 +551,19 @@ export async function deleteSemester(id: string) {
         );
     }
 
+    const deletedState = existing.toObject();
     await Semester.findByIdAndDelete(id);
+
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "SEMESTER_DELETE",
+            tableName: "semesters",
+            recordId: id,
+            oldData: deletedState,
+            auditContext: options.auditContext,
+        });
+    }
 }
 
 export async function listCourses() {
@@ -431,7 +579,10 @@ export async function listCourses() {
         .lean();
 }
 
-export async function createCourse(rawInput: unknown) {
+export async function createCourse(
+    rawInput: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     await dbConnect();
     const input = courseSchema.parse(rawInput) as CourseInput;
 
@@ -464,16 +615,33 @@ export async function createCourse(rawInput: unknown) {
         semesterId: semester._id,
     });
 
-    return Course.findById(course._id)
+    const createdCourse = await Course.findById(course._id)
         .populate("programId", "name")
         .populate({
             path: "semesterId",
             select: "semesterNumber academicYearId",
             populate: { path: "academicYearId", select: "yearStart yearEnd" },
         });
+
+    if (createdCourse && options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "COURSE_CREATE",
+            tableName: "courses",
+            recordId: createdCourse._id.toString(),
+            newData: createdCourse,
+            auditContext: options.auditContext,
+        });
+    }
+
+    return createdCourse;
 }
 
-export async function updateCourse(id: string, rawInput: unknown) {
+export async function updateCourse(
+    id: string,
+    rawInput: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     await dbConnect();
     const input = courseUpdateSchema.parse(rawInput) as Partial<CourseInput>;
 
@@ -481,6 +649,8 @@ export async function updateCourse(id: string, rawInput: unknown) {
     if (!existing) {
         throw new AuthError("Course not found.", 404);
     }
+
+    const oldState = existing.toObject();
 
     const nextProgramId = input.programId ?? existing.programId.toString();
     const nextSemesterId = input.semesterId ?? existing.semesterId.toString();
@@ -525,16 +695,33 @@ export async function updateCourse(id: string, rawInput: unknown) {
         throw new AuthError("Course update failed.", 500);
     }
 
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "COURSE_UPDATE",
+            tableName: "courses",
+            recordId: updated._id.toString(),
+            oldData: oldState,
+            newData: updated,
+            auditContext: options.auditContext,
+        });
+    }
+
     return updated;
 }
 
-export async function deleteCourse(id: string) {
+export async function deleteCourse(
+    id: string,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     await dbConnect();
 
     const existing = await Course.findById(id).select("_id");
     if (!existing) {
         throw new AuthError("Course not found.", 404);
     }
+
+    const deletedState = existing.toObject();
 
     const hasTeachingLoads = await FacultyTeachingLoad.exists({ courseId: id });
     if (hasTeachingLoads) {
@@ -545,4 +732,15 @@ export async function deleteCourse(id: string) {
     }
 
     await Course.findByIdAndDelete(id);
+
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "COURSE_DELETE",
+            tableName: "courses",
+            recordId: id,
+            oldData: deletedState,
+            auditContext: options.auditContext,
+        });
+    }
 }

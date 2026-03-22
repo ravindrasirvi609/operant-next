@@ -44,6 +44,25 @@ type EvidenceItem = {
     };
 };
 
+type EvidenceSummary = {
+    totalItems: number;
+    pendingCount: number;
+    verifiedCount: number;
+    rejectedCount: number;
+    departmentCount: number;
+    recentUploadsCount: number;
+    stalePendingCount: number;
+    recordTypeBreakdown: Array<{
+        label: string;
+        count: number;
+    }>;
+    departmentBreakdown: Array<{
+        label: string;
+        count: number;
+        pendingCount: number;
+    }>;
+};
+
 const STATUS_OPTIONS = ["Pending", "Rejected", "Verified", "All"] as const;
 
 function formatDate(value?: string) {
@@ -66,6 +85,7 @@ function statusBadge(status?: string) {
 export function EvidenceReviewBoard() {
     const [status, setStatus] = useState<(typeof STATUS_OPTIONS)[number]>("Pending");
     const [items, setItems] = useState<EvidenceItem[]>([]);
+    const [summary, setSummary] = useState<EvidenceSummary | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
     const [remarks, setRemarks] = useState<Record<string, string>>({});
@@ -74,11 +94,16 @@ export function EvidenceReviewBoard() {
         startTransition(async () => {
             try {
                 const res = await fetch(`/api/evidence/review?status=${status}`);
-                const data = (await res.json()) as { items?: EvidenceItem[]; message?: string };
+                const data = (await res.json()) as {
+                    items?: EvidenceItem[];
+                    summary?: EvidenceSummary;
+                    message?: string;
+                };
                 if (!res.ok) {
                     throw new Error(data.message ?? "Unable to load evidence queue.");
                 }
                 setItems(data.items ?? []);
+                setSummary(data.summary ?? null);
                 setError(null);
             } catch (err) {
                 setError(err instanceof Error ? err.message : "Unable to load evidence queue.");
@@ -126,6 +151,41 @@ export function EvidenceReviewBoard() {
 
     return (
         <div className="space-y-6">
+            {summary ? (
+                <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <DashboardMetric
+                        label="Total documents"
+                        value={summary.totalItems}
+                        helper="All uploaded evidence linked to student records"
+                    />
+                    <DashboardMetric
+                        label="Pending review"
+                        value={summary.pendingCount}
+                        helper="Verification items still waiting for action"
+                    />
+                    <DashboardMetric
+                        label="Verified"
+                        value={summary.verifiedCount}
+                        helper="Evidence approved by reviewers"
+                    />
+                    <DashboardMetric
+                        label="Rejected"
+                        value={summary.rejectedCount}
+                        helper="Evidence returned for changes"
+                    />
+                    <DashboardMetric
+                        label="Departments"
+                        value={summary.departmentCount}
+                        helper="Departments represented in the queue"
+                    />
+                    <DashboardMetric
+                        label="Stale pending"
+                        value={summary.stalePendingCount}
+                        helper={`${summary.recentUploadsCount} new upload(s) in the last 7 days`}
+                    />
+                </section>
+            ) : null}
+
             <Card className="border-zinc-200 bg-white shadow-sm">
                 <CardHeader>
                     <CardTitle>Student Evidence Verification</CardTitle>
@@ -149,6 +209,59 @@ export function EvidenceReviewBoard() {
                     {error ? <span className="text-sm text-rose-600">{error}</span> : null}
                 </CardContent>
             </Card>
+
+            {summary ? (
+                <section className="grid gap-6 xl:grid-cols-2">
+                    <Card className="border-zinc-200 bg-white shadow-sm">
+                        <CardHeader>
+                            <CardTitle>By Record Type</CardTitle>
+                            <CardDescription>
+                                Which student modules are creating the most verification work.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {summary.recordTypeBreakdown.slice(0, 6).map((entry) => (
+                                <div
+                                    key={entry.label}
+                                    className="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3"
+                                >
+                                    <span className="text-sm font-medium capitalize text-zinc-900">
+                                        {entry.label}
+                                    </span>
+                                    <Badge variant="secondary">{entry.count}</Badge>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-zinc-200 bg-white shadow-sm">
+                        <CardHeader>
+                            <CardTitle>Department Backlog</CardTitle>
+                            <CardDescription>
+                                Departments with the largest pending verification load right now.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {summary.departmentBreakdown.slice(0, 6).map((entry) => (
+                                <div
+                                    key={entry.label}
+                                    className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3"
+                                >
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span className="text-sm font-medium text-zinc-900">
+                                            {entry.label}
+                                        </span>
+                                        <Badge variant="secondary">{entry.count} total</Badge>
+                                    </div>
+                                    <p className="mt-2 text-xs text-zinc-500">
+                                        {entry.pendingCount} pending verification item(s)
+                                    </p>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                </section>
+            ) : null}
 
             <Card className="border-zinc-200 bg-white shadow-sm">
                 <CardHeader>
@@ -244,5 +357,27 @@ export function EvidenceReviewBoard() {
                 </CardContent>
             </Card>
         </div>
+    );
+}
+
+function DashboardMetric({
+    label,
+    value,
+    helper,
+}: {
+    label: string;
+    value: number;
+    helper: string;
+}) {
+    return (
+        <Card className="border-zinc-200 bg-white shadow-sm">
+            <CardContent className="p-5">
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
+                    {label}
+                </p>
+                <p className="mt-2 text-3xl font-semibold text-zinc-950">{value}</p>
+                <p className="mt-2 text-xs text-zinc-500">{helper}</p>
+            </CardContent>
+        </Card>
     );
 }

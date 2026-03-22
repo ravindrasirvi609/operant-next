@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 
+import { createAuditLog, type AuditRequestContext } from "@/lib/audit/service";
 import dbConnect from "@/lib/dbConnect";
 import { AuthError } from "@/lib/auth/errors";
 import AqarApplication from "@/models/core/aqar-application";
@@ -33,11 +34,20 @@ import StudentSkill from "@/models/student/student-skill";
 import StudentSocialParticipation from "@/models/student/student-social-participation";
 import StudentSport from "@/models/student/student-sport";
 import Semester from "@/models/reference/semester";
+import {
+    getNaacCriterionMeta,
+    getNaacMetricMeta,
+} from "@/lib/naac-criteria-mapping/catalog";
+import {
+    ensureNaacCriteriaMappingsSeeded,
+    listNaacCriteriaMappings,
+} from "@/lib/naac-criteria-mapping/service";
 
 type SafeActor = {
     id: string;
     name: string;
     role: string;
+    auditContext?: AuditRequestContext;
 };
 
 function ensureAdmin(actor: SafeActor) {
@@ -75,6 +85,14 @@ function criterionStatus(completionPercent: number): "Pending" | "Ready" | "Revi
     if (completionPercent >= 75) return "Ready";
     if (completionPercent > 0) return "Pending";
     return "Pending";
+}
+
+function isMetricValuePopulated(value: number | string | undefined) {
+    if (typeof value === "number") {
+        return value > 0;
+    }
+
+    return String(value ?? "").trim().length > 0;
 }
 
 function parseAcademicYearRange(academicYear: string) {
@@ -318,6 +336,19 @@ export async function createAqarCycle(
         ],
     });
 
+    await createAuditLog({
+        actor,
+        action: "AQAR_CYCLE_CREATE",
+        tableName: "aqar_cycles",
+        recordId: cycle._id.toString(),
+        newData: {
+            academicYear: cycle.academicYear,
+            reportingPeriod: cycle.reportingPeriod,
+            status: cycle.status,
+        },
+        auditContext: actor.auditContext,
+    });
+
     return cycle;
 }
 
@@ -344,6 +375,8 @@ async function buildCriteriaSections(academicYear: string): Promise<{
     summaryMetrics: InstanceType<typeof AqarCycle>["summaryMetrics"];
     criteriaSections: IAqarCycleCriterion[];
 }> {
+    await ensureNaacCriteriaMappingsSeeded();
+    const range = parseAcademicYearRange(academicYear);
     const [
         facultyCount,
         studentCount,
@@ -369,6 +402,8 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         collaborations,
         activeOfficeMasters,
         systemUpdates,
+        leadershipUsers,
+        mappings,
     ] = await Promise.all([
         User.countDocuments({ role: "Faculty", isActive: true }),
         User.countDocuments({ role: "Student", isActive: true }),
@@ -387,8 +422,8 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         }),
         CasApplication.countDocuments({ applicationYear: academicYear }),
         AqarApplication.countDocuments({ academicYear }),
-        Placement.countDocuments(buildInRangeOrCreatedFilter("offerDate", parseAcademicYearRange(academicYear), "joiningDate")),
-        Internship.countDocuments(buildInRangeOrCreatedFilter("startDate", parseAcademicYearRange(academicYear), "endDate")),
+        Placement.countDocuments(buildInRangeOrCreatedFilter("offerDate", range, "joiningDate")),
+        Internship.countDocuments(buildInRangeOrCreatedFilter("startDate", range, "endDate")),
         Publication.countDocuments({ year: academicYear }),
         Publication.countDocuments({ year: academicYear, type: { $in: ["Book", "BookChapter"] } }),
         Project.countDocuments(),
@@ -397,6 +432,8 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         Project.countDocuments({ type: "Collaboration" }),
         MasterData.countDocuments({ category: "office", isActive: true }),
         SystemMisc.countDocuments({ isActive: true }),
+        User.countDocuments({ role: { $in: ["Admin", "Director", "PRO", "Placement"] } }),
+        listNaacCriteriaMappings(),
     ]);
 
     const averageCoursesTaught =
@@ -416,142 +453,123 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         facultyAdminRoles.length
     );
 
-    const criteriaSections: IAqarCycleCriterion[] = [
+    const metricRegistry = new Map<
+        string,
         {
-            criterionCode: "C1",
-            title: "Curricular Aspects",
-            summary: "Programs, departments, and curricular breadth captured from institutional academic structures.",
-            metrics: {
-                programsOffered: programCount,
-                departmentsReporting: departmentCount,
-                collegesReporting: collegeCount,
-                averageCoursesPerFaculty: averageCoursesTaught,
-            },
-            completionPercent: 0,
-            status: "Pending",
-            sourceSnapshots: [
-                { sourceType: "Program", label: "Academic programs", count: programCount },
-                { sourceType: "Organization", label: "Departments", count: departmentCount },
-                { sourceType: "Organization", label: "Colleges", count: collegeCount },
-            ],
-        },
-        {
-            criterionCode: "C2",
-            title: "Teaching, Learning and Evaluation",
-            summary: "Faculty teaching capacity, student base, and approved annual academic reporting indicators.",
-            metrics: {
-                totalFaculty: facultyCount,
-                totalStudents: studentCount,
-                activeStudents: activeStudentCount,
-                approvedPbasReports: approvedPbasCount,
-            },
-            completionPercent: 0,
-            status: "Pending",
-            sourceSnapshots: [
-                { sourceType: "User", label: "Active faculty", count: facultyCount },
-                { sourceType: "Student", label: "Active student records", count: activeStudentCount },
-                { sourceType: "PBAS", label: "PBAS reports linked", count: approvedPbasCount },
-            ],
-        },
-        {
-            criterionCode: "C3",
-            title: "Research, Innovations and Extension",
-            summary: "Institutional research output and extension activity aggregated from PBAS, AQAR, publication, and project modules.",
-            metrics: {
-                facultyPublications: publications,
-                booksAndChapters: books + facultyPublications,
-                projectsAndMoUs: projects + facultyProjects,
-                facultyAqarContributions,
-            },
-            completionPercent: 0,
-            status: "Pending",
-            sourceSnapshots: [
-                { sourceType: "Publication", label: "Research publications", count: publications },
-                { sourceType: "Project", label: "Projects and MoUs", count: projects },
-                { sourceType: "AQARContribution", label: "Faculty AQAR entries", count: facultyAqarContributions },
-            ],
-        },
-        {
-            criterionCode: "C4",
-            title: "Infrastructure and Learning Resources",
-            summary: "Organizational learning-resource readiness and institutional support structures available for accreditation reporting.",
-            metrics: {
-                universities: universityCount,
-                colleges: collegeCount,
-                departments: departmentCount,
-                officesAndSupportUnits: activeOfficeMasters,
-            },
-            completionPercent: 0,
-            status: "Pending",
-            sourceSnapshots: [
-                { sourceType: "Organization", label: "Universities", count: universityCount },
-                { sourceType: "Organization", label: "Colleges", count: collegeCount },
-                { sourceType: "MasterData", label: "Administrative offices", count: activeOfficeMasters },
-            ],
-        },
-        {
-            criterionCode: "C5",
-            title: "Student Support and Progression",
-            summary: "Student progression indicators aggregated from the active student placement and internship records.",
-            metrics: {
-                placements,
-                internships,
-                activeStudents: activeStudentCount,
-            },
-            completionPercent: 0,
-            status: "Pending",
-            sourceSnapshots: [
-                { sourceType: "Placement", label: "Placement records", count: placements },
-                { sourceType: "Internship", label: "Internship records", count: internships },
-                { sourceType: "Student", label: "Active student records", count: activeStudentCount },
-            ],
-        },
-        {
-            criterionCode: "C6",
-            title: "Governance, Leadership and Management",
-            summary: "Leadership and quality-governance readiness synthesized from users, responsibilities, and operational notices.",
-            metrics: {
-                adminAndLeadershipUsers: await User.countDocuments({ role: { $in: ["Admin", "Director", "PRO", "Placement"] } }),
-                administrativeResponsibilities: totalAdministrativeResponsibilities,
-                activeSystemUpdates: systemUpdates,
-                casApplications: casCount,
-            },
-            completionPercent: 0,
-            status: "Pending",
-            sourceSnapshots: [
-                { sourceType: "User", label: "Leadership roles", count: await User.countDocuments({ role: { $in: ["Admin", "Director", "PRO", "Placement"] } }) },
-                { sourceType: "FacultyProfile", label: "Administrative responsibilities", count: totalAdministrativeResponsibilities },
-                { sourceType: "SystemMisc", label: "Operational notices", count: systemUpdates },
-            ],
-        },
-        {
-            criterionCode: "C7",
-            title: "Institutional Values and Best Practices",
-            summary: "Institutional values, best practices, and outreach indicators built from AQAR quality narratives and collaboration footprints.",
-            metrics: {
-                qualifiedFacultyProfiles: qualifiedFaculty,
-                collaborations,
-                facultyAqarNarratives: facultyAqarContributions,
-                outreachIndicators: placements + internships,
-            },
-            completionPercent: 0,
-            status: "Pending",
-            sourceSnapshots: [
-                { sourceType: "FacultyProfile", label: "Faculty with qualification records", count: qualifiedFaculty },
-                { sourceType: "Project", label: "Collaborations", count: collaborations },
-                { sourceType: "AQARContribution", label: "AQAR narratives", count: facultyAqarContributions },
-            ],
-        },
-    ];
+            tableName: string;
+            fieldReference: string;
+            value: number | string;
+        }
+    >([
+        ["Program:programsOffered", { tableName: "Program", fieldReference: "programsOffered", value: programCount }],
+        ["Organization:departmentsReporting", { tableName: "Organization", fieldReference: "departmentsReporting", value: departmentCount }],
+        ["Organization:collegesReporting", { tableName: "Organization", fieldReference: "collegesReporting", value: collegeCount }],
+        ["FacultyTeachingLoad:averageCoursesPerFaculty", { tableName: "FacultyTeachingLoad", fieldReference: "averageCoursesPerFaculty", value: averageCoursesTaught }],
+        ["User:totalFaculty", { tableName: "User", fieldReference: "totalFaculty", value: facultyCount }],
+        ["User:totalStudents", { tableName: "User", fieldReference: "totalStudents", value: studentCount }],
+        ["Student:activeStudents", { tableName: "Student", fieldReference: "activeStudents", value: activeStudentCount }],
+        ["FacultyPbasForm:approvedPbasReports", { tableName: "FacultyPbasForm", fieldReference: "approvedPbasReports", value: approvedPbasCount }],
+        ["Publication:facultyPublications", { tableName: "Publication", fieldReference: "facultyPublications", value: publications }],
+        ["Publication:booksAndChapters", { tableName: "Publication", fieldReference: "booksAndChapters", value: books + facultyPublications }],
+        ["Project:projectsAndMoUs", { tableName: "Project", fieldReference: "projectsAndMoUs", value: projects + facultyProjects }],
+        ["AqarApplication:facultyAqarContributions", { tableName: "AqarApplication", fieldReference: "facultyAqarContributions", value: facultyAqarContributions }],
+        ["Organization:universities", { tableName: "Organization", fieldReference: "universities", value: universityCount }],
+        ["Organization:colleges", { tableName: "Organization", fieldReference: "colleges", value: collegeCount }],
+        ["Organization:departments", { tableName: "Organization", fieldReference: "departments", value: departmentCount }],
+        ["MasterData:officesAndSupportUnits", { tableName: "MasterData", fieldReference: "officesAndSupportUnits", value: activeOfficeMasters }],
+        ["Placement:placements", { tableName: "Placement", fieldReference: "placements", value: placements }],
+        ["Internship:internships", { tableName: "Internship", fieldReference: "internships", value: internships }],
+        ["User:adminAndLeadershipUsers", { tableName: "User", fieldReference: "adminAndLeadershipUsers", value: leadershipUsers }],
+        ["Faculty:administrativeResponsibilities", { tableName: "Faculty", fieldReference: "administrativeResponsibilities", value: totalAdministrativeResponsibilities }],
+        ["SystemMisc:activeSystemUpdates", { tableName: "SystemMisc", fieldReference: "activeSystemUpdates", value: systemUpdates }],
+        ["CasApplication:casApplications", { tableName: "CasApplication", fieldReference: "casApplications", value: casCount }],
+        ["FacultyQualification:qualifiedFacultyProfiles", { tableName: "FacultyQualification", fieldReference: "qualifiedFacultyProfiles", value: qualifiedFaculty }],
+        ["Project:collaborations", { tableName: "Project", fieldReference: "collaborations", value: collaborations }],
+        ["AqarApplication:facultyAqarNarratives", { tableName: "AqarApplication", fieldReference: "facultyAqarNarratives", value: facultyAqarContributions }],
+        ["StudentProgression:outreachIndicators", { tableName: "StudentProgression", fieldReference: "outreachIndicators", value: placements + internships }],
+    ]);
 
-    const finalizedCriteria = criteriaSections.map((criterion) => {
-        const completionPercent = metricCompletion(criterion.metrics);
-        return {
-            ...criterion,
-            completionPercent,
-            status: criterionStatus(completionPercent),
+    const groupedCriteria = new Map<string, {
+        title: string;
+        summary: string;
+        metrics: Record<string, number | string>;
+        sourceSnapshots: IAqarCycleCriterion["sourceSnapshots"];
+        completionWeight: number;
+        totalWeight: number;
+    }>();
+
+    for (const mapping of mappings) {
+        const criterionMeta = getNaacCriterionMeta(mapping.criteriaCode);
+        const metricMeta = getNaacMetricMeta(mapping.tableName, mapping.fieldReference);
+        const metricValue = metricRegistry.get(`${mapping.tableName}:${mapping.fieldReference}`)?.value ?? 0;
+        const weight = Number(mapping.weightage ?? 0) || 1;
+        const current = groupedCriteria.get(mapping.criteriaCode) ?? {
+            title: mapping.criteriaName,
+            summary:
+                criterionMeta?.summary ??
+                `${mapping.criteriaName} auto-generated from configured NAAC source mappings.`,
+            metrics: {},
+            sourceSnapshots: [],
+            completionWeight: 0,
+            totalWeight: 0,
         };
-    });
+
+        current.title = mapping.criteriaName;
+        current.metrics[mapping.fieldReference] = metricValue;
+        current.totalWeight += weight;
+        if (isMetricValuePopulated(metricValue)) {
+            current.completionWeight += weight;
+        }
+
+        const snapshotLabel =
+            metricMeta?.sourceLabel ??
+            mapping.fieldReference;
+        const snapshotSourceType =
+            metricMeta?.sourceType ??
+            mapping.tableName;
+
+        const existingSnapshot = current.sourceSnapshots.some(
+            (snapshot) =>
+                snapshot.sourceType === snapshotSourceType &&
+                snapshot.label === snapshotLabel
+        );
+
+        if (!existingSnapshot) {
+            current.sourceSnapshots.push(
+                typeof metricValue === "number"
+                    ? {
+                          sourceType: snapshotSourceType,
+                          label: snapshotLabel,
+                          count: metricValue,
+                      }
+                    : {
+                          sourceType: snapshotSourceType,
+                          label: snapshotLabel,
+                          value: String(metricValue),
+                      }
+            );
+        }
+
+        groupedCriteria.set(mapping.criteriaCode, current);
+    }
+
+    const criteriaSections: IAqarCycleCriterion[] = Array.from(groupedCriteria.entries())
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([criteriaCode, criterion]) => {
+            const completionPercent = criterion.totalWeight
+                ? Math.round((criterion.completionWeight / criterion.totalWeight) * 100)
+                : metricCompletion(criterion.metrics);
+
+            return {
+                criterionCode: criteriaCode as IAqarCycleCriterion["criterionCode"],
+                title: criterion.title,
+                summary: criterion.summary,
+                metrics: criterion.metrics,
+                completionPercent,
+                status: criterionStatus(completionPercent),
+                sourceSnapshots: criterion.sourceSnapshots,
+            };
+        });
 
     return {
         institutionProfile: {
@@ -570,7 +588,7 @@ async function buildCriteriaSections(academicYear: string): Promise<{
             publications,
             projects,
         },
-        criteriaSections: finalizedCriteria,
+        criteriaSections,
     };
 }
 
@@ -583,16 +601,42 @@ export async function generateAqarCycleSnapshot(actor: SafeActor, id: string) {
         throw new AuthError("AQAR cycle not found.", 404);
     }
 
+    const oldState = cycle.toObject();
+
     const aggregated = await buildCriteriaSections(cycle.academicYear);
+    const existingCriteria = new Map(
+        cycle.criteriaSections.map((criterion) => [criterion.criterionCode, criterion])
+    );
     cycle.institutionProfile = aggregated.institutionProfile;
     cycle.summaryMetrics = aggregated.summaryMetrics;
-    cycle.criteriaSections = aggregated.criteriaSections;
+    cycle.criteriaSections = aggregated.criteriaSections.map((criterion) => {
+        const existing = existingCriteria.get(criterion.criterionCode);
+        if (!existing) {
+            return criterion;
+        }
+
+        return {
+            ...criterion,
+            narrative: existing.narrative,
+            status: existing.status === "Reviewed" ? "Reviewed" : criterion.status,
+        };
+    }) as typeof cycle.criteriaSections;
     cycle.preparedById = new Types.ObjectId(actor.id);
     cycle.preparedByName = actor.name;
 
     pushCycleLog(cycle, actor, "Snapshot Generated", "Institutional AQAR criteria were refreshed from source modules.");
     await cycle.save();
     await syncStudentAqarEntries(cycle._id.toString(), cycle.academicYear);
+
+    await createAuditLog({
+        actor,
+        action: "AQAR_CYCLE_GENERATE",
+        tableName: "aqar_cycles",
+        recordId: cycle._id.toString(),
+        oldData: oldState,
+        newData: cycle.toObject(),
+        auditContext: actor.auditContext,
+    });
 
     return cycle;
 }
@@ -612,6 +656,7 @@ export async function updateAqarCycle(
 ) {
     ensureAdmin(actor);
     const cycle = await getAqarCycleById(actor, id);
+    const oldState = cycle.toObject();
 
     if (rawInput.criteriaSections?.length) {
         const updates = new Map(
@@ -642,17 +687,39 @@ export async function updateAqarCycle(
     }
 
     await cycle.save();
+
+    await createAuditLog({
+        actor,
+        action: "AQAR_CYCLE_UPDATE",
+        tableName: "aqar_cycles",
+        recordId: cycle._id.toString(),
+        oldData: oldState,
+        newData: cycle.toObject(),
+        auditContext: actor.auditContext,
+    });
+
     return cycle;
 }
 
 export async function finalizeAqarCycle(actor: SafeActor, id: string) {
     ensureAdmin(actor);
     const cycle = await getAqarCycleById(actor, id);
+    const oldState = cycle.toObject();
 
     cycle.status = "Finalized";
     cycle.finalizedAt = new Date();
     pushCycleLog(cycle, actor, "Cycle Finalized", "Institutional AQAR cycle locked for submission review.");
     await cycle.save();
+
+    await createAuditLog({
+        actor,
+        action: "AQAR_CYCLE_FINALIZE",
+        tableName: "aqar_cycles",
+        recordId: cycle._id.toString(),
+        oldData: oldState,
+        newData: cycle.toObject(),
+        auditContext: actor.auditContext,
+    });
 
     return cycle;
 }
@@ -665,10 +732,22 @@ export async function submitAqarCycle(actor: SafeActor, id: string) {
         throw new AuthError("AQAR cycle must be finalized before submission.", 409);
     }
 
+    const oldState = cycle.toObject();
+
     cycle.status = "Submitted";
     cycle.submittedAt = new Date();
     pushCycleLog(cycle, actor, "Cycle Submitted", "Institutional AQAR cycle marked as submitted.");
     await cycle.save();
+
+    await createAuditLog({
+        actor,
+        action: "AQAR_CYCLE_SUBMIT",
+        tableName: "aqar_cycles",
+        recordId: cycle._id.toString(),
+        oldData: oldState,
+        newData: cycle.toObject(),
+        auditContext: actor.auditContext,
+    });
 
     return cycle;
 }

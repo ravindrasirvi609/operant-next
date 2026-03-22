@@ -1,4 +1,5 @@
 import dbConnect from "@/lib/dbConnect";
+import { createAuditLog, type AuditActor, type AuditRequestContext } from "@/lib/audit/service";
 import { AuthError } from "@/lib/auth/errors";
 import User from "@/models/core/user";
 import MasterData from "@/models/core/master-data";
@@ -24,6 +25,7 @@ import Semester from "@/models/reference/semester";
 import AcademicYear from "@/models/reference/academic-year";
 import Program from "@/models/academic/program";
 import DocumentModel from "@/models/reference/document";
+import { notifyEvidencePendingReview } from "@/lib/notifications/service";
 import type { RecordType } from "./record-validators";
 import { recordSchemaMap, recordTypeSchema } from "./record-validators";
 import { Types } from "mongoose";
@@ -105,11 +107,62 @@ async function resolveDocumentId(documentId?: string, userId?: string) {
     return doc._id;
 }
 
+function extractRecordDocumentId(record: unknown) {
+    if (!record || typeof record !== "object" || !("documentId" in record)) {
+        return undefined;
+    }
+
+    const value = (record as { documentId?: unknown }).documentId;
+
+    if (!value) {
+        return undefined;
+    }
+
+    if (typeof value === "string") {
+        return value;
+    }
+
+    if (value instanceof Types.ObjectId) {
+        return value.toString();
+    }
+
+    if (typeof value === "object" && value && "toString" in value) {
+        return String(value);
+    }
+
+    return undefined;
+}
+
+function getRecordLabel(type: RecordType) {
+    switch (type) {
+        case "publication":
+            return "publication";
+        case "research":
+            return "research project";
+        case "award":
+            return "award";
+        case "skill":
+            return "skill";
+        case "sport":
+            return "sports";
+        case "cultural":
+            return "cultural activity";
+        case "event":
+            return "event participation";
+        case "social":
+            return "social contribution";
+        case "internship":
+            return "internship";
+        default:
+            return "student";
+    }
+}
+
 // ── GET all records ──────────────────────────────────────────────
 
 export async function getAllStudentRecords(userId: string) {
     await dbConnect();
-    const { student } = await resolveStudent(userId);
+    const { student, user } = await resolveStudent(userId);
     const studentId = student._id;
 
     const [
@@ -221,7 +274,7 @@ export async function getAllStudentRecords(userId: string) {
 
 export async function getStudentSemesters(userId: string) {
     await dbConnect();
-    const { student } = await resolveStudent(userId);
+    const { student, user } = await resolveStudent(userId);
 
     let semesters = await Semester.find({ programId: student.programId })
         .populate("academicYearId", "yearStart yearEnd")
@@ -335,7 +388,8 @@ async function findOrCreateSocialProgram(input: {
 export async function createStudentRecord(
     userId: string,
     type: string,
-    rawData: unknown
+    rawData: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
 ) {
     await dbConnect();
     const parsedType = recordTypeSchema.parse(type) as RecordType;
@@ -344,10 +398,12 @@ export async function createStudentRecord(
     const { student, user } = await resolveStudent(userId);
     const studentId = student._id;
 
+    let createdRecord: unknown;
+
     switch (parsedType) {
         case "academic": {
             const d = data as { semesterId: string; sgpa?: number; cgpa?: number; percentage?: number; rank?: number; resultStatus?: string };
-            return StudentAcademicRecord.create({
+            createdRecord = await StudentAcademicRecord.create({
                 studentId,
                 semesterId: d.semesterId,
                 sgpa: d.sgpa,
@@ -356,6 +412,7 @@ export async function createStudentRecord(
                 rank: d.rank,
                 resultStatus: d.resultStatus,
             });
+            break;
         }
         case "publication": {
             const d = data as {
@@ -368,7 +425,7 @@ export async function createStudentRecord(
                 indexedIn?: string;
                 documentId?: string;
             };
-            return StudentPublication.create({
+            createdRecord = await StudentPublication.create({
                 studentId,
                 title: d.title,
                 journalName: d.journalName,
@@ -379,6 +436,7 @@ export async function createStudentRecord(
                 indexedIn: d.indexedIn,
                 documentId: await resolveDocumentId(d.documentId, user._id.toString()),
             });
+            break;
         }
         case "research": {
             const d = data as {
@@ -390,7 +448,7 @@ export async function createStudentRecord(
                 description?: string;
                 documentId?: string;
             };
-            return StudentResearchProject.create({
+            createdRecord = await StudentResearchProject.create({
                 studentId,
                 title: d.title,
                 guideName: d.guideName,
@@ -400,6 +458,7 @@ export async function createStudentRecord(
                 description: d.description,
                 documentId: await resolveDocumentId(d.documentId, user._id.toString()),
             });
+            break;
         }
         case "award": {
             const d = data as { awardId?: string; awardTitle?: string; category?: string; organizingBody?: string; level?: string; awardDate?: string; documentId?: string };
@@ -432,12 +491,13 @@ export async function createStudentRecord(
             if (!award) {
                 throw new AuthError("Award not found.", 404);
             }
-            return StudentAward.create({
+            createdRecord = await StudentAward.create({
                 studentId,
                 awardId: award._id,
                 awardDate: toDateOrUndefined(d.awardDate),
                 documentId: await resolveDocumentId(d.documentId, user._id.toString()),
             });
+            break;
         }
         case "skill": {
             const d = data as { skillId?: string; skillName?: string; category?: string; provider?: string; startDate?: string; endDate?: string; documentId?: string };
@@ -463,7 +523,7 @@ export async function createStudentRecord(
             if (!skill) {
                 throw new AuthError("Skill not found.", 404);
             }
-            return StudentSkill.create({
+            createdRecord = await StudentSkill.create({
                 studentId,
                 skillId: skill._id,
                 provider: d.provider,
@@ -471,6 +531,7 @@ export async function createStudentRecord(
                 endDate: toDateOrUndefined(d.endDate),
                 documentId: await resolveDocumentId(d.documentId, user._id.toString()),
             });
+            break;
         }
         case "sport": {
             const d = data as { sportId?: string; sportName?: string; eventName: string; level?: string; position?: string; eventDate?: string; documentId?: string };
@@ -487,7 +548,7 @@ export async function createStudentRecord(
             if (!sport) {
                 throw new AuthError("Sport not found.", 404);
             }
-            return StudentSport.create({
+            createdRecord = await StudentSport.create({
                 studentId,
                 sportId: sport._id,
                 eventName: d.eventName,
@@ -496,6 +557,7 @@ export async function createStudentRecord(
                 eventDate: toDateOrUndefined(d.eventDate),
                 documentId: await resolveDocumentId(d.documentId, user._id.toString()),
             });
+            break;
         }
         case "cultural": {
             const d = data as { activityId?: string; activityName?: string; activityCategory?: string; eventName: string; level?: string; position?: string; date?: string; documentId?: string };
@@ -518,7 +580,7 @@ export async function createStudentRecord(
             if (!activity) {
                 throw new AuthError("Cultural activity not found.", 404);
             }
-            return StudentCulturalParticipation.create({
+            createdRecord = await StudentCulturalParticipation.create({
                 studentId,
                 activityId: activity._id,
                 eventName: d.eventName,
@@ -527,6 +589,7 @@ export async function createStudentRecord(
                 date: toDateOrUndefined(d.date),
                 documentId: await resolveDocumentId(d.documentId, user._id.toString()),
             });
+            break;
         }
         case "event": {
             const d = data as { eventId?: string; eventTitle?: string; eventType?: string; organizedBy?: string; role: string; paperTitle?: string; eventDate?: string; documentId?: string };
@@ -556,13 +619,14 @@ export async function createStudentRecord(
             if (!event) {
                 throw new AuthError("Event not found.", 404);
             }
-            return StudentEventParticipation.create({
+            createdRecord = await StudentEventParticipation.create({
                 studentId,
                 eventId: event._id,
                 role: d.role,
                 paperTitle: d.paperTitle,
                 documentId: await resolveDocumentId(d.documentId, user._id.toString()),
             });
+            break;
         }
         case "social": {
             const d = data as { programId?: string; programName?: string; programType?: string; activityName: string; hoursContributed?: number; date?: string; documentId?: string };
@@ -588,7 +652,7 @@ export async function createStudentRecord(
             if (!prog) {
                 throw new AuthError("Social program not found.", 404);
             }
-            return StudentSocialParticipation.create({
+            createdRecord = await StudentSocialParticipation.create({
                 studentId,
                 programId: prog._id,
                 activityName: d.activityName,
@@ -596,10 +660,11 @@ export async function createStudentRecord(
                 date: toDateOrUndefined(d.date),
                 documentId: await resolveDocumentId(d.documentId, user._id.toString()),
             });
+            break;
         }
         case "placement": {
             const d = data as { companyName: string; jobRole?: string; package?: number; offerDate?: string; joiningDate?: string };
-            return Placement.create({
+            createdRecord = await Placement.create({
                 studentId,
                 companyName: d.companyName,
                 jobRole: d.jobRole,
@@ -607,10 +672,11 @@ export async function createStudentRecord(
                 offerDate: toDateOrUndefined(d.offerDate),
                 joiningDate: toDateOrUndefined(d.joiningDate),
             });
+            break;
         }
         case "internship": {
             const d = data as { companyName: string; role?: string; startDate?: string; endDate?: string; stipend?: number; documentId?: string };
-            return Internship.create({
+            createdRecord = await Internship.create({
                 studentId,
                 companyName: d.companyName,
                 role: d.role,
@@ -619,8 +685,40 @@ export async function createStudentRecord(
                 stipend: d.stipend,
                 documentId: await resolveDocumentId(d.documentId, user._id.toString()),
             });
+            break;
         }
     }
+
+    if (options?.actor && createdRecord && typeof createdRecord === "object" && "_id" in (createdRecord as Record<string, unknown>)) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "STUDENT_RECORD_CREATE",
+            tableName: `student_${parsedType}_records`,
+            recordId: String((createdRecord as { _id: unknown })._id),
+            newData: {
+                type: parsedType,
+                studentId: studentId.toString(),
+                record: createdRecord,
+            },
+            auditContext: options.auditContext,
+        });
+    }
+
+    const linkedDocumentId = extractRecordDocumentId(createdRecord);
+
+    if (linkedDocumentId) {
+        await notifyEvidencePendingReview({
+            documentId: linkedDocumentId,
+            departmentId: student.departmentId?.toString(),
+            studentName: user.name,
+            recordLabel: getRecordLabel(parsedType),
+            actor: options?.actor
+                ? { id: options.actor.id, name: options.actor.name }
+                : { id: user._id.toString(), name: user.name },
+        });
+    }
+
+    return createdRecord;
 }
 
 // ── DELETE a record ──────────────────────────────────────────────
@@ -654,7 +752,8 @@ const documentCapableModels = {
 export async function deleteStudentRecord(
     userId: string,
     type: string,
-    recordId: string
+    recordId: string,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
 ) {
     await dbConnect();
     const parsedType = recordTypeSchema.parse(type) as RecordType;
@@ -670,6 +769,21 @@ export async function deleteStudentRecord(
         throw new AuthError("Record not found or does not belong to this student.", 404);
     }
 
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "STUDENT_RECORD_DELETE",
+            tableName: `student_${parsedType}_records`,
+            recordId,
+            oldData: {
+                type: parsedType,
+                studentId: student._id.toString(),
+                record,
+            },
+            auditContext: options.auditContext,
+        });
+    }
+
     return { deleted: true };
 }
 
@@ -677,7 +791,8 @@ export async function updateStudentRecordDocument(
     userId: string,
     type: string,
     recordId: string,
-    documentId: string
+    documentId: string,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
 ) {
     await dbConnect();
     const parsedType = recordTypeSchema.parse(type) as RecordType;
@@ -686,10 +801,19 @@ export async function updateStudentRecordDocument(
         throw new AuthError("Evidence documents are not supported for this record type.", 400);
     }
 
-    const { student } = await resolveStudent(userId);
+    const { student, user } = await resolveStudent(userId);
     const resolvedDocumentId = await resolveDocumentId(documentId, userId);
     if (!resolvedDocumentId) {
         throw new AuthError("Document is required for evidence linking.", 400);
+    }
+
+    const existing = await (Model as any).findOne({
+        _id: recordId,
+        studentId: student._id,
+    });
+
+    if (!existing) {
+        throw new AuthError("Record not found or does not belong to this student.", 404);
     }
 
     const record = await (Model as any).findOneAndUpdate(
@@ -700,6 +824,32 @@ export async function updateStudentRecordDocument(
 
     if (!record) {
         throw new AuthError("Record not found or does not belong to this student.", 404);
+    }
+
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "STUDENT_RECORD_LINK_EVIDENCE",
+            tableName: `student_${parsedType}_records`,
+            recordId,
+            oldData: existing,
+            newData: record,
+            auditContext: options.auditContext,
+        });
+    }
+
+    const previousDocumentId = extractRecordDocumentId(existing);
+
+    if (resolvedDocumentId.toString() !== previousDocumentId) {
+        await notifyEvidencePendingReview({
+            documentId: resolvedDocumentId.toString(),
+            departmentId: student.departmentId?.toString(),
+            studentName: user.name,
+            recordLabel: getRecordLabel(parsedType),
+            actor: options?.actor
+                ? { id: options.actor.id, name: options.actor.name }
+                : { id: userId, name: user.name },
+        });
     }
 
     return record;

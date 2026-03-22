@@ -87,6 +87,7 @@ export default async function AdminDashboardPage() {
                         <QuickAction href="/admin/master-data" text="Create supporting enums such as academic years, report categories, and offices." />
                         <QuickAction href="/admin/users" text="Promote responsible owners to Director, PRO, NSS, Sports, Swayam, or Placement roles." />
                         <QuickAction href="/admin/system" text="Publish onboarding notices, reporting deadlines, and dashboard messages." />
+                        <QuickAction href="/admin/audit-logs" text="Review production audit logs for admin, AQAR, faculty, student, and evidence changes." />
                         <QuickAction href="/register" text="Validate faculty and student onboarding after master data is populated." />
                     </CardContent>
                 </Card>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getRequestAuditContext } from "@/lib/audit/request";
 import { createApiErrorResponse } from "@/lib/auth/http";
 import { getCurrentUser } from "@/lib/auth/user";
 import { deleteAqarApplication, getAqarApplicationById, updateAqarApplication } from "@/lib/aqar/service";
@@ -51,6 +52,7 @@ export async function PUT(request: Request, context: RouteContext) {
                 name: user.name,
                 role: user.role,
                 department: user.department,
+                auditContext: getRequestAuditContext(request),
             },
             id,
             body
@@ -65,7 +67,7 @@ export async function PUT(request: Request, context: RouteContext) {
     }
 }
 
-export async function DELETE(_request: Request, context: RouteContext) {
+export async function DELETE(request: Request, context: RouteContext) {
     try {
         const user = await getCurrentUser();
 
@@ -80,6 +82,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
                 name: user.name,
                 role: user.role,
                 department: user.department,
+                auditContext: getRequestAuditContext(request),
             },
             id
         );

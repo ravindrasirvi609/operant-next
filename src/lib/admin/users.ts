@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+import { createAuditLog, type AuditActor, type AuditRequestContext } from "@/lib/audit/service";
 import dbConnect from "@/lib/dbConnect";
 import {
     adminFacultyProvisionSchema,
@@ -158,7 +159,10 @@ async function ensureInstitutionDepartment(
     return { institution, department };
 }
 
-export async function createProvisionedStudent(rawInput: unknown) {
+export async function createProvisionedStudent(
+    rawInput: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     const input = adminStudentProvisionSchema.parse(rawInput);
 
     await dbConnect();
@@ -271,14 +275,29 @@ export async function createProvisionedStudent(rawInput: unknown) {
         if (!createdUser) {
             throw new AuthError("Student provisioning could not be completed.", 500);
         }
+        const provisionedStudentUser = createdUser;
 
-        return createdUser;
+        if (options?.actor) {
+            await createAuditLog({
+                actor: options.actor,
+                action: "USER_PROVISION_STUDENT",
+                tableName: "users",
+                recordId: String((provisionedStudentUser as { _id: unknown })._id),
+                newData: provisionedStudentUser,
+                auditContext: options.auditContext,
+            });
+        }
+
+        return provisionedStudentUser;
     } finally {
         await session.endSession();
     }
 }
 
-export async function createProvisionedFaculty(rawInput: unknown) {
+export async function createProvisionedFaculty(
+    rawInput: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     const input = adminFacultyProvisionSchema.parse(rawInput);
 
     await dbConnect();
@@ -372,15 +391,28 @@ export async function createProvisionedFaculty(rawInput: unknown) {
         if (!createdUser) {
             throw new AuthError("Faculty provisioning could not be completed.", 500);
         }
+        const provisionedFacultyUser = createdUser;
 
-        return createdUser;
+        if (options?.actor) {
+            await createAuditLog({
+                actor: options.actor,
+                action: "USER_PROVISION_FACULTY",
+                tableName: "users",
+                recordId: String((provisionedFacultyUser as { _id: unknown })._id),
+                newData: provisionedFacultyUser,
+                auditContext: options.auditContext,
+            });
+        }
+
+        return provisionedFacultyUser;
     } finally {
         await session.endSession();
     }
 }
 
 export async function createProvisionedStudentsBulk(
-    rawEntries: unknown
+    rawEntries: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
 ): Promise<StudentProvisionBulkResult> {
     if (!Array.isArray(rawEntries)) {
         throw new Error("Bulk payload must provide an entries array.");
@@ -419,11 +451,28 @@ export async function createProvisionedStudentsBulk(
         }
     }
 
+    if (options?.actor) {
+        const createdIds = created.map((user) => String((user as { _id: unknown })._id));
+        await createAuditLog({
+            actor: options.actor,
+            action: "USER_PROVISION_STUDENT_BULK",
+            tableName: "users",
+            newData: {
+                createdCount: created.length,
+                failedCount: failed.length,
+                createdIds,
+                failed,
+            },
+            auditContext: options.auditContext,
+        });
+    }
+
     return { created, failed };
 }
 
 export async function createProvisionedFacultyBulk(
-    rawEntries: unknown
+    rawEntries: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
 ): Promise<FacultyProvisionBulkResult> {
     if (!Array.isArray(rawEntries)) {
         throw new Error("Bulk payload must provide an entries array.");
@@ -462,10 +511,30 @@ export async function createProvisionedFacultyBulk(
         }
     }
 
+    if (options?.actor) {
+        const createdIds = created.map((user) => String((user as { _id: unknown })._id));
+        await createAuditLog({
+            actor: options.actor,
+            action: "USER_PROVISION_FACULTY_BULK",
+            tableName: "users",
+            newData: {
+                createdCount: created.length,
+                failedCount: failed.length,
+                createdIds,
+                failed,
+            },
+            auditContext: options.auditContext,
+        });
+    }
+
     return { created, failed };
 }
 
-export async function updateAdminUser(userId: string, rawInput: unknown) {
+export async function updateAdminUser(
+    userId: string,
+    rawInput: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
     const input = adminUserUpdateSchema.parse(rawInput);
 
     await dbConnect();
@@ -475,6 +544,8 @@ export async function updateAdminUser(userId: string, rawInput: unknown) {
     if (!user) {
         throw new AuthError("User not found.", 404);
     }
+
+    const oldState = user.toObject();
 
     if (input.role !== undefined) {
         user.role = input.role;
@@ -501,6 +572,18 @@ export async function updateAdminUser(userId: string, rawInput: unknown) {
     }
 
     await user.save();
+
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "USER_ADMIN_UPDATE",
+            tableName: "users",
+            recordId: user._id.toString(),
+            oldData: oldState,
+            newData: user.toObject(),
+            auditContext: options.auditContext,
+        });
+    }
 
     return user;
 }

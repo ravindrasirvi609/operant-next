@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { NotificationCenter } from "@/components/notifications/notification-center";
 import { Separator } from "@/components/ui/separator";
 import { requireFaculty } from "@/lib/auth/user";
 
@@ -46,6 +47,7 @@ export default async function FacultyLayout({
               <p className="font-medium text-zinc-900">{faculty.name}</p>
               <p>{faculty.department ?? "Department"}</p>
             </div>
+            <NotificationCenter />
             <Badge variant="secondary">{faculty.role ?? "Faculty"}</Badge>
             <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Active</Badge>
           </div>

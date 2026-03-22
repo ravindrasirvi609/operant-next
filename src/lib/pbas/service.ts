@@ -1,6 +1,7 @@
 import mongoose, { Types } from "mongoose";
 
 import dbConnect from "@/lib/dbConnect";
+import { createAuditLog, type AuditRequestContext } from "@/lib/audit/service";
 import { AuthError } from "@/lib/auth/errors";
 import { ensureFacultyContext } from "@/lib/faculty/migration";
 import { designationOptions } from "@/lib/faculty/options";
@@ -22,8 +23,6 @@ import {
 } from "@/lib/pbas/validators";
 import { ensurePbasDynamicMigration, resolveCanonicalPbasId, syncPbasTotalEntries } from "@/lib/pbas/migration";
 import AcademicYear from "@/models/reference/academic-year";
-import ApprovalWorkflow from "@/models/core/approval-workflow";
-import AuditLog from "@/models/core/audit-log";
 import DocumentModel from "@/models/reference/document";
 import type { IPbasDraftReferences } from "@/models/core/pbas-reference-schema";
 import FacultyTeachingLoad from "@/models/faculty/faculty-teaching-load";
@@ -49,13 +48,27 @@ import {
     serializePbasCandidatePools,
     serializePbasDraftReferences,
 } from "@/lib/pbas/references";
-import { assertPbasTransition, deriveReviewTransition } from "@/lib/pbas/workflow";
+import WorkflowInstance from "@/models/core/workflow-instance";
+import {
+    canActorProcessWorkflowStage,
+    getActiveWorkflowDefinition,
+    getWorkflowPendingStatuses,
+    getWorkflowStageByStatus,
+    listPendingWorkflowRecordIds,
+    resolveWorkflowTransition,
+    syncWorkflowInstanceState,
+} from "@/lib/workflow/engine";
+import {
+    notifyUser,
+    notifyWorkflowStageAssignees,
+} from "@/lib/notifications/service";
 
 type SafeActor = {
     id: string;
     name: string;
     role: string;
     department?: string;
+    auditContext?: AuditRequestContext;
 };
 
 function normalizeDesignation(value?: string | null) {
@@ -522,6 +535,30 @@ function parseSubmissionDeadlineValue(value?: string | null) {
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function getPbasReminderThreshold(daysRemaining: number) {
+    if (daysRemaining < 0) {
+        return "overdue" as const;
+    }
+
+    if (daysRemaining <= 1) {
+        return 1 as const;
+    }
+
+    if (daysRemaining <= 3) {
+        return 3 as const;
+    }
+
+    if (daysRemaining <= 7) {
+        return 7 as const;
+    }
+
+    if (daysRemaining <= 14) {
+        return 14 as const;
+    }
+
+    return null;
+}
+
 async function getPbasSettingsMaster() {
     return MasterData.findOne({
         category: "pbas_settings",
@@ -558,6 +595,86 @@ async function getPbasSubmissionDeadline() {
         rawDeadline,
         parsedDeadline: parseSubmissionDeadlineValue(rawDeadline),
     };
+}
+
+export async function ensurePbasDeadlineReminderForFaculty(actor: Pick<SafeActor, "id" | "name" | "role">) {
+    if (actor.role !== "Faculty") {
+        return;
+    }
+
+    await dbConnect();
+    await ensurePbasDynamicMigration();
+
+    const [{ faculty }, { parsedDeadline, rawDeadline }] = await Promise.all([
+        ensureFacultyContext(actor.id),
+        getPbasSubmissionDeadline(),
+    ]);
+    const activeYear =
+        (await AcademicYear.findOne({ isActive: true }).sort({ yearStart: -1 })) ||
+        (await AcademicYear.findOne({}).sort({ yearStart: -1 }));
+
+    if (!parsedDeadline || !rawDeadline.trim() || !activeYear) {
+        return;
+    }
+
+    const applications = await FacultyPbasForm.find({
+        facultyId: faculty._id,
+        academicYearId: activeYear._id,
+    })
+        .select("status")
+        .sort({ updatedAt: -1 })
+        .lean();
+
+    const hasSubmittedApplication = applications.some(
+        (application) => !["Draft", "Rejected"].includes(application.status)
+    );
+
+    if (hasSubmittedApplication) {
+        return;
+    }
+
+    const threshold = getPbasReminderThreshold(
+        Math.ceil((parsedDeadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    );
+
+    if (!threshold) {
+        return;
+    }
+
+    const hasDraftInProgress = applications.some((application) =>
+        ["Draft", "Rejected"].includes(application.status)
+    );
+    const deadlineLabel = rawDeadline.trim();
+    const entityId = `deadline:${parsedDeadline.toISOString().slice(0, 10)}`;
+    const title =
+        threshold === "overdue"
+            ? "PBAS submission deadline missed"
+            : `PBAS submission reminder: ${threshold} day${threshold === 1 ? "" : "s"} left`;
+    const message =
+        threshold === "overdue"
+            ? hasDraftInProgress
+                ? `Your PBAS appraisal draft is still pending submission and the ${deadlineLabel} deadline has passed. Contact admin if the submission window needs reopening.`
+                : `No PBAS appraisal has been submitted and the ${deadlineLabel} deadline has passed. Contact admin if the reporting window needs reopening.`
+            : hasDraftInProgress
+              ? `Your PBAS appraisal is still in draft state. Submit it before ${deadlineLabel} to avoid missing the reporting window.`
+              : `Create and submit your PBAS appraisal before ${deadlineLabel} so it reaches the review queue on time.`;
+
+    await notifyUser({
+        userId: actor.id,
+        kind: "reminder",
+        moduleName: "PBAS",
+        entityId,
+        href: "/faculty/pbas",
+        title,
+        message,
+        metadata: {
+            reminderType: "submission_deadline",
+            deadline: parsedDeadline.toISOString(),
+            threshold,
+            dedupeKey: `pbas-deadline:${entityId}:${threshold}`,
+            dedupeWindowHours: 24 * 90,
+        },
+    });
 }
 
 export async function buildPbasSnapshot(
@@ -871,18 +988,25 @@ async function markRevisionApproved(revisionId?: Types.ObjectId | null, actor?: 
     );
 }
 
-async function getReviewAuthorization(application: InstanceType<typeof FacultyPbasForm>, actor: SafeActor) {
+async function getPbasWorkflowDepartmentName(application: InstanceType<typeof FacultyPbasForm>) {
     const faculty = await getUserForApplication(application);
-    const headedDepartment = await getDepartmentHeadedByUser(actor.id);
-    const isDepartmentHead =
-        Boolean(headedDepartment) && faculty.department === headedDepartment?.name;
-    const isCommitteeReviewer = actor.role === "Admin" || actor.role === "Director";
+    return faculty.department;
+}
 
-    return {
-        isDepartmentHead,
-        isCommitteeReviewer,
-        canReview: isDepartmentHead || isCommitteeReviewer,
-    };
+async function canReviewPbasApplication(
+    application: InstanceType<typeof FacultyPbasForm>,
+    actor: SafeActor
+) {
+    const subjectDepartmentName = await getPbasWorkflowDepartmentName(application);
+
+    return canActorProcessWorkflowStage({
+        actor,
+        moduleName: "PBAS",
+        recordId: application._id.toString(),
+        status: application.status,
+        subjectDepartmentName,
+        stageKinds: ["review"],
+    });
 }
 
 async function getDepartmentHeadedByUser(userId: string) {
@@ -935,6 +1059,48 @@ async function getUserForApplication(application: InstanceType<typeof FacultyPba
         department: department?.name ?? user.department,
         designation: faculty.designation || user.designation,
     };
+}
+
+async function notifyPbasStageAssignment(
+    application: InstanceType<typeof FacultyPbasForm>,
+    stage: { key: string; label: string; approverRoles: Array<"DEPARTMENT_HEAD" | "DIRECTOR" | "IQAC" | "PRINCIPAL" | "ADMIN" | "FACULTY"> } | null,
+    actor: SafeActor
+) {
+    if (!stage) {
+        return;
+    }
+
+    await notifyWorkflowStageAssignees({
+        stage,
+        subjectDepartmentName: await getPbasWorkflowDepartmentName(application),
+        moduleName: "PBAS",
+        entityId: application._id.toString(),
+        href: stage.key === "final_approval" ? "/admin/pbas" : "/director/pbas",
+        title: `PBAS moved to ${stage.label}`,
+        message: `${actor.name} submitted PBAS appraisal ${application.academicYear} for ${stage.label}.`,
+        actor,
+    });
+}
+
+async function notifyPbasFacultyOutcome(
+    application: InstanceType<typeof FacultyPbasForm>,
+    actor: SafeActor,
+    decision: "Approve" | "Reject"
+) {
+    const facultyUser = await getUserForApplication(application);
+
+    await notifyUser({
+        userId: facultyUser._id?.toString(),
+        moduleName: "PBAS",
+        entityId: application._id.toString(),
+        href: "/faculty/pbas",
+        title: decision === "Approve" ? "PBAS approved" : "PBAS returned for changes",
+        message:
+            decision === "Approve"
+                ? `Your PBAS appraisal for ${application.academicYear} was approved by ${actor.name}.`
+                : `Your PBAS appraisal for ${application.academicYear} was returned by ${actor.name}. Review remarks and resubmit.`,
+        actor,
+    });
 }
 
 function parseAcademicYearLabel(value: string) {
@@ -1015,26 +1181,24 @@ function toAcademicYearLabel(yearStart?: number, yearEnd?: number) {
 }
 
 async function upsertWorkflow(
-    moduleName: "PBAS",
-    recordId: string,
-    actorRole: string,
-    status: string,
+    application: InstanceType<typeof FacultyPbasForm>,
+    actor: SafeActor | undefined,
     remarks?: string,
+    action?: "submit" | "approve" | "reject",
     session?: mongoose.ClientSession
 ) {
-    await ApprovalWorkflow.updateOne(
-        { moduleName, recordId },
-        {
-            $set: {
-                moduleName,
-                recordId,
-                currentApproverRole: actorRole,
-                status,
-                remarks,
-            },
-        },
-        { upsert: true, session }
-    );
+    const subjectDepartmentName = await getPbasWorkflowDepartmentName(application);
+
+    await syncWorkflowInstanceState({
+        moduleName: "PBAS",
+        recordId: application._id.toString(),
+        status: application.status,
+        subjectDepartmentName,
+        actor,
+        remarks,
+        action,
+        session,
+    });
 }
 
 async function audit(
@@ -1046,14 +1210,16 @@ async function audit(
     newData?: unknown,
     session?: mongoose.ClientSession
 ) {
-    await AuditLog.create([{
-        userId: actor ? new Types.ObjectId(actor.id) : undefined,
+    await createAuditLog({
+        actor,
         action,
         tableName,
         recordId,
         oldData,
         newData,
-    }], { session });
+        auditContext: actor?.auditContext,
+        session,
+    });
 }
 
 const ACTIVE_PBAS_STATUSES: ReadonlyArray<PbasStatus> = [
@@ -1401,9 +1567,9 @@ export async function moderatePbasEntriesForForm(actor: SafeActor, id: string, r
 
     const input = pbasEntryModerationSchema.parse(rawInput);
     const application = await getPbasApplicationById(actor, id);
-    const auth = await getReviewAuthorization(application, actor);
+    const canReview = await canReviewPbasApplication(application, actor);
 
-    if (!auth.canReview) {
+    if (!canReview) {
         throw new AuthError("You are not authorized to moderate PBAS indicator scores.", 403);
     }
 
@@ -1530,7 +1696,7 @@ export async function createPbasApplication(actor: SafeActor, rawInput: unknown)
     });
 
     if (existing) {
-        await upsertWorkflow("PBAS", existing._id.toString(), actor.role, existing.status, "PBAS draft already exists.");
+        await upsertWorkflow(existing, actor, "PBAS draft already exists.");
         await audit(actor, "PBAS_CREATE_IDEMPOTENT", "faculty_pbas_forms", existing._id.toString());
         return buildApplicationResponse(existing);
     }
@@ -1560,7 +1726,7 @@ export async function createPbasApplication(actor: SafeActor, rawInput: unknown)
 
     await upsertComputedIndicatorEntries(application, scorecard);
     await syncPbasTotalEntries(application._id.toString());
-    await upsertWorkflow("PBAS", application._id.toString(), actor.role, application.status, "PBAS draft created.");
+    await upsertWorkflow(application, actor, "PBAS draft created.");
     await audit(actor, "PBAS_CREATE", "faculty_pbas_forms", application._id.toString(), undefined, {
         facultyId: application.facultyId,
         academicYearId: application.academicYearId,
@@ -1683,7 +1849,7 @@ export async function updatePbasApplication(actor: SafeActor, id: string, rawInp
     await application.save();
     await upsertComputedIndicatorEntries(application, scorecard);
     await syncPbasTotalEntries(application._id.toString());
-    await upsertWorkflow("PBAS", application._id.toString(), actor.role, application.status, "PBAS draft updated.");
+    await upsertWorkflow(application, actor, "PBAS draft updated.");
     await audit(actor, "PBAS_UPDATE", "faculty_pbas_forms", application._id.toString(), oldState, application.toObject());
 
     return buildApplicationResponse(application);
@@ -1751,7 +1917,7 @@ export async function deletePbasApplication(actor: SafeActor, id: string) {
             const revisionDeleteResult = await FacultyPbasRevision.deleteMany({ pbasFormId: application._id }, { session });
             deletedRevisions = revisionDeleteResult.deletedCount ?? 0;
 
-            await ApprovalWorkflow.deleteOne(
+            await WorkflowInstance.deleteOne(
                 { moduleName: "PBAS", recordId: application._id.toString() },
                 { session }
             );
@@ -1775,6 +1941,7 @@ export async function deletePbasApplication(actor: SafeActor, id: string) {
 export async function submitPbasApplication(actor: SafeActor, id: string) {
     const application = await getPbasApplicationById(actor, id);
     const facultyContext = actor.role === "Faculty" ? await ensureFacultyContext(actor.id) : null;
+    const workflowDefinition = await getActiveWorkflowDefinition("PBAS");
 
     if (
         actor.role !== "Faculty" ||
@@ -1783,8 +1950,9 @@ export async function submitPbasApplication(actor: SafeActor, id: string) {
         throw new AuthError("Only the faculty owner can submit this PBAS application.", 403);
     }
 
+    let submitTransition;
     try {
-        assertPbasTransition(application.status, "Submitted", { actionLabel: "submit" });
+        submitTransition = resolveWorkflowTransition(workflowDefinition, application.status, "submit");
     } catch (error) {
         throw new AuthError(
             error instanceof Error
@@ -1831,12 +1999,17 @@ export async function submitPbasApplication(actor: SafeActor, id: string) {
                 session,
             });
 
-            txApplication.status = "Submitted";
+            txApplication.status = submitTransition.status as PbasStatus;
             txApplication.submissionStatus = "Submitted";
             txApplication.submittedAt = new Date();
-            pushStatusLog(txApplication, "Submitted", actor, "Faculty submitted PBAS application.");
+            pushStatusLog(
+                txApplication,
+                submitTransition.status as PbasStatus,
+                actor,
+                "Faculty submitted PBAS application."
+            );
             await txApplication.save({ session });
-            await upsertWorkflow("PBAS", txApplication._id.toString(), actor.role, txApplication.status, "PBAS submitted.", session);
+            await upsertWorkflow(txApplication, actor, "PBAS submitted.", "submit", session);
             await audit(actor, "PBAS_SUBMIT", "faculty_pbas_forms", txApplication._id.toString(), undefined, undefined, session);
         });
     } finally {
@@ -1849,21 +2022,29 @@ export async function submitPbasApplication(actor: SafeActor, id: string) {
         throw new AuthError("PBAS application not found after submit.", 404);
     }
 
+    await notifyPbasStageAssignment(refreshed, submitTransition.stage, actor);
+
     return buildApplicationResponse(refreshed);
 }
 
 export async function reviewPbasApplication(actor: SafeActor, id: string, rawInput: unknown) {
     const input = pbasReviewSchema.parse(rawInput);
     const application = await getPbasApplicationById(actor, id);
+    const workflowDefinition = await getActiveWorkflowDefinition("PBAS");
 
-    const { isDepartmentHead, canReview } = await getReviewAuthorization(application, actor);
+    const canReview = await canReviewPbasApplication(application, actor);
 
     if (!canReview) {
         throw new AuthError("You are not authorized to review this PBAS application.", 403);
     }
 
+    let reviewTransition;
     try {
-        deriveReviewTransition(application.status, input.decision);
+        reviewTransition = resolveWorkflowTransition(
+            workflowDefinition,
+            application.status,
+            input.decision === "Reject" ? "reject" : "approve"
+        );
     } catch (error) {
         throw new AuthError(
             error instanceof Error ? error.message : "Invalid PBAS review transition.",
@@ -1879,9 +2060,19 @@ export async function reviewPbasApplication(actor: SafeActor, id: string, rawInp
                 throw new AuthError("PBAS application not found.", 404);
             }
 
+            const currentStage = getWorkflowStageByStatus(workflowDefinition, txApplication.status);
+
+            if (!currentStage || currentStage.kind !== "review") {
+                throw new AuthError("PBAS review is only allowed while a review stage is pending.", 409);
+            }
+
             let nextStatus: PbasStatus;
             try {
-                nextStatus = deriveReviewTransition(txApplication.status, input.decision);
+                nextStatus = resolveWorkflowTransition(
+                    workflowDefinition,
+                    txApplication.status,
+                    input.decision === "Reject" ? "reject" : "approve"
+                ).status as PbasStatus;
             } catch (error) {
                 throw new AuthError(
                     error instanceof Error ? error.message : "Invalid PBAS review transition.",
@@ -1896,15 +2087,21 @@ export async function reviewPbasApplication(actor: SafeActor, id: string, rawInp
                     reviewerId: new Types.ObjectId(actor.id),
                     reviewerName: actor.name,
                     reviewerRole: actor.role,
-                    designation: actor.role === "Admin" ? "Admin Reviewer" : "Department Head",
+                    designation:
+                        currentStage.key === "department_head_review"
+                            ? "Department Head"
+                            : "PBAS Committee Reviewer",
                     remarks: input.remarks,
                     decision: input.decision,
-                    stage: isDepartmentHead ? "Department Head" : "PBAS Committee",
+                    stage:
+                        currentStage.key === "department_head_review"
+                            ? "Department Head"
+                            : "PBAS Committee",
                     reviewedAt: new Date(),
                 });
                 pushStatusLog(txApplication, "Rejected", actor, input.remarks);
                 await txApplication.save({ session });
-                await upsertWorkflow("PBAS", txApplication._id.toString(), actor.role, txApplication.status, input.remarks, session);
+                await upsertWorkflow(txApplication, actor, input.remarks, "reject", session);
                 await audit(actor, "PBAS_REVIEW_REJECT", "faculty_pbas_forms", txApplication._id.toString(), undefined, {
                     status: txApplication.status,
                     remarks: input.remarks,
@@ -1918,17 +2115,20 @@ export async function reviewPbasApplication(actor: SafeActor, id: string, rawInp
                 reviewerName: actor.name,
                 reviewerRole: actor.role,
                 designation:
-                    nextStatus === "Under Review"
+                    currentStage.key === "department_head_review"
                         ? "Department Head Reviewer"
                         : "PBAS Committee Reviewer",
                 remarks: input.remarks,
                 decision: input.decision,
-                stage: nextStatus === "Under Review" ? "Department Head" : "PBAS Committee",
+                stage:
+                    currentStage.key === "department_head_review"
+                        ? "Department Head"
+                        : "PBAS Committee",
                 reviewedAt: new Date(),
             });
             pushStatusLog(txApplication, nextStatus, actor, input.remarks);
             await txApplication.save({ session });
-            await upsertWorkflow("PBAS", txApplication._id.toString(), actor.role, txApplication.status, input.remarks, session);
+            await upsertWorkflow(txApplication, actor, input.remarks, "approve", session);
             await audit(actor, "PBAS_REVIEW", "faculty_pbas_forms", txApplication._id.toString(), undefined, {
                 status: txApplication.status,
                 remarks: input.remarks,
@@ -1943,21 +2143,48 @@ export async function reviewPbasApplication(actor: SafeActor, id: string, rawInp
         throw new AuthError("PBAS application not found after review.", 404);
     }
 
+    if (input.decision === "Reject") {
+        await notifyPbasFacultyOutcome(refreshed, actor, "Reject");
+    } else {
+        await notifyPbasStageAssignment(refreshed, reviewTransition.stage, actor);
+    }
+
     return buildApplicationResponse(refreshed);
 }
 
 export async function approvePbasApplication(actor: SafeActor, id: string, rawInput: unknown) {
     const input = pbasApprovalSchema.parse(rawInput);
+    const workflowDefinition = await getActiveWorkflowDefinition("PBAS");
 
     if (actor.role !== "Admin") {
         throw new AuthError("Only admin users can finalize PBAS approval.", 403);
     }
 
     const application = await getPbasApplicationById(actor, id);
+    const canFinalize = await canActorProcessWorkflowStage({
+        actor,
+        moduleName: "PBAS",
+        recordId: application._id.toString(),
+        status: application.status,
+        subjectDepartmentName: await getPbasWorkflowDepartmentName(application),
+        stageKinds: ["final"],
+    });
+
+    if (!canFinalize) {
+        throw new AuthError("Only final-stage PBAS applications can be finalized.", 409);
+    }
+
     const finalStatus: PbasStatus = input.decision === "Approve" ? "Approved" : "Rejected";
 
     try {
-        assertPbasTransition(application.status, finalStatus, { actionLabel: "final approval" });
+        const transition = resolveWorkflowTransition(
+            workflowDefinition,
+            application.status,
+            input.decision === "Approve" ? "approve" : "reject"
+        );
+        if (transition.status !== finalStatus) {
+            throw new Error("PBAS final approval cannot be applied from the current workflow stage.");
+        }
     } catch (error) {
         throw new AuthError(
             error instanceof Error ? error.message : "Invalid PBAS final approval transition.",
@@ -1975,7 +2202,14 @@ export async function approvePbasApplication(actor: SafeActor, id: string, rawIn
             }
 
             try {
-                assertPbasTransition(txApplication.status, finalStatus, { actionLabel: "final approval" });
+                const transition = resolveWorkflowTransition(
+                    workflowDefinition,
+                    txApplication.status,
+                    input.decision === "Approve" ? "approve" : "reject"
+                );
+                if (transition.status !== finalStatus) {
+                    throw new Error("PBAS final approval cannot be applied from the current workflow stage.");
+                }
             } catch (error) {
                 throw new AuthError(
                     error instanceof Error ? error.message : "Invalid PBAS final approval transition.",
@@ -2004,7 +2238,13 @@ export async function approvePbasApplication(actor: SafeActor, id: string, rawIn
                 await markRevisionApproved(txApplication.activeRevisionId, actor, session);
             }
             revisionIdForTotals = txApplication.activeRevisionId?.toString();
-            await upsertWorkflow("PBAS", txApplication._id.toString(), actor.role, txApplication.status, input.remarks, session);
+            await upsertWorkflow(
+                txApplication,
+                actor,
+                input.remarks,
+                input.decision === "Approve" ? "approve" : "reject",
+                session
+            );
             await audit(actor, "PBAS_APPROVE", "faculty_pbas_forms", txApplication._id.toString(), undefined, {
                 status: txApplication.status,
                 decision: input.decision,
@@ -2025,34 +2265,31 @@ export async function approvePbasApplication(actor: SafeActor, id: string, rawIn
         throw new AuthError("PBAS application not found after approval.", 404);
     }
 
+    await notifyPbasFacultyOutcome(refreshed, actor, input.decision);
+
     return buildApplicationResponse(refreshed);
 }
 
 export async function getPbasReviewQueue(actor: SafeActor) {
     await dbConnect();
     await ensurePbasDynamicMigration();
-
-    if (actor.role === "Admin") {
-        return FacultyPbasForm.find({
-            status: { $in: ["Under Review", "Committee Review", "Submitted"] },
-        }).sort({ updatedAt: -1 });
-    }
-
-    const headedDepartment = await getDepartmentHeadedByUser(actor.id);
-
-    if (!headedDepartment) {
-        return [];
-    }
-
-    const departments = await Department.find({ name: headedDepartment.name }).select("_id");
-    const facultyUsers = await Faculty.find({
-        departmentId: { $in: departments.map((item) => item._id) },
-    }).select("_id");
-
-    return FacultyPbasForm.find({
-        facultyId: { $in: facultyUsers.map((item) => item._id) },
-        status: { $in: ["Submitted", "Under Review"] },
+    const workflowDefinition = await getActiveWorkflowDefinition("PBAS");
+    const applications = await FacultyPbasForm.find({
+        status: { $in: getWorkflowPendingStatuses(workflowDefinition) },
     }).sort({ updatedAt: -1 });
+
+    await Promise.all(
+        applications.map((application) => upsertWorkflow(application, undefined))
+    );
+
+    const recordIds = await listPendingWorkflowRecordIds({
+        actor,
+        moduleName: "PBAS",
+        stageKinds: actor.role === "Admin" ? ["final"] : ["review"],
+    });
+    const recordIdSet = new Set(recordIds);
+
+    return applications.filter((application) => recordIdSet.has(application._id.toString()));
 }
 
 export async function getPbasReportsForCas(facultyId: string) {

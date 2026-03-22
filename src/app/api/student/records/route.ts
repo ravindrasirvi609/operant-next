@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getRequestAuditContext } from "@/lib/audit/request";
 import { createApiErrorResponse } from "@/lib/auth/http";
 import { getCurrentUser } from "@/lib/auth/user";
 import {
@@ -48,7 +49,10 @@ export async function POST(request: Request) {
             );
         }
 
-        const record = await createStudentRecord(user.id, body.type, body.data);
+        const record = await createStudentRecord(user.id, body.type, body.data, {
+            actor: { id: user.id, name: user.name, role: user.role },
+            auditContext: getRequestAuditContext(request),
+        });
 
         return NextResponse.json({
             message: "Record created successfully.",
@@ -81,7 +85,10 @@ export async function DELETE(request: Request) {
             );
         }
 
-        await deleteStudentRecord(user.id, body.type, body.id);
+        await deleteStudentRecord(user.id, body.type, body.id, {
+            actor: { id: user.id, name: user.name, role: user.role },
+            auditContext: getRequestAuditContext(request),
+        });
 
         return NextResponse.json({ message: "Record deleted successfully." });
     } catch (error) {
@@ -116,7 +123,11 @@ export async function PATCH(request: Request) {
             user.id,
             body.type,
             body.id,
-            body.documentId
+            body.documentId,
+            {
+                actor: { id: user.id, name: user.name, role: user.role },
+                auditContext: getRequestAuditContext(request),
+            }
         );
 
         return NextResponse.json({

@@ -132,7 +132,7 @@ export async function GET(request: Request) {
             };
         }
 
-        const pdf = buildFacultyReportPdf(workspace, normalizedEntry);
+        const pdf = await buildFacultyReportPdf(workspace, normalizedEntry);
 
         return new Response(pdf, {
             status: 200,

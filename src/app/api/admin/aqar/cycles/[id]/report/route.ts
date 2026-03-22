@@ -18,7 +18,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
         const { id } = await context.params;
         const cycle = await getAqarCycleById({ id: user.id, name: user.name, role: user.role }, id);
-        const pdf = buildAqarCyclePdf(cycle);
+        const pdf = await buildAqarCyclePdf(cycle);
 
         return new Response(pdf, {
             status: 200,
