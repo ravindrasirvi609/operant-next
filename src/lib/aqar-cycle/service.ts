@@ -9,7 +9,6 @@ import MasterData from "@/models/core/master-data";
 import Organization from "@/models/core/organization";
 import User from "@/models/core/user";
 import Program from "@/models/academic/program";
-import StudentActivity from "@/models/academic/student-activity";
 import SystemMisc from "@/models/engagement/system-misc";
 import Publication from "@/models/research/publication";
 import Project from "@/models/research/project";
@@ -20,6 +19,20 @@ import FacultyPublication from "@/models/faculty/faculty-publication";
 import FacultyQualification from "@/models/faculty/faculty-qualification";
 import FacultyResearchProject from "@/models/faculty/faculty-research-project";
 import FacultyTeachingLoad from "@/models/faculty/faculty-teaching-load";
+import Internship from "@/models/student/internship";
+import Placement from "@/models/student/placement";
+import Student from "@/models/student/student";
+import StudentAcademicRecord from "@/models/student/student-academic-record";
+import StudentAqarEntry from "@/models/student/student-aqar-entry";
+import StudentAward from "@/models/student/student-award";
+import StudentCulturalParticipation from "@/models/student/student-cultural-participation";
+import StudentEventParticipation from "@/models/student/student-event-participation";
+import StudentPublication from "@/models/student/student-publication";
+import StudentResearchProject from "@/models/student/student-research-project";
+import StudentSkill from "@/models/student/student-skill";
+import StudentSocialParticipation from "@/models/student/student-social-participation";
+import StudentSport from "@/models/student/student-sport";
+import Semester from "@/models/reference/semester";
 
 type SafeActor = {
     id: string;
@@ -62,6 +75,202 @@ function criterionStatus(completionPercent: number): "Pending" | "Ready" | "Revi
     if (completionPercent >= 75) return "Ready";
     if (completionPercent > 0) return "Pending";
     return "Pending";
+}
+
+function parseAcademicYearRange(academicYear: string) {
+    const match = academicYear.trim().match(/(\d{4})\D+(\d{2,4})/);
+
+    if (!match) {
+        throw new AuthError(`Invalid academic year "${academicYear}".`, 400);
+    }
+
+    const startYear = Number(match[1]);
+    const rawEndYear = Number(match[2]);
+    const endYear =
+        rawEndYear < 100
+            ? Number(`${String(startYear).slice(0, 2)}${String(rawEndYear).padStart(2, "0")}`)
+            : rawEndYear;
+
+    return {
+        startYear,
+        endYear,
+        startDate: new Date(Date.UTC(startYear, 3, 1, 0, 0, 0, 0)),
+        endDate: new Date(Date.UTC(endYear, 2, 31, 23, 59, 59, 999)),
+    };
+}
+
+function buildInRangeOrCreatedFilter(
+    primaryField: string,
+    range: { startDate: Date; endDate: Date },
+    secondaryField?: string
+) {
+    const conditions: Record<string, unknown>[] = [
+        { [primaryField]: { $gte: range.startDate, $lte: range.endDate } },
+    ];
+
+    if (secondaryField) {
+        conditions.push({ [secondaryField]: { $gte: range.startDate, $lte: range.endDate } });
+    }
+
+    conditions.push({ createdAt: { $gte: range.startDate, $lte: range.endDate } });
+
+    return { $or: conditions };
+}
+
+async function syncStudentAqarEntries(cycleId: string, academicYear: string) {
+    const range = parseAcademicYearRange(academicYear);
+    const activeStudents = await Student.find({ status: "Active" }).select("_id").lean();
+    const studentIds = activeStudents.map((student) => student._id);
+
+    if (!studentIds.length) {
+        await StudentAqarEntry.deleteMany({ aqarCycleId: cycleId });
+        return;
+    }
+
+    const academicYearDoc = await (await import("@/models/reference/academic-year")).default.findOne({
+        yearStart: range.startYear,
+        yearEnd: range.endYear,
+    }).select("_id");
+
+    const semesterIds = academicYearDoc
+        ? (
+              await Semester.find({ academicYearId: academicYearDoc._id })
+                  .select("_id")
+                  .lean()
+          ).map((semester) => semester._id)
+        : [];
+
+    const eventIds = (
+        await (await import("@/models/reference/event")).default.find({
+            ...buildInRangeOrCreatedFilter("startDate", range, "endDate"),
+        })
+            .select("_id")
+            .lean()
+    ).map((event) => event._id);
+
+    const [
+        academicCounts,
+        publicationCounts,
+        researchCounts,
+        awardCounts,
+        skillCounts,
+        sportCounts,
+        culturalCounts,
+        eventCounts,
+        socialCounts,
+        placementCounts,
+        internshipCounts,
+    ] = await Promise.all([
+        semesterIds.length
+            ? StudentAcademicRecord.aggregate([
+                  { $match: { semesterId: { $in: semesterIds } } },
+                  { $group: { _id: "$studentId", count: { $sum: 1 } } },
+              ])
+            : [],
+        StudentPublication.aggregate([
+            { $match: buildInRangeOrCreatedFilter("publicationDate", range) },
+            { $group: { _id: "$studentId", count: { $sum: 1 } } },
+        ]),
+        StudentResearchProject.aggregate([
+            { $match: buildInRangeOrCreatedFilter("startDate", range, "endDate") },
+            { $group: { _id: "$studentId", count: { $sum: 1 } } },
+        ]),
+        StudentAward.aggregate([
+            { $match: buildInRangeOrCreatedFilter("awardDate", range) },
+            { $group: { _id: "$studentId", count: { $sum: 1 } } },
+        ]),
+        StudentSkill.aggregate([
+            { $match: buildInRangeOrCreatedFilter("startDate", range, "endDate") },
+            { $group: { _id: "$studentId", count: { $sum: 1 } } },
+        ]),
+        StudentSport.aggregate([
+            { $match: buildInRangeOrCreatedFilter("eventDate", range) },
+            { $group: { _id: "$studentId", count: { $sum: 1 } } },
+        ]),
+        StudentCulturalParticipation.aggregate([
+            { $match: buildInRangeOrCreatedFilter("date", range) },
+            { $group: { _id: "$studentId", count: { $sum: 1 } } },
+        ]),
+        eventIds.length
+            ? StudentEventParticipation.aggregate([
+                  { $match: { eventId: { $in: eventIds } } },
+                  { $group: { _id: "$studentId", count: { $sum: 1 } } },
+              ])
+            : [],
+        StudentSocialParticipation.aggregate([
+            { $match: buildInRangeOrCreatedFilter("date", range) },
+            { $group: { _id: "$studentId", count: { $sum: 1 } } },
+        ]),
+        Placement.aggregate([
+            { $match: buildInRangeOrCreatedFilter("offerDate", range, "joiningDate") },
+            { $group: { _id: "$studentId", count: { $sum: 1 } } },
+        ]),
+        Internship.aggregate([
+            { $match: buildInRangeOrCreatedFilter("startDate", range, "endDate") },
+            { $group: { _id: "$studentId", count: { $sum: 1 } } },
+        ]),
+    ]);
+
+    const toCountMap = (rows: Array<{ _id: Types.ObjectId; count: number }>) =>
+        new Map(rows.map((row) => [String(row._id), row.count]));
+
+    const academicMap = toCountMap(academicCounts);
+    const publicationMap = toCountMap(publicationCounts);
+    const researchMap = toCountMap(researchCounts);
+    const awardMap = toCountMap(awardCounts);
+    const skillMap = toCountMap(skillCounts);
+    const sportMap = toCountMap(sportCounts);
+    const culturalMap = toCountMap(culturalCounts);
+    const eventMap = toCountMap(eventCounts);
+    const socialMap = toCountMap(socialCounts);
+    const placementMap = toCountMap(placementCounts);
+    const internshipMap = toCountMap(internshipCounts);
+
+    const operations = studentIds.map((studentId) => {
+        const key = String(studentId);
+        const academicScore = academicMap.get(key) ?? 0;
+        const activitiesScore =
+            (awardMap.get(key) ?? 0) +
+            (skillMap.get(key) ?? 0) +
+            (culturalMap.get(key) ?? 0) +
+            (eventMap.get(key) ?? 0) +
+            (placementMap.get(key) ?? 0) +
+            (internshipMap.get(key) ?? 0);
+        const researchScore = (publicationMap.get(key) ?? 0) + (researchMap.get(key) ?? 0);
+        const sportsScore = sportMap.get(key) ?? 0;
+        const socialScore = socialMap.get(key) ?? 0;
+        const overallScore =
+            academicScore + activitiesScore + researchScore + sportsScore + socialScore;
+
+        return {
+            updateOne: {
+                filter: {
+                    aqarCycleId: new Types.ObjectId(cycleId),
+                    studentId,
+                },
+                update: {
+                    $set: {
+                        academicScore,
+                        activitiesScore,
+                        researchScore,
+                        sportsScore,
+                        socialScore,
+                        overallScore,
+                    },
+                },
+                upsert: true,
+            },
+        };
+    });
+
+    if (operations.length) {
+        await StudentAqarEntry.bulkWrite(operations);
+    }
+
+    await StudentAqarEntry.deleteMany({
+        aqarCycleId: new Types.ObjectId(cycleId),
+        studentId: { $nin: studentIds },
+    });
 }
 
 export async function createAqarCycle(
@@ -138,7 +347,7 @@ async function buildCriteriaSections(academicYear: string): Promise<{
     const [
         facultyCount,
         studentCount,
-        approvedStudentCount,
+        activeStudentCount,
         departmentCount,
         collegeCount,
         universityCount,
@@ -151,7 +360,6 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         casCount,
         facultyAqarContributions,
         placements,
-        higherEducation,
         internships,
         publications,
         books,
@@ -164,7 +372,7 @@ async function buildCriteriaSections(academicYear: string): Promise<{
     ] = await Promise.all([
         User.countDocuments({ role: "Faculty", isActive: true }),
         User.countDocuments({ role: "Student", isActive: true }),
-        User.countDocuments({ role: "Student", "studentDetails.profileStatus": "Approved" }),
+        Student.countDocuments({ status: "Active" }),
         Organization.countDocuments({ type: "Department", isActive: true }),
         Organization.countDocuments({ type: "College", isActive: true }),
         Organization.countDocuments({ type: "University", isActive: true }),
@@ -179,9 +387,8 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         }),
         CasApplication.countDocuments({ applicationYear: academicYear }),
         AqarApplication.countDocuments({ academicYear }),
-        StudentActivity.countDocuments({ year: academicYear, type: "Placement" }),
-        StudentActivity.countDocuments({ year: academicYear, type: "HigherEducation" }),
-        StudentActivity.countDocuments({ year: academicYear, type: "Internship" }),
+        Placement.countDocuments(buildInRangeOrCreatedFilter("offerDate", parseAcademicYearRange(academicYear), "joiningDate")),
+        Internship.countDocuments(buildInRangeOrCreatedFilter("startDate", parseAcademicYearRange(academicYear), "endDate")),
         Publication.countDocuments({ year: academicYear }),
         Publication.countDocuments({ year: academicYear, type: { $in: ["Book", "BookChapter"] } }),
         Project.countDocuments(),
@@ -235,14 +442,14 @@ async function buildCriteriaSections(academicYear: string): Promise<{
             metrics: {
                 totalFaculty: facultyCount,
                 totalStudents: studentCount,
-                approvedStudents: approvedStudentCount,
+                activeStudents: activeStudentCount,
                 approvedPbasReports: approvedPbasCount,
             },
             completionPercent: 0,
             status: "Pending",
             sourceSnapshots: [
                 { sourceType: "User", label: "Active faculty", count: facultyCount },
-                { sourceType: "User", label: "Approved students", count: approvedStudentCount },
+                { sourceType: "Student", label: "Active student records", count: activeStudentCount },
                 { sourceType: "PBAS", label: "PBAS reports linked", count: approvedPbasCount },
             ],
         },
@@ -285,19 +492,18 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         {
             criterionCode: "C5",
             title: "Student Support and Progression",
-            summary: "Student progression indicators aggregated from student activities and approved student records.",
+            summary: "Student progression indicators aggregated from the active student placement and internship records.",
             metrics: {
                 placements,
-                higherEducation,
                 internships,
-                approvedStudents: approvedStudentCount,
+                activeStudents: activeStudentCount,
             },
             completionPercent: 0,
             status: "Pending",
             sourceSnapshots: [
-                { sourceType: "StudentActivity", label: "Placement records", count: placements },
-                { sourceType: "StudentActivity", label: "Higher education records", count: higherEducation },
-                { sourceType: "StudentActivity", label: "Internship records", count: internships },
+                { sourceType: "Placement", label: "Placement records", count: placements },
+                { sourceType: "Internship", label: "Internship records", count: internships },
+                { sourceType: "Student", label: "Active student records", count: activeStudentCount },
             ],
         },
         {
@@ -386,6 +592,7 @@ export async function generateAqarCycleSnapshot(actor: SafeActor, id: string) {
 
     pushCycleLog(cycle, actor, "Snapshot Generated", "Institutional AQAR criteria were refreshed from source modules.");
     await cycle.save();
+    await syncStudentAqarEntries(cycle._id.toString(), cycle.academicYear);
 
     return cycle;
 }

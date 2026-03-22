@@ -423,7 +423,7 @@ export function StudentRecordsDashboard({
                         </CardHeader>
                         <CardContent className="grid gap-3">
                             <Button asChild variant="secondary" className="w-full">
-                                <a href="/student/profile">Open Profile Workspace</a>
+                                <a href="/student/profile">Open Student Overview</a>
                             </Button>
                         </CardContent>
                     </Card>

@@ -124,8 +124,8 @@ type UserRecord = {
     emailVerified: boolean;
     isActive: boolean;
     lastLoginAt?: string;
-    studentDetails?: {
-        rollNo?: string;
+    studentSummary?: {
+        enrollmentNo?: string;
     };
     facultySummary?: {
         employeeCode?: string;
@@ -1416,9 +1416,9 @@ export function UserManagementTable({
                                         {user.universityName || "No university"} / {user.collegeName || "No college"} /{" "}
                                         {user.department || "No department"}
                                     </p>
-                                    {user.studentDetails?.rollNo ? (
+                                    {user.studentSummary?.enrollmentNo ? (
                                         <p className="mt-1 text-sm text-zinc-500">
-                                            Enrollment No.: {user.studentDetails.rollNo}
+                                            Enrollment No.: {user.studentSummary.enrollmentNo}
                                         </p>
                                     ) : null}
                                     {user.facultySummary?.employeeCode ? (

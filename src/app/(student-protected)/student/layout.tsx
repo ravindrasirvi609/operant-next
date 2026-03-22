@@ -23,7 +23,7 @@ export default async function StudentLayout({
 
   const navLinks = [
     { label: "Home", href: "/" },
-    { label: "Profile", href: "/student/profile" },
+    { label: "Overview", href: "/student/profile" },
     { label: "Records", href: "/student/records" },
   ];
 
@@ -52,7 +52,7 @@ export default async function StudentLayout({
           <div className="flex items-center gap-2">
             <div className="hidden text-right text-xs text-zinc-500 sm:block">
               <p className="font-medium text-zinc-900">{user.name}</p>
-              <p>{user.studentDetails?.course ?? "Student"}</p>
+              <p>Institutional Student</p>
             </div>
             <Badge variant="secondary">{user.role ?? "Student"}</Badge>
             <Badge

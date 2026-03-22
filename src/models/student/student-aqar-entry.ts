@@ -1,7 +1,7 @@
 import mongoose, { Document, Model, Schema, Types } from "mongoose";
 
 export interface IStudentAqarEntry extends Document {
-    aqarReportId: Types.ObjectId;
+    aqarCycleId: Types.ObjectId;
     studentId: Types.ObjectId;
     academicScore: number;
     activitiesScore: number;
@@ -15,7 +15,7 @@ export interface IStudentAqarEntry extends Document {
 
 const StudentAqarEntrySchema = new Schema<IStudentAqarEntry>(
     {
-        aqarReportId: { type: Schema.Types.ObjectId, ref: "AqarReport", required: true, index: true },
+        aqarCycleId: { type: Schema.Types.ObjectId, ref: "AqarCycle", required: true, index: true },
         studentId: { type: Schema.Types.ObjectId, ref: "Student", required: true, index: true },
         academicScore: { type: Number, default: 0, min: 0 },
         activitiesScore: { type: Number, default: 0, min: 0 },
@@ -27,7 +27,7 @@ const StudentAqarEntrySchema = new Schema<IStudentAqarEntry>(
     { timestamps: true, collection: "student_aqar_entries" }
 );
 
-StudentAqarEntrySchema.index({ aqarReportId: 1, studentId: 1 }, { unique: true });
+StudentAqarEntrySchema.index({ aqarCycleId: 1, studentId: 1 }, { unique: true });
 
 const StudentAqarEntry: Model<IStudentAqarEntry> =
     mongoose.models.StudentAqarEntry ||

@@ -36,7 +36,6 @@ type SafeUser = {
     phone?: string;
     facultyId?: string;
     emailVerified: boolean;
-    studentDetails?: IUser["studentDetails"];
     lastLoginAt?: Date;
 };
 
@@ -46,7 +45,7 @@ function getPostLoginPath(user: SafeUser) {
             return "/activate-student";
         }
 
-        return "/student/profile";
+        return "/student/records";
     }
 
     if (user.role === "Faculty") {
@@ -74,7 +73,6 @@ function toSafeUser(user: IUser): SafeUser {
         phone: user.phone,
         facultyId: user.facultyId?.toString(),
         emailVerified: user.emailVerified,
-        studentDetails: user.studentDetails,
         lastLoginAt: user.lastLoginAt,
     };
 }

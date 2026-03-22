@@ -57,7 +57,7 @@ export default async function Home() {
               ) : null}
               {user.role === "Student" ? (
                 <Button asChild>
-                  <Link href="/student/profile">Open Student Portal</Link>
+                  <Link href="/student/records">Open Student Portal</Link>
                 </Button>
               ) : null}
               <Button variant="secondary">Authenticated Session Active</Button>
@@ -101,25 +101,6 @@ export default async function Home() {
             </CardContent>
           </Card>
         </section>
-
-        {user.role === "Student" && user.studentDetails ? (
-          <section className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Student profile snapshot</CardTitle>
-                <CardDescription>
-                  Student registration fields captured during authentication onboarding.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <OverviewItem icon={<GraduationCap className="size-5" />} label="Roll No." value={user.studentDetails.rollNo} />
-                <OverviewItem icon={<BookOpenText className="size-5" />} label="Course" value={user.studentDetails.course} />
-                <OverviewItem icon={<UserRound className="size-5" />} label="Batch" value={user.studentDetails.batch} />
-                <OverviewItem icon={<ShieldCheck className="size-5" />} label="Admission Year" value={user.studentDetails.admissionYear} />
-              </CardContent>
-            </Card>
-          </section>
-        ) : null}
       </div>
     </main>
   );

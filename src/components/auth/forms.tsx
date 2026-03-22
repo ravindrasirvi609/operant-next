@@ -255,7 +255,7 @@ export function StudentActivationForm() {
                     redirectPath?: string;
                 };
                 setSuccessMessage(data.message ?? "Student account activated.");
-                router.push(data.redirectPath ?? "/student/profile");
+                router.push(data.redirectPath ?? "/student/records");
                 router.refresh();
             } catch (error) {
                 setErrorMessage(

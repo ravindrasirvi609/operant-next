@@ -22,7 +22,7 @@ export async function getAdminUsers() {
     const users = await User.find()
         .sort({ createdAt: -1 })
         .select(
-            "name email role accountStatus universityName collegeName department designation phone emailVerified isActive lastLoginAt createdAt studentDetails.rollNo facultyId"
+            "name email role accountStatus universityName collegeName department designation phone emailVerified isActive lastLoginAt createdAt studentId facultyId"
         );
 
     const facultyIds = users
@@ -35,17 +35,37 @@ export async function getAdminUsers() {
           )
         : [];
 
+    const studentIds = users
+        .map((user) => user.studentId?.toString())
+        .filter((value): value is string => Boolean(value));
+
+    const students = studentIds.length
+        ? await Student.find({ _id: { $in: studentIds } }).select("enrollmentNo")
+        : [];
+
     const facultyMap = new Map(
         faculties.map((faculty) => [faculty._id.toString(), faculty])
+    );
+
+    const studentMap = new Map(
+        students.map((student) => [student._id.toString(), student])
     );
 
     return users.map((user) => {
         const faculty = user.facultyId
             ? facultyMap.get(user.facultyId.toString())
             : null;
+        const student = user.studentId
+            ? studentMap.get(user.studentId.toString())
+            : null;
 
         return {
             ...JSON.parse(JSON.stringify(user)),
+            studentSummary: student
+                ? {
+                      enrollmentNo: student.enrollmentNo,
+                  }
+                : undefined,
             facultySummary: faculty
                 ? {
                       employeeCode: faculty.employeeCode,
@@ -199,8 +219,6 @@ export async function createProvisionedStudent(rawInput: unknown) {
             }
 
             const fullName = [input.firstName, input.lastName].filter(Boolean).join(" ");
-            const batch = `${input.admissionYear}-${input.admissionYear + input.durationYears}`;
-
             const student = await Student.create(
                 [
                     {
@@ -236,13 +254,6 @@ export async function createProvisionedStudent(rawInput: unknown) {
                         experience: [],
                         emailVerified: true,
                         isActive: true,
-                        studentDetails: {
-                            rollNo: input.enrollmentNo,
-                            course: input.course,
-                            batch,
-                            admissionYear: String(input.admissionYear),
-                            profileStatus: "Approved",
-                        },
                     },
                 ],
                 { session }

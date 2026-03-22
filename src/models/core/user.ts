@@ -46,69 +46,6 @@ export interface IResearchProfile {
     googleScholarId?: string;
 }
 
-export interface IStudentDetails {
-    rollNo: string;
-    course: string;
-    batch: string;
-    admissionYear: string;
-    profileStatus?: "Draft" | "PendingApproval" | "Approved" | "Rejected";
-    profileSubmittedAt?: Date;
-    approvedAt?: Date;
-    approvedById?: mongoose.Types.ObjectId;
-    approvedByName?: string;
-    approvalNotes?: string;
-    assignedHodId?: mongoose.Types.ObjectId;
-    assignedHodName?: string;
-    assignedHodEmail?: string;
-    rejectionReason?: string;
-    personalInfo?: {
-        dateOfBirth?: string;
-        gender?: string;
-        bloodGroup?: string;
-        address?: string;
-        city?: string;
-        state?: string;
-        postalCode?: string;
-        emergencyContactName?: string;
-        emergencyContactPhone?: string;
-        parentName?: string;
-        parentPhone?: string;
-    };
-    academicInfo?: {
-        currentSemester?: string;
-        cgpa?: string;
-        section?: string;
-        mentorName?: string;
-        areasOfInterest?: string[];
-    };
-    careerProfile?: {
-        headline?: string;
-        summary?: string;
-        careerObjective?: string;
-        skills?: string[];
-        languages?: string[];
-        certifications?: string[];
-        achievements?: string[];
-        projects?: {
-            title: string;
-            description?: string;
-            techStack?: string[];
-            link?: string;
-        }[];
-        internships?: {
-            organization: string;
-            role?: string;
-            duration?: string;
-            description?: string;
-        }[];
-        socialLinks?: {
-            linkedin?: string;
-            github?: string;
-            portfolio?: string;
-        };
-    };
-}
-
 export interface IUser extends Document {
     name: string;
     email: string;
@@ -127,7 +64,6 @@ export interface IUser extends Document {
     phone?: string;
     experience: IExperience[];
     researchProfile?: IResearchProfile;
-    studentDetails?: IStudentDetails;
     isActive: boolean;
     emailVerified: boolean;
     emailVerificationTokenHash?: string;
@@ -171,79 +107,6 @@ const UserSchema = new Schema<IUser>(
         // Embedded Faculty Data
         experience: [ExperienceSchema],
         researchProfile: ResearchProfileSchema,
-
-        // Embedded Student Data
-        studentDetails: {
-            rollNo: { type: String },
-            course: { type: String },
-            batch: { type: String },
-            admissionYear: { type: String },
-            profileStatus: {
-                type: String,
-                enum: ["Draft", "PendingApproval", "Approved", "Rejected"],
-                default: "Draft",
-            },
-            profileSubmittedAt: { type: Date },
-            approvedAt: { type: Date },
-            approvedById: { type: Schema.Types.ObjectId, ref: "User" },
-            approvedByName: { type: String },
-            approvalNotes: { type: String },
-            assignedHodId: { type: Schema.Types.ObjectId, ref: "User" },
-            assignedHodName: { type: String },
-            assignedHodEmail: { type: String, lowercase: true, trim: true },
-            rejectionReason: { type: String },
-            personalInfo: {
-                dateOfBirth: { type: String },
-                gender: { type: String },
-                bloodGroup: { type: String },
-                address: { type: String },
-                city: { type: String },
-                state: { type: String },
-                postalCode: { type: String },
-                emergencyContactName: { type: String },
-                emergencyContactPhone: { type: String },
-                parentName: { type: String },
-                parentPhone: { type: String },
-            },
-            academicInfo: {
-                currentSemester: { type: String },
-                cgpa: { type: String },
-                section: { type: String },
-                mentorName: { type: String },
-                areasOfInterest: { type: [String], default: [] },
-            },
-            careerProfile: {
-                headline: { type: String },
-                summary: { type: String },
-                careerObjective: { type: String },
-                skills: { type: [String], default: [] },
-                languages: { type: [String], default: [] },
-                certifications: { type: [String], default: [] },
-                achievements: { type: [String], default: [] },
-                projects: [
-                    {
-                        title: { type: String, required: true },
-                        description: { type: String },
-                        techStack: { type: [String], default: [] },
-                        link: { type: String },
-                    },
-                ],
-                internships: [
-                    {
-                        organization: { type: String, required: true },
-                        role: { type: String },
-                        duration: { type: String },
-                        description: { type: String },
-                    },
-                ],
-                socialLinks: {
-                    linkedin: { type: String },
-                    github: { type: String },
-                    portfolio: { type: String },
-                },
-            },
-        },
-
         isActive: { type: Boolean, default: true },
         emailVerified: { type: Boolean, default: false },
         emailVerificationTokenHash: { type: String, select: false },
