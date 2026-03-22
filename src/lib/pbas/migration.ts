@@ -1,9 +1,6 @@
 import { Types } from "mongoose";
 
-import AcademicYear from "@/models/reference/academic-year";
-import PbasApplication, { type PbasStatus } from "@/models/core/pbas-application";
-import CasApplication from "@/models/core/cas-application";
-import FacultyPbasForm, { type FacultyPbasSubmissionStatus } from "@/models/core/faculty-pbas-form";
+import FacultyPbasForm from "@/models/core/faculty-pbas-form";
 import FacultyPbasRevision from "@/models/core/faculty-pbas-revision";
 import FacultyPbasEntry from "@/models/core/faculty-pbas-entry";
 import PbasCategoryMaster, { type PbasCategoryCode } from "@/models/core/pbas-category-master";
@@ -23,7 +20,6 @@ import Faculty from "@/models/faculty/faculty";
 import Event from "@/models/reference/event";
 import SocialProgram from "@/models/reference/social-program";
 import { deriveAutoDraftReferences, loadPbasReferenceContext, resolvePbasSnapshotFromReferences } from "@/lib/pbas/references";
-import { pbasSnapshotSchema } from "@/lib/pbas/validators";
 
 type IndicatorSeed = {
     categoryCode: PbasCategoryCode;
@@ -34,66 +30,6 @@ type IndicatorSeed = {
     maxScore: number;
     naacCriteriaCode?: string;
 };
-
-function parseAcademicYearLabel(value: string) {
-    const match = value.trim().match(/(\d{4})\D+(\d{2,4})/);
-
-    if (!match) {
-        throw new Error(`Invalid academic year "${value}".`);
-    }
-
-    const start = Number(match[1]);
-    const endValue = Number(match[2]);
-    const end =
-        endValue < 100
-            ? Number(`${String(start).slice(0, 2)}${String(endValue).padStart(2, "0")}`)
-            : endValue;
-
-    return { start, end };
-}
-
-async function ensureAcademicYear(value: string) {
-    const parsed = parseAcademicYearLabel(value);
-    let academicYear = await AcademicYear.findOne({
-        yearStart: parsed.start,
-        yearEnd: parsed.end,
-    });
-
-    if (!academicYear) {
-        academicYear = await AcademicYear.create({
-            yearStart: parsed.start,
-            yearEnd: parsed.end,
-            isActive: false,
-        });
-    }
-
-    return academicYear;
-}
-
-function statusPriority(status: PbasStatus) {
-    const priorities: Record<PbasStatus, number> = {
-        Approved: 6,
-        "Committee Review": 5,
-        "Under Review": 4,
-        Submitted: 3,
-        Draft: 2,
-        Rejected: 1,
-    };
-
-    return priorities[status] ?? 0;
-}
-
-function deriveSubmissionStatus(status: PbasStatus): FacultyPbasSubmissionStatus {
-    if (status === "Approved") {
-        return "Locked";
-    }
-
-    if (status === "Draft" || status === "Rejected") {
-        return "Draft";
-    }
-
-    return "Submitted";
-}
 
 let migrationPromise: Promise<void> | null = null;
 
@@ -229,33 +165,7 @@ export async function syncPbasTotalEntries(formId: string, revisionId?: string) 
     await upsertTotalEntries(form, revisionId);
 }
 
-async function remapCasPbasReports(mapping: Map<string, string>) {
-    const legacyIds = Array.from(mapping.keys());
-    if (!legacyIds.length) {
-        return;
-    }
-
-    const legacyObjectIds = legacyIds.map((id) => new Types.ObjectId(id));
-    const cursor = CasApplication.find({ pbasReports: { $in: legacyObjectIds } }).cursor();
-
-    for await (const application of cursor) {
-        const updated = application.pbasReports.map((entry) => {
-            const next = mapping.get(entry.toString());
-            return next ? new Types.ObjectId(next) : entry;
-        });
-
-        const unique = Array.from(new Set(updated.map((id) => id.toString()))).map(
-            (id) => new Types.ObjectId(id)
-        );
-
-        application.pbasReports = unique;
-        await application.save();
-    }
-}
-
-async function backfillPbasReferencesAndRevisions(
-    legacyByFormId: Map<string, InstanceType<typeof PbasApplication>>
-) {
+async function backfillPbasReferencesAndRevisions() {
     const forms = await FacultyPbasForm.find({}).cursor();
 
     for await (const form of forms) {
@@ -310,15 +220,6 @@ async function backfillPbasReferencesAndRevisions(
             continue;
         }
 
-        const legacy = legacyByFormId.get(form._id.toString());
-        const snapshot = legacy
-            ? pbasSnapshotSchema.parse({
-                category1: legacy.category1 ?? {},
-                category2: legacy.category2 ?? {},
-                category3: legacy.category3 ?? {},
-            })
-            : null;
-
         const revision = await FacultyPbasRevision.create({
             pbasFormId: form._id,
             revisionNumber: 1,
@@ -327,10 +228,10 @@ async function backfillPbasReferencesAndRevisions(
             submittedBy: undefined,
             approvedAt: form.status === "Approved" ? form.verifiedAt ?? form.updatedAt : undefined,
             approvedBy: form.status === "Approved" ? form.verifiedBy : undefined,
-            migrationSource: legacy ? "legacy_snapshot" : "live_references",
-            backfillIntegrity: legacy ? "exact" : "reconstructed",
+            migrationSource: "live_references",
+            backfillIntegrity: "reconstructed",
             references: form.draftReferences ?? autoReferences,
-            snapshot: snapshot ?? resolvePbasSnapshotFromReferences(context, form.draftReferences ?? autoReferences),
+            snapshot: resolvePbasSnapshotFromReferences(context, form.draftReferences ?? autoReferences),
             apiScore: form.apiScore,
         });
 
@@ -350,125 +251,7 @@ export async function ensurePbasDynamicMigration() {
 
     migrationPromise = (async () => {
         await seedPbasMasters();
-
-        const legacyCount = await PbasApplication.estimatedDocumentCount();
-        const byKey = new Map<string, Array<InstanceType<typeof PbasApplication>>>();
-        const aliasMapping = new Map<string, string>();
-        const legacyByCanonicalFormId = new Map<string, InstanceType<typeof PbasApplication>>();
-        if (legacyCount) {
-            const legacyCursor = PbasApplication.find({}).cursor();
-            const academicYearIdByLabel = new Map<string, Types.ObjectId>();
-
-            for await (const legacy of legacyCursor) {
-                const label = legacy.academicYear;
-                let academicYearId: Types.ObjectId | null = null;
-                const cached = academicYearIdByLabel.get(label);
-                if (cached) {
-                    academicYearId = cached;
-                } else {
-                    try {
-                        const academicYear = await ensureAcademicYear(label);
-                        academicYearId = academicYear._id as Types.ObjectId;
-                        academicYearIdByLabel.set(label, academicYearId);
-                    } catch {
-                        continue;
-                    }
-                }
-
-                const key = `${legacy.facultyId.toString()}::${academicYearId.toString()}`;
-                const existing = byKey.get(key) ?? [];
-                existing.push(legacy);
-                byKey.set(key, existing);
-            }
-
-            for (const [key, group] of byKey) {
-                group.sort((a, b) => {
-                    const score = statusPriority(b.status) - statusPriority(a.status);
-                    if (score !== 0) return score;
-                    return (b.updatedAt?.getTime?.() ?? 0) - (a.updatedAt?.getTime?.() ?? 0);
-                });
-
-                const canonicalLegacy = group[0];
-                const [facultyId, academicYearId] = key.split("::");
-                const academicYearLabel = canonicalLegacy.academicYear;
-
-                const facultyObjectId = new Types.ObjectId(facultyId);
-                const academicYearObjectId = new Types.ObjectId(academicYearId);
-
-                const existingForm = await FacultyPbasForm.findOne({
-                    facultyId: facultyObjectId,
-                    academicYearId: academicYearObjectId,
-                }).select("_id");
-
-                const canonicalFormId = existingForm?._id ?? canonicalLegacy._id;
-
-                if (canonicalFormId.toString() !== canonicalLegacy._id.toString()) {
-                    aliasMapping.set(canonicalLegacy._id.toString(), canonicalFormId.toString());
-                    await PbasIdAlias.updateOne(
-                        { legacyPbasId: canonicalLegacy._id },
-                        {
-                            $set: {
-                                legacyPbasId: canonicalLegacy._id,
-                                canonicalPbasId: canonicalFormId,
-                                facultyId: facultyObjectId,
-                                academicYearId: academicYearObjectId,
-                            },
-                        },
-                        { upsert: true }
-                    );
-                }
-
-                const doc = {
-                    facultyId: facultyObjectId,
-                    academicYearId: academicYearObjectId,
-                    submissionStatus: deriveSubmissionStatus(canonicalLegacy.status),
-                    submittedAt: canonicalLegacy.submittedAt,
-                    verifiedBy: undefined,
-                    verifiedAt: undefined,
-                    remarks: "",
-                    academicYear: academicYearLabel,
-                    currentDesignation: canonicalLegacy.currentDesignation,
-                    appraisalPeriod: canonicalLegacy.appraisalPeriod,
-                    apiScore: canonicalLegacy.apiScore,
-                    reviewCommittee: canonicalLegacy.reviewCommittee,
-                    statusLogs: canonicalLegacy.statusLogs,
-                    status: canonicalLegacy.status,
-                };
-
-                await FacultyPbasForm.updateOne(
-                    { _id: canonicalFormId },
-                    { $set: doc },
-                    { upsert: true }
-                );
-
-                const stored = await FacultyPbasForm.findById(canonicalFormId);
-
-                if (stored) {
-                    legacyByCanonicalFormId.set(stored._id.toString(), canonicalLegacy);
-                    await upsertTotalEntries(stored);
-                }
-
-                for (const legacy of group.slice(1)) {
-                    aliasMapping.set(legacy._id.toString(), canonicalFormId.toString());
-                    await PbasIdAlias.updateOne(
-                        { legacyPbasId: legacy._id },
-                        {
-                            $set: {
-                                legacyPbasId: legacy._id,
-                                canonicalPbasId: canonicalFormId,
-                                facultyId: facultyObjectId,
-                                academicYearId: academicYearObjectId,
-                            },
-                        },
-                        { upsert: true }
-                    );
-                }
-            }
-
-            await remapCasPbasReports(aliasMapping);
-        }
-
-        await backfillPbasReferencesAndRevisions(legacyByCanonicalFormId);
+        await backfillPbasReferencesAndRevisions();
     })();
 
     try {

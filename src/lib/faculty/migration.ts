@@ -8,7 +8,6 @@ import AqarApplication from "@/models/core/aqar-application";
 import CasApplication from "@/models/core/cas-application";
 import FacultyEvidence from "@/models/core/faculty-evidence";
 import FacultyRecord from "@/models/core/faculty-record";
-import PbasApplication from "@/models/core/pbas-application";
 import AcademicYear from "@/models/reference/academic-year";
 import Department from "@/models/reference/department";
 import Event from "@/models/reference/event";
@@ -311,7 +310,6 @@ export async function ensureFacultyContext(userId: string) {
     }
 
     await Promise.all([
-        PbasApplication.updateMany({ facultyId: user._id }, { $set: { facultyId: faculty._id } }),
         CasApplication.updateMany({ facultyId: user._id }, { $set: { facultyId: faculty._id } }),
         AqarApplication.updateMany({ facultyId: user._id }, { $set: { facultyId: faculty._id } }),
     ]);
