@@ -15,7 +15,7 @@ export default async function AdminMasterDataPage() {
                 <CardHeader>
                 <CardTitle>Institutional master data</CardTitle>
                 <CardDescription>
-                    Centralize universities, colleges, departments, academic-year options, reporting categories, offices, and other enum-style configuration needed by UMIS modules.
+                    Centralize academic-year options, reporting categories, offices, and other enum-style configuration that is not governed by the hierarchy or reference-master modules.
                 </CardDescription>
                 </CardHeader>
                 <CardContent>

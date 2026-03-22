@@ -2,6 +2,10 @@ import { Types } from "mongoose";
 
 import dbConnect from "@/lib/dbConnect";
 import { AuthError } from "@/lib/auth/errors";
+import {
+    ensureCanonicalHierarchyPath,
+    ensureCanonicalUniversityProjection,
+} from "@/lib/hierarchy/canonical";
 import Program from "@/models/academic/program";
 import User from "@/models/core/user";
 import AqarApplication from "@/models/core/aqar-application";
@@ -9,9 +13,7 @@ import CasApplication from "@/models/core/cas-application";
 import FacultyEvidence from "@/models/core/faculty-evidence";
 import FacultyRecord from "@/models/core/faculty-record";
 import AcademicYear from "@/models/reference/academic-year";
-import Department from "@/models/reference/department";
 import Event from "@/models/reference/event";
-import Institution from "@/models/reference/institution";
 import SocialProgram from "@/models/reference/social-program";
 import Faculty from "@/models/faculty/faculty";
 import FacultyAdminRole from "@/models/faculty/faculty-admin-role";
@@ -62,23 +64,19 @@ function parseAcademicYearLabel(value?: string | null) {
 }
 
 async function ensureInstitution(name?: string | null) {
-    const normalizedName = String(name ?? "").trim() || "Institution";
-    let institution = await Institution.findOne({ name: normalizedName });
-
-    if (!institution) {
-        institution = await Institution.create({ name: normalizedName });
-    }
+    const { institution } = await ensureCanonicalUniversityProjection(
+        String(name ?? "").trim() || "Institution"
+    );
 
     return institution;
 }
 
 async function ensureDepartment(institutionId: Types.ObjectId, name?: string | null) {
-    const normalizedName = String(name ?? "").trim() || "Department";
-    let department = await Department.findOne({ institutionId, name: normalizedName });
-
-    if (!department) {
-        department = await Department.create({ institutionId, name: normalizedName });
-    }
+    const institution = await (await import("@/models/reference/institution")).default.findById(institutionId).select("name");
+    const { department } = await ensureCanonicalHierarchyPath({
+        universityName: institution?.name ?? "Institution",
+        departmentName: String(name ?? "").trim() || "Department",
+    });
 
     return department;
 }

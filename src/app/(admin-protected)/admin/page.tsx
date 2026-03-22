@@ -35,6 +35,9 @@ export default async function AdminDashboardPage() {
                             <Link href="/admin/master-data">Manage Master Data</Link>
                         </Button>
                         <Button asChild variant="secondary">
+                            <Link href="/admin/reference-masters">Govern Reference Masters</Link>
+                        </Button>
+                        <Button asChild variant="secondary">
                             <Link href="/admin/users">Review Users</Link>
                         </Button>
                         <Button asChild variant="secondary">
@@ -85,6 +88,7 @@ export default async function AdminDashboardPage() {
                     <CardContent className="grid gap-3">
                         <QuickAction href="/admin/hierarchy" text="Build the university-college-department hierarchy and assign directors or heads." />
                         <QuickAction href="/admin/master-data" text="Create supporting enums such as academic years, report categories, and offices." />
+                        <QuickAction href="/admin/reference-masters" text="Govern awards, skills, sports, cultural activities, social programmes, and events before users submit records." />
                         <QuickAction href="/admin/users" text="Promote responsible owners to Director, PRO, NSS, Sports, Swayam, or Placement roles." />
                         <QuickAction href="/admin/system" text="Publish onboarding notices, reporting deadlines, and dashboard messages." />
                         <QuickAction href="/admin/audit-logs" text="Review production audit logs for admin, AQAR, faculty, student, and evidence changes." />

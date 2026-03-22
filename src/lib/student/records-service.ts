@@ -305,52 +305,37 @@ async function findOrCreateAward(input: {
     organizingBody?: string;
     level?: string;
 }) {
-    let award = await Award.findOne({
+    return Award.findOne({
         title: input.awardTitle,
+        isActive: { $ne: false },
         ...(input.organizingBody && { organizingBody: input.organizingBody }),
     });
-    if (!award) {
-        award = await Award.create({
-            title: input.awardTitle,
-            category: input.category,
-            organizingBody: input.organizingBody,
-            level: input.level,
-        });
-    }
-    return award;
 }
 
 async function findOrCreateSkill(input: { skillName: string; category?: string }) {
-    let skill = await Skill.findOne({ name: input.skillName });
-    if (!skill) {
-        skill = await Skill.create({
-            name: input.skillName,
-            category: input.category ?? "Other",
-        });
-    }
-    return skill;
+    return Skill.findOne({
+        name: input.skillName,
+        isActive: { $ne: false },
+        ...(input.category ? { category: input.category } : {}),
+    });
 }
 
 async function findOrCreateSport(sportName: string) {
-    let sport = await Sport.findOne({ sportName });
-    if (!sport) {
-        sport = await Sport.create({ sportName });
-    }
-    return sport;
+    return Sport.findOne({
+        sportName,
+        isActive: { $ne: false },
+    });
 }
 
 async function findOrCreateCulturalActivity(input: {
     activityName: string;
     activityCategory?: string;
 }) {
-    let activity = await CulturalActivity.findOne({ name: input.activityName });
-    if (!activity) {
-        activity = await CulturalActivity.create({
-            name: input.activityName,
-            category: input.activityCategory,
-        });
-    }
-    return activity;
+    return CulturalActivity.findOne({
+        name: input.activityName,
+        isActive: { $ne: false },
+        ...(input.activityCategory ? { category: input.activityCategory } : {}),
+    });
 }
 
 async function findOrCreateEvent(input: {
@@ -359,30 +344,23 @@ async function findOrCreateEvent(input: {
     organizedBy?: string;
     eventDate?: string;
 }) {
-    let event = await Event.findOne({ title: input.eventTitle });
-    if (!event) {
-        event = await Event.create({
-            title: input.eventTitle,
-            eventType: input.eventType ?? "Other",
-            organizedBy: input.organizedBy ?? "Unknown",
-            startDate: toDateOrUndefined(input.eventDate),
-        });
-    }
-    return event;
+    return Event.findOne({
+        title: input.eventTitle,
+        isActive: { $ne: false },
+        ...(input.eventType ? { eventType: input.eventType } : {}),
+        ...(input.organizedBy ? { organizedBy: input.organizedBy } : {}),
+    });
 }
 
 async function findOrCreateSocialProgram(input: {
     programName: string;
     programType?: string;
 }) {
-    let prog = await SocialProgram.findOne({ name: input.programName });
-    if (!prog) {
-        prog = await SocialProgram.create({
-            name: input.programName,
-            type: input.programType ?? "Other",
-        });
-    }
-    return prog;
+    return SocialProgram.findOne({
+        name: input.programName,
+        isActive: { $ne: false },
+        ...(input.programType ? { type: input.programType } : {}),
+    });
 }
 
 export async function createStudentRecord(
@@ -521,7 +499,7 @@ export async function createStudentRecord(
                 });
             }
             if (!skill) {
-                throw new AuthError("Skill not found.", 404);
+                throw new AuthError("Skill not found in governed reference masters. Ask admin to create or activate it first.", 404);
             }
             createdRecord = await StudentSkill.create({
                 studentId,
@@ -546,7 +524,7 @@ export async function createStudentRecord(
                 sport = await findOrCreateSport(d.sportName ?? "");
             }
             if (!sport) {
-                throw new AuthError("Sport not found.", 404);
+                throw new AuthError("Sport not found in governed reference masters. Ask admin to create or activate it first.", 404);
             }
             createdRecord = await StudentSport.create({
                 studentId,
@@ -578,7 +556,7 @@ export async function createStudentRecord(
                 });
             }
             if (!activity) {
-                throw new AuthError("Cultural activity not found.", 404);
+                throw new AuthError("Cultural activity not found in governed reference masters. Ask admin to create or activate it first.", 404);
             }
             createdRecord = await StudentCulturalParticipation.create({
                 studentId,
@@ -617,7 +595,7 @@ export async function createStudentRecord(
                 });
             }
             if (!event) {
-                throw new AuthError("Event not found.", 404);
+                throw new AuthError("Event not found in governed reference masters. Ask admin to create or activate it first.", 404);
             }
             createdRecord = await StudentEventParticipation.create({
                 studentId,
@@ -650,7 +628,7 @@ export async function createStudentRecord(
                 });
             }
             if (!prog) {
-                throw new AuthError("Social program not found.", 404);
+                throw new AuthError("Social programme not found in governed reference masters. Ask admin to create or activate it first.", 404);
             }
             createdRecord = await StudentSocialParticipation.create({
                 studentId,

@@ -9,7 +9,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "migrate:institution-terminology": "node scripts/migrate-institution-terminology.cjs"
+    "migrate:institution-terminology": "node scripts/migrate-institution-terminology.cjs",
+    "backfill:organizations": "node scripts/backfill-organizations.cjs",
+    "backfill:governed-reference-masters": "node scripts/backfill-governed-reference-masters.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

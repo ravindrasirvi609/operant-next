@@ -8,10 +8,9 @@ import {
     adminUserUpdateSchema,
 } from "@/lib/admin/validators";
 import { AuthError } from "@/lib/auth/errors";
+import { ensureCanonicalHierarchyPath } from "@/lib/hierarchy/canonical";
 import Program from "@/models/academic/program";
 import User from "@/models/core/user";
-import Department from "@/models/reference/department";
-import Institution from "@/models/reference/institution";
 import Faculty from "@/models/faculty/faculty";
 import Student from "@/models/student/student";
 
@@ -125,35 +124,21 @@ function stripBulkMetaFields(rawEntry: unknown) {
 
 async function ensureInstitutionDepartment(
     universityName: string,
+    collegeName: string | undefined,
     departmentName: string,
     session: mongoose.mongo.ClientSession
 ) {
-    let institution = await Institution.findOne({ name: universityName }).session(session);
+    const { institution, department } = await ensureCanonicalHierarchyPath(
+        {
+            universityName,
+            collegeName,
+            departmentName,
+        },
+        session
+    );
 
-    if (!institution) {
-        institution = await Institution.create([{ name: universityName }], { session }).then(
-            (docs) => docs[0]
-        );
-    }
-
-    if (!institution) {
-        throw new AuthError("Institution provisioning failed.", 500);
-    }
-
-    let department = await Department.findOne({
-        institutionId: institution._id,
-        name: departmentName,
-    }).session(session);
-
-    if (!department) {
-        department = await Department.create(
-            [{ institutionId: institution._id, name: departmentName }],
-            { session }
-        ).then((docs) => docs[0]);
-    }
-
-    if (!department) {
-        throw new AuthError("Department provisioning failed.", 500);
+    if (!institution || !department) {
+        throw new AuthError("Institution hierarchy provisioning failed.", 500);
     }
 
     return { institution, department };
@@ -189,6 +174,7 @@ export async function createProvisionedStudent(
         await session.withTransaction(async () => {
             const { institution, department } = await ensureInstitutionDepartment(
                 input.universityName,
+                input.collegeName,
                 input.department,
                 session
             );
@@ -324,6 +310,7 @@ export async function createProvisionedFaculty(
         await session.withTransaction(async () => {
             const { institution, department } = await ensureInstitutionDepartment(
                 input.universityName,
+                input.collegeName,
                 input.department,
                 session
             );

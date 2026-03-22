@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 
 import { createAuditLog, type AuditActor, type AuditRequestContext } from "@/lib/audit/service";
 import dbConnect from "@/lib/dbConnect";
+import { getCanonicalHierarchyOptions } from "@/lib/hierarchy/canonical";
 import { masterDataSchema, masterDataUpdateSchema } from "@/lib/admin/validators";
 import MasterData, { type IMasterData } from "@/models/core/master-data";
 
@@ -20,21 +21,6 @@ export type MasterDataBulkResult = {
 };
 
 export const masterDataCategories = [
-    {
-        id: "university",
-        label: "Universities",
-        description: "Top-level university or campus entities used across the UMIS tenant.",
-    },
-    {
-        id: "college",
-        label: "Colleges",
-        description: "Academic colleges or faculties under a university.",
-    },
-    {
-        id: "department",
-        label: "Departments",
-        description: "Departments mapped to colleges and used in user onboarding.",
-    },
     {
         id: "academic-year",
         label: "Academic Years",
@@ -64,36 +50,6 @@ export const masterDataCategories = [
         id: "office",
         label: "Administrative Offices",
         description: "Non-academic units such as IQAC, Exam, Establishment, PRO, and Placement.",
-    },
-    {
-        id: "award",
-        label: "Awards & Achievements",
-        description: "Student-facing award and achievement master list used in records.",
-    },
-    {
-        id: "skill",
-        label: "Skills & Certifications",
-        description: "Skills and certification masters used in student records.",
-    },
-    {
-        id: "sport",
-        label: "Sports",
-        description: "Sports master list used for student activity records.",
-    },
-    {
-        id: "cultural-activity",
-        label: "Cultural Activities",
-        description: "Cultural activity master list for student records.",
-    },
-    {
-        id: "event",
-        label: "Events",
-        description: "Events master list for student participation records.",
-    },
-    {
-        id: "social-program",
-        label: "Social Programs",
-        description: "Social program master list (NSS, NCC, outreach, etc.).",
     },
 ];
 
@@ -246,12 +202,19 @@ export async function getMasterDataMap(categories?: string[]) {
 export async function getActiveMasterDataOptions(categories: string[]) {
     await dbConnect();
 
-    const items = await MasterData.find({
-        category: { $in: categories },
-        isActive: true,
-    }).sort({ category: 1, sortOrder: 1, label: 1 });
+    const hierarchyOptions = await getCanonicalHierarchyOptions(categories);
+    const masterDataCategoriesOnly = categories.filter(
+        (category) => !["university", "college", "department"].includes(category)
+    );
 
-    return items.reduce<Record<string, { key: string; label: string; code?: string }[]>>(
+    const items = masterDataCategoriesOnly.length
+        ? await MasterData.find({
+              category: { $in: masterDataCategoriesOnly },
+              isActive: true,
+          }).sort({ category: 1, sortOrder: 1, label: 1 })
+        : [];
+
+    const masterDataOptions = items.reduce<Record<string, { key: string; label: string; code?: string }[]>>(
         (accumulator, item) => {
             accumulator[item.category] = accumulator[item.category]
                 ? [
@@ -263,6 +226,11 @@ export async function getActiveMasterDataOptions(categories: string[]) {
         },
         {}
     );
+
+    return {
+        ...masterDataOptions,
+        ...hierarchyOptions,
+    };
 }
 
 export async function createMasterDataEntry(

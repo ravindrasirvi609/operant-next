@@ -12,6 +12,7 @@ const navigation = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
     { href: "/admin/hierarchy", label: "Hierarchy", icon: GitBranch },
     { href: "/admin/academics", label: "Academics", icon: BookOpen },
+    { href: "/admin/reference-masters", label: "Reference Masters", icon: ListTree },
     { href: "/admin/cas", label: "CAS", icon: FileStack },
     { href: "/admin/pbas", label: "PBAS", icon: FileStack },
     { href: "/admin/evidence", label: "Evidence Review", icon: FileStack },
@@ -79,7 +80,7 @@ export function AdminShell({
 
                     <div className="mt-8 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
                         <p className="text-sm leading-6 text-zinc-500">
-                            Admin access can create institutional enums like universities, colleges, departments, reporting categories, offices, and system alerts.
+                            Admin access governs hierarchy, reference masters, reporting categories, offices, and system alerts from one controlled workspace.
                         </p>
                         <div className="mt-4">
                             <LogoutButton />

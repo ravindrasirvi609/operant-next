@@ -109,10 +109,14 @@ async function ensureProgram(
 }
 
 async function ensureSocialProgram(name: string) {
-    let program = await SocialProgram.findOne({ name, type: "Extension" });
+    const program = await SocialProgram.findOne({
+        name,
+        type: "Extension",
+        isActive: { $ne: false },
+    });
 
     if (!program) {
-        program = await SocialProgram.create({ name, type: "Extension" });
+        throw new Error(`Social programme "${name}" is not available in governed reference masters.`);
     }
 
     return program;
@@ -227,26 +231,17 @@ async function ensureEvent(
         location?: string;
     }
 ) {
-    let event = await Event.findOne({
+    const event = await Event.findOne({
         institutionId,
         departmentId,
         title: input.title,
         eventType: input.eventType,
         organizedBy: input.organizer,
+        isActive: { $ne: false },
     });
 
     if (!event) {
-        event = await Event.create({
-            title: input.title,
-            eventType: input.eventType,
-            organizedBy: input.organizer,
-            level: input.level,
-            startDate: input.startDate ? new Date(input.startDate) : undefined,
-            endDate: input.endDate ? new Date(input.endDate) : undefined,
-            location: input.location || undefined,
-            institutionId,
-            departmentId,
-        });
+        throw new Error(`Event "${input.title}" is not available in governed reference masters.`);
     }
 
     return event;

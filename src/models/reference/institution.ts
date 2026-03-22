@@ -1,6 +1,7 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
 
 export interface IInstitution extends Document {
+    organizationId?: mongoose.Types.ObjectId;
     name: string;
     code?: string;
     address?: string;
@@ -15,6 +16,7 @@ export interface IInstitution extends Document {
 
 const InstitutionSchema = new Schema<IInstitution>(
     {
+        organizationId: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
         name: { type: String, required: true, trim: true },
         code: { type: String, trim: true },
         address: { type: String, trim: true },

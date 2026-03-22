@@ -8,6 +8,7 @@ import {
 } from "@/lib/admin/hierarchy-validators";
 import dbConnect from "@/lib/dbConnect";
 import { AuthError } from "@/lib/auth/errors";
+import { syncOrganizationProjection } from "@/lib/hierarchy/canonical";
 import Organization, { type IOrganization, type OrganizationType } from "@/models/core/organization";
 import User from "@/models/core/user";
 
@@ -123,6 +124,8 @@ export async function createOrganization(
         isActive: input.isActive,
     });
 
+    await syncOrganizationProjection(organization);
+
     if (options?.actor) {
         await createAuditLog({
             actor: options.actor,
@@ -203,6 +206,7 @@ export async function updateOrganization(
     }
 
     await organization.save();
+    await syncOrganizationProjection(organization);
 
     if (options?.actor) {
         await createAuditLog({

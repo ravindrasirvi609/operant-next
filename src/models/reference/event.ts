@@ -10,6 +10,7 @@ export interface IEvent extends Document {
     location?: string;
     institutionId?: Types.ObjectId;
     departmentId?: Types.ObjectId;
+    isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -35,11 +36,13 @@ const EventSchema = new Schema<IEvent>(
         location: { type: String, trim: true },
         institutionId: { type: Schema.Types.ObjectId, ref: "Institution", index: true },
         departmentId: { type: Schema.Types.ObjectId, ref: "Department", index: true },
+        isActive: { type: Boolean, default: true, index: true },
     },
     { timestamps: true, collection: "events" }
 );
 
 EventSchema.index({ institutionId: 1, eventType: 1, startDate: -1 });
+EventSchema.index({ isActive: 1, title: 1 });
 
 const Event: Model<IEvent> =
     mongoose.models.Event ||
