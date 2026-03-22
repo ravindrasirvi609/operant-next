@@ -28,6 +28,7 @@ import { pbasSnapshotSchema } from "@/lib/pbas/validators";
 type IndicatorSeed = {
     categoryCode: PbasCategoryCode;
     indicatorCode: string;
+    formulaKey: string;
     indicatorName: string;
     description?: string;
     maxScore: number;
@@ -133,6 +134,7 @@ export async function seedPbasMasters(options: { overwrite?: boolean } = {}) {
                     [updateMode]: {
                         categoryId,
                         indicatorCode: indicator.indicatorCode,
+                        formulaKey: indicator.formulaKey,
                         indicatorName: indicator.indicatorName,
                         description: indicator.description,
                         maxScore: indicator.maxScore,
@@ -265,11 +267,18 @@ async function backfillPbasReferencesAndRevisions(
             !form.draftReferences ||
             (!form.draftReferences.teachingSummaryId &&
                 !(form.draftReferences.teachingLoadIds?.length ?? 0) &&
+                !(form.draftReferences.resultSummaryIds?.length ?? 0) &&
                 !(form.draftReferences.publicationIds?.length ?? 0) &&
                 !(form.draftReferences.bookIds?.length ?? 0) &&
                 !(form.draftReferences.patentIds?.length ?? 0) &&
                 !(form.draftReferences.researchProjectIds?.length ?? 0) &&
                 !(form.draftReferences.eventParticipationIds?.length ?? 0) &&
+                !(form.draftReferences.fdpIds?.length ?? 0) &&
+                !(form.draftReferences.moocCourseIds?.length ?? 0) &&
+                !(form.draftReferences.econtentIds?.length ?? 0) &&
+                !(form.draftReferences.phdGuidanceIds?.length ?? 0) &&
+                !(form.draftReferences.awardIds?.length ?? 0) &&
+                !(form.draftReferences.consultancyIds?.length ?? 0) &&
                 !(form.draftReferences.adminRoleIds?.length ?? 0) &&
                 !(form.draftReferences.institutionalContributionIds?.length ?? 0) &&
                 !(form.draftReferences.socialExtensionIds?.length ?? 0))

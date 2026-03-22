@@ -57,11 +57,18 @@ type PbasApp = {
 type PbasDraftReferences = {
     teachingSummaryId?: string;
     teachingLoadIds: string[];
+    resultSummaryIds: string[];
     publicationIds: string[];
     bookIds: string[];
     patentIds: string[];
     researchProjectIds: string[];
     eventParticipationIds: string[];
+    fdpIds: string[];
+    moocCourseIds: string[];
+    econtentIds: string[];
+    phdGuidanceIds: string[];
+    awardIds: string[];
+    consultancyIds: string[];
     adminRoleIds: string[];
     institutionalContributionIds: string[];
     socialExtensionIds: string[];
@@ -116,6 +123,11 @@ type PbasCandidatePools = {
         patents: PbasCandidateOption[];
         conferences: PbasCandidateOption[];
         projects: PbasCandidateOption[];
+        moocCourses: PbasCandidateOption[];
+        econtentItems: PbasCandidateOption[];
+        phdGuidance: PbasCandidateOption[];
+        awards: PbasCandidateOption[];
+        consultancies: PbasCandidateOption[];
     };
     category3: {
         committees: PbasCandidateOption[];
@@ -123,6 +135,7 @@ type PbasCandidatePools = {
         examDuties: PbasCandidateOption[];
         studentGuidance: PbasCandidateOption[];
         extensionActivities: PbasCandidateOption[];
+        fdps: PbasCandidateOption[];
     };
 };
 
@@ -174,6 +187,12 @@ type PbasSummary = {
     };
     meta: PbasFormValues;
     snapshot: PbasSnapshot;
+    apiScore: {
+        teachingActivities: number;
+        researchAcademicContribution: number;
+        institutionalResponsibilities: number;
+        totalScore: number;
+    };
     scoringWeights: {
         caps: {
             teachingActivities: number;
@@ -262,70 +281,6 @@ function toFormValues(application?: PbasApp, prefill?: Partial<PbasFormValues>):
         academicYear: application.academicYear,
         currentDesignation: application.currentDesignation,
         appraisalPeriod: application.appraisalPeriod,
-    };
-}
-
-function computeScore(values: PbasSnapshot, weights: PbasSummary["scoringWeights"]) {
-    const teachingActivities = Math.min(
-        weights.caps.teachingActivities,
-        values.category1.classesTaken * weights.category1.classesTaken +
-            values.category1.coursePreparationHours * weights.category1.coursePreparationHours +
-            values.category1.coursesTaught.length * weights.category1.coursesTaught +
-            values.category1.mentoringCount * weights.category1.mentoringCount +
-            values.category1.labSupervisionCount * weights.category1.labSupervisionCount
-    );
-
-    const researchAcademicContribution = Math.min(
-        weights.caps.researchAcademicContribution,
-        values.category2.researchPapers.reduce((sum, paper) => {
-            const indexing = (paper.indexing ?? "").toLowerCase();
-            if (indexing.includes("scopus") || indexing.includes("ugc care") || indexing.includes("web")) return sum + weights.category2.researchPaperHigh;
-            if (indexing.includes("peer") || indexing.includes("issn")) return sum + weights.category2.researchPaperMedium;
-            return sum + weights.category2.researchPaperDefault;
-        }, 0) +
-            values.category2.books.length * weights.category2.book +
-            values.category2.patents.reduce((sum, patent) => {
-                const status = patent.status.toLowerCase();
-                if (status.includes("granted")) return sum + weights.category2.patentGranted;
-                if (status.includes("published")) return sum + weights.category2.patentPublished;
-                return sum + weights.category2.patentDefault;
-            }, 0) +
-            values.category2.conferences.reduce((sum, conference) => {
-                const type = conference.type.toLowerCase();
-                if (type.includes("international")) return sum + weights.category2.conferenceInternational;
-                if (type.includes("national")) return sum + weights.category2.conferenceNational;
-                return sum + weights.category2.conferenceDefault;
-            }, 0) +
-            values.category2.projects.reduce((sum, project) => {
-                if (project.amount >= weights.category2.projectLargeAmount) return sum + weights.category2.projectLarge;
-                if (project.amount >= weights.category2.projectMediumAmount) return sum + weights.category2.projectMedium;
-                return sum + weights.category2.projectDefault;
-            }, 0)
-    );
-
-    const institutionalResponsibilities = Math.min(
-        weights.caps.institutionalResponsibilities,
-        values.category3.committees.length * weights.category3.committee +
-            values.category3.administrativeDuties.length * weights.category3.administrativeDuty +
-            values.category3.examDuties.length * weights.category3.examDuty +
-            values.category3.studentGuidance.reduce(
-                (sum, item) =>
-                    sum +
-                    Math.min(
-                        item.count * weights.category3.studentGuidancePerUnit,
-                        weights.category3.studentGuidanceMaxPerEntry
-                    ),
-                0
-            ) +
-            values.category3.extensionActivities.length * weights.category3.extensionActivity
-    );
-
-    return {
-        teachingActivities,
-        researchAcademicContribution,
-        institutionalResponsibilities,
-        totalScore:
-            teachingActivities + researchAcademicContribution + institutionalResponsibilities,
     };
 }
 
@@ -498,8 +453,8 @@ export function PbasDashboard({
     );
     const resolved = pbasApplicationSchema.safeParse(watchedValues);
     const score = useMemo(
-        () => selectedDetail?.apiScore ?? selected?.apiScore ?? computeScore(selectedSnapshot, summary.scoringWeights),
-        [selectedDetail, selected, selectedSnapshot, summary.scoringWeights]
+        () => selectedDetail?.apiScore ?? selected?.apiScore ?? summary.apiScore,
+        [selectedDetail, selected, summary.apiScore]
     );
     const sourceTables = useMemo<PbasSourceTables | null>(() => {
         if (!selectedDetail) {
@@ -556,8 +511,8 @@ export function PbasDashboard({
             title: item.label,
             subtitle: item.sublabel,
             note: item.note,
-            included: true,
-            removable: false,
+            included: draftReferences.resultSummaryIds.includes(item.id),
+            referenceKey: "resultSummaryIds",
             sourceHref: buildProfileEditHref("result-summary", item.id),
         }));
 
@@ -619,6 +574,56 @@ export function PbasDashboard({
                             "events"
                         ),
                     },
+                    {
+                        title: "PhD Guidance",
+                        rows: toRows(
+                            candidates.category2.phdGuidance,
+                            "PhD Guidance",
+                            "phdGuidanceIds",
+                            draftReferences.phdGuidanceIds,
+                            "phd-guidance"
+                        ),
+                    },
+                    {
+                        title: "Consultancy",
+                        rows: toRows(
+                            candidates.category2.consultancies,
+                            "Consultancy",
+                            "consultancyIds",
+                            draftReferences.consultancyIds,
+                            "consultancy"
+                        ),
+                    },
+                    {
+                        title: "E-content",
+                        rows: toRows(
+                            candidates.category2.econtentItems,
+                            "E-content",
+                            "econtentIds",
+                            draftReferences.econtentIds,
+                            "econtent"
+                        ),
+                    },
+                    {
+                        title: "MOOC / SWAYAM",
+                        rows: toRows(
+                            candidates.category2.moocCourses,
+                            "MOOC Course",
+                            "moocCourseIds",
+                            draftReferences.moocCourseIds,
+                            "mooc-courses"
+                        ),
+                    },
+                    {
+                        title: "Awards",
+                        rows: toRows(
+                            candidates.category2.awards,
+                            "Award",
+                            "awardIds",
+                            draftReferences.awardIds,
+                            "awards"
+                        ),
+                    },
                 ],
             },
             institutional: {
@@ -676,6 +681,16 @@ export function PbasDashboard({
                             "socialExtensionIds",
                             draftReferences.socialExtensionIds,
                             "social-extension"
+                        ),
+                    },
+                    {
+                        title: "FDP / Workshops",
+                        rows: toRows(
+                            candidates.category3.fdps,
+                            "FDP / Workshop",
+                            "fdpIds",
+                            draftReferences.fdpIds,
+                            "fdp-conducted"
                         ),
                     },
                 ],

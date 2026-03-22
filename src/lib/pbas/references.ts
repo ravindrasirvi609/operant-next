@@ -191,6 +191,11 @@ export type PbasCandidatePools = {
         patents: PbasCandidateOption[];
         conferences: PbasCandidateOption[];
         projects: PbasCandidateOption[];
+        moocCourses: PbasCandidateOption[];
+        econtentItems: PbasCandidateOption[];
+        phdGuidance: PbasCandidateOption[];
+        awards: PbasCandidateOption[];
+        consultancies: PbasCandidateOption[];
     };
     category3: {
         committees: PbasCandidateOption[];
@@ -198,6 +203,7 @@ export type PbasCandidatePools = {
         examDuties: PbasCandidateOption[];
         studentGuidance: PbasCandidateOption[];
         extensionActivities: PbasCandidateOption[];
+        fdps: PbasCandidateOption[];
     };
 };
 
@@ -280,11 +286,18 @@ function buildDraftReferencesInternal(input?: Partial<IPbasDraftReferences> | nu
     return {
         teachingSummaryId: input?.teachingSummaryId,
         teachingLoadIds: uniqueObjectIds(input?.teachingLoadIds ?? []),
+        resultSummaryIds: uniqueObjectIds(input?.resultSummaryIds ?? []),
         publicationIds: uniqueObjectIds(input?.publicationIds ?? []),
         bookIds: uniqueObjectIds(input?.bookIds ?? []),
         patentIds: uniqueObjectIds(input?.patentIds ?? []),
         researchProjectIds: uniqueObjectIds(input?.researchProjectIds ?? []),
         eventParticipationIds: uniqueObjectIds(input?.eventParticipationIds ?? []),
+        fdpIds: uniqueObjectIds(input?.fdpIds ?? []),
+        moocCourseIds: uniqueObjectIds(input?.moocCourseIds ?? []),
+        econtentIds: uniqueObjectIds(input?.econtentIds ?? []),
+        phdGuidanceIds: uniqueObjectIds(input?.phdGuidanceIds ?? []),
+        awardIds: uniqueObjectIds(input?.awardIds ?? []),
+        consultancyIds: uniqueObjectIds(input?.consultancyIds ?? []),
         adminRoleIds: uniqueObjectIds(input?.adminRoleIds ?? []),
         institutionalContributionIds: uniqueObjectIds(input?.institutionalContributionIds ?? []),
         socialExtensionIds: uniqueObjectIds(input?.socialExtensionIds ?? []),
@@ -301,11 +314,18 @@ export function parsePbasDraftReferences(input: PbasDraftReferencesInput): IPbas
     return buildDraftReferencesInternal({
         teachingSummaryId: toObjectId(parsed.teachingSummaryId),
         teachingLoadIds: parsed.teachingLoadIds.map((item) => new Types.ObjectId(item)),
+        resultSummaryIds: parsed.resultSummaryIds.map((item) => new Types.ObjectId(item)),
         publicationIds: parsed.publicationIds.map((item) => new Types.ObjectId(item)),
         bookIds: parsed.bookIds.map((item) => new Types.ObjectId(item)),
         patentIds: parsed.patentIds.map((item) => new Types.ObjectId(item)),
         researchProjectIds: parsed.researchProjectIds.map((item) => new Types.ObjectId(item)),
         eventParticipationIds: parsed.eventParticipationIds.map((item) => new Types.ObjectId(item)),
+        fdpIds: parsed.fdpIds.map((item) => new Types.ObjectId(item)),
+        moocCourseIds: parsed.moocCourseIds.map((item) => new Types.ObjectId(item)),
+        econtentIds: parsed.econtentIds.map((item) => new Types.ObjectId(item)),
+        phdGuidanceIds: parsed.phdGuidanceIds.map((item) => new Types.ObjectId(item)),
+        awardIds: parsed.awardIds.map((item) => new Types.ObjectId(item)),
+        consultancyIds: parsed.consultancyIds.map((item) => new Types.ObjectId(item)),
         adminRoleIds: parsed.adminRoleIds.map((item) => new Types.ObjectId(item)),
         institutionalContributionIds: parsed.institutionalContributionIds.map((item) => new Types.ObjectId(item)),
         socialExtensionIds: parsed.socialExtensionIds.map((item) => new Types.ObjectId(item)),
@@ -318,11 +338,18 @@ export function serializePbasDraftReferences(input?: Partial<IPbasDraftReference
     return {
         teachingSummaryId: normalized.teachingSummaryId?.toString(),
         teachingLoadIds: stringifyIds(normalized.teachingLoadIds),
+        resultSummaryIds: stringifyIds(normalized.resultSummaryIds),
         publicationIds: stringifyIds(normalized.publicationIds),
         bookIds: stringifyIds(normalized.bookIds),
         patentIds: stringifyIds(normalized.patentIds),
         researchProjectIds: stringifyIds(normalized.researchProjectIds),
         eventParticipationIds: stringifyIds(normalized.eventParticipationIds),
+        fdpIds: stringifyIds(normalized.fdpIds),
+        moocCourseIds: stringifyIds(normalized.moocCourseIds),
+        econtentIds: stringifyIds(normalized.econtentIds),
+        phdGuidanceIds: stringifyIds(normalized.phdGuidanceIds),
+        awardIds: stringifyIds(normalized.awardIds),
+        consultancyIds: stringifyIds(normalized.consultancyIds),
         adminRoleIds: stringifyIds(normalized.adminRoleIds),
         institutionalContributionIds: stringifyIds(normalized.institutionalContributionIds),
         socialExtensionIds: stringifyIds(normalized.socialExtensionIds),
@@ -547,11 +574,18 @@ export function deriveAutoDraftReferences(context: PbasReferenceContext): IPbasD
     return buildDraftReferencesInternal({
         teachingSummaryId: context.teachingSummary?._id as Types.ObjectId | undefined,
         teachingLoadIds: context.teachingLoads.map((item) => item._id as Types.ObjectId),
+        resultSummaryIds: context.resultSummaries.map((item) => item._id as Types.ObjectId),
         publicationIds: context.publications.map((item) => item._id as Types.ObjectId),
         bookIds: context.books.map((item) => item._id as Types.ObjectId),
         patentIds: context.patents.map((item) => item._id as Types.ObjectId),
         researchProjectIds: context.projects.map((item) => item._id as Types.ObjectId),
         eventParticipationIds: context.eventParticipations.map((item) => item._id as Types.ObjectId),
+        fdpIds: context.fdps.map((item) => item._id as Types.ObjectId),
+        moocCourseIds: context.moocCourses.map((item) => item._id as Types.ObjectId),
+        econtentIds: context.econtentItems.map((item) => item._id as Types.ObjectId),
+        phdGuidanceIds: context.phdGuidance.map((item) => item._id as Types.ObjectId),
+        awardIds: context.awards.map((item) => item._id as Types.ObjectId),
+        consultancyIds: context.consultancies.map((item) => item._id as Types.ObjectId),
         adminRoleIds: context.adminRoles.map((item) => item._id as Types.ObjectId),
         institutionalContributionIds: context.institutionalContributions.map((item) => item._id as Types.ObjectId),
         socialExtensionIds: context.socialExtensions.map((item) => item._id as Types.ObjectId),
@@ -578,11 +612,18 @@ export function sanitizeDraftReferences(
     return buildDraftReferencesInternal({
         teachingSummaryId,
         teachingLoadIds: matches(draftReferences.teachingLoadIds, context.teachingLoads as CandidateItem[]),
+        resultSummaryIds: matches(draftReferences.resultSummaryIds, context.resultSummaries as CandidateItem[]),
         publicationIds: matches(draftReferences.publicationIds, context.publications as CandidateItem[]),
         bookIds: matches(draftReferences.bookIds, context.books as CandidateItem[]),
         patentIds: matches(draftReferences.patentIds, context.patents as CandidateItem[]),
         researchProjectIds: matches(draftReferences.researchProjectIds, context.projects as CandidateItem[]),
         eventParticipationIds: matches(draftReferences.eventParticipationIds, context.eventParticipations),
+        fdpIds: matches(draftReferences.fdpIds, context.fdps as CandidateItem[]),
+        moocCourseIds: matches(draftReferences.moocCourseIds, context.moocCourses as CandidateItem[]),
+        econtentIds: matches(draftReferences.econtentIds, context.econtentItems as CandidateItem[]),
+        phdGuidanceIds: matches(draftReferences.phdGuidanceIds, context.phdGuidance as CandidateItem[]),
+        awardIds: matches(draftReferences.awardIds, context.awards as CandidateItem[]),
+        consultancyIds: matches(draftReferences.consultancyIds, context.consultancies as CandidateItem[]),
         adminRoleIds: matches(draftReferences.adminRoleIds, context.adminRoles as CandidateItem[]),
         institutionalContributionIds: matches(
             draftReferences.institutionalContributionIds,
@@ -592,93 +633,106 @@ export function sanitizeDraftReferences(
     });
 }
 
-export function resolvePbasSnapshotFromReferences(
+export function selectPbasReferenceContext(
     context: PbasReferenceContext,
     references: Partial<IPbasDraftReferences> | null | undefined
-): PbasSnapshot {
+): PbasReferenceContext {
     const safeReferences = sanitizeDraftReferences(references, context);
-    const fallbackYear = context.academicYear.yearStart || new Date().getFullYear();
 
-    const teachingSummary =
+    const selectedTeachingSummary =
         safeReferences.teachingSummaryId &&
         context.teachingSummary?._id?.toString() === safeReferences.teachingSummaryId.toString()
             ? context.teachingSummary
             : null;
 
-    const selectedTeachingLoads = context.teachingLoads.filter((item) =>
-        safeReferences.teachingLoadIds.some((selected) => selected.toString() === item._id?.toString())
-    );
-    const selectedPublications = context.publications.filter((item) =>
-        safeReferences.publicationIds.some((selected) => selected.toString() === item._id?.toString())
-    );
-    const selectedBooks = context.books.filter((item) =>
-        safeReferences.bookIds.some((selected) => selected.toString() === item._id?.toString())
-    );
-    const selectedPatents = context.patents.filter((item) =>
-        safeReferences.patentIds.some((selected) => selected.toString() === item._id?.toString())
-    );
-    const selectedProjects = context.projects.filter((item) =>
-        safeReferences.researchProjectIds.some((selected) => selected.toString() === item._id?.toString())
-    );
-    const selectedEventParticipations = context.eventParticipations.filter((item) =>
-        safeReferences.eventParticipationIds.some((selected) => selected.toString() === item._id?.toString())
-    );
-    const selectedAdminRoles = context.adminRoles.filter((item) =>
-        safeReferences.adminRoleIds.some((selected) => selected.toString() === item._id?.toString())
-    );
-    const selectedGuidance = context.institutionalContributions.filter((item) =>
-        safeReferences.institutionalContributionIds.some((selected) => selected.toString() === item._id?.toString())
-    );
-    const selectedExtensions = context.socialExtensions.filter((item) =>
-        safeReferences.socialExtensionIds.some((selected) => selected.toString() === item._id?.toString())
-    );
+    const filterSelected = <T extends CandidateItem>(items: T[], ids: Types.ObjectId[]) =>
+        items.filter((item) => ids.some((selected) => selected.toString() === item._id?.toString()));
 
-    const teachingLoadHours = selectedTeachingLoads.reduce((sum, item) => sum + Number(item.totalHours || 0), 0);
+    return {
+        ...context,
+        teachingSummary: selectedTeachingSummary,
+        teachingLoads: filterSelected(context.teachingLoads, safeReferences.teachingLoadIds),
+        resultSummaries: filterSelected(context.resultSummaries, safeReferences.resultSummaryIds),
+        publications: filterSelected(context.publications, safeReferences.publicationIds),
+        books: filterSelected(context.books, safeReferences.bookIds),
+        patents: filterSelected(context.patents, safeReferences.patentIds),
+        projects: filterSelected(context.projects, safeReferences.researchProjectIds),
+        eventParticipations: filterSelected(context.eventParticipations, safeReferences.eventParticipationIds),
+        adminRoles: filterSelected(context.adminRoles, safeReferences.adminRoleIds),
+        institutionalContributions: filterSelected(
+            context.institutionalContributions,
+            safeReferences.institutionalContributionIds
+        ),
+        socialExtensions: filterSelected(context.socialExtensions, safeReferences.socialExtensionIds),
+        fdps: filterSelected(context.fdps, safeReferences.fdpIds),
+        moocCourses: filterSelected(context.moocCourses, safeReferences.moocCourseIds),
+        econtentItems: filterSelected(context.econtentItems, safeReferences.econtentIds),
+        phdGuidance: filterSelected(context.phdGuidance, safeReferences.phdGuidanceIds),
+        awards: filterSelected(context.awards, safeReferences.awardIds),
+        consultancies: filterSelected(context.consultancies, safeReferences.consultancyIds),
+    };
+}
+
+export function resolvePbasSnapshotFromReferences(
+    context: PbasReferenceContext,
+    references: Partial<IPbasDraftReferences> | null | undefined
+): PbasSnapshot {
+    const selectedContext = selectPbasReferenceContext(context, references);
+    const fallbackYear = context.academicYear.yearStart || new Date().getFullYear();
+    const teachingLoadHours = selectedContext.teachingLoads.reduce(
+        (sum, item) => sum + Number(item.totalHours || 0),
+        0
+    );
 
     return pbasSnapshotSchema.parse({
         category1: {
-            classesTaken: teachingSummary?.classesTaken ?? Math.round(teachingLoadHours),
+            classesTaken: selectedContext.teachingSummary?.classesTaken ?? Math.round(teachingLoadHours),
             coursePreparationHours:
-                teachingSummary?.coursePreparationHours ??
-                Math.round(selectedTeachingLoads.reduce((sum, item) => sum + Number(item.lectureHours || 0), 0)),
+                selectedContext.teachingSummary?.coursePreparationHours ??
+                Math.round(
+                    selectedContext.teachingLoads.reduce(
+                        (sum, item) => sum + Number(item.lectureHours || 0),
+                        0
+                    )
+                ),
             coursesTaught:
-                teachingSummary?.coursesTaught?.length
-                    ? teachingSummary.coursesTaught
+                selectedContext.teachingSummary?.coursesTaught?.length
+                    ? selectedContext.teachingSummary.coursesTaught
                     : Array.from(
-                        new Set(selectedTeachingLoads.map((item) => item.courseName).filter(Boolean))
+                        new Set(selectedContext.teachingLoads.map((item) => item.courseName).filter(Boolean))
                     ),
-            mentoringCount: teachingSummary?.mentoringCount ?? 0,
+            mentoringCount: selectedContext.teachingSummary?.mentoringCount ?? 0,
             labSupervisionCount:
-                teachingSummary?.labSupervisionCount ??
-                selectedTeachingLoads.filter((item) => Number(item.practicalHours || 0) > 0).length,
-            feedbackSummary: teachingSummary?.feedbackSummary ?? "",
+                selectedContext.teachingSummary?.labSupervisionCount ??
+                selectedContext.teachingLoads.filter((item) => Number(item.practicalHours || 0) > 0).length,
+            feedbackSummary: selectedContext.teachingSummary?.feedbackSummary ?? "",
         },
         category2: {
-            researchPapers: selectedPublications.map((item) => ({
+            researchPapers: selectedContext.publications.map((item) => ({
                 title: item.title,
                 journal: item.journalName || item.publisher || "Journal",
                 year: item.publicationDate?.getFullYear?.() ?? fallbackYear,
                 issn: item.isbnIssn,
                 indexing: item.indexedIn,
             })),
-            books: selectedBooks.map((item) => ({
+            books: selectedContext.books.map((item) => ({
                 title: item.title,
                 publisher: item.publisher || "Publisher",
                 isbn: item.isbn,
                 year: item.publicationDate?.getFullYear?.() ?? fallbackYear,
             })),
-            patents: selectedPatents.map((item) => ({
+            patents: selectedContext.patents.map((item) => ({
                 title: item.title,
                 year: item.filingDate?.getFullYear?.() ?? item.grantDate?.getFullYear?.() ?? fallbackYear,
                 status: item.status,
             })),
-            conferences: selectedEventParticipations.map((item) => ({
+            conferences: selectedContext.eventParticipations.map((item) => ({
                 title: item.paperTitle || item.eventId?.title || "Conference Participation",
                 organizer: item.eventId?.organizedBy || "Conference",
                 year: item.eventId?.startDate?.getFullYear?.() ?? fallbackYear,
                 type: item.eventId?.level || item.eventId?.eventType || "Conference",
             })),
-            projects: selectedProjects.map((item) => ({
+            projects: selectedContext.projects.map((item) => ({
                 title: item.title,
                 fundingAgency: item.fundingAgency || "Funding Agency",
                 amount: item.amountSanctioned || 0,
@@ -686,30 +740,30 @@ export function resolvePbasSnapshotFromReferences(
             })),
         },
         category3: {
-            committees: selectedAdminRoles
+            committees: selectedContext.adminRoles
                 .filter((item) => item.committeeName && !isExamRole(item))
                 .map((item) => ({
                     committeeName: item.committeeName!,
                     role: item.roleName,
                     year: fallbackYear,
                 })),
-            administrativeDuties: selectedAdminRoles
+            administrativeDuties: selectedContext.adminRoles
                 .filter((item) => !item.committeeName && !isExamRole(item))
                 .map((item) => ({
                     title: item.roleName,
                     year: fallbackYear,
                 })),
-            examDuties: selectedAdminRoles
+            examDuties: selectedContext.adminRoles
                 .filter((item) => isExamRole(item))
                 .map((item) => ({
                     duty: item.committeeName || item.roleName,
                     year: fallbackYear,
                 })),
-            studentGuidance: selectedGuidance.map((item) => ({
+            studentGuidance: selectedContext.institutionalContributions.map((item) => ({
                 activity: item.activityTitle,
                 count: Math.round(item.scoreWeightage || 0),
             })),
-            extensionActivities: selectedExtensions.map((item) => ({
+            extensionActivities: selectedContext.socialExtensions.map((item) => ({
                 title: item.activityName || getProgramName(item.programId) || "Extension Activity",
                 role: undefined,
                 year: fallbackYear,
@@ -774,6 +828,33 @@ export function serializePbasCandidatePools(context: PbasReferenceContext): Pbas
                 sublabel: `${item.fundingAgency || "Funding Agency"} • ${formatDate(item.startDate)}`,
                 note: item.projectType,
             })),
+            moocCourses: context.moocCourses.map((item) => ({
+                id: item._id.toString(),
+                label: item.courseName || "MOOC Course",
+                sublabel: `${item.platform || "Platform"} • ${formatDate(item.completionDate)}`,
+            })),
+            econtentItems: context.econtentItems.map((item) => ({
+                id: item._id.toString(),
+                label: item.title || "E-content",
+                sublabel: `${item.platform || "Platform"} • ${item.contentType || "Content"}`,
+            })),
+            phdGuidance: context.phdGuidance.map((item) => ({
+                id: item._id.toString(),
+                label: item.scholarName || item.thesisTitle || "PhD Guidance",
+                sublabel: `${item.status || "ongoing"} • Reg ${item.registrationYear ?? "--"}`,
+                note: item.thesisTitle,
+            })),
+            awards: context.awards.map((item) => ({
+                id: item._id.toString(),
+                label: item.title || "Award",
+                sublabel: `${item.awardLevel || "College"} • ${formatDate(item.awardDate)}`,
+            })),
+            consultancies: context.consultancies.map((item) => ({
+                id: item._id.toString(),
+                label: item.projectTitle || "Consultancy",
+                sublabel: `${item.clientName || "Client"} • ${formatDate(item.startDate)}`,
+                note: item.endDate ? `Ends ${formatDate(item.endDate)}` : undefined,
+            })),
         },
         category3: {
             committees: adminRoles
@@ -807,6 +888,12 @@ export function serializePbasCandidatePools(context: PbasReferenceContext): Pbas
                 id: item._id.toString(),
                 label: item.activityName || getProgramName(item.programId) || "Extension Activity",
                 sublabel: `${getProgramName(item.programId) || "Program"} • ${item.hoursContributed ?? 0} hrs`,
+            })),
+            fdps: context.fdps.map((item) => ({
+                id: item._id.toString(),
+                label: item.title || "FDP / Workshop",
+                sublabel: `${item.level || "Level not set"} • ${formatDate(item.startDate)}`,
+                note: item.endDate ? `Ends ${formatDate(item.endDate)}` : undefined,
             })),
         },
     };

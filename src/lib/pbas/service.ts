@@ -35,6 +35,7 @@ import FacultySocialExtension from "@/models/faculty/faculty-social-extension";
 import FacultyTeachingSummary from "@/models/faculty/faculty-teaching-summary";
 import MasterData from "@/models/core/master-data";
 import FacultyPbasEntry from "@/models/core/faculty-pbas-entry";
+import PbasCategoryMaster from "@/models/core/pbas-category-master";
 import PbasIndicatorMaster from "@/models/core/pbas-indicator-master";
 import {
     deriveAutoDraftReferences,
@@ -43,6 +44,7 @@ import {
     type PbasReferenceContext,
     parsePbasDraftReferences,
     resolvePbasSnapshotFromReferences,
+    selectPbasReferenceContext,
     sanitizeDraftReferences,
     serializePbasCandidatePools,
     serializePbasDraftReferences,
@@ -188,12 +190,27 @@ function roundScore(value: number) {
     return Math.round(value * 100) / 100;
 }
 
-function buildIndicatorClaimedScores(
+type PbasApiScore = ReturnType<typeof computePbasApiScore>;
+
+type PbasIndicatorCatalogEntry = {
+    _id: Types.ObjectId;
+    indicatorCode: string;
+    formulaKey: string;
+    maxScore: number;
+    categoryCode?: string;
+};
+
+type PbasDynamicScorecard = {
+    apiScore: PbasApiScore;
+    claimedScores: Record<string, number>;
+    indicators: PbasIndicatorCatalogEntry[];
+};
+
+function buildRawIndicatorScores(
     snapshot: PbasSnapshot,
-    apiScore: ReturnType<typeof computePbasApiScore>,
     weights: PbasScoringWeights,
     context?: PbasReferenceContext
-) {
+): Record<string, number> {
     const a1TeachingLoad = snapshot.category1.classesTaken * weights.category1.classesTaken;
     const a2CoursePrep = snapshot.category1.coursePreparationHours * weights.category1.coursePreparationHours;
     const a3Mentoring = snapshot.category1.mentoringCount * weights.category1.mentoringCount;
@@ -327,39 +344,123 @@ function buildIndicatorClaimedScores(
         C8_OUTREACH_PROGRAMS: roundScore(c8Outreach),
         C9_RESOURCE_PERSON: roundScore(c9ResourcePerson),
         C10_GOVERNANCE_ROLE: roundScore(c10Governance),
-        A_TOTAL: roundScore(apiScore.teachingActivities),
-        B_TOTAL: roundScore(apiScore.researchAcademicContribution),
-        C_TOTAL: roundScore(apiScore.institutionalResponsibilities),
-        API_TOTAL: roundScore(apiScore.totalScore),
-    } as const;
+    };
+}
+
+async function loadPbasIndicatorCatalog(session?: mongoose.ClientSession) {
+    const [indicators, categories] = await Promise.all([
+        PbasIndicatorMaster.find({})
+            .populate("categoryId", "categoryCode")
+            .select("_id indicatorCode formulaKey maxScore categoryId")
+            .lean()
+            .session(session ?? null),
+        PbasCategoryMaster.find({ categoryCode: { $in: ["A", "B", "C"] } })
+            .select("categoryCode maxScore")
+            .lean()
+            .session(session ?? null),
+    ]);
+
+    const categoryCaps = {
+        A:
+            categories.find((item) => item.categoryCode === "A")?.maxScore ??
+            DEFAULT_PBAS_SCORING_WEIGHTS.caps.teachingActivities,
+        B:
+            categories.find((item) => item.categoryCode === "B")?.maxScore ??
+            DEFAULT_PBAS_SCORING_WEIGHTS.caps.researchAcademicContribution,
+        C:
+            categories.find((item) => item.categoryCode === "C")?.maxScore ??
+            DEFAULT_PBAS_SCORING_WEIGHTS.caps.institutionalResponsibilities,
+    };
+
+    const normalizedIndicators: PbasIndicatorCatalogEntry[] = indicators.map((indicator) => ({
+        _id: indicator._id as Types.ObjectId,
+        indicatorCode: indicator.indicatorCode,
+        formulaKey: indicator.formulaKey || indicator.indicatorCode,
+        maxScore: indicator.maxScore,
+        categoryCode:
+            (indicator.categoryId as { categoryCode?: string } | null | undefined)?.categoryCode,
+    }));
+
+    return {
+        indicators: normalizedIndicators,
+        categoryCaps,
+    };
+}
+
+async function computePbasDynamicScorecard(
+    snapshot: PbasSnapshot,
+    weights: PbasScoringWeights = DEFAULT_PBAS_SCORING_WEIGHTS,
+    context?: PbasReferenceContext,
+    options: { session?: mongoose.ClientSession } = {}
+): Promise<PbasDynamicScorecard> {
+    const rawScores = buildRawIndicatorScores(snapshot, weights, context);
+    const { indicators, categoryCaps } = await loadPbasIndicatorCatalog(options.session);
+    const categoryTotals = {
+        A: 0,
+        B: 0,
+        C: 0,
+    };
+
+    for (const indicator of indicators) {
+        if (
+            indicator.indicatorCode === "A_TOTAL" ||
+            indicator.indicatorCode === "B_TOTAL" ||
+            indicator.indicatorCode === "C_TOTAL" ||
+            indicator.indicatorCode === "API_TOTAL"
+        ) {
+            continue;
+        }
+
+        const rawScore = rawScores[indicator.formulaKey] ?? rawScores[indicator.indicatorCode] ?? 0;
+        const claimedScore = roundScore(Math.min(Math.max(rawScore, 0), indicator.maxScore));
+
+        if (indicator.categoryCode === "A" || indicator.categoryCode === "B" || indicator.categoryCode === "C") {
+            categoryTotals[indicator.categoryCode] += claimedScore;
+        }
+    }
+
+    const apiScore = {
+        teachingActivities: roundScore(Math.min(categoryCaps.A, categoryTotals.A)),
+        researchAcademicContribution: roundScore(Math.min(categoryCaps.B, categoryTotals.B)),
+        institutionalResponsibilities: roundScore(Math.min(categoryCaps.C, categoryTotals.C)),
+        totalScore: 0,
+    };
+
+    apiScore.totalScore = roundScore(
+        apiScore.teachingActivities +
+            apiScore.researchAcademicContribution +
+            apiScore.institutionalResponsibilities
+    );
+
+    return {
+        apiScore,
+        indicators,
+        claimedScores: {
+            ...rawScores,
+            A_TOTAL: apiScore.teachingActivities,
+            B_TOTAL: apiScore.researchAcademicContribution,
+            C_TOTAL: apiScore.institutionalResponsibilities,
+            API_TOTAL: apiScore.totalScore,
+        },
+    };
 }
 
 async function upsertComputedIndicatorEntries(
     application: InstanceType<typeof FacultyPbasForm>,
-    snapshot: PbasSnapshot,
-    apiScore: ReturnType<typeof computePbasApiScore>,
-    weights: PbasScoringWeights,
+    scorecard: PbasDynamicScorecard,
     options: {
         revisionId?: Types.ObjectId;
         session?: mongoose.ClientSession;
-        context?: PbasReferenceContext;
     } = {}
 ) {
-    const scoreByCode = buildIndicatorClaimedScores(snapshot, apiScore, weights, options.context);
-    const indicatorCodes = Object.keys(scoreByCode);
-
-    const indicators = await PbasIndicatorMaster.find({
-        indicatorCode: { $in: indicatorCodes },
-    })
-        .select("_id indicatorCode maxScore")
-        .lean()
-        .session(options.session ?? null);
-
     const revisionId = options.revisionId;
 
     await Promise.all(
-        indicators.map((indicator) => {
-            const rawScore = scoreByCode[indicator.indicatorCode as keyof typeof scoreByCode] ?? 0;
+        scorecard.indicators.map((indicator) => {
+            const rawScore =
+                scorecard.claimedScores[indicator.formulaKey] ??
+                scorecard.claimedScores[indicator.indicatorCode] ??
+                0;
             const claimedScore = roundScore(Math.min(Math.max(rawScore, 0), indicator.maxScore));
 
             return FacultyPbasEntry.updateOne(
@@ -557,11 +658,18 @@ function hasDraftReferenceSelection(references?: Partial<IPbasDraftReferences> |
     return Boolean(
         references?.teachingSummaryId ||
             references?.teachingLoadIds?.length ||
+            references?.resultSummaryIds?.length ||
             references?.publicationIds?.length ||
             references?.bookIds?.length ||
             references?.patentIds?.length ||
             references?.researchProjectIds?.length ||
             references?.eventParticipationIds?.length ||
+            references?.fdpIds?.length ||
+            references?.moocCourseIds?.length ||
+            references?.econtentIds?.length ||
+            references?.phdGuidanceIds?.length ||
+            references?.awardIds?.length ||
+            references?.consultancyIds?.length ||
             references?.adminRoleIds?.length ||
             references?.institutionalContributionIds?.length ||
             references?.socialExtensionIds?.length
@@ -577,15 +685,19 @@ async function resolveDraftState(application: InstanceType<typeof FacultyPbasFor
         : automaticReferences;
     const draftReferences = sanitizeDraftReferences(baseReferences, context);
     const snapshot = resolvePbasSnapshotFromReferences(context, draftReferences);
+    const selectedContext = selectPbasReferenceContext(context, draftReferences);
     const candidates = serializePbasCandidatePools(context);
+    const scorecard = await computePbasDynamicScorecard(snapshot, scoringWeights, selectedContext);
 
     return {
         context,
+        selectedContext,
         candidates,
         draftReferences,
         snapshot,
         scoringWeights,
-        apiScore: computePbasApiScore(snapshot, scoringWeights),
+        apiScore: scorecard.apiScore,
+        scorecard,
     };
 }
 
@@ -699,7 +811,7 @@ async function createRevisionFromDraft(
     const revisionCount = await FacultyPbasRevision.countDocuments({ pbasFormId: application._id }).session(options.session ?? null);
     const references = options.forcedReferences ?? draftState.draftReferences;
     const snapshot = options.forcedSnapshot ?? draftState.snapshot;
-    const apiScore = options.forcedApiScore ?? computePbasApiScore(snapshot, draftState.scoringWeights);
+    const apiScore = options.forcedApiScore ?? draftState.apiScore;
 
     const revision = new FacultyPbasRevision({
         pbasFormId: application._id,
@@ -720,10 +832,9 @@ async function createRevisionFromDraft(
     application.apiScore = apiScore;
     await application.save({ session: options.session });
 
-    await upsertComputedIndicatorEntries(application, snapshot, apiScore, draftState.scoringWeights, {
+    await upsertComputedIndicatorEntries(application, draftState.scorecard, {
         revisionId: revision._id as Types.ObjectId,
         session: options.session,
-        context: draftState.context,
     });
     await cloneDraftEntriesToRevision(application, revision._id as Types.ObjectId, options.session);
     await syncPbasTotalEntries(application._id.toString(), revision._id.toString());
@@ -984,6 +1095,7 @@ export type PbasSummary = {
         appraisalPeriod: { fromDate: string; toDate: string };
     };
     snapshot: PbasSnapshot;
+    apiScore: PbasApiScore;
     scoringWeights: PbasScoringWeights;
 };
 
@@ -1081,6 +1193,12 @@ export async function getPbasSummaryForFaculty(actor: SafeActor): Promise<PbasSu
         },
     });
     const snapshot = await buildPbasSnapshot(faculty._id, activeYear?._id ?? null);
+    const summaryContext = activeYear ? await loadPbasReferenceContext(faculty._id, activeYear._id) : undefined;
+    const summaryReferences = summaryContext ? deriveAutoDraftReferences(summaryContext) : emptyPbasDraftReferences();
+    const selectedSummaryContext = summaryContext
+        ? selectPbasReferenceContext(summaryContext, summaryReferences)
+        : undefined;
+    const scorecard = await computePbasDynamicScorecard(snapshot, scoringWeights, selectedSummaryContext);
 
     return {
         activeYear: activeYear
@@ -1111,6 +1229,7 @@ export async function getPbasSummaryForFaculty(actor: SafeActor): Promise<PbasSu
         },
         meta,
         snapshot,
+        apiScore: scorecard.apiScore,
         scoringWeights,
     };
 }
@@ -1401,7 +1520,9 @@ export async function createPbasApplication(actor: SafeActor, rawInput: unknown)
     const scoringWeights = await getPbasScoringWeightsFromMasterData();
     const draftReferences = deriveAutoDraftReferences(context);
     const snapshot = resolvePbasSnapshotFromReferences(context, draftReferences);
-    const apiScore = computePbasApiScore(snapshot, scoringWeights);
+    const selectedContext = selectPbasReferenceContext(context, draftReferences);
+    const scorecard = await computePbasDynamicScorecard(snapshot, scoringWeights, selectedContext);
+    const apiScore = scorecard.apiScore;
 
     const existing = await FacultyPbasForm.findOne({
         facultyId: faculty._id,
@@ -1437,9 +1558,7 @@ export async function createPbasApplication(actor: SafeActor, rawInput: unknown)
         status: "Draft",
     });
 
-    await upsertComputedIndicatorEntries(application, snapshot, apiScore, scoringWeights, {
-        context,
-    });
+    await upsertComputedIndicatorEntries(application, scorecard);
     await syncPbasTotalEntries(application._id.toString());
     await upsertWorkflow("PBAS", application._id.toString(), actor.role, application.status, "PBAS draft created.");
     await audit(actor, "PBAS_CREATE", "faculty_pbas_forms", application._id.toString(), undefined, {
@@ -1551,18 +1670,18 @@ export async function updatePbasApplication(actor: SafeActor, id: string, rawInp
         );
     const snapshot = resolvePbasSnapshotFromReferences(context, nextDraftReferences);
     const scoringWeights = await getPbasScoringWeightsFromMasterData();
+    const selectedContext = selectPbasReferenceContext(context, nextDraftReferences);
+    const scorecard = await computePbasDynamicScorecard(snapshot, scoringWeights, selectedContext);
     application.academicYearId = academicYear._id;
     application.academicYear = input.academicYear;
     application.currentDesignation = input.currentDesignation;
     application.appraisalPeriod = input.appraisalPeriod;
     application.draftReferences = nextDraftReferences;
-    application.apiScore = computePbasApiScore(snapshot, scoringWeights);
+    application.apiScore = scorecard.apiScore;
     application.submissionStatus = ["Draft", "Rejected"].includes(application.status) ? "Draft" : "Submitted";
 
     await application.save();
-    await upsertComputedIndicatorEntries(application, snapshot, application.apiScore, scoringWeights, {
-        context,
-    });
+    await upsertComputedIndicatorEntries(application, scorecard);
     await syncPbasTotalEntries(application._id.toString());
     await upsertWorkflow("PBAS", application._id.toString(), actor.role, application.status, "PBAS draft updated.");
     await audit(actor, "PBAS_UPDATE", "faculty_pbas_forms", application._id.toString(), oldState, application.toObject());
@@ -1590,13 +1709,13 @@ export async function updatePbasDraftReferences(actor: SafeActor, id: string, ra
     const safeReferences = sanitizeDraftReferences(parsed, context);
     const snapshot = resolvePbasSnapshotFromReferences(context, safeReferences);
     const scoringWeights = await getPbasScoringWeightsFromMasterData();
+    const selectedContext = selectPbasReferenceContext(context, safeReferences);
+    const scorecard = await computePbasDynamicScorecard(snapshot, scoringWeights, selectedContext);
 
     application.draftReferences = safeReferences;
-    application.apiScore = computePbasApiScore(snapshot, scoringWeights);
+    application.apiScore = scorecard.apiScore;
     await application.save();
-    await upsertComputedIndicatorEntries(application, snapshot, application.apiScore, scoringWeights, {
-        context,
-    });
+    await upsertComputedIndicatorEntries(application, scorecard);
     await syncPbasTotalEntries(application._id.toString());
 
     return buildApplicationResponse(application);
@@ -1702,13 +1821,7 @@ export async function submitPbasApplication(actor: SafeActor, id: string) {
             txApplication.draftReferences = draftState.draftReferences;
             txApplication.apiScore = draftState.apiScore;
             await txApplication.save({ session });
-            await upsertComputedIndicatorEntries(
-                txApplication,
-                draftState.snapshot,
-                draftState.apiScore,
-                draftState.scoringWeights,
-                { session, context: draftState.context }
-            );
+            await upsertComputedIndicatorEntries(txApplication, draftState.scorecard, { session });
 
             await createRevisionFromDraft(txApplication, actor, {
                 migrationSource: "runtime_submit",

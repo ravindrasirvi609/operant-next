@@ -14,6 +14,7 @@ export const PBAS_CATEGORIES: Array<{
 export const PBAS_INDICATORS: Array<{
     categoryCode: PbasCategoryCode;
     indicatorCode: string;
+    formulaKey: string;
     indicatorName: string;
     description?: string;
     maxScore: number;
@@ -22,6 +23,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "A",
         indicatorCode: "A1_TEACHING_LOAD",
+        formulaKey: "A1_TEACHING_LOAD",
         indicatorName: "Lectures / Classes Taken",
         description: "Teaching workload including lectures and tutorials handled.",
         maxScore: 30,
@@ -30,6 +32,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "A",
         indicatorCode: "A2_COURSE_PREP",
+        formulaKey: "A2_COURSE_PREP",
         indicatorName: "Course Preparation & Delivery",
         description: "Course preparation, lesson plan design, and delivery quality.",
         maxScore: 20,
@@ -38,6 +41,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "A",
         indicatorCode: "A3_MENTORING",
+        formulaKey: "A3_MENTORING",
         indicatorName: "Mentoring & Student Support",
         description: "Mentoring, counseling, and academic guidance.",
         maxScore: 20,
@@ -46,6 +50,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "A",
         indicatorCode: "A4_LAB_SUPERVISION",
+        formulaKey: "A4_LAB_SUPERVISION",
         indicatorName: "Lab / Practical Supervision",
         description: "Laboratory, studio, or practical supervision.",
         maxScore: 15,
@@ -54,6 +59,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "A",
         indicatorCode: "A5_INNOVATIVE_PEDAGOGY",
+        formulaKey: "A5_INNOVATIVE_PEDAGOGY",
         indicatorName: "Innovative Pedagogy",
         description: "Innovative teaching practices and ICT integration.",
         maxScore: 15,
@@ -62,6 +68,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "A",
         indicatorCode: "A6_CURRICULUM_DEV",
+        formulaKey: "A6_CURRICULUM_DEV",
         indicatorName: "Curriculum Design & Enrichment",
         description: "Curriculum development, syllabus design, and enrichment activities.",
         maxScore: 15,
@@ -70,6 +77,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "A",
         indicatorCode: "A7_ECONTENT_DEVELOPMENT",
+        formulaKey: "A7_ECONTENT_DEVELOPMENT",
         indicatorName: "E-Content / Course Material",
         description: "Preparation of course material, e-content, and learning resources.",
         maxScore: 10,
@@ -78,6 +86,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "A",
         indicatorCode: "A8_STUDENT_FEEDBACK",
+        formulaKey: "A8_STUDENT_FEEDBACK",
         indicatorName: "Student Feedback & Mentoring Outcomes",
         description: "Feedback utilization and student outcome improvements.",
         maxScore: 10,
@@ -86,6 +95,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "A",
         indicatorCode: "A9_ASSESSMENT_INNOVATION",
+        formulaKey: "A9_ASSESSMENT_INNOVATION",
         indicatorName: "Assessment & Evaluation Innovations",
         description: "Innovative evaluation methods, CO/PO mapping, and assessment design.",
         maxScore: 10,
@@ -94,6 +104,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "B",
         indicatorCode: "B1_RESEARCH_PAPERS",
+        formulaKey: "B1_RESEARCH_PAPERS",
         indicatorName: "Research Publications",
         description: "Journal publications, indexing, and quality.",
         maxScore: 40,
@@ -102,6 +113,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "B",
         indicatorCode: "B2_BOOKS_CHAPTERS",
+        formulaKey: "B2_BOOKS_CHAPTERS",
         indicatorName: "Books / Chapters",
         description: "Books, edited volumes, and chapters.",
         maxScore: 20,
@@ -110,6 +122,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "B",
         indicatorCode: "B3_PATENTS",
+        formulaKey: "B3_PATENTS",
         indicatorName: "Patents",
         description: "Filed, published, or granted patents.",
         maxScore: 20,
@@ -118,6 +131,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "B",
         indicatorCode: "B4_CONFERENCES",
+        formulaKey: "B4_CONFERENCES",
         indicatorName: "Conference Contributions",
         description: "Conference presentations and participation.",
         maxScore: 20,
@@ -126,6 +140,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "B",
         indicatorCode: "B5_PROJECTS",
+        formulaKey: "B5_PROJECTS",
         indicatorName: "Research Projects / Grants",
         description: "Externally or internally funded projects.",
         maxScore: 20,
@@ -134,6 +149,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "B",
         indicatorCode: "B6_RESEARCH_GUIDANCE",
+        formulaKey: "B6_RESEARCH_GUIDANCE",
         indicatorName: "Research Guidance / PhD Supervision",
         description: "PhD, MPhil, and research scholar guidance outcomes.",
         maxScore: 20,
@@ -142,6 +158,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "B",
         indicatorCode: "B7_CONSULTANCY",
+        formulaKey: "B7_CONSULTANCY",
         indicatorName: "Consultancy & Industry Collaboration",
         description: "Consultancy projects and industry collaboration outcomes.",
         maxScore: 15,
@@ -150,6 +167,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "B",
         indicatorCode: "B8_ECONTENT",
+        formulaKey: "B8_ECONTENT",
         indicatorName: "E-Content / LMS Contributions",
         description: "MOOCs, SWAYAM, LMS content, and digital courseware contributions.",
         maxScore: 15,
@@ -158,6 +176,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "B",
         indicatorCode: "B9_MOOC_COMPLETION",
+        formulaKey: "B9_MOOC_COMPLETION",
         indicatorName: "MOOC / SWAYAM Completion",
         description: "Faculty completion of MOOCs or SWAYAM courses.",
         maxScore: 10,
@@ -166,6 +185,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "B",
         indicatorCode: "B10_AWARDS",
+        formulaKey: "B10_AWARDS",
         indicatorName: "Awards & Recognitions",
         description: "Research awards, fellowships, and recognitions.",
         maxScore: 10,
@@ -174,6 +194,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "B",
         indicatorCode: "B11_RESEARCH_IMPACT",
+        formulaKey: "B11_RESEARCH_IMPACT",
         indicatorName: "Research Impact / Citations",
         description: "Citation impact, h-index, and research influence metrics.",
         maxScore: 10,
@@ -182,6 +203,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "B",
         indicatorCode: "B12_EDITORIAL_REVIEW",
+        formulaKey: "B12_EDITORIAL_REVIEW",
         indicatorName: "Editorial / Review Contributions",
         description: "Editorial board, peer review, and academic review roles.",
         maxScore: 10,
@@ -190,6 +212,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "C",
         indicatorCode: "C1_ADMIN_ROLES",
+        formulaKey: "C1_ADMIN_ROLES",
         indicatorName: "Committee / Administrative Roles",
         description: "Department, institute, or university level roles.",
         maxScore: 20,
@@ -198,6 +221,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "C",
         indicatorCode: "C2_EXAM_DUTIES",
+        formulaKey: "C2_EXAM_DUTIES",
         indicatorName: "Examination Duties",
         description: "Invigilation, evaluation, and exam coordination.",
         maxScore: 15,
@@ -206,6 +230,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "C",
         indicatorCode: "C3_STUDENT_GUIDANCE",
+        formulaKey: "C3_STUDENT_GUIDANCE",
         indicatorName: "Student Guidance",
         description: "Project supervision, internships, and guidance.",
         maxScore: 15,
@@ -214,6 +239,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "C",
         indicatorCode: "C4_EXTENSION",
+        formulaKey: "C4_EXTENSION",
         indicatorName: "Extension / Outreach",
         description: "NSS, NCC, outreach, and community engagement.",
         maxScore: 15,
@@ -222,6 +248,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "C",
         indicatorCode: "C5_FDP_WORKSHOPS",
+        formulaKey: "C5_FDP_WORKSHOPS",
         indicatorName: "FDP / Workshops",
         description: "Faculty development programs and workshops.",
         maxScore: 15,
@@ -230,6 +257,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "C",
         indicatorCode: "C6_PROFESSIONAL_BODY",
+        formulaKey: "C6_PROFESSIONAL_BODY",
         indicatorName: "Professional Body Membership",
         description: "Membership in professional bodies and learned societies.",
         maxScore: 10,
@@ -238,6 +266,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "C",
         indicatorCode: "C7_COMMUNITY_SERVICE",
+        formulaKey: "C7_COMMUNITY_SERVICE",
         indicatorName: "Community Service",
         description: "Community service, social outreach, and civic engagement.",
         maxScore: 10,
@@ -246,6 +275,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "C",
         indicatorCode: "C8_OUTREACH_PROGRAMS",
+        formulaKey: "C8_OUTREACH_PROGRAMS",
         indicatorName: "Outreach Programs & Camps",
         description: "Outreach camps, awareness programs, and institutional outreach.",
         maxScore: 10,
@@ -254,6 +284,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "C",
         indicatorCode: "C9_RESOURCE_PERSON",
+        formulaKey: "C9_RESOURCE_PERSON",
         indicatorName: "Resource Person / Invited Talks",
         description: "Invited talks, resource person roles, and expert lectures.",
         maxScore: 10,
@@ -262,6 +293,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "C",
         indicatorCode: "C10_GOVERNANCE_ROLE",
+        formulaKey: "C10_GOVERNANCE_ROLE",
         indicatorName: "Institutional Governance",
         description: "Institutional governance, policy, and accreditation roles.",
         maxScore: 10,
@@ -270,6 +302,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "A",
         indicatorCode: "A_TOTAL",
+        formulaKey: "A_TOTAL",
         indicatorName: "Teaching Activities Total",
         description: "Computed total for PBAS teaching activities.",
         maxScore: 100,
@@ -278,6 +311,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "B",
         indicatorCode: "B_TOTAL",
+        formulaKey: "B_TOTAL",
         indicatorName: "Research Contribution Total",
         description: "Computed total for PBAS research and academic contributions.",
         maxScore: 120,
@@ -286,6 +320,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "C",
         indicatorCode: "C_TOTAL",
+        formulaKey: "C_TOTAL",
         indicatorName: "Institutional Responsibility Total",
         description: "Computed total for PBAS institutional responsibilities and extension.",
         maxScore: 80,
@@ -294,6 +329,7 @@ export const PBAS_INDICATORS: Array<{
     {
         categoryCode: "C",
         indicatorCode: "API_TOTAL",
+        formulaKey: "API_TOTAL",
         indicatorName: "Overall API Total",
         description: "Computed overall API total score for the PBAS form.",
         maxScore: 300,

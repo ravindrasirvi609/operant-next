@@ -26,6 +26,7 @@ export const pbasCategoryUpdateSchema = pbasCategorySchema.partial();
 export const pbasIndicatorSchema = z.object({
     categoryId: z.string().trim().min(1, "Category is required."),
     indicatorCode: z.string().trim().min(3, "Indicator code is required."),
+    formulaKey: z.string().trim().optional(),
     indicatorName: z.string().trim().min(2, "Indicator name is required."),
     description: z.string().trim().optional(),
     maxScore: z.coerce.number().min(0),
@@ -119,6 +120,7 @@ export async function createPbasIndicator(input: unknown) {
     const indicator = await PbasIndicatorMaster.create({
         categoryId: new Types.ObjectId(data.categoryId),
         indicatorCode: normalizeCode(data.indicatorCode),
+        formulaKey: data.formulaKey ? normalizeCode(data.formulaKey) : normalizeCode(data.indicatorCode),
         indicatorName: data.indicatorName.trim(),
         description: data.description?.trim() || undefined,
         maxScore: data.maxScore,
@@ -138,6 +140,9 @@ export async function updatePbasIndicator(id: string, input: unknown) {
     }
     if (data.indicatorCode) {
         update.indicatorCode = normalizeCode(data.indicatorCode);
+    }
+    if (data.formulaKey !== undefined) {
+        update.formulaKey = data.formulaKey ? normalizeCode(data.formulaKey) : undefined;
     }
     if (data.indicatorName) {
         update.indicatorName = data.indicatorName.trim();

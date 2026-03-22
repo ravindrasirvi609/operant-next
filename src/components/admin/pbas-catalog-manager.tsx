@@ -23,6 +23,7 @@ type PbasIndicator = {
     _id: string;
     categoryId?: { _id?: string; categoryCode?: string; categoryName?: string } | string;
     indicatorCode: string;
+    formulaKey?: string;
     indicatorName: string;
     description?: string;
     maxScore: number;
@@ -148,6 +149,7 @@ function emptyIndicatorForm(categoryId?: string) {
     return {
         categoryId: categoryId ?? "",
         indicatorCode: "",
+        formulaKey: "",
         indicatorName: "",
         description: "",
         maxScore: 0,
@@ -664,6 +666,19 @@ export function PbasCatalogManager({
                                     disabled={isPending}
                                 />
                             </Field>
+                            <Field label="Formula key">
+                                <Input
+                                    value={indicatorForm.formulaKey}
+                                    onChange={(event) =>
+                                        setIndicatorForm((current) => ({
+                                            ...current,
+                                            formulaKey: event.target.value,
+                                        }))
+                                    }
+                                    placeholder="A1_TEACHING_LOAD"
+                                    disabled={isPending}
+                                />
+                            </Field>
                             <Field label="Indicator name">
                                 <Input
                                     value={indicatorForm.indicatorName}
@@ -773,7 +788,7 @@ export function PbasCatalogManager({
                                                     <p className="font-semibold text-zinc-950">{indicator.indicatorName}</p>
                                                 </div>
                                                 <p className="mt-1 text-sm text-zinc-500">
-                                                    Category {category?.categoryCode ?? "--"} | Max {indicator.maxScore} | NAAC {indicator.naacCriteriaCode ?? "--"}
+                                                    Category {category?.categoryCode ?? "--"} | Formula {indicator.formulaKey ?? indicator.indicatorCode} | Max {indicator.maxScore} | NAAC {indicator.naacCriteriaCode ?? "--"}
                                                 </p>
                                                 {indicator.description ? (
                                                     <p className="mt-1 text-xs text-zinc-500">{indicator.description}</p>
@@ -790,6 +805,7 @@ export function PbasCatalogManager({
                                                                 ? indicator.categoryId
                                                                 : indicator.categoryId?._id ?? "",
                                                         indicatorCode: indicator.indicatorCode,
+                                                        formulaKey: indicator.formulaKey ?? indicator.indicatorCode,
                                                         indicatorName: indicator.indicatorName,
                                                         description: indicator.description ?? "",
                                                         maxScore: indicator.maxScore,
