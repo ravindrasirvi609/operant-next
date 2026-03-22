@@ -8,11 +8,19 @@ import Program from "@/models/academic/program";
 import Semester from "@/models/reference/semester";
 import SocialProgram from "@/models/reference/social-program";
 import FacultyAdminRole from "@/models/faculty/faculty-admin-role";
+import FacultyAqarSummary from "@/models/faculty/faculty-aqar-summary";
+import FacultyAward from "@/models/faculty/faculty-award";
 import FacultyBook from "@/models/faculty/faculty-book";
+import FacultyConsultancy from "@/models/faculty/faculty-consultancy";
+import FacultyEcontent from "@/models/faculty/faculty-econtent";
 import FacultyEventParticipation from "@/models/faculty/faculty-event-participation";
 import FacultyFdpConducted from "@/models/faculty/faculty-fdp-conducted";
 import FacultyInstitutionalContribution from "@/models/faculty/faculty-institutional-contribution";
+import FacultyKpiAchievement from "@/models/faculty/faculty-kpi-achievement";
+import FacultyKpiTarget from "@/models/faculty/faculty-kpi-target";
+import FacultyMoocCourse from "@/models/faculty/faculty-mooc-course";
 import FacultyPatent from "@/models/faculty/faculty-patent";
+import FacultyPhdGuidance from "@/models/faculty/faculty-phd-guidance";
 import FacultyPublication from "@/models/faculty/faculty-publication";
 import FacultyQualification from "@/models/faculty/faculty-qualification";
 import FacultyResearchProject from "@/models/faculty/faculty-research-project";
@@ -282,10 +290,18 @@ export async function getFacultyWorkspace(userId: string) {
         patents,
         researchProjects,
         eventParticipations,
+        consultancies,
+        awards,
+        phdGuidances,
+        econtents,
+        moocCourses,
         administrativeRoles,
         institutionalContributions,
         facultyDevelopmentProgrammes,
         socialExtensionActivities,
+        kpiTargets,
+        kpiAchievements,
+        aqarSummaries,
     ] =
         await Promise.all([
             FacultyQualification.find({ facultyId: faculty._id }).sort({ updatedAt: -1 }),
@@ -307,6 +323,13 @@ export async function getFacultyWorkspace(userId: string) {
             FacultyEventParticipation.find({ facultyId: faculty._id })
                 .populate("eventId", "title organizedBy eventType level startDate endDate location")
                 .sort({ updatedAt: -1 }),
+            FacultyConsultancy.find({ facultyId: faculty._id }).sort({ updatedAt: -1 }),
+            FacultyAward.find({ facultyId: faculty._id }).sort({ updatedAt: -1 }),
+            FacultyPhdGuidance.find({ facultyId: faculty._id }).sort({ updatedAt: -1 }),
+            FacultyEcontent.find({ facultyId: faculty._id })
+                .populate("academicYearId", "yearStart yearEnd")
+                .sort({ updatedAt: -1 }),
+            FacultyMoocCourse.find({ facultyId: faculty._id }).sort({ updatedAt: -1 }),
             FacultyAdminRole.find({ facultyId: faculty._id })
                 .populate("academicYearId", "yearStart yearEnd")
                 .sort({ updatedAt: -1 }),
@@ -317,6 +340,15 @@ export async function getFacultyWorkspace(userId: string) {
             FacultySocialExtension.find({ facultyId: faculty._id })
                 .populate("academicYearId", "yearStart yearEnd")
                 .populate("programId", "name")
+                .sort({ updatedAt: -1 }),
+            FacultyKpiTarget.find({ facultyId: faculty._id })
+                .populate("academicYearId", "yearStart yearEnd")
+                .sort({ updatedAt: -1 }),
+            FacultyKpiAchievement.find({ facultyId: faculty._id })
+                .populate("academicYearId", "yearStart yearEnd")
+                .sort({ updatedAt: -1 }),
+            FacultyAqarSummary.find({ facultyId: faculty._id })
+                .populate("academicYearId", "yearStart yearEnd")
                 .sort({ updatedAt: -1 }),
         ]);
 
@@ -451,6 +483,54 @@ export async function getFacultyWorkspace(userId: string) {
             paperTitle: item.paperTitle ?? "",
             organized: item.organized,
         })),
+        consultancies: consultancies.map((item) => ({
+            _id: item._id.toString(),
+            documentId: item.documentId?.toString() ?? "",
+            clientName: item.clientName,
+            projectTitle: item.projectTitle,
+            revenueGenerated: item.revenueGenerated ?? 0,
+            startDate: toDateInput(item.startDate),
+            endDate: toDateInput(item.endDate),
+        })),
+        awards: awards.map((item) => ({
+            _id: item._id.toString(),
+            documentId: item.documentId?.toString() ?? "",
+            title: item.title,
+            awardingBody: item.awardingBody ?? "",
+            awardLevel: item.awardLevel ?? "College",
+            awardDate: toDateInput(item.awardDate),
+        })),
+        phdGuidances: phdGuidances.map((item) => ({
+            _id: item._id.toString(),
+            documentId: item.documentId?.toString() ?? "",
+            scholarName: item.scholarName,
+            universityName: item.universityName,
+            registrationYear: item.registrationYear,
+            thesisTitle: item.thesisTitle,
+            status: item.status,
+            completionYear: item.completionYear,
+        })),
+        econtents: econtents.map((item) => ({
+            _id: item._id.toString(),
+            title: item.title,
+            platform: item.platform,
+            url: item.url,
+            contentType: item.contentType,
+            academicYear: toAcademicYearLabel(
+                (item.academicYearId as { yearStart?: number })?.yearStart,
+                (item.academicYearId as { yearEnd?: number })?.yearEnd
+            ),
+        })),
+        moocCourses: moocCourses.map((item) => ({
+            _id: item._id.toString(),
+            certificateDocumentId: item.certificateDocumentId?.toString() ?? "",
+            courseName: item.courseName,
+            platform: item.platform,
+            university: item.university ?? "",
+            durationWeeks: item.durationWeeks,
+            grade: item.grade ?? "",
+            completionDate: toDateInput(item.completionDate),
+        })),
         administrativeRoles: administrativeRoles.map((item) => ({
             _id: item._id.toString(),
             documentId: item.documentId?.toString() ?? "",
@@ -494,6 +574,44 @@ export async function getFacultyWorkspace(userId: string) {
             programName: (item.programId as { name?: string })?.name ?? "",
             activityName: item.activityName,
             hoursContributed: item.hoursContributed ?? 0,
+        })),
+        kpiTargets: kpiTargets.map((item) => ({
+            _id: item._id.toString(),
+            academicYear: toAcademicYearLabel(
+                (item.academicYearId as { yearStart?: number })?.yearStart,
+                (item.academicYearId as { yearEnd?: number })?.yearEnd
+            ),
+            researchPublicationsTarget: item.researchPublicationsTarget ?? 0,
+            fdpTarget: item.fdpTarget ?? 0,
+            consultancyTarget: item.consultancyTarget ?? 0,
+            resultTargetPercentage: item.resultTargetPercentage ?? 0,
+        })),
+        kpiAchievements: kpiAchievements.map((item) => ({
+            _id: item._id.toString(),
+            academicYear: toAcademicYearLabel(
+                (item.academicYearId as { yearStart?: number })?.yearStart,
+                (item.academicYearId as { yearEnd?: number })?.yearEnd
+            ),
+            publicationsDone: item.publicationsDone ?? 0,
+            fdpConducted: item.fdpConducted ?? 0,
+            consultancyGenerated: item.consultancyGenerated ?? 0,
+            resultPercentage: item.resultPercentage ?? 0,
+            overallKpiScore: item.overallKpiScore ?? 0,
+        })),
+        aqarSummaries: aqarSummaries.map((item) => ({
+            _id: item._id.toString(),
+            academicYear: toAcademicYearLabel(
+                (item.academicYearId as { yearStart?: number })?.yearStart,
+                (item.academicYearId as { yearEnd?: number })?.yearEnd
+            ),
+            teachingScore: item.teachingScore ?? 0,
+            researchScore: item.researchScore ?? 0,
+            publicationScore: item.publicationScore ?? 0,
+            administrativeScore: item.administrativeScore ?? 0,
+            extensionScore: item.extensionScore ?? 0,
+            awardScore: item.awardScore ?? 0,
+            apiTotalScore: item.apiTotalScore ?? 0,
+            performanceGrade: item.performanceGrade ?? "",
         })),
     };
 
@@ -551,6 +669,11 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
         FacultyPatent.deleteMany({ facultyId: faculty._id }),
         FacultyResearchProject.deleteMany({ facultyId: faculty._id }),
         FacultyEventParticipation.deleteMany({ facultyId: faculty._id }),
+        FacultyConsultancy.deleteMany({ facultyId: faculty._id }),
+        FacultyAward.deleteMany({ facultyId: faculty._id }),
+        FacultyPhdGuidance.deleteMany({ facultyId: faculty._id }),
+        FacultyEcontent.deleteMany({ facultyId: faculty._id }),
+        FacultyMoocCourse.deleteMany({ facultyId: faculty._id }),
         FacultyAdminRole.deleteMany({ facultyId: faculty._id }),
         FacultyInstitutionalContribution.deleteMany({ facultyId: faculty._id }),
         FacultyFdpConducted.deleteMany({ facultyId: faculty._id }),
@@ -719,6 +842,68 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
         });
     }
 
+    for (const entry of input.consultancies) {
+        await FacultyConsultancy.create({
+            facultyId: faculty._id,
+            documentId: entry.documentId || undefined,
+            clientName: entry.clientName,
+            projectTitle: entry.projectTitle,
+            revenueGenerated: entry.revenueGenerated,
+            startDate: entry.startDate ? new Date(entry.startDate) : undefined,
+            endDate: entry.endDate ? new Date(entry.endDate) : undefined,
+        });
+    }
+
+    for (const entry of input.awards) {
+        await FacultyAward.create({
+            facultyId: faculty._id,
+            documentId: entry.documentId || undefined,
+            title: entry.title,
+            awardingBody: entry.awardingBody || undefined,
+            awardLevel: entry.awardLevel,
+            awardDate: entry.awardDate ? new Date(entry.awardDate) : undefined,
+        });
+    }
+
+    for (const entry of input.phdGuidances) {
+        await FacultyPhdGuidance.create({
+            facultyId: faculty._id,
+            documentId: entry.documentId || undefined,
+            scholarName: entry.scholarName,
+            universityName: entry.universityName,
+            registrationYear: entry.registrationYear,
+            thesisTitle: entry.thesisTitle,
+            status: entry.status,
+            completionYear: entry.completionYear,
+        });
+    }
+
+    for (const entry of input.econtents) {
+        const academicYear = await ensureAcademicYear(entry.academicYear);
+
+        await FacultyEcontent.create({
+            facultyId: faculty._id,
+            title: entry.title,
+            platform: entry.platform,
+            url: entry.url,
+            contentType: entry.contentType,
+            academicYearId: academicYear._id,
+        });
+    }
+
+    for (const entry of input.moocCourses) {
+        await FacultyMoocCourse.create({
+            facultyId: faculty._id,
+            certificateDocumentId: entry.certificateDocumentId || undefined,
+            courseName: entry.courseName,
+            platform: entry.platform,
+            university: entry.university || undefined,
+            durationWeeks: entry.durationWeeks,
+            grade: entry.grade || undefined,
+            completionDate: new Date(entry.completionDate),
+        });
+    }
+
     for (const entry of input.administrativeRoles) {
         const academicYear = entry.academicYear ? await ensureAcademicYear(entry.academicYear) : null;
 
@@ -772,6 +957,92 @@ export async function saveFacultyWorkspace(userId: string, rawInput: unknown) {
             hoursContributed: entry.hoursContributed,
         });
     }
+
+    const kpiTargetAcademicYearIds: string[] = [];
+    for (const entry of input.kpiTargets) {
+        const academicYear = await ensureAcademicYear(entry.academicYear);
+        kpiTargetAcademicYearIds.push(academicYear._id.toString());
+
+        await FacultyKpiTarget.findOneAndUpdate(
+            {
+                facultyId: faculty._id,
+                academicYearId: academicYear._id,
+            },
+            {
+                $set: {
+                    researchPublicationsTarget: entry.researchPublicationsTarget,
+                    fdpTarget: entry.fdpTarget,
+                    consultancyTarget: entry.consultancyTarget,
+                    resultTargetPercentage: entry.resultTargetPercentage,
+                },
+            },
+            { upsert: true, new: true }
+        );
+    }
+
+    await FacultyKpiTarget.deleteMany({
+        facultyId: faculty._id,
+        academicYearId: { $nin: kpiTargetAcademicYearIds },
+    });
+
+    const kpiAchievementAcademicYearIds: string[] = [];
+    for (const entry of input.kpiAchievements) {
+        const academicYear = await ensureAcademicYear(entry.academicYear);
+        kpiAchievementAcademicYearIds.push(academicYear._id.toString());
+
+        await FacultyKpiAchievement.findOneAndUpdate(
+            {
+                facultyId: faculty._id,
+                academicYearId: academicYear._id,
+            },
+            {
+                $set: {
+                    publicationsDone: entry.publicationsDone,
+                    fdpConducted: entry.fdpConducted,
+                    consultancyGenerated: entry.consultancyGenerated,
+                    resultPercentage: entry.resultPercentage,
+                    overallKpiScore: entry.overallKpiScore,
+                },
+            },
+            { upsert: true, new: true }
+        );
+    }
+
+    await FacultyKpiAchievement.deleteMany({
+        facultyId: faculty._id,
+        academicYearId: { $nin: kpiAchievementAcademicYearIds },
+    });
+
+    const aqarSummaryAcademicYearIds: string[] = [];
+    for (const entry of input.aqarSummaries) {
+        const academicYear = await ensureAcademicYear(entry.academicYear);
+        aqarSummaryAcademicYearIds.push(academicYear._id.toString());
+
+        await FacultyAqarSummary.findOneAndUpdate(
+            {
+                facultyId: faculty._id,
+                academicYearId: academicYear._id,
+            },
+            {
+                $set: {
+                    teachingScore: entry.teachingScore,
+                    researchScore: entry.researchScore,
+                    publicationScore: entry.publicationScore,
+                    administrativeScore: entry.administrativeScore,
+                    extensionScore: entry.extensionScore,
+                    awardScore: entry.awardScore,
+                    apiTotalScore: entry.apiTotalScore,
+                    performanceGrade: entry.performanceGrade || undefined,
+                },
+            },
+            { upsert: true, new: true }
+        );
+    }
+
+    await FacultyAqarSummary.deleteMany({
+        facultyId: faculty._id,
+        academicYearId: { $nin: aqarSummaryAcademicYearIds },
+    });
 
     const workspace = await getFacultyWorkspace(userId);
 

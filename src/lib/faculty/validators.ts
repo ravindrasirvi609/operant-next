@@ -1,5 +1,21 @@
 import { z } from "zod";
 
+const optionalNumberField = z.preprocess((value) => {
+    if (value === "" || value === null || value === undefined) {
+        return undefined;
+    }
+
+    return Number(value);
+}, z.number().min(0).optional());
+
+const optionalYearField = z.preprocess((value) => {
+    if (value === "" || value === null || value === undefined) {
+        return undefined;
+    }
+
+    return Number(value);
+}, z.number().int().min(1900).optional());
+
 const qualificationSchema = z.object({
     level: z.string().trim().min(2, "Qualification level is required."),
     degree: z.string().trim().min(2, "Degree title is required."),
@@ -125,6 +141,56 @@ const eventParticipationSchema = z.object({
     organized: z.boolean().default(false),
 });
 
+const consultancySchema = z.object({
+    _id: z.string().optional(),
+    documentId: z.string().trim().optional(),
+    clientName: z.string().trim().min(2, "Client name is required."),
+    projectTitle: z.string().trim().min(2, "Project title is required."),
+    revenueGenerated: z.coerce.number().min(0).default(0),
+    startDate: z.string().trim().optional(),
+    endDate: z.string().trim().optional(),
+});
+
+const awardSchema = z.object({
+    _id: z.string().optional(),
+    documentId: z.string().trim().optional(),
+    title: z.string().trim().min(2, "Award title is required."),
+    awardingBody: z.string().trim().optional(),
+    awardLevel: z.enum(["College", "State", "National", "International"]).default("College"),
+    awardDate: z.string().trim().optional(),
+});
+
+const phdGuidanceSchema = z.object({
+    _id: z.string().optional(),
+    documentId: z.string().trim().optional(),
+    scholarName: z.string().trim().min(2, "Scholar name is required."),
+    universityName: z.string().trim().min(2, "University name is required."),
+    registrationYear: z.coerce.number().int().min(1900),
+    thesisTitle: z.string().trim().min(2, "Thesis title is required."),
+    status: z.enum(["ongoing", "completed"]).default("ongoing"),
+    completionYear: optionalYearField,
+});
+
+const econtentSchema = z.object({
+    _id: z.string().optional(),
+    title: z.string().trim().min(2, "Title is required."),
+    platform: z.enum(["youtube", "moodle", "swayam", "other"]).default("other"),
+    url: z.string().trim().min(1, "Content URL is required."),
+    contentType: z.enum(["video", "module", "ppt", "other"]).default("other"),
+    academicYear: z.string().trim().min(4, "Academic year is required."),
+});
+
+const moocCourseSchema = z.object({
+    _id: z.string().optional(),
+    certificateDocumentId: z.string().trim().optional(),
+    courseName: z.string().trim().min(2, "Course name is required."),
+    platform: z.string().trim().min(2, "Platform is required."),
+    university: z.string().trim().optional(),
+    durationWeeks: optionalNumberField,
+    grade: z.string().trim().optional(),
+    completionDate: z.string().trim().min(1, "Completion date is required."),
+});
+
 const fdpSchema = z.object({
     _id: z.string().optional(),
     documentId: z.string().trim().optional(),
@@ -155,6 +221,38 @@ const socialExtensionSchema = z.object({
     hoursContributed: z.coerce.number().min(0).default(0),
 });
 
+const kpiTargetSchema = z.object({
+    _id: z.string().optional(),
+    academicYear: z.string().trim().min(4, "Academic year is required."),
+    researchPublicationsTarget: z.coerce.number().min(0).default(0),
+    fdpTarget: z.coerce.number().min(0).default(0),
+    consultancyTarget: z.coerce.number().min(0).default(0),
+    resultTargetPercentage: z.coerce.number().min(0).default(0),
+});
+
+const kpiAchievementSchema = z.object({
+    _id: z.string().optional(),
+    academicYear: z.string().trim().min(4, "Academic year is required."),
+    publicationsDone: z.coerce.number().min(0).default(0),
+    fdpConducted: z.coerce.number().min(0).default(0),
+    consultancyGenerated: z.coerce.number().min(0).default(0),
+    resultPercentage: z.coerce.number().min(0).default(0),
+    overallKpiScore: z.coerce.number().min(0).default(0),
+});
+
+const aqarSummarySchema = z.object({
+    _id: z.string().optional(),
+    academicYear: z.string().trim().min(4, "Academic year is required."),
+    teachingScore: z.coerce.number().min(0).default(0),
+    researchScore: z.coerce.number().min(0).default(0),
+    publicationScore: z.coerce.number().min(0).default(0),
+    administrativeScore: z.coerce.number().min(0).default(0),
+    extensionScore: z.coerce.number().min(0).default(0),
+    awardScore: z.coerce.number().min(0).default(0),
+    apiTotalScore: z.coerce.number().min(0).default(0),
+    performanceGrade: z.string().trim().optional(),
+});
+
 export const facultyRecordSchema = z.object({
     employeeCode: z.string().trim().optional(),
     joiningDate: z.string().trim().optional(),
@@ -177,10 +275,18 @@ export const facultyRecordSchema = z.object({
     patents: z.array(patentSchema).default([]),
     researchProjects: z.array(researchProjectSchema).default([]),
     eventParticipations: z.array(eventParticipationSchema).default([]),
+    consultancies: z.array(consultancySchema).default([]),
+    awards: z.array(awardSchema).default([]),
+    phdGuidances: z.array(phdGuidanceSchema).default([]),
+    econtents: z.array(econtentSchema).default([]),
+    moocCourses: z.array(moocCourseSchema).default([]),
     administrativeRoles: z.array(administrativeRoleSchema).default([]),
     institutionalContributions: z.array(institutionalContributionSchema).default([]),
     facultyDevelopmentProgrammes: z.array(fdpSchema).default([]),
     socialExtensionActivities: z.array(socialExtensionSchema).default([]),
+    kpiTargets: z.array(kpiTargetSchema).default([]),
+    kpiAchievements: z.array(kpiAchievementSchema).default([]),
+    aqarSummaries: z.array(aqarSummarySchema).default([]),
 });
 
 export type FacultyRecordInput = z.input<typeof facultyRecordSchema>;

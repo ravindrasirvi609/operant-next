@@ -16,6 +16,10 @@ export const researchProjectStatuses = ["Planned", "Ongoing", "Completed", "Clos
 export const eventTypes = ["Seminar", "Workshop", "Conference", "Symposium", "Webinar", "Other"] as const;
 export const eventLevels = ["College", "State", "National", "International"] as const;
 export const eventRoles = ["Participant", "ResourcePerson", "Chair"] as const;
+export const awardLevels = ["College", "State", "National", "International"] as const;
+export const phdGuidanceStatuses = ["ongoing", "completed"] as const;
+export const econtentPlatforms = ["youtube", "moodle", "swayam", "other"] as const;
+export const econtentTypes = ["video", "module", "ppt", "other"] as const;
 export const institutionalImpactLevels = ["dept", "institute", "university"] as const;
 export const facultyProgrammeLevels = ["College", "State", "National", "International"] as const;
 

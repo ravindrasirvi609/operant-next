@@ -31,7 +31,10 @@ import {
     type UploadProgress,
 } from "@/lib/upload/service";
 import {
+    awardLevels,
     bookTypes,
+    econtentPlatforms,
+    econtentTypes,
     eventLevels,
     eventRoles,
     eventTypes,
@@ -39,6 +42,7 @@ import {
     facultyProgrammeLevels,
     institutionalImpactLevels,
     patentStatuses,
+    phdGuidanceStatuses,
     publicationAuthorPositions,
     publicationTypes,
     researchProjectStatuses,
@@ -76,6 +80,10 @@ function toCsv(value?: string[]) {
 
 function countEvidenceLinked<T extends { documentId?: string }>(rows?: T[]) {
     return rows?.filter((row) => Boolean(row.documentId)).length ?? 0;
+}
+
+function countCertificateLinked<T extends { certificateDocumentId?: string }>(rows?: T[]) {
+    return rows?.filter((row) => Boolean(row.certificateDocumentId)).length ?? 0;
 }
 
 export function FacultyWorkspaceForm({
@@ -123,10 +131,18 @@ export function FacultyWorkspaceForm({
             patents: facultyRecord.patents ?? [],
             researchProjects: facultyRecord.researchProjects ?? [],
             eventParticipations: facultyRecord.eventParticipations ?? [],
+            consultancies: facultyRecord.consultancies ?? [],
+            awards: facultyRecord.awards ?? [],
+            phdGuidances: facultyRecord.phdGuidances ?? [],
+            econtents: facultyRecord.econtents ?? [],
+            moocCourses: facultyRecord.moocCourses ?? [],
             administrativeRoles: facultyRecord.administrativeRoles ?? [],
             institutionalContributions: facultyRecord.institutionalContributions ?? [],
             facultyDevelopmentProgrammes: facultyRecord.facultyDevelopmentProgrammes ?? [],
             socialExtensionActivities: facultyRecord.socialExtensionActivities ?? [],
+            kpiTargets: facultyRecord.kpiTargets ?? [],
+            kpiAchievements: facultyRecord.kpiAchievements ?? [],
+            aqarSummaries: facultyRecord.aqarSummaries ?? [],
         },
     });
 
@@ -139,6 +155,11 @@ export function FacultyWorkspaceForm({
     const patents = useFieldArray({ control: form.control, name: "patents" });
     const researchProjects = useFieldArray({ control: form.control, name: "researchProjects" });
     const eventParticipations = useFieldArray({ control: form.control, name: "eventParticipations" });
+    const consultancies = useFieldArray({ control: form.control, name: "consultancies" });
+    const awards = useFieldArray({ control: form.control, name: "awards" });
+    const phdGuidances = useFieldArray({ control: form.control, name: "phdGuidances" });
+    const econtents = useFieldArray({ control: form.control, name: "econtents" });
+    const moocCourses = useFieldArray({ control: form.control, name: "moocCourses" });
     const administrativeRoles = useFieldArray({ control: form.control, name: "administrativeRoles" });
     const institutionalContributions = useFieldArray({
         control: form.control,
@@ -152,6 +173,9 @@ export function FacultyWorkspaceForm({
         control: form.control,
         name: "socialExtensionActivities",
     });
+    const kpiTargets = useFieldArray({ control: form.control, name: "kpiTargets" });
+    const kpiAchievements = useFieldArray({ control: form.control, name: "kpiAchievements" });
+    const aqarSummaries = useFieldArray({ control: form.control, name: "aqarSummaries" });
 
     const uniqueProgramOptions = useMemo(
         () => Array.from(new Set(programOptions.filter(Boolean))).sort((a, b) => a.localeCompare(b)),
@@ -179,6 +203,14 @@ export function FacultyWorkspaceForm({
     const institutionalExcelInputId = useId();
     const fdpExcelInputId = useId();
     const socialExtensionExcelInputId = useId();
+    const consultanciesExcelInputId = useId();
+    const awardsExcelInputId = useId();
+    const phdGuidancesExcelInputId = useId();
+    const econtentsExcelInputId = useId();
+    const moocCoursesExcelInputId = useId();
+    const kpiTargetsExcelInputId = useId();
+    const kpiAchievementsExcelInputId = useId();
+    const aqarSummariesExcelInputId = useId();
     const [qualificationDraft, setQualificationDraft] = useState({
         level: "",
         degree: "",
@@ -222,6 +254,7 @@ export function FacultyWorkspaceForm({
     const [editingResultSummaryIndex, setEditingResultSummaryIndex] = useState<number | null>(null);
     const [resultSummaryDraftError, setResultSummaryDraftError] = useState<string | null>(null);
     const [activitiesBulkError, setActivitiesBulkError] = useState<string | null>(null);
+    const [complianceBulkError, setComplianceBulkError] = useState<string | null>(null);
 
     const watchedValues = useWatch({ control: form.control });
 
@@ -248,13 +281,21 @@ export function FacultyWorkspaceForm({
             (watchedValues.books?.length ?? 0) +
             (watchedValues.patents?.length ?? 0) +
             (watchedValues.researchProjects?.length ?? 0) +
-            (watchedValues.eventParticipations?.length ?? 0);
+            (watchedValues.eventParticipations?.length ?? 0) +
+            (watchedValues.consultancies?.length ?? 0) +
+            (watchedValues.awards?.length ?? 0) +
+            (watchedValues.phdGuidances?.length ?? 0) +
+            (watchedValues.econtents?.length ?? 0) +
+            (watchedValues.moocCourses?.length ?? 0);
 
         const activityRecords =
             (watchedValues.administrativeRoles?.length ?? 0) +
             (watchedValues.institutionalContributions?.length ?? 0) +
             (watchedValues.facultyDevelopmentProgrammes?.length ?? 0) +
-            (watchedValues.socialExtensionActivities?.length ?? 0);
+            (watchedValues.socialExtensionActivities?.length ?? 0) +
+            (watchedValues.kpiTargets?.length ?? 0) +
+            (watchedValues.kpiAchievements?.length ?? 0) +
+            (watchedValues.aqarSummaries?.length ?? 0);
 
         const evidenceCount =
             countEvidenceLinked(watchedValues.teachingSummaries) +
@@ -265,10 +306,14 @@ export function FacultyWorkspaceForm({
             countEvidenceLinked(watchedValues.patents) +
             countEvidenceLinked(watchedValues.researchProjects) +
             countEvidenceLinked(watchedValues.eventParticipations) +
+            countEvidenceLinked(watchedValues.consultancies) +
+            countEvidenceLinked(watchedValues.awards) +
+            countEvidenceLinked(watchedValues.phdGuidances) +
             countEvidenceLinked(watchedValues.administrativeRoles) +
             countEvidenceLinked(watchedValues.institutionalContributions) +
             countEvidenceLinked(watchedValues.facultyDevelopmentProgrammes) +
-            countEvidenceLinked(watchedValues.socialExtensionActivities);
+            countEvidenceLinked(watchedValues.socialExtensionActivities) +
+            countCertificateLinked(watchedValues.moocCourses);
 
         return {
             profileScore,
@@ -860,18 +905,75 @@ export function FacultyWorkspaceForm({
         return normalized === "true" || normalized === "yes" || normalized === "1";
     }
 
+    function getDuplicateAcademicYears<T extends { academicYear?: string }>(rows: T[]) {
+        const seen = new Set<string>();
+        const duplicates = new Set<string>();
+
+        rows.forEach((row) => {
+            const normalized = row.academicYear?.trim();
+            if (!normalized) {
+                return;
+            }
+
+            if (seen.has(normalized)) {
+                duplicates.add(normalized);
+                return;
+            }
+
+            seen.add(normalized);
+        });
+
+        return Array.from(duplicates);
+    }
+
+    function getAcademicYearDuplicateMessage<T extends { academicYear?: string }>(
+        rows: T[],
+        sectionLabel: string
+    ) {
+        const duplicates = getDuplicateAcademicYears(rows);
+
+        if (!duplicates.length) {
+            return null;
+        }
+
+        return `${sectionLabel} already has duplicate academic years: ${duplicates.join(", ")}.`;
+    }
+
+    function updateUniqueAcademicYearField<T extends { academicYear?: string }>(
+        rows: T[],
+        index: number,
+        nextValue: string,
+        onChange: (value: string) => void,
+        sectionLabel: string
+    ) {
+        const normalized = nextValue.trim();
+
+        if (
+            normalized &&
+            rows.some((row, rowIndex) => rowIndex !== index && row.academicYear?.trim() === normalized)
+        ) {
+            setComplianceBulkError(`${sectionLabel} already has an entry for ${normalized}.`);
+            return;
+        }
+
+        setComplianceBulkError(null);
+        onChange(nextValue);
+    }
+
     async function uploadSectionExcel<T>(
         file: File,
         mapper: (row: Record<string, unknown>) => T,
         validator: (row: T) => boolean,
         replaceRows: (rows: T[]) => void,
-        errorText: string
+        errorText: string,
+        setError: (message: string | null) => void = setActivitiesBulkError,
+        postValidate?: (rows: T[]) => string | null
     ) {
         try {
             const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
             const worksheet = workbook.Sheets[workbook.SheetNames[0]];
             if (!worksheet) {
-                setActivitiesBulkError("Excel file does not contain any sheet.");
+                setError("Excel file does not contain any sheet.");
                 return;
             }
 
@@ -882,17 +984,24 @@ export function FacultyWorkspaceForm({
                 .filter(validator);
 
             if (!parsed.length) {
-                setActivitiesBulkError(errorText);
+                setError(errorText);
+                return;
+            }
+
+            const postValidationError = postValidate?.(parsed);
+
+            if (postValidationError) {
+                setError(postValidationError);
                 return;
             }
 
             replaceRows(parsed);
-            setActivitiesBulkError(null);
+            setError(null);
             queueMicrotask(() => {
                 void form.handleSubmit(handleSubmitForm)();
             });
         } catch {
-            setActivitiesBulkError("Could not process Excel file. Please use the provided template.");
+            setError("Could not process Excel file. Please use the provided template.");
         }
     }
 
@@ -2568,6 +2677,629 @@ export function FacultyWorkspaceForm({
                             </div>
                         </SectionCard>
 
+                        <SectionCard title="Consultancy Projects" description="Industry consultancy assignments and revenue generation records from the faculty consultancy schema.">
+                            <SectionExcelActions
+                                inputId={consultanciesExcelInputId}
+                                onUpload={(file) => {
+                                    void uploadSectionExcel(
+                                        file,
+                                        (row) => ({
+                                            documentId: "",
+                                            clientName: String(row.client_name ?? row.clientname ?? "").trim(),
+                                            projectTitle: String(row.project_title ?? row.projecttitle ?? "").trim(),
+                                            revenueGenerated: asNumber(
+                                                row.revenue_generated ?? row.revenuegenerated,
+                                                0
+                                            ),
+                                            startDate: String(row.start_date ?? row.startdate ?? "").trim(),
+                                            endDate: String(row.end_date ?? row.enddate ?? "").trim(),
+                                        }),
+                                        (row) => row.clientName.length >= 2 && row.projectTitle.length >= 2,
+                                        (rows) => consultancies.replace(rows),
+                                        "No valid consultancy rows found."
+                                    );
+                                }}
+                                onDownload={() =>
+                                    downloadSectionExcel(
+                                        consultancies.fields.map((row) => ({
+                                            client_name: row.clientName ?? "",
+                                            project_title: row.projectTitle ?? "",
+                                            revenue_generated: row.revenueGenerated ?? 0,
+                                            start_date: row.startDate ?? "",
+                                            end_date: row.endDate ?? "",
+                                        })),
+                                        "Consultancies",
+                                        "consultancies.xlsx"
+                                    )
+                                }
+                                onTemplate={() =>
+                                    downloadSectionTemplateExcel(
+                                        {
+                                            client_name: "ABC Industries",
+                                            project_title: "Curriculum Design Consultancy",
+                                            revenue_generated: 50000,
+                                            start_date: "2024-01-10",
+                                            end_date: "2024-03-30",
+                                        },
+                                        "Consultancies",
+                                        "consultancies-template.xlsx"
+                                    )
+                                }
+                                uploadLabel="Bulk Upload Consultancies"
+                                downloadLabel="Download Consultancies"
+                                templateLabel="Download Consultancy Template"
+                            />
+                            <div className="grid gap-4">
+                                {consultancies.fields.map((field, index) => (
+                                    <EditableRow key={field.id}>
+                                        <RowField label="Client name">
+                                            <Input {...form.register(`consultancies.${index}.clientName`)} />
+                                        </RowField>
+                                        <RowField label="Project title">
+                                            <Input {...form.register(`consultancies.${index}.projectTitle`)} />
+                                        </RowField>
+                                        <RowField label="Revenue generated">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`consultancies.${index}.revenueGenerated`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <RowField label="Start date">
+                                            <Input type="date" {...form.register(`consultancies.${index}.startDate`)} />
+                                        </RowField>
+                                        <RowField label="End date">
+                                            <Input type="date" {...form.register(`consultancies.${index}.endDate`)} />
+                                        </RowField>
+                                        <DeleteField label={`Delete consultancy ${index + 1}`} onClick={() => consultancies.remove(index)} />
+                                        <RowField label="Evidence document">
+                                            <Controller
+                                                control={form.control}
+                                                name={`consultancies.${index}.documentId`}
+                                                render={({ field }) => (
+                                                    <DocumentUploadField
+                                                        userId={user.id}
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                    </EditableRow>
+                                ))}
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() =>
+                                        consultancies.append({
+                                            documentId: "",
+                                            clientName: "",
+                                            projectTitle: "",
+                                            revenueGenerated: 0,
+                                            startDate: "",
+                                            endDate: "",
+                                        })
+                                    }
+                                >
+                                    Add Consultancy Project
+                                </Button>
+                            </div>
+                        </SectionCard>
+
+                        <SectionCard title="Awards and Recognition" description="Faculty awards captured for PBAS, AQAR, and broader institutional reporting.">
+                            <SectionExcelActions
+                                inputId={awardsExcelInputId}
+                                onUpload={(file) => {
+                                    void uploadSectionExcel(
+                                        file,
+                                        (row) => ({
+                                            documentId: "",
+                                            title: String(row.title ?? "").trim(),
+                                            awardingBody: String(
+                                                row.awarding_body ?? row.awardingbody ?? ""
+                                            ).trim(),
+                                            awardLevel: String(
+                                                row.award_level ?? row.awardlevel ?? "College"
+                                            ).trim() as FacultyWorkspaceResolvedValues["awards"][number]["awardLevel"],
+                                            awardDate: String(row.award_date ?? row.awarddate ?? "").trim(),
+                                        }),
+                                        (row) => row.title.length >= 2,
+                                        (rows) => awards.replace(rows),
+                                        "No valid award rows found."
+                                    );
+                                }}
+                                onDownload={() =>
+                                    downloadSectionExcel(
+                                        awards.fields.map((row) => ({
+                                            title: row.title ?? "",
+                                            awarding_body: row.awardingBody ?? "",
+                                            award_level: row.awardLevel ?? "College",
+                                            award_date: row.awardDate ?? "",
+                                        })),
+                                        "Awards",
+                                        "awards.xlsx"
+                                    )
+                                }
+                                onTemplate={() =>
+                                    downloadSectionTemplateExcel(
+                                        {
+                                            title: "Best Teacher Award",
+                                            awarding_body: "University Board",
+                                            award_level: "University",
+                                            award_date: "2024-02-15",
+                                        },
+                                        "Awards",
+                                        "awards-template.xlsx"
+                                    )
+                                }
+                                uploadLabel="Bulk Upload Awards"
+                                downloadLabel="Download Awards"
+                                templateLabel="Download Awards Template"
+                            />
+                            <div className="grid gap-4">
+                                {awards.fields.map((field, index) => (
+                                    <EditableRow key={field.id}>
+                                        <RowField label="Award title">
+                                            <Input {...form.register(`awards.${index}.title`)} />
+                                        </RowField>
+                                        <RowField label="Awarding body">
+                                            <Input {...form.register(`awards.${index}.awardingBody`)} />
+                                        </RowField>
+                                        <RowField label="Award level">
+                                            <Controller
+                                                control={form.control}
+                                                name={`awards.${index}.awardLevel`}
+                                                render={({ field }) => (
+                                                    <EnumSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={awardLevels}
+                                                        placeholder="Select award level"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Award date">
+                                            <Input type="date" {...form.register(`awards.${index}.awardDate`)} />
+                                        </RowField>
+                                        <DeleteField label={`Delete award ${index + 1}`} onClick={() => awards.remove(index)} />
+                                        <RowField label="Evidence document">
+                                            <Controller
+                                                control={form.control}
+                                                name={`awards.${index}.documentId`}
+                                                render={({ field }) => (
+                                                    <DocumentUploadField
+                                                        userId={user.id}
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                    </EditableRow>
+                                ))}
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() =>
+                                        awards.append({
+                                            documentId: "",
+                                            title: "",
+                                            awardingBody: "",
+                                            awardLevel: "College",
+                                            awardDate: "",
+                                        })
+                                    }
+                                >
+                                    Add Award
+                                </Button>
+                            </div>
+                        </SectionCard>
+
+                        <SectionCard title="PhD Guidance" description="Doctoral supervision history aligned with the faculty PhD guidance schema.">
+                            <SectionExcelActions
+                                inputId={phdGuidancesExcelInputId}
+                                onUpload={(file) => {
+                                    void uploadSectionExcel(
+                                        file,
+                                        (row) => ({
+                                            documentId: "",
+                                            scholarName: String(
+                                                row.scholar_name ?? row.scholarname ?? ""
+                                            ).trim(),
+                                            universityName: String(
+                                                row.university_name ?? row.universityname ?? ""
+                                            ).trim(),
+                                            registrationYear: asNumber(
+                                                row.registration_year ?? row.registrationyear,
+                                                new Date().getFullYear()
+                                            ),
+                                            thesisTitle: String(
+                                                row.thesis_title ?? row.thesistitle ?? ""
+                                            ).trim(),
+                                            status: String(row.status ?? "ongoing").trim() as FacultyWorkspaceResolvedValues["phdGuidances"][number]["status"],
+                                            completionYear: String(
+                                                row.completion_year ?? row.completionyear ?? ""
+                                            ).trim()
+                                                ? asNumber(row.completion_year ?? row.completionyear, 0)
+                                                : undefined,
+                                        }),
+                                        (row) =>
+                                            row.scholarName.length >= 2 &&
+                                            row.universityName.length >= 2 &&
+                                            row.thesisTitle.length >= 2,
+                                        (rows) => phdGuidances.replace(rows),
+                                        "No valid PhD guidance rows found."
+                                    );
+                                }}
+                                onDownload={() =>
+                                    downloadSectionExcel(
+                                        phdGuidances.fields.map((row) => ({
+                                            scholar_name: row.scholarName ?? "",
+                                            university_name: row.universityName ?? "",
+                                            registration_year: row.registrationYear ?? "",
+                                            thesis_title: row.thesisTitle ?? "",
+                                            status: row.status ?? "ongoing",
+                                            completion_year: row.completionYear ?? "",
+                                        })),
+                                        "PhdGuidance",
+                                        "phd-guidance.xlsx"
+                                    )
+                                }
+                                onTemplate={() =>
+                                    downloadSectionTemplateExcel(
+                                        {
+                                            scholar_name: "Rahul Sharma",
+                                            university_name: "ABC University",
+                                            registration_year: 2021,
+                                            thesis_title: "AI in Higher Education",
+                                            status: "ongoing",
+                                            completion_year: "",
+                                        },
+                                        "PhdGuidance",
+                                        "phd-guidance-template.xlsx"
+                                    )
+                                }
+                                uploadLabel="Bulk Upload PhD Guidance"
+                                downloadLabel="Download PhD Guidance"
+                                templateLabel="Download PhD Guidance Template"
+                            />
+                            <div className="grid gap-4">
+                                {phdGuidances.fields.map((field, index) => (
+                                    <EditableRow key={field.id}>
+                                        <RowField label="Scholar name">
+                                            <Input {...form.register(`phdGuidances.${index}.scholarName`)} />
+                                        </RowField>
+                                        <RowField label="University name">
+                                            <Input {...form.register(`phdGuidances.${index}.universityName`)} />
+                                        </RowField>
+                                        <RowField label="Registration year">
+                                            <Input
+                                                type="number"
+                                                min={1900}
+                                                {...form.register(`phdGuidances.${index}.registrationYear`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <RowField label="Thesis title">
+                                            <Input {...form.register(`phdGuidances.${index}.thesisTitle`)} />
+                                        </RowField>
+                                        <RowField label="Guidance status">
+                                            <Controller
+                                                control={form.control}
+                                                name={`phdGuidances.${index}.status`}
+                                                render={({ field }) => (
+                                                    <EnumSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={phdGuidanceStatuses}
+                                                        placeholder="Select guidance status"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <DeleteField label={`Delete PhD guidance ${index + 1}`} onClick={() => phdGuidances.remove(index)} />
+                                        <RowField label="Completion year">
+                                            <Input
+                                                type="number"
+                                                min={1900}
+                                                {...form.register(`phdGuidances.${index}.completionYear`, {
+                                                    setValueAs: (value) =>
+                                                        value === "" ? undefined : Number(value),
+                                                })}
+                                            />
+                                        </RowField>
+                                        <RowField label="Evidence document">
+                                            <Controller
+                                                control={form.control}
+                                                name={`phdGuidances.${index}.documentId`}
+                                                render={({ field }) => (
+                                                    <DocumentUploadField
+                                                        userId={user.id}
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                    </EditableRow>
+                                ))}
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() =>
+                                        phdGuidances.append({
+                                            documentId: "",
+                                            scholarName: "",
+                                            universityName: "",
+                                            registrationYear: new Date().getFullYear(),
+                                            thesisTitle: "",
+                                            status: "ongoing",
+                                            completionYear: undefined,
+                                        })
+                                    }
+                                >
+                                    Add PhD Guidance
+                                </Button>
+                            </div>
+                        </SectionCard>
+
+                        <SectionCard title="E-content and Digital Resources" description="Learning resources created by faculty and mapped to academic years for PBAS evidence.">
+                            <SectionExcelActions
+                                inputId={econtentsExcelInputId}
+                                onUpload={(file) => {
+                                    void uploadSectionExcel(
+                                        file,
+                                        (row) => ({
+                                            title: String(row.title ?? "").trim(),
+                                            academicYear: String(
+                                                row.academic_year ?? row.academicyear ?? ""
+                                            ).trim(),
+                                            platform: String(row.platform ?? "other").trim() as FacultyWorkspaceResolvedValues["econtents"][number]["platform"],
+                                            contentType: String(
+                                                row.content_type ?? row.contenttype ?? "other"
+                                            ).trim() as FacultyWorkspaceResolvedValues["econtents"][number]["contentType"],
+                                            url: String(row.url ?? "").trim(),
+                                        }),
+                                        (row) =>
+                                            row.title.length >= 2 &&
+                                            row.academicYear.length >= 4 &&
+                                            row.url.length >= 1,
+                                        (rows) => econtents.replace(rows),
+                                        "No valid e-content rows found."
+                                    );
+                                }}
+                                onDownload={() =>
+                                    downloadSectionExcel(
+                                        econtents.fields.map((row) => ({
+                                            title: row.title ?? "",
+                                            academic_year: row.academicYear ?? "",
+                                            platform: row.platform ?? "other",
+                                            content_type: row.contentType ?? "other",
+                                            url: row.url ?? "",
+                                        })),
+                                        "Econtent",
+                                        "econtent.xlsx"
+                                    )
+                                }
+                                onTemplate={() =>
+                                    downloadSectionTemplateExcel(
+                                        {
+                                            title: "Operating Systems Video Lecture",
+                                            academic_year: "2023-2024",
+                                            platform: "youtube",
+                                            content_type: "video",
+                                            url: "https://example.com/video",
+                                        },
+                                        "Econtent",
+                                        "econtent-template.xlsx"
+                                    )
+                                }
+                                uploadLabel="Bulk Upload E-content"
+                                downloadLabel="Download E-content"
+                                templateLabel="Download E-content Template"
+                            />
+                            <div className="grid gap-4">
+                                {econtents.fields.map((field, index) => (
+                                    <EditableRow key={field.id}>
+                                        <RowField label="Title">
+                                            <Input {...form.register(`econtents.${index}.title`)} />
+                                        </RowField>
+                                        <RowField label="Academic year">
+                                            <Controller
+                                                control={form.control}
+                                                name={`econtents.${index}.academicYear`}
+                                                render={({ field }) => (
+                                                    <AcademicYearSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={academicYearOptions}
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Platform">
+                                            <Controller
+                                                control={form.control}
+                                                name={`econtents.${index}.platform`}
+                                                render={({ field }) => (
+                                                    <EnumSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={econtentPlatforms}
+                                                        placeholder="Select platform"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Content type">
+                                            <Controller
+                                                control={form.control}
+                                                name={`econtents.${index}.contentType`}
+                                                render={({ field }) => (
+                                                    <EnumSelect
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        options={econtentTypes}
+                                                        placeholder="Select content type"
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Content URL">
+                                            <Input type="url" {...form.register(`econtents.${index}.url`)} />
+                                        </RowField>
+                                        <DeleteField label={`Delete e-content ${index + 1}`} onClick={() => econtents.remove(index)} />
+                                    </EditableRow>
+                                ))}
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() =>
+                                        econtents.append({
+                                            title: "",
+                                            academicYear: "",
+                                            platform: "other",
+                                            contentType: "other",
+                                            url: "",
+                                        })
+                                    }
+                                >
+                                    Add E-content
+                                </Button>
+                            </div>
+                        </SectionCard>
+
+                        <SectionCard title="MOOC Courses" description="Completed online courses, certifications, and evidence uploads from the faculty MOOC schema.">
+                            <SectionExcelActions
+                                inputId={moocCoursesExcelInputId}
+                                onUpload={(file) => {
+                                    void uploadSectionExcel(
+                                        file,
+                                        (row) => ({
+                                            certificateDocumentId: "",
+                                            courseName: String(
+                                                row.course_name ?? row.coursename ?? ""
+                                            ).trim(),
+                                            platform: String(row.platform ?? "").trim(),
+                                            university: String(row.university ?? "").trim(),
+                                            durationWeeks: String(
+                                                row.duration_weeks ?? row.durationweeks ?? ""
+                                            ).trim()
+                                                ? asNumber(row.duration_weeks ?? row.durationweeks, 0)
+                                                : undefined,
+                                            grade: String(row.grade ?? "").trim(),
+                                            completionDate: String(
+                                                row.completion_date ?? row.completiondate ?? ""
+                                            ).trim(),
+                                        }),
+                                        (row) =>
+                                            row.courseName.length >= 2 &&
+                                            row.platform.length >= 2 &&
+                                            row.completionDate.length >= 1,
+                                        (rows) => moocCourses.replace(rows),
+                                        "No valid MOOC rows found."
+                                    );
+                                }}
+                                onDownload={() =>
+                                    downloadSectionExcel(
+                                        moocCourses.fields.map((row) => ({
+                                            course_name: row.courseName ?? "",
+                                            platform: row.platform ?? "",
+                                            university: row.university ?? "",
+                                            duration_weeks: row.durationWeeks ?? "",
+                                            grade: row.grade ?? "",
+                                            completion_date: row.completionDate ?? "",
+                                        })),
+                                        "MoocCourses",
+                                        "mooc-courses.xlsx"
+                                    )
+                                }
+                                onTemplate={() =>
+                                    downloadSectionTemplateExcel(
+                                        {
+                                            course_name: "Introduction to AI",
+                                            platform: "SWAYAM",
+                                            university: "NPTEL",
+                                            duration_weeks: 8,
+                                            grade: "Elite",
+                                            completion_date: "2024-04-20",
+                                        },
+                                        "MoocCourses",
+                                        "mooc-courses-template.xlsx"
+                                    )
+                                }
+                                uploadLabel="Bulk Upload MOOC Courses"
+                                downloadLabel="Download MOOC Courses"
+                                templateLabel="Download MOOC Template"
+                            />
+                            <div className="grid gap-4">
+                                {moocCourses.fields.map((field, index) => (
+                                    <EditableRow key={field.id}>
+                                        <RowField label="Course name">
+                                            <Input {...form.register(`moocCourses.${index}.courseName`)} />
+                                        </RowField>
+                                        <RowField label="Platform">
+                                            <Input {...form.register(`moocCourses.${index}.platform`)} />
+                                        </RowField>
+                                        <RowField label="University">
+                                            <Input {...form.register(`moocCourses.${index}.university`)} />
+                                        </RowField>
+                                        <RowField label="Duration (weeks)">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`moocCourses.${index}.durationWeeks`, {
+                                                    setValueAs: (value) =>
+                                                        value === "" ? undefined : Number(value),
+                                                })}
+                                            />
+                                        </RowField>
+                                        <RowField label="Grade">
+                                            <Input {...form.register(`moocCourses.${index}.grade`)} />
+                                        </RowField>
+                                        <DeleteField label={`Delete MOOC course ${index + 1}`} onClick={() => moocCourses.remove(index)} />
+                                        <RowField label="Completion date">
+                                            <Input type="date" {...form.register(`moocCourses.${index}.completionDate`)} />
+                                        </RowField>
+                                        <RowField label="Certificate document">
+                                            <Controller
+                                                control={form.control}
+                                                name={`moocCourses.${index}.certificateDocumentId`}
+                                                render={({ field }) => (
+                                                    <DocumentUploadField
+                                                        userId={user.id}
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                    </EditableRow>
+                                ))}
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() =>
+                                        moocCourses.append({
+                                            certificateDocumentId: "",
+                                            courseName: "",
+                                            platform: "",
+                                            university: "",
+                                            durationWeeks: undefined,
+                                            grade: "",
+                                            completionDate: "",
+                                        })
+                                    }
+                                >
+                                    Add MOOC Course
+                                </Button>
+                            </div>
+                        </SectionCard>
+
                         <SectionCard title="Administrative Roles" description="Committee and leadership responsibilities used in PBAS and NAAC support metrics.">
                             <SectionExcelActions
                                 inputId={adminRolesExcelInputId}
@@ -2961,6 +3693,510 @@ export function FacultyWorkspaceForm({
                     </TabsContent>
 
                     <TabsContent value="compliance" className="mt-6 space-y-6">
+                        {complianceBulkError ? <p className="text-sm text-destructive">{complianceBulkError}</p> : null}
+
+                        <SectionCard title="KPI Targets" description="Academic-year KPI goals used for faculty planning and annual tracking.">
+                            <SectionExcelActions
+                                inputId={kpiTargetsExcelInputId}
+                                onUpload={(file) => {
+                                    void uploadSectionExcel(
+                                        file,
+                                        (row) => ({
+                                            academicYear: String(row.academic_year ?? row.academicyear ?? "").trim(),
+                                            researchPublicationsTarget: asNumber(
+                                                row.research_publications_target ?? row.researchpublicationstarget,
+                                                0
+                                            ),
+                                            fdpTarget: asNumber(row.fdp_target ?? row.fdptarget, 0),
+                                            consultancyTarget: asNumber(
+                                                row.consultancy_target ?? row.consultancytarget,
+                                                0
+                                            ),
+                                            resultTargetPercentage: asNumber(
+                                                row.result_target_percentage ?? row.resulttargetpercentage,
+                                                0
+                                            ),
+                                        }),
+                                        (row) => row.academicYear.length >= 4,
+                                        (rows) => kpiTargets.replace(rows),
+                                        "No valid KPI target rows found.",
+                                        setComplianceBulkError,
+                                        (rows) => getAcademicYearDuplicateMessage(rows, "KPI Targets")
+                                    );
+                                }}
+                                onDownload={() =>
+                                    downloadSectionExcel(
+                                        kpiTargets.fields.map((row) => ({
+                                            academic_year: row.academicYear ?? "",
+                                            research_publications_target: row.researchPublicationsTarget ?? 0,
+                                            fdp_target: row.fdpTarget ?? 0,
+                                            consultancy_target: row.consultancyTarget ?? 0,
+                                            result_target_percentage: row.resultTargetPercentage ?? 0,
+                                        })),
+                                        "KpiTargets",
+                                        "kpi-targets.xlsx"
+                                    )
+                                }
+                                onTemplate={() =>
+                                    downloadSectionTemplateExcel(
+                                        {
+                                            academic_year: "2023-2024",
+                                            research_publications_target: 4,
+                                            fdp_target: 2,
+                                            consultancy_target: 1,
+                                            result_target_percentage: 85,
+                                        },
+                                        "KpiTargets",
+                                        "kpi-targets-template.xlsx"
+                                    )
+                                }
+                                uploadLabel="Bulk Upload KPI Targets"
+                                downloadLabel="Download KPI Targets"
+                                templateLabel="Download KPI Targets Template"
+                            />
+                            <div className="grid gap-4">
+                                {kpiTargets.fields.map((field, index) => (
+                                    <EditableRow key={field.id}>
+                                        <RowField label="Academic year">
+                                            <Controller
+                                                control={form.control}
+                                                name={`kpiTargets.${index}.academicYear`}
+                                                render={({ field }) => (
+                                                    <AcademicYearSelect
+                                                        value={field.value}
+                                                        onChange={(value) =>
+                                                            updateUniqueAcademicYearField(
+                                                                form.getValues("kpiTargets") ?? [],
+                                                                index,
+                                                                value,
+                                                                field.onChange,
+                                                                "KPI Targets"
+                                                            )
+                                                        }
+                                                        options={academicYearOptions}
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Publication target">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`kpiTargets.${index}.researchPublicationsTarget`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <RowField label="FDP target">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`kpiTargets.${index}.fdpTarget`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <RowField label="Consultancy target">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`kpiTargets.${index}.consultancyTarget`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <RowField label="Result target %">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`kpiTargets.${index}.resultTargetPercentage`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <DeleteField
+                                            label={`Delete KPI target ${index + 1}`}
+                                            onClick={() => {
+                                                kpiTargets.remove(index);
+                                                setComplianceBulkError(null);
+                                            }}
+                                        />
+                                    </EditableRow>
+                                ))}
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => {
+                                        setComplianceBulkError(null);
+                                        kpiTargets.append({
+                                            academicYear: "",
+                                            researchPublicationsTarget: 0,
+                                            fdpTarget: 0,
+                                            consultancyTarget: 0,
+                                            resultTargetPercentage: 0,
+                                        });
+                                    }}
+                                >
+                                    Add KPI Target
+                                </Button>
+                            </div>
+                        </SectionCard>
+
+                        <SectionCard title="KPI Achievements" description="Year-wise KPI outcomes recorded against the defined targets.">
+                            <SectionExcelActions
+                                inputId={kpiAchievementsExcelInputId}
+                                onUpload={(file) => {
+                                    void uploadSectionExcel(
+                                        file,
+                                        (row) => ({
+                                            academicYear: String(row.academic_year ?? row.academicyear ?? "").trim(),
+                                            publicationsDone: asNumber(
+                                                row.publications_done ?? row.publicationsdone,
+                                                0
+                                            ),
+                                            fdpConducted: asNumber(row.fdp_conducted ?? row.fdpconducted, 0),
+                                            consultancyGenerated: asNumber(
+                                                row.consultancy_generated ?? row.consultancygenerated,
+                                                0
+                                            ),
+                                            resultPercentage: asNumber(
+                                                row.result_percentage ?? row.resultpercentage,
+                                                0
+                                            ),
+                                            overallKpiScore: asNumber(
+                                                row.overall_kpi_score ?? row.overallkpiscore,
+                                                0
+                                            ),
+                                        }),
+                                        (row) => row.academicYear.length >= 4,
+                                        (rows) => kpiAchievements.replace(rows),
+                                        "No valid KPI achievement rows found.",
+                                        setComplianceBulkError,
+                                        (rows) => getAcademicYearDuplicateMessage(rows, "KPI Achievements")
+                                    );
+                                }}
+                                onDownload={() =>
+                                    downloadSectionExcel(
+                                        kpiAchievements.fields.map((row) => ({
+                                            academic_year: row.academicYear ?? "",
+                                            publications_done: row.publicationsDone ?? 0,
+                                            fdp_conducted: row.fdpConducted ?? 0,
+                                            consultancy_generated: row.consultancyGenerated ?? 0,
+                                            result_percentage: row.resultPercentage ?? 0,
+                                            overall_kpi_score: row.overallKpiScore ?? 0,
+                                        })),
+                                        "KpiAchievements",
+                                        "kpi-achievements.xlsx"
+                                    )
+                                }
+                                onTemplate={() =>
+                                    downloadSectionTemplateExcel(
+                                        {
+                                            academic_year: "2023-2024",
+                                            publications_done: 5,
+                                            fdp_conducted: 2,
+                                            consultancy_generated: 1,
+                                            result_percentage: 88,
+                                            overall_kpi_score: 91,
+                                        },
+                                        "KpiAchievements",
+                                        "kpi-achievements-template.xlsx"
+                                    )
+                                }
+                                uploadLabel="Bulk Upload KPI Achievements"
+                                downloadLabel="Download KPI Achievements"
+                                templateLabel="Download KPI Achievements Template"
+                            />
+                            <div className="grid gap-4">
+                                {kpiAchievements.fields.map((field, index) => (
+                                    <EditableRow key={field.id}>
+                                        <RowField label="Academic year">
+                                            <Controller
+                                                control={form.control}
+                                                name={`kpiAchievements.${index}.academicYear`}
+                                                render={({ field }) => (
+                                                    <AcademicYearSelect
+                                                        value={field.value}
+                                                        onChange={(value) =>
+                                                            updateUniqueAcademicYearField(
+                                                                form.getValues("kpiAchievements") ?? [],
+                                                                index,
+                                                                value,
+                                                                field.onChange,
+                                                                "KPI Achievements"
+                                                            )
+                                                        }
+                                                        options={academicYearOptions}
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Publications done">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`kpiAchievements.${index}.publicationsDone`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <RowField label="FDP conducted">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`kpiAchievements.${index}.fdpConducted`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <RowField label="Consultancy generated">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`kpiAchievements.${index}.consultancyGenerated`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <RowField label="Result percentage">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`kpiAchievements.${index}.resultPercentage`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <DeleteField
+                                            label={`Delete KPI achievement ${index + 1}`}
+                                            onClick={() => {
+                                                kpiAchievements.remove(index);
+                                                setComplianceBulkError(null);
+                                            }}
+                                        />
+                                        <RowField label="Overall KPI score">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`kpiAchievements.${index}.overallKpiScore`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                    </EditableRow>
+                                ))}
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => {
+                                        setComplianceBulkError(null);
+                                        kpiAchievements.append({
+                                            academicYear: "",
+                                            publicationsDone: 0,
+                                            fdpConducted: 0,
+                                            consultancyGenerated: 0,
+                                            resultPercentage: 0,
+                                            overallKpiScore: 0,
+                                        });
+                                    }}
+                                >
+                                    Add KPI Achievement
+                                </Button>
+                            </div>
+                        </SectionCard>
+
+                        <SectionCard title="AQAR Summary" description="Annual quality score summary wired to the faculty AQAR summary schema.">
+                            <SectionExcelActions
+                                inputId={aqarSummariesExcelInputId}
+                                onUpload={(file) => {
+                                    void uploadSectionExcel(
+                                        file,
+                                        (row) => ({
+                                            academicYear: String(row.academic_year ?? row.academicyear ?? "").trim(),
+                                            teachingScore: asNumber(row.teaching_score ?? row.teachingscore, 0),
+                                            researchScore: asNumber(row.research_score ?? row.researchscore, 0),
+                                            publicationScore: asNumber(
+                                                row.publication_score ?? row.publicationscore,
+                                                0
+                                            ),
+                                            administrativeScore: asNumber(
+                                                row.administrative_score ?? row.administrativescore,
+                                                0
+                                            ),
+                                            extensionScore: asNumber(row.extension_score ?? row.extensionscore, 0),
+                                            awardScore: asNumber(row.award_score ?? row.awardscore, 0),
+                                            apiTotalScore: asNumber(row.api_total_score ?? row.apitotalscore, 0),
+                                            performanceGrade: String(
+                                                row.performance_grade ?? row.performancegrade ?? ""
+                                            ).trim(),
+                                        }),
+                                        (row) => row.academicYear.length >= 4,
+                                        (rows) => aqarSummaries.replace(rows),
+                                        "No valid AQAR summary rows found.",
+                                        setComplianceBulkError,
+                                        (rows) => getAcademicYearDuplicateMessage(rows, "AQAR Summary")
+                                    );
+                                }}
+                                onDownload={() =>
+                                    downloadSectionExcel(
+                                        aqarSummaries.fields.map((row) => ({
+                                            academic_year: row.academicYear ?? "",
+                                            teaching_score: row.teachingScore ?? 0,
+                                            research_score: row.researchScore ?? 0,
+                                            publication_score: row.publicationScore ?? 0,
+                                            administrative_score: row.administrativeScore ?? 0,
+                                            extension_score: row.extensionScore ?? 0,
+                                            award_score: row.awardScore ?? 0,
+                                            api_total_score: row.apiTotalScore ?? 0,
+                                            performance_grade: row.performanceGrade ?? "",
+                                        })),
+                                        "AqarSummary",
+                                        "aqar-summary.xlsx"
+                                    )
+                                }
+                                onTemplate={() =>
+                                    downloadSectionTemplateExcel(
+                                        {
+                                            academic_year: "2023-2024",
+                                            teaching_score: 80,
+                                            research_score: 70,
+                                            publication_score: 65,
+                                            administrative_score: 50,
+                                            extension_score: 40,
+                                            award_score: 15,
+                                            api_total_score: 320,
+                                            performance_grade: "A",
+                                        },
+                                        "AqarSummary",
+                                        "aqar-summary-template.xlsx"
+                                    )
+                                }
+                                uploadLabel="Bulk Upload AQAR Summary"
+                                downloadLabel="Download AQAR Summary"
+                                templateLabel="Download AQAR Summary Template"
+                            />
+                            <div className="grid gap-4">
+                                {aqarSummaries.fields.map((field, index) => (
+                                    <EditableRow key={field.id}>
+                                        <RowField label="Academic year">
+                                            <Controller
+                                                control={form.control}
+                                                name={`aqarSummaries.${index}.academicYear`}
+                                                render={({ field }) => (
+                                                    <AcademicYearSelect
+                                                        value={field.value}
+                                                        onChange={(value) =>
+                                                            updateUniqueAcademicYearField(
+                                                                form.getValues("aqarSummaries") ?? [],
+                                                                index,
+                                                                value,
+                                                                field.onChange,
+                                                                "AQAR Summary"
+                                                            )
+                                                        }
+                                                        options={academicYearOptions}
+                                                    />
+                                                )}
+                                            />
+                                        </RowField>
+                                        <RowField label="Teaching score">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`aqarSummaries.${index}.teachingScore`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <RowField label="Research score">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`aqarSummaries.${index}.researchScore`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <RowField label="Publication score">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`aqarSummaries.${index}.publicationScore`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <RowField label="Administrative score">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`aqarSummaries.${index}.administrativeScore`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <DeleteField
+                                            label={`Delete AQAR summary ${index + 1}`}
+                                            onClick={() => {
+                                                aqarSummaries.remove(index);
+                                                setComplianceBulkError(null);
+                                            }}
+                                        />
+                                        <RowField label="Extension score">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`aqarSummaries.${index}.extensionScore`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <RowField label="Award score">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`aqarSummaries.${index}.awardScore`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <RowField label="API total score">
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                {...form.register(`aqarSummaries.${index}.apiTotalScore`, {
+                                                    valueAsNumber: true,
+                                                })}
+                                            />
+                                        </RowField>
+                                        <RowField label="Performance grade">
+                                            <Input {...form.register(`aqarSummaries.${index}.performanceGrade`)} />
+                                        </RowField>
+                                    </EditableRow>
+                                ))}
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => {
+                                        setComplianceBulkError(null);
+                                        aqarSummaries.append({
+                                            academicYear: "",
+                                            teachingScore: 0,
+                                            researchScore: 0,
+                                            publicationScore: 0,
+                                            administrativeScore: 0,
+                                            extensionScore: 0,
+                                            awardScore: 0,
+                                            apiTotalScore: 0,
+                                            performanceGrade: "",
+                                        });
+                                    }}
+                                >
+                                    Add AQAR Summary
+                                </Button>
+                            </div>
+                        </SectionCard>
+
                         <SectionCard title="Accreditation Workflows" description="The faculty records on this page are the source of truth for PBAS, CAS, and AQAR. Use these workflow modules to review, verify, and submit yearly reports.">
                             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                                 <ActionLink title="PBAS" description="Annual performance appraisal and score claim verification." href="/faculty/pbas" />
