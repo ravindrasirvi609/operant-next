@@ -57,21 +57,8 @@ export const casApplicationSchema = z.object({
     }),
     experienceYears: z.coerce.number().min(0),
     pbasReports: z.array(z.string().trim().min(1)).default([]),
-    // Legacy field retained for backward compatibility with old drafts.
-    achievements: achievementBucketSchema.optional(),
-    manualAchievements: achievementBucketSchema.optional(),
-}).transform((value) => ({
-    applicationYear: value.applicationYear,
-    currentDesignation: value.currentDesignation,
-    applyingForDesignation: value.applyingForDesignation,
-    eligibilityPeriod: value.eligibilityPeriod,
-    experienceYears: value.experienceYears,
-    pbasReports: value.pbasReports,
-    manualAchievements:
-        value.manualAchievements ??
-        value.achievements ??
-        emptyAchievementBucket,
-}));
+    manualAchievements: achievementBucketSchema.default(emptyAchievementBucket),
+});
 
 export const casReviewSchema = z.object({
     remarks: z.string().trim().min(2, "Review remarks are required."),

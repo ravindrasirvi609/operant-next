@@ -13,11 +13,14 @@ import { casApplicationSchema, casApprovalSchema, casReviewSchema } from "@/lib/
 import { getPbasReportsByIdsForFaculty } from "@/lib/pbas/service";
 import CasApiScoreBreakup from "@/models/core/cas-api-score-breakup";
 import CasPromotionHistory from "@/models/core/cas-promotion-history";
+import CasPromotionRule from "@/models/core/cas-promotion-rule";
 import ApprovalWorkflow from "@/models/core/approval-workflow";
 import AuditLog from "@/models/core/audit-log";
 import FacultyPbasForm from "@/models/core/faculty-pbas-form";
 import CasSupportingDocument from "@/models/core/cas-supporting-document";
+import CasScreeningCommitteeMember from "@/models/core/cas-screening-committee";
 import DocumentModel from "@/models/reference/document";
+import { getDefaultCasTarget } from "@/lib/faculty/options";
 
 type SafeActor = {
     id: string;
@@ -34,6 +37,170 @@ type CasAchievementBucket = {
     conferences: number;
 };
 
+type CasCategoryMinimums = {
+    teachingLearning: number;
+    researchPublication: number;
+    academicContribution: number;
+};
+
+type CasApplicationInput = ReturnType<typeof casApplicationSchema.parse>;
+
+const CAS_SCORE_CAPS: CasCategoryMinimums = {
+    teachingLearning: 100,
+    researchPublication: 150,
+    academicContribution: 100,
+};
+
+const DEFAULT_CAS_PROMOTION_RULES = [
+    {
+        currentDesignation: "Assistant Professor (Stage 1)",
+        targetDesignation: "Assistant Professor (Stage 2)",
+        minExperienceYears: 4,
+        minApiScore: 120,
+        notes: "Stage 1 to Stage 2 requires at least 4 years of experience and a minimum API score of 120.",
+    },
+    {
+        currentDesignation: "Assistant Professor (Stage 2)",
+        targetDesignation: "Assistant Professor (Stage 3)",
+        minExperienceYears: 5,
+        minApiScore: 140,
+        notes: "Stage 2 to Stage 3 requires at least 5 years of experience and a minimum API score of 140.",
+    },
+    {
+        currentDesignation: "Assistant Professor (Stage 3)",
+        targetDesignation: "Assistant Professor (Stage 4)",
+        minExperienceYears: 3,
+        minApiScore: 180,
+        notes: "Stage 3 to Stage 4 requires at least 3 years of experience and a strong API score.",
+    },
+    {
+        currentDesignation: "Assistant Professor (Stage 3)",
+        targetDesignation: "Associate Professor",
+        minExperienceYears: 3,
+        minApiScore: 180,
+        notes: "Stage 3 to Associate Professor requires at least 3 years of experience and a strong API score.",
+    },
+    {
+        currentDesignation: "Assistant Professor (Stage 4)",
+        targetDesignation: "Associate Professor",
+        minExperienceYears: 3,
+        minApiScore: 180,
+        notes: "Stage 4 to Associate Professor requires at least 3 years of experience and a strong API score.",
+    },
+    {
+        currentDesignation: "Associate Professor",
+        targetDesignation: "Professor",
+        minExperienceYears: 3,
+        minApiScore: 220,
+        notes: "Associate Professor to Professor requires at least 3 years of experience and a high research output.",
+    },
+] as const;
+
+function roundScore(value: number) {
+    return Math.round(value * 100) / 100;
+}
+
+function deriveCategoryMinimums(
+    minApiScore: number,
+    explicitMinimums?: Partial<CasCategoryMinimums> | null
+): CasCategoryMinimums {
+    const explicit = {
+        teachingLearning: Number(explicitMinimums?.teachingLearning ?? 0),
+        researchPublication: Number(explicitMinimums?.researchPublication ?? 0),
+        academicContribution: Number(explicitMinimums?.academicContribution ?? 0),
+    };
+
+    if (explicit.teachingLearning || explicit.researchPublication || explicit.academicContribution) {
+        return explicit;
+    }
+
+    const totalCap =
+        CAS_SCORE_CAPS.teachingLearning +
+        CAS_SCORE_CAPS.researchPublication +
+        CAS_SCORE_CAPS.academicContribution;
+
+    return {
+        teachingLearning: roundScore((minApiScore * CAS_SCORE_CAPS.teachingLearning) / totalCap),
+        researchPublication: roundScore((minApiScore * CAS_SCORE_CAPS.researchPublication) / totalCap),
+        academicContribution: roundScore((minApiScore * CAS_SCORE_CAPS.academicContribution) / totalCap),
+    };
+}
+
+async function ensureCasPromotionRules() {
+    const existingRules = await CasPromotionRule.countDocuments({});
+
+    if (existingRules > 0) {
+        return;
+    }
+
+    await CasPromotionRule.insertMany(
+        DEFAULT_CAS_PROMOTION_RULES.map((rule) => ({
+            ...rule,
+            isActive: true,
+            categoryMinimums: deriveCategoryMinimums(rule.minApiScore),
+        }))
+    );
+}
+
+async function getCasPromotionRule(currentDesignation?: string | null, targetDesignation?: string | null) {
+    if (!currentDesignation) {
+        return null;
+    }
+
+    await ensureCasPromotionRules();
+
+    const preferredTarget =
+        targetDesignation ??
+        getDefaultCasTarget(currentDesignation);
+
+    const exactRule = await CasPromotionRule.findOne({
+        currentDesignation,
+        targetDesignation: preferredTarget,
+        isActive: true,
+    }).lean();
+
+    if (exactRule) {
+        return exactRule;
+    }
+
+    return CasPromotionRule.findOne({
+        currentDesignation,
+        isActive: true,
+    })
+        .sort({ minApiScore: 1, targetDesignation: 1 })
+        .lean();
+}
+
+async function evaluateCasEligibility(input: CasApplicationInput, apiTotalScore: number) {
+    const matchedRule = await getCasPromotionRule(
+        input.currentDesignation,
+        input.applyingForDesignation
+    );
+
+    if (!matchedRule) {
+        return {
+            isEligible: false,
+            message: "This CAS promotion path is not configured in the system.",
+            minimumExperienceYears: undefined,
+            minimumApiScore: undefined,
+        };
+    }
+
+    const isEligible =
+        input.experienceYears >= matchedRule.minExperienceYears &&
+        apiTotalScore >= matchedRule.minApiScore;
+
+    return {
+        isEligible,
+        message: isEligible
+            ? `Eligible for ${input.applyingForDesignation}.`
+            : matchedRule.notes ||
+              `This path requires minimum ${matchedRule.minExperienceYears} years experience and API score ${matchedRule.minApiScore}.`,
+        minimumExperienceYears: matchedRule.minExperienceYears,
+        minimumApiScore: matchedRule.minApiScore,
+    };
+}
+
 async function buildLinkedAchievementsForFaculty(facultyUserId: string): Promise<CasAchievementBucket> {
     const defaults = await getFacultyReportDefaults(facultyUserId);
 
@@ -41,7 +208,7 @@ async function buildLinkedAchievementsForFaculty(facultyUserId: string): Promise
         publications: defaults.cas.publications,
         books: defaults.cas.books,
         researchProjects: defaults.cas.researchProjects,
-        phdGuided: 0,
+        phdGuided: defaults.cas.phdGuided ?? 0,
         conferences: defaults.cas.conferences,
     };
 }
@@ -62,7 +229,7 @@ function scorePublication(indexing?: string) {
 
 export async function computeCasApiScore(
     facultyId: string,
-    input: ReturnType<typeof casApplicationSchema.parse>
+    input: CasApplicationInput
 ) {
     const selectedPbas = await getPbasReportsByIdsForFaculty(facultyId, input.pbasReports);
 
@@ -123,27 +290,9 @@ type CasEligibility = {
     missingProfileFields: string[];
 };
 
-function resolveCasRule(currentDesignation: string) {
-    const value = currentDesignation.toLowerCase();
-
-    if (value.includes("stage 1")) {
-        return { next: "Assistant Professor (Stage 2)", minExperience: 4, minApi: 120 };
-    }
-    if (value.includes("stage 2")) {
-        return { next: "Assistant Professor (Stage 3)", minExperience: 5, minApi: 140 };
-    }
-    if (value.includes("stage 3")) {
-        return { next: "Assistant Professor (Stage 4)", minExperience: 3, minApi: 180 };
-    }
-    if (value.includes("associate professor")) {
-        return { next: "Professor", minExperience: 3, minApi: 220 };
-    }
-
-    return null;
-}
-
 export async function getCasEligibilityForFaculty(actor: SafeActor): Promise<CasEligibility> {
     await dbConnect();
+    await ensureCasPromotionRules();
 
     if (actor.role !== "Faculty") {
         throw new AuthError("Only faculty users can access CAS eligibility.", 403);
@@ -203,7 +352,7 @@ export async function getCasEligibilityForFaculty(actor: SafeActor): Promise<Cas
         };
     }
 
-    const rule = resolveCasRule(faculty.designation);
+    const rule = await getCasPromotionRule(faculty.designation);
     if (!rule) {
         return {
             eligible: false,
@@ -217,8 +366,8 @@ export async function getCasEligibilityForFaculty(actor: SafeActor): Promise<Cas
         };
     }
 
-    const meetsExperience = experienceYears >= rule.minExperience;
-    const meetsScore = lastApprovedApiScore >= rule.minApi;
+    const meetsExperience = experienceYears >= rule.minExperienceYears;
+    const meetsScore = lastApprovedApiScore >= rule.minApiScore;
     const eligible = meetsExperience && meetsScore;
 
     return {
@@ -226,10 +375,10 @@ export async function getCasEligibilityForFaculty(actor: SafeActor): Promise<Cas
         reason: eligible
             ? "Eligible to apply for CAS promotion."
             : "Eligibility criteria not met. Ensure required experience and approved PBAS API score.",
-        requiredYears: rule.minExperience,
-        requiredScore: rule.minApi,
+        requiredYears: rule.minExperienceYears,
+        requiredScore: rule.minApiScore,
         currentDesignation: faculty.designation,
-        nextDesignation: rule.next,
+        nextDesignation: rule.targetDesignation,
         experienceYears,
         lastApprovedApiScore,
         lastApprovedYear,
@@ -239,21 +388,29 @@ export async function getCasEligibilityForFaculty(actor: SafeActor): Promise<Cas
 }
 
 async function upsertCasBreakup(application: InstanceType<typeof CasApplication>) {
+    const rule = await getCasPromotionRule(
+        application.currentDesignation,
+        application.applyingForDesignation
+    );
+    const minimums = deriveCategoryMinimums(
+        Number(rule?.minApiScore ?? 0),
+        rule?.categoryMinimums
+    );
     const entries = [
         {
             categoryCode: "A",
             scoreObtained: Number(application.apiScore?.teachingLearning ?? 0),
-            minimumRequired: 0,
+            minimumRequired: minimums.teachingLearning,
         },
         {
             categoryCode: "B",
             scoreObtained: Number(application.apiScore?.researchPublication ?? 0),
-            minimumRequired: 0,
+            minimumRequired: minimums.researchPublication,
         },
         {
             categoryCode: "C",
             scoreObtained: Number(application.apiScore?.academicContribution ?? 0),
-            minimumRequired: 0,
+            minimumRequired: minimums.academicContribution,
         },
     ];
 
@@ -301,63 +458,6 @@ async function audit(actor: SafeActor | undefined, action: string, tableName: st
         oldData,
         newData,
     });
-}
-
-export function evaluateCasEligibility(input: ReturnType<typeof casApplicationSchema.parse>, apiTotalScore: number) {
-    const from = input.currentDesignation.toLowerCase();
-    const to = input.applyingForDesignation.toLowerCase();
-
-    const rules = [
-        {
-            match: from.includes("stage 1") && to.includes("stage 2"),
-            minExperience: 4,
-            minApi: 120,
-            message: "Stage 1 to Stage 2 requires at least 4 years of experience and a minimum API score of 120.",
-        },
-        {
-            match: from.includes("stage 2") && to.includes("stage 3"),
-            minExperience: 5,
-            minApi: 140,
-            message: "Stage 2 to Stage 3 requires at least 5 years of experience and a minimum API score of 140.",
-        },
-        {
-            match:
-                (from.includes("stage 3") && (to.includes("stage 4") || to.includes("associate professor"))) ||
-                (from.includes("assistant professor") && to.includes("associate professor")),
-            minExperience: 3,
-            minApi: 180,
-            message: "Stage 3 to Associate Professor requires at least 3 years of experience and a strong API score.",
-        },
-        {
-            match: from.includes("associate professor") && to.includes("professor"),
-            minExperience: 3,
-            minApi: 220,
-            message: "Associate Professor to Professor requires at least 3 years of experience and a high research output.",
-        },
-    ];
-
-    const matchedRule = rules.find((rule) => rule.match);
-
-    if (!matchedRule) {
-        return {
-            isEligible: false,
-            message: "This CAS promotion path is not configured in the system.",
-            minimumExperienceYears: undefined,
-            minimumApiScore: undefined,
-        };
-    }
-
-    const isEligible =
-        input.experienceYears >= matchedRule.minExperience && apiTotalScore >= matchedRule.minApi;
-
-    return {
-        isEligible,
-        message: isEligible
-            ? `Eligible for ${input.applyingForDesignation}.`
-            : matchedRule.message,
-        minimumExperienceYears: matchedRule.minExperience,
-        minimumApiScore: matchedRule.minApi,
-    };
 }
 
 async function getDepartmentHeadedByUser(userId: string) {
@@ -412,80 +512,105 @@ async function getUserForApplication(application: InstanceType<typeof CasApplica
     };
 }
 
-export async function createCasApplication(actor: SafeActor, rawInput: unknown) {
-    const input = casApplicationSchema.parse(rawInput);
-    await dbConnect();
-
-    if (actor.role !== "Faculty") {
-        throw new AuthError("Only faculty users can create CAS applications.", 403);
+async function loadCasCommitteeReviews(applicationIds: string[]) {
+    if (!applicationIds.length) {
+        return new Map<string, Array<Record<string, unknown>>>();
     }
 
-    const { faculty } = await ensureFacultyContext(actor.id);
-    const linkedAchievements = await buildLinkedAchievementsForFaculty(actor.id);
-    const apiScore = await computeCasApiScore(faculty._id.toString(), input);
-    const eligibility = evaluateCasEligibility(input, apiScore.totalScore);
+    const reviews = await CasScreeningCommitteeMember.find({
+        casApplicationId: { $in: applicationIds.map((id) => new Types.ObjectId(id)) },
+    })
+        .sort({ decisionDate: 1, createdAt: 1 })
+        .lean();
 
-    const application = await CasApplication.create({
-        facultyId: faculty._id,
-        applicationYear: input.applicationYear,
-        currentDesignation: input.currentDesignation,
-        applyingForDesignation: input.applyingForDesignation,
-        applicationDate: new Date(),
-        eligibilityPeriod: input.eligibilityPeriod,
-        experienceYears: input.experienceYears,
-        pbasReports: input.pbasReports.map((id) => new Types.ObjectId(id)),
-        apiScoreCalculated: apiScore.totalScore,
-        apiScore,
-        linkedAchievements,
-        manualAchievements: input.manualAchievements,
-        achievements: undefined,
-        eligibility,
-        reviewCommittee: [],
-        statusLogs: [
-            {
-                status: "Draft",
-                actorId: new Types.ObjectId(actor.id),
-                actorName: actor.name,
-                actorRole: actor.role,
-                remarks: "CAS application draft created.",
-                changedAt: new Date(),
-            },
-        ],
-        status: "Draft",
-    });
+    const grouped = new Map<string, Array<Record<string, unknown>>>();
 
-    await upsertCasBreakup(application);
-    await upsertWorkflow("CAS", application._id.toString(), actor.role, application.status, "CAS draft created.");
-    await audit(actor, "CAS_CREATE", "cas_applications", application._id.toString(), undefined, {
-        facultyId: application.facultyId,
-        applicationYear: application.applicationYear,
-        status: application.status,
-    });
-
-    return application;
-}
-
-export async function getFacultyCasApplications(actor: SafeActor) {
-    await dbConnect();
-
-    if (actor.role !== "Faculty") {
-        throw new AuthError("Only faculty users can view their CAS applications.", 403);
+    for (const review of reviews) {
+        const key = review.casApplicationId.toString();
+        const current = grouped.get(key) ?? [];
+        current.push({
+            _id: review._id.toString(),
+            reviewerUserId: review.reviewerUserId?.toString(),
+            committeeMemberName: review.committeeMemberName,
+            designation: review.designation,
+            role: review.role,
+            reviewerRole: review.reviewerRole,
+            stage: review.stage,
+            remarks: review.remarks,
+            decision: review.decision,
+            decisionDate: review.decisionDate,
+            createdAt: review.createdAt,
+            updatedAt: review.updatedAt,
+        });
+        grouped.set(key, current);
     }
 
-    const { faculty } = await ensureFacultyContext(actor.id);
-
-    return CasApplication.find({ facultyId: faculty._id }).sort({ updatedAt: -1 });
+    return grouped;
 }
 
-export async function getCasApplicationById(actor: SafeActor, id: string) {
+async function loadCasApiBreakups(applicationIds: string[]) {
+    if (!applicationIds.length) {
+        return new Map<string, Array<Record<string, unknown>>>();
+    }
+
+    const breakups = await CasApiScoreBreakup.find({
+        casApplicationId: { $in: applicationIds.map((id) => new Types.ObjectId(id)) },
+    })
+        .sort({ categoryCode: 1 })
+        .lean();
+
+    const grouped = new Map<string, Array<Record<string, unknown>>>();
+
+    for (const entry of breakups) {
+        const key = entry.casApplicationId.toString();
+        const current = grouped.get(key) ?? [];
+        current.push({
+            _id: entry._id.toString(),
+            categoryCode: entry.categoryCode,
+            scoreObtained: entry.scoreObtained,
+            minimumRequired: entry.minimumRequired,
+            eligible: entry.eligible,
+        });
+        grouped.set(key, current);
+    }
+
+    return grouped;
+}
+
+async function serializeCasApplications(applications: Array<InstanceType<typeof CasApplication>>) {
+    const ids = applications.map((application) => application._id.toString());
+    const [committeeReviewsByApplication, apiBreakupByApplication] = await Promise.all([
+        loadCasCommitteeReviews(ids),
+        loadCasApiBreakups(ids),
+    ]);
+
+    return applications.map((application) => {
+        const serialized = application.toObject();
+        return {
+            ...serialized,
+            committeeReviews:
+                committeeReviewsByApplication.get(application._id.toString()) ?? [],
+            apiBreakup: apiBreakupByApplication.get(application._id.toString()) ?? [],
+        };
+    });
+}
+
+async function serializeCasApplication(application: InstanceType<typeof CasApplication>) {
+    const [serialized] = await serializeCasApplications([application]);
+    return serialized;
+}
+
+async function getCasApplicationDocumentById(actor: SafeActor, id: string) {
     await dbConnect();
+    await ensureCasPromotionRules();
+
     const application = await CasApplication.findById(id);
 
     if (!application) {
         throw new AuthError("CAS application not found.", 404);
     }
 
-    if (actor.role === "Admin") {
+    if (actor.role === "Admin" || actor.role === "Director") {
         return application;
     }
 
@@ -508,9 +633,114 @@ export async function getCasApplicationById(actor: SafeActor, id: string) {
     throw new AuthError("You do not have access to this CAS application.", 403);
 }
 
+async function recordCasCommitteeReview(
+    application: InstanceType<typeof CasApplication>,
+    actor: SafeActor,
+    input: { remarks: string; decision: string },
+    stage: "Department Head" | "CAS Committee" | "Admin"
+) {
+    const role =
+        stage === "Department Head"
+            ? "department_head"
+            : stage === "Admin"
+              ? "admin"
+              : "cas_committee";
+    const designation =
+        stage === "Department Head"
+            ? "Department Head Reviewer"
+            : stage === "Admin"
+              ? "Admin Final Approver"
+              : "CAS Committee Reviewer";
+
+    await CasScreeningCommitteeMember.create({
+        casApplicationId: application._id,
+        reviewerUserId: new Types.ObjectId(actor.id),
+        committeeMemberName: actor.name,
+        designation,
+        role,
+        reviewerRole: actor.role,
+        stage,
+        remarks: input.remarks,
+        decision: input.decision,
+        decisionDate: new Date(),
+    });
+}
+
+export async function createCasApplication(actor: SafeActor, rawInput: unknown) {
+    const input = casApplicationSchema.parse(rawInput);
+    await dbConnect();
+    await ensureCasPromotionRules();
+
+    if (actor.role !== "Faculty") {
+        throw new AuthError("Only faculty users can create CAS applications.", 403);
+    }
+
+    const { faculty } = await ensureFacultyContext(actor.id);
+    const linkedAchievements = await buildLinkedAchievementsForFaculty(actor.id);
+    const apiScore = await computeCasApiScore(faculty._id.toString(), input);
+    const eligibility = await evaluateCasEligibility(input, apiScore.totalScore);
+
+    const application = await CasApplication.create({
+        facultyId: faculty._id,
+        applicationYear: input.applicationYear,
+        currentDesignation: input.currentDesignation,
+        applyingForDesignation: input.applyingForDesignation,
+        applicationDate: new Date(),
+        eligibilityPeriod: input.eligibilityPeriod,
+        experienceYears: input.experienceYears,
+        pbasReports: input.pbasReports.map((id) => new Types.ObjectId(id)),
+        apiScoreCalculated: apiScore.totalScore,
+        apiScore,
+        linkedAchievements,
+        manualAchievements: input.manualAchievements,
+        eligibility,
+        statusLogs: [
+            {
+                status: "Draft",
+                actorId: new Types.ObjectId(actor.id),
+                actorName: actor.name,
+                actorRole: actor.role,
+                remarks: "CAS application draft created.",
+                changedAt: new Date(),
+            },
+        ],
+        status: "Draft",
+    });
+
+    await upsertCasBreakup(application);
+    await upsertWorkflow("CAS", application._id.toString(), "Faculty", application.status, "CAS draft created.");
+    await audit(actor, "CAS_CREATE", "cas_applications", application._id.toString(), undefined, {
+        facultyId: application.facultyId,
+        applicationYear: application.applicationYear,
+        status: application.status,
+    });
+
+    return serializeCasApplication(application);
+}
+
+export async function getFacultyCasApplications(actor: SafeActor) {
+    await dbConnect();
+    await ensureCasPromotionRules();
+
+    if (actor.role !== "Faculty") {
+        throw new AuthError("Only faculty users can view their CAS applications.", 403);
+    }
+
+    const { faculty } = await ensureFacultyContext(actor.id);
+
+    const applications = await CasApplication.find({ facultyId: faculty._id }).sort({ updatedAt: -1 });
+
+    return serializeCasApplications(applications);
+}
+
+export async function getCasApplicationById(actor: SafeActor, id: string) {
+    const application = await getCasApplicationDocumentById(actor, id);
+    return serializeCasApplication(application);
+}
+
 export async function updateCasApplication(actor: SafeActor, id: string, rawInput: unknown) {
     const input = casApplicationSchema.parse(rawInput);
-    const application = await getCasApplicationById(actor, id);
+    const application = await getCasApplicationDocumentById(actor, id);
     const facultyContext = actor.role === "Faculty" ? await ensureFacultyContext(actor.id) : null;
 
     if (
@@ -527,7 +757,7 @@ export async function updateCasApplication(actor: SafeActor, id: string, rawInpu
     const oldState = application.toObject();
     const linkedAchievements = await buildLinkedAchievementsForFaculty(actor.id);
     const apiScore = await computeCasApiScore(facultyContext.faculty._id.toString(), input);
-    const eligibility = evaluateCasEligibility(input, apiScore.totalScore);
+    const eligibility = await evaluateCasEligibility(input, apiScore.totalScore);
 
     application.applicationYear = input.applicationYear;
     application.currentDesignation = input.currentDesignation;
@@ -539,20 +769,19 @@ export async function updateCasApplication(actor: SafeActor, id: string, rawInpu
     application.apiScore = apiScore;
     application.linkedAchievements = linkedAchievements;
     application.manualAchievements = input.manualAchievements;
-    application.achievements = undefined;
     application.eligibility = eligibility;
 
     pushStatusLog(application, application.status, actor, "CAS application draft auto-saved.");
     await application.save();
     await upsertCasBreakup(application);
-    await upsertWorkflow("CAS", application._id.toString(), actor.role, application.status, "CAS draft updated.");
+    await upsertWorkflow("CAS", application._id.toString(), "Faculty", application.status, "CAS draft updated.");
     await audit(actor, "CAS_UPDATE", "cas_applications", application._id.toString(), oldState, application.toObject());
 
-    return application;
+    return serializeCasApplication(application);
 }
 
 export async function submitCasApplication(actor: SafeActor, id: string) {
-    const application = await getCasApplicationById(actor, id);
+    const application = await getCasApplicationDocumentById(actor, id);
     const facultyContext = actor.role === "Faculty" ? await ensureFacultyContext(actor.id) : null;
 
     if (
@@ -598,15 +827,15 @@ export async function submitCasApplication(actor: SafeActor, id: string) {
     pushStatusLog(application, "Submitted", actor, "Faculty submitted CAS application.");
     await application.save();
     await upsertCasBreakup(application);
-    await upsertWorkflow("CAS", application._id.toString(), actor.role, application.status, "CAS submitted.");
+    await upsertWorkflow("CAS", application._id.toString(), "Director", application.status, "CAS submitted.");
     await audit(actor, "CAS_SUBMIT", "cas_applications", application._id.toString());
 
-    return application;
+    return serializeCasApplication(application);
 }
 
 export async function reviewCasApplication(actor: SafeActor, id: string, rawInput: unknown) {
     const input = casReviewSchema.parse(rawInput);
-    const application = await getCasApplicationById(actor, id);
+    const application = await getCasApplicationDocumentById(actor, id);
 
     const faculty = await getUserForApplication(application);
     const headedDepartment = await getDepartmentHeadedByUser(actor.id);
@@ -618,18 +847,24 @@ export async function reviewCasApplication(actor: SafeActor, id: string, rawInpu
         throw new AuthError("You are not authorized to review this CAS application.", 403);
     }
 
+    if (!["Submitted", "Under Review"].includes(application.status)) {
+        throw new AuthError("Only submitted or under-review CAS applications can be reviewed.", 409);
+    }
+
+    const reviewStage =
+        application.status === "Submitted" ? "Department Head" : "CAS Committee";
+
+    if (reviewStage === "Department Head" && !isDepartmentHead && actor.role !== "Director") {
+        throw new AuthError("This CAS application is waiting for department-level review.", 403);
+    }
+
+    if (reviewStage === "CAS Committee" && !isCommitteeReviewer) {
+        throw new AuthError("This CAS application is waiting for committee review.", 403);
+    }
+
     if (input.decision === "Reject") {
         application.status = "Rejected";
-        application.reviewCommittee.push({
-            reviewerId: new Types.ObjectId(actor.id),
-            reviewerName: actor.name,
-            reviewerRole: actor.role,
-            designation: actor.role === "Admin" ? "Admin Reviewer" : "Department Head",
-            remarks: input.remarks,
-            decision: input.decision,
-            stage: isDepartmentHead ? "Department Head" : "CAS Committee",
-            reviewedAt: new Date(),
-        });
+        await recordCasCommitteeReview(application, actor, input, reviewStage);
         pushStatusLog(application, "Rejected", actor, input.remarks);
         await application.save();
         await upsertWorkflow("CAS", application._id.toString(), actor.role, application.status, input.remarks);
@@ -637,7 +872,7 @@ export async function reviewCasApplication(actor: SafeActor, id: string, rawInpu
             status: application.status,
             remarks: input.remarks,
         });
-        return application;
+        return serializeCasApplication(application);
     }
 
     const nextStatus: CasStatus =
@@ -646,28 +881,22 @@ export async function reviewCasApplication(actor: SafeActor, id: string, rawInpu
             : "Committee Review";
 
     application.status = nextStatus;
-    application.reviewCommittee.push({
-        reviewerId: new Types.ObjectId(actor.id),
-        reviewerName: actor.name,
-        reviewerRole: actor.role,
-        designation:
-            application.status === "Under Review"
-                ? "Department Head Reviewer"
-                : "CAS Committee Reviewer",
-        remarks: input.remarks,
-        decision: input.decision,
-        stage: nextStatus === "Under Review" ? "Department Head" : "CAS Committee",
-        reviewedAt: new Date(),
-    });
+    await recordCasCommitteeReview(application, actor, input, reviewStage);
     pushStatusLog(application, nextStatus, actor, input.remarks);
     await application.save();
-    await upsertWorkflow("CAS", application._id.toString(), actor.role, application.status, input.remarks);
+    await upsertWorkflow(
+        "CAS",
+        application._id.toString(),
+        nextStatus === "Under Review" ? "Director" : "Admin",
+        application.status,
+        input.remarks
+    );
     await audit(actor, "CAS_REVIEW", "cas_applications", application._id.toString(), undefined, {
         status: application.status,
         remarks: input.remarks,
     });
 
-    return application;
+    return serializeCasApplication(application);
 }
 
 export async function approveCasApplication(actor: SafeActor, id: string, rawInput: unknown) {
@@ -677,19 +906,14 @@ export async function approveCasApplication(actor: SafeActor, id: string, rawInp
         throw new AuthError("Only admin users can finalize CAS approval.", 403);
     }
 
-    const application = await getCasApplicationById(actor, id);
+    const application = await getCasApplicationDocumentById(actor, id);
+
+    if (application.status !== "Committee Review") {
+        throw new AuthError("Only committee-reviewed CAS applications can be finalized.", 409);
+    }
 
     application.status = input.decision === "Approve" ? "Approved" : "Rejected";
-    application.reviewCommittee.push({
-        reviewerId: new Types.ObjectId(actor.id),
-        reviewerName: actor.name,
-        reviewerRole: actor.role,
-        designation: "Admin Final Approver",
-        remarks: input.remarks,
-        decision: input.decision,
-        stage: "Admin",
-        reviewedAt: new Date(),
-    });
+    await recordCasCommitteeReview(application, actor, input, "Admin");
     pushStatusLog(application, application.status, actor, input.remarks);
     await application.save();
     await upsertCasBreakup(application);
@@ -709,7 +933,7 @@ export async function approveCasApplication(actor: SafeActor, id: string, rawInp
         });
     }
 
-    return application;
+    return serializeCasApplication(application);
 }
 
 const CAS_REQUIRED_DOCUMENTS = [
@@ -720,7 +944,7 @@ const CAS_REQUIRED_DOCUMENTS = [
 
 export async function getCasDocuments(actor: SafeActor, id: string) {
     await dbConnect();
-    const application = await getCasApplicationById(actor, id);
+    const application = await getCasApplicationDocumentById(actor, id);
 
     const docs = await CasSupportingDocument.find({ casApplicationId: application._id })
         .populate("documentId", "fileName fileUrl fileType")
@@ -743,7 +967,7 @@ export async function getCasDocuments(actor: SafeActor, id: string) {
 
 export async function getCasWorkflowStatus(actor: SafeActor, id: string) {
     await dbConnect();
-    const application = await getCasApplicationById(actor, id);
+    const application = await getCasApplicationDocumentById(actor, id);
 
     const workflow = await ApprovalWorkflow.findOne({
         moduleName: "CAS",
@@ -769,7 +993,7 @@ export async function saveCasDocument(
     input: { documentType: string; documentId: string }
 ) {
     await dbConnect();
-    const application = await getCasApplicationById(actor, id);
+    const application = await getCasApplicationDocumentById(actor, id);
 
     const meta = CAS_REQUIRED_DOCUMENTS.find(
         (item) => item.documentType === input.documentType
@@ -800,10 +1024,17 @@ export async function saveCasDocument(
 
 export async function getCasReviewQueue(actor: SafeActor) {
     await dbConnect();
+    await ensureCasPromotionRules();
 
     if (actor.role === "Admin") {
         return CasApplication.find({
-            status: { $in: ["Under Review", "Committee Review", "Submitted"] },
+            status: "Committee Review",
+        }).sort({ updatedAt: -1 });
+    }
+
+    if (actor.role === "Director") {
+        return CasApplication.find({
+            status: { $in: ["Submitted", "Under Review"] },
         }).sort({ updatedAt: -1 });
     }
 

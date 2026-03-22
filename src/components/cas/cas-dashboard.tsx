@@ -75,14 +75,25 @@ type CasApp = {
         phdGuided: number;
         conferences: number;
     };
-    // Legacy combined field for old records.
-    achievements?: {
-        publications: Array<{ title: string; journal: string; year: number; issn?: string; indexing?: string }>;
-        books: Array<{ title: string; publisher: string; isbn?: string; year: number }>;
-        researchProjects: Array<{ title: string; fundingAgency: string; amount: number; year: number }>;
-        phdGuided: number;
-        conferences: number;
-    };
+    committeeReviews?: Array<{
+        _id?: string;
+        committeeMemberName: string;
+        designation: string;
+        role: string;
+        reviewerRole?: string;
+        stage: string;
+        remarks?: string;
+        decision?: string;
+        decisionDate?: string;
+        createdAt?: string;
+    }>;
+    apiBreakup?: Array<{
+        _id?: string;
+        categoryCode: string;
+        scoreObtained: number;
+        minimumRequired: number;
+        eligible: boolean;
+    }>;
     status: string;
     statusLogs: Array<{
         _id?: string;
@@ -185,74 +196,7 @@ function toFormValues(application?: CasApp): CasFormValues {
         eligibilityPeriod: application.eligibilityPeriod,
         experienceYears: application.experienceYears,
         pbasReports: application.pbasReports,
-        manualAchievements: application.manualAchievements ?? application.achievements ?? emptyAchievements(),
-    };
-}
-
-function computeScore(values: CasResolvedValues, pbasOptions: PbasOption[]) {
-    const selected = pbasOptions.filter((entry) => values.pbasReports.includes(entry._id));
-    const teachingLearning = Math.min(100, selected.reduce((sum, item) => sum + Number(item.teachingScore ?? 0), 0));
-    const researchFromPbas = selected.reduce((sum, item) => sum + Number(item.researchScore ?? 0), 0);
-    const researchPublications = values.manualAchievements.publications.reduce((sum, item) => {
-        const indexing = (item.indexing ?? "").toLowerCase();
-        if (indexing.includes("scopus") || indexing.includes("ugc care") || indexing.includes("web")) return sum + 12;
-        if (indexing.includes("peer")) return sum + 8;
-        return sum + 5;
-    }, 0);
-    const projectScore = values.manualAchievements.researchProjects.reduce((sum, project) => {
-        if (project.amount >= 1000000) return sum + 12;
-        if (project.amount >= 250000) return sum + 8;
-        return sum + 5;
-    }, 0);
-    const researchPublication = Math.min(
-        150,
-        researchFromPbas +
-            researchPublications +
-            values.manualAchievements.books.length * 15 +
-            projectScore +
-            values.manualAchievements.phdGuided * 12 +
-            values.manualAchievements.conferences * 4
-    );
-    const academicContribution = Math.min(
-        100,
-        selected.reduce((sum, item) => sum + Number(item.institutionalScore ?? 0), 0) +
-            Math.min(values.manualAchievements.conferences * 2, 20)
-    );
-
-    return {
-        teachingLearning,
-        researchPublication,
-        academicContribution,
-        totalScore: teachingLearning + researchPublication + academicContribution,
-    };
-}
-
-function computeEligibility(values: CasResolvedValues, totalScore: number) {
-    const from = values.currentDesignation.toLowerCase();
-    const to = values.applyingForDesignation.toLowerCase();
-    const rules = [
-        { ok: from.includes("stage 1") && to.includes("stage 2"), exp: 4, api: 120 },
-        { ok: from.includes("stage 2") && to.includes("stage 3"), exp: 5, api: 140 },
-        { ok: from.includes("stage 3") && (to.includes("stage 4") || to.includes("associate professor")), exp: 3, api: 180 },
-        { ok: from.includes("associate professor") && to.includes("professor"), exp: 3, api: 220 },
-    ].find((item) => item.ok);
-
-    if (!rules) {
-        return {
-            isEligible: false,
-            message: "This promotion path is not configured in the CAS rules.",
-        };
-    }
-
-    const isEligible = values.experienceYears >= rules.exp && totalScore >= rules.api;
-
-    return {
-        isEligible,
-        message: isEligible
-            ? `Eligible for submission. Minimum experience ${rules.exp} years and API ${rules.api} satisfied.`
-            : `Not yet eligible. This path requires minimum ${rules.exp} years experience and API score ${rules.api}.`,
-        minimumExperienceYears: rules.exp,
-        minimumApiScore: rules.api,
+        manualAchievements: application.manualAchievements ?? emptyAchievements(),
     };
 }
 
@@ -460,15 +404,17 @@ export function PBASSelector({
 export function APIScoreCalculator({
     score,
     eligibility,
+    breakup,
 }: {
     score: { teachingLearning: number; researchPublication: number; academicContribution: number; totalScore: number };
-    eligibility: { isEligible: boolean; message: string; minimumExperienceYears?: number; minimumApiScore?: number };
+    eligibility: { isEligible: boolean; message?: string; minimumExperienceYears?: number; minimumApiScore?: number };
+    breakup?: CasApp["apiBreakup"];
 }) {
     return (
         <Card>
             <CardHeader>
                 <CardTitle>API Score Calculator</CardTitle>
-                <CardDescription>UGC-oriented score calculation updates in real time from PBAS and achievement data.</CardDescription>
+                <CardDescription>Authoritative CAS scoring comes from the saved server-side PBAS and achievement mapping.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <ScoreCard label="Teaching Learning" value={score.teachingLearning} />
@@ -477,8 +423,36 @@ export function APIScoreCalculator({
                 <ScoreCard label="Total API Score" value={score.totalScore} />
                 <div className={`md:col-span-2 xl:col-span-4 rounded-lg border p-4 ${eligibility.isEligible ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
                     <p className="text-sm font-semibold">{eligibility.isEligible ? "Eligible" : "Not Eligible"}</p>
-                    <p className="mt-1 text-sm">{eligibility.message}</p>
+                    <p className="mt-1 text-sm">{eligibility.message ?? "Eligibility is being recalculated from the saved CAS record."}</p>
                 </div>
+                {breakup?.length ? (
+                    <div className="md:col-span-2 xl:col-span-4 overflow-x-auto rounded-lg border border-zinc-200 bg-zinc-50">
+                        <table className="min-w-full text-left text-sm">
+                            <thead className="bg-white text-zinc-500">
+                                <tr>
+                                    <th className="px-4 py-3 font-medium">Category</th>
+                                    <th className="px-4 py-3 font-medium">Obtained</th>
+                                    <th className="px-4 py-3 font-medium">Minimum</th>
+                                    <th className="px-4 py-3 font-medium">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {breakup.map((entry) => (
+                                    <tr className="border-t border-zinc-200" key={entry._id ?? entry.categoryCode}>
+                                        <td className="px-4 py-3 font-medium text-zinc-900">{entry.categoryCode}</td>
+                                        <td className="px-4 py-3">{entry.scoreObtained}</td>
+                                        <td className="px-4 py-3">{entry.minimumRequired}</td>
+                                        <td className="px-4 py-3">
+                                            <Badge variant={entry.eligible ? "default" : "secondary"}>
+                                                {entry.eligible ? "Met" : "Pending"}
+                                            </Badge>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : null}
             </CardContent>
         </Card>
     );
@@ -509,6 +483,39 @@ export function CASStatusTimeline({
     );
 }
 
+export function CASCommitteeTimeline({
+    reviews,
+}: {
+    reviews: NonNullable<CasApp["committeeReviews"]>;
+}) {
+    return (
+        <div className="grid gap-3">
+            {reviews.length ? reviews.map((review) => (
+                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={review._id ?? `${review.stage}-${review.createdAt}`}>
+                    <div className="flex items-center justify-between gap-4">
+                        <div>
+                            <p className="font-semibold text-zinc-950">{review.stage}</p>
+                            <p className="mt-1 text-sm text-zinc-600">
+                                {review.committeeMemberName} ({review.reviewerRole ?? review.role})
+                            </p>
+                        </div>
+                        <Badge>{review.decision ?? "Recorded"}</Badge>
+                    </div>
+                    <p className="mt-2 text-sm text-zinc-600">{review.designation}</p>
+                    {review.remarks ? <p className="mt-2 text-sm text-zinc-500">{review.remarks}</p> : null}
+                    <p className="mt-2 text-xs uppercase tracking-[0.12em] text-zinc-400">
+                        {new Date(review.decisionDate ?? review.createdAt ?? Date.now()).toLocaleString()}
+                    </p>
+                </div>
+            )) : (
+                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                    No committee reviews recorded yet.
+                </div>
+            )}
+        </div>
+    );
+}
+
 export function CasDashboard({
     initialApplications,
     pbasOptions,
@@ -525,6 +532,7 @@ export function CasDashboard({
         publications: Array<{ title: string; journal: string; year: number; issn?: string; indexing?: string }>;
         books: Array<{ title: string; publisher: string; isbn?: string; year: number }>;
         researchProjects: Array<{ title: string; fundingAgency: string; amount: number; year: number }>;
+        phdGuided?: number;
         conferences: number;
     };
     eligibility: CasEligibility;
@@ -548,7 +556,7 @@ export function CasDashboard({
     const linkedAchievements = selected?.linkedAchievements ?? {
         ...emptyAchievements(),
         ...evidenceDefaults,
-        phdGuided: 0,
+        phdGuided: evidenceDefaults.phdGuided ?? 0,
     };
     const form = useForm<CasFormValues, unknown, CasResolvedValues>({
         resolver: zodResolver(casApplicationSchema),
@@ -574,8 +582,18 @@ export function CasDashboard({
         () => getAllowedCasPromotionTargets(normalizedValues.currentDesignation),
         [normalizedValues.currentDesignation]
     );
-    const score = computeScore(normalizedValues, pbasOptions);
-    const computedEligibility = computeEligibility(normalizedValues, score.totalScore);
+    const score = selected?.apiScore ?? {
+        teachingLearning: 0,
+        researchPublication: 0,
+        academicContribution: 0,
+        totalScore: 0,
+    };
+    const computedEligibility = selected?.eligibility ?? {
+        isEligible: false,
+        message: selectedId
+            ? "Waiting for the latest CAS calculation from the server."
+            : "Create a CAS draft to calculate the authoritative API score and eligibility.",
+    };
 
     useEffect(() => {
         const nextOptions = getAllowedCasPromotionTargets(form.getValues("currentDesignation"));
@@ -916,6 +934,18 @@ export function CasDashboard({
                     </Card>
                 ) : null}
 
+                {selected ? (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Committee Review Trail</CardTitle>
+                            <CardDescription>Department, committee, and admin decisions are stored in the dedicated CAS committee register.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <CASCommitteeTimeline reviews={selected.committeeReviews ?? []} />
+                        </CardContent>
+                    </Card>
+                ) : null}
+
                 <Card>
                     <CardHeader>
                         <CardTitle>Document Verification Status</CardTitle>
@@ -979,7 +1009,7 @@ export function CasDashboard({
                 ) : null}
 
                 <CASProgressStepper currentStep={currentStep} />
-                <APIScoreCalculator score={score} eligibility={computedEligibility} />
+                <APIScoreCalculator score={score} eligibility={computedEligibility} breakup={selected?.apiBreakup} />
 
                 <Card>
                     <CardHeader>

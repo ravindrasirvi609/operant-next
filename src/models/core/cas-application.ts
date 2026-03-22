@@ -30,17 +30,6 @@ export interface ICasResearchProject {
     year: number;
 }
 
-export interface ICasReviewCommitteeEntry {
-    reviewerId: Types.ObjectId;
-    reviewerName?: string;
-    reviewerRole?: string;
-    designation: string;
-    remarks?: string;
-    decision: string;
-    stage: "Department Head" | "CAS Committee" | "Admin";
-    reviewedAt: Date;
-}
-
 export interface ICasStatusLog {
     status: CasStatus;
     actorId?: Types.ObjectId;
@@ -84,21 +73,12 @@ export interface ICasApplication extends Document {
         phdGuided: number;
         conferences: number;
     };
-    // Legacy combined field retained for old persisted records.
-    achievements?: {
-        publications: ICasPublication[];
-        books: ICasBook[];
-        researchProjects: ICasResearchProject[];
-        phdGuided: number;
-        conferences: number;
-    };
     eligibility: {
         isEligible: boolean;
         message?: string;
         minimumExperienceYears?: number;
         minimumApiScore?: number;
     };
-    reviewCommittee: ICasReviewCommitteeEntry[];
     statusLogs: ICasStatusLog[];
     status: CasStatus;
     submittedAt?: Date;
@@ -148,24 +128,6 @@ const CasAchievementBucketSchema = new Schema(
     { _id: false }
 );
 
-const CasReviewCommitteeSchema = new Schema<ICasReviewCommitteeEntry>(
-    {
-        reviewerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-        reviewerName: { type: String, trim: true },
-        reviewerRole: { type: String, trim: true },
-        designation: { type: String, required: true, trim: true },
-        remarks: { type: String, trim: true },
-        decision: { type: String, required: true, trim: true },
-        stage: {
-            type: String,
-            enum: ["Department Head", "CAS Committee", "Admin"],
-            required: true,
-        },
-        reviewedAt: { type: Date, default: Date.now },
-    },
-    { _id: true }
-);
-
 const CasStatusLogSchema = new Schema<ICasStatusLog>(
     {
         status: {
@@ -205,14 +167,12 @@ const CasApplicationSchema = new Schema<ICasApplication>(
         },
         linkedAchievements: { type: CasAchievementBucketSchema, default: () => ({}) },
         manualAchievements: { type: CasAchievementBucketSchema, default: () => ({}) },
-        achievements: { type: CasAchievementBucketSchema, required: false, default: undefined },
         eligibility: {
             isEligible: { type: Boolean, default: false },
             message: { type: String, trim: true },
             minimumExperienceYears: { type: Number },
             minimumApiScore: { type: Number },
         },
-        reviewCommittee: { type: [CasReviewCommitteeSchema], default: [] },
         statusLogs: { type: [CasStatusLogSchema], default: [] },
         status: {
             type: String,

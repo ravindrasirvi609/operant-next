@@ -28,6 +28,7 @@ export async function getFacultyReportDefaults(facultyId: string) {
                 amount: item.amountSanctioned ?? 0,
                 year: item.startDate ? new Date(item.startDate).getFullYear() : new Date().getFullYear(),
             })),
+            phdGuided: facultyRecord.phdGuidances.filter((item) => item.status === "completed").length,
             conferences: facultyRecord.eventParticipations.filter((item) => item.eventType === "Conference").length,
         },
         aqar: {
