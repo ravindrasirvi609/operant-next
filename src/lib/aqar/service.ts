@@ -134,6 +134,16 @@ async function getAqarWorkflowDepartmentName(application: InstanceType<typeof Aq
     return faculty.department;
 }
 
+async function getAqarWorkflowScope(application: InstanceType<typeof AqarApplication>) {
+    const faculty = await getUserForApplication(application);
+
+    return {
+        departmentName: faculty.department,
+        collegeName: faculty.collegeName,
+        universityName: faculty.universityName,
+    };
+}
+
 function pushStatusLog(
     application: InstanceType<typeof AqarApplication>,
     status: AqarStatus,
@@ -187,16 +197,20 @@ async function notifyAqarStageAssignment(
         return;
     }
 
+    const subjectScope = await getAqarWorkflowScope(application);
+
     await notifyWorkflowStageAssignees({
         stage: {
             key: stage.key,
             label: stage.label,
-            approverRoles: stage.approverRoles as Array<"DEPARTMENT_HEAD" | "DIRECTOR" | "IQAC" | "PRINCIPAL" | "ADMIN" | "FACULTY">,
+            approverRoles: stage.approverRoles as Array<"DEPARTMENT_HEAD" | "DIRECTOR" | "IQAC" | "AQAR_COMMITTEE" | "PRINCIPAL" | "ADMIN" | "FACULTY">,
         },
-        subjectDepartmentName: await getAqarWorkflowDepartmentName(application),
+        subjectDepartmentName: subjectScope.departmentName,
+        subjectCollegeName: subjectScope.collegeName,
+        subjectUniversityName: subjectScope.universityName,
         moduleName: "AQAR",
         entityId: application._id.toString(),
-        href: stage.key === "final_approval" ? "/admin/aqar" : "/director/aqar",
+        href: "/director/aqar",
         title: `AQAR moved to ${stage.label}`,
         message: `${actor.name} moved AQAR contribution ${application.academicYear} to ${stage.label}.`,
         actor,
@@ -398,6 +412,22 @@ export async function getAqarApplicationById(actor: SafeActor, id: string) {
         }
     }
 
+    const subjectScope = await getAqarWorkflowScope(application);
+    const canAccessByWorkflowRole = await canActorProcessWorkflowStage({
+        actor,
+        moduleName: "AQAR",
+        recordId: application._id.toString(),
+        status: application.status,
+        subjectDepartmentName: subjectScope.departmentName,
+        subjectCollegeName: subjectScope.collegeName,
+        subjectUniversityName: subjectScope.universityName,
+        stageKinds: ["review", "final"],
+    });
+
+    if (canAccessByWorkflowRole) {
+        return application;
+    }
+
     throw new AuthError("You do not have access to this AQAR application.", 403);
 }
 
@@ -461,6 +491,7 @@ export async function submitAqarApplication(actor: SafeActor, id: string) {
     }
 
     const oldState = application.toObject();
+    const subjectScope = await getAqarWorkflowScope(application);
 
     application.status = resolveWorkflowTransition(
         workflowDefinition,
@@ -474,7 +505,9 @@ export async function submitAqarApplication(actor: SafeActor, id: string) {
         moduleName: "AQAR",
         recordId: application._id.toString(),
         status: application.status,
-        subjectDepartmentName: await getAqarWorkflowDepartmentName(application),
+        subjectDepartmentName: subjectScope.departmentName,
+        subjectCollegeName: subjectScope.collegeName,
+        subjectUniversityName: subjectScope.universityName,
         actor,
         remarks: "AQAR submitted.",
         action: "submit",
@@ -535,12 +568,15 @@ export async function reviewAqarApplication(actor: SafeActor, id: string, rawInp
     const input = aqarReviewSchema.parse(rawInput);
     const application = await getAqarApplicationById(actor, id);
     const workflowDefinition = await getActiveWorkflowDefinition("AQAR");
+    const subjectScope = await getAqarWorkflowScope(application);
     const canReview = await canActorProcessWorkflowStage({
         actor,
         moduleName: "AQAR",
         recordId: application._id.toString(),
         status: application.status,
-        subjectDepartmentName: await getAqarWorkflowDepartmentName(application),
+        subjectDepartmentName: subjectScope.departmentName,
+        subjectCollegeName: subjectScope.collegeName,
+        subjectUniversityName: subjectScope.universityName,
         stageKinds: ["review"],
     });
 
@@ -585,7 +621,9 @@ export async function reviewAqarApplication(actor: SafeActor, id: string, rawInp
             moduleName: "AQAR",
             recordId: application._id.toString(),
             status: application.status,
-            subjectDepartmentName: await getAqarWorkflowDepartmentName(application),
+            subjectDepartmentName: subjectScope.departmentName,
+            subjectCollegeName: subjectScope.collegeName,
+            subjectUniversityName: subjectScope.universityName,
             actor,
             remarks: input.remarks,
             action: "reject",
@@ -631,7 +669,9 @@ export async function reviewAqarApplication(actor: SafeActor, id: string, rawInp
         moduleName: "AQAR",
         recordId: application._id.toString(),
         status: application.status,
-        subjectDepartmentName: await getAqarWorkflowDepartmentName(application),
+        subjectDepartmentName: subjectScope.departmentName,
+        subjectCollegeName: subjectScope.collegeName,
+        subjectUniversityName: subjectScope.universityName,
         actor,
         remarks: input.remarks,
         action: "approve",
@@ -656,17 +696,16 @@ export async function approveAqarApplication(actor: SafeActor, id: string, rawIn
     const input = aqarApprovalSchema.parse(rawInput);
     const workflowDefinition = await getActiveWorkflowDefinition("AQAR");
 
-    if (actor.role !== "Admin") {
-        throw new AuthError("Only admin users can finalize AQAR approval.", 403);
-    }
-
     const application = await getAqarApplicationById(actor, id);
+    const subjectScope = await getAqarWorkflowScope(application);
     const canFinalize = await canActorProcessWorkflowStage({
         actor,
         moduleName: "AQAR",
         recordId: application._id.toString(),
         status: application.status,
-        subjectDepartmentName: await getAqarWorkflowDepartmentName(application),
+        subjectDepartmentName: subjectScope.departmentName,
+        subjectCollegeName: subjectScope.collegeName,
+        subjectUniversityName: subjectScope.universityName,
         stageKinds: ["final"],
     });
     const oldState = application.toObject();
@@ -684,10 +723,10 @@ export async function approveAqarApplication(actor: SafeActor, id: string, rawIn
         reviewerId: new Types.ObjectId(actor.id),
         reviewerName: actor.name,
         reviewerRole: actor.role,
-        designation: "Admin Final Approver",
+        designation: actor.role === "Admin" ? "Admin Final Approver" : "Principal Final Approver",
         remarks: input.remarks,
         decision: input.decision,
-        stage: "Admin",
+        stage: actor.role === "Admin" ? "Admin" : "Principal",
         reviewedAt: new Date(),
     });
     pushStatusLog(application, application.status, actor, input.remarks);
@@ -696,7 +735,9 @@ export async function approveAqarApplication(actor: SafeActor, id: string, rawIn
         moduleName: "AQAR",
         recordId: application._id.toString(),
         status: application.status,
-        subjectDepartmentName: await getAqarWorkflowDepartmentName(application),
+        subjectDepartmentName: subjectScope.departmentName,
+        subjectCollegeName: subjectScope.collegeName,
+        subjectUniversityName: subjectScope.universityName,
         actor,
         remarks: input.remarks,
         action: input.decision === "Approve" ? "approve" : "reject",
@@ -717,7 +758,10 @@ export async function approveAqarApplication(actor: SafeActor, id: string, rawIn
     return application;
 }
 
-export async function getAqarReviewQueue(actor: SafeActor) {
+export async function getAqarReviewQueue(
+    actor: SafeActor,
+    options?: { stageKinds?: Array<"review" | "final"> }
+) {
     await dbConnect();
     const workflowDefinition = await getActiveWorkflowDefinition("AQAR");
     const applications = await AqarApplication.find({
@@ -726,11 +770,14 @@ export async function getAqarReviewQueue(actor: SafeActor) {
 
     await Promise.all(
         applications.map(async (application) => {
+            const subjectScope = await getAqarWorkflowScope(application);
             await syncWorkflowInstanceState({
                 moduleName: "AQAR",
                 recordId: application._id.toString(),
                 status: application.status,
-                subjectDepartmentName: await getAqarWorkflowDepartmentName(application),
+                subjectDepartmentName: subjectScope.departmentName,
+                subjectCollegeName: subjectScope.collegeName,
+                subjectUniversityName: subjectScope.universityName,
             });
         })
     );
@@ -738,7 +785,7 @@ export async function getAqarReviewQueue(actor: SafeActor) {
     const recordIds = await listPendingWorkflowRecordIds({
         actor,
         moduleName: "AQAR",
-        stageKinds: actor.role === "Admin" ? ["final"] : ["review"],
+        stageKinds: options?.stageKinds,
     });
     const recordIdSet = new Set(recordIds);
 

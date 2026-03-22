@@ -6,6 +6,11 @@ import { requireDirector } from "@/lib/auth/user";
 export default async function DirectorDashboardPage() {
     const director = await requireDirector();
     const dashboard = await getDirectorDashboardData(director.id);
+    const committeeMemberships = dashboard.committeeMemberships.filter(
+        (
+            item
+        ): item is NonNullable<(typeof dashboard.committeeMemberships)[number]> => Boolean(item)
+    );
 
     return (
         <div className="space-y-6">
@@ -96,6 +101,65 @@ export default async function DirectorDashboardPage() {
                         ) : (
                             <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
                                 No subordinate units are attached yet.
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </section>
+
+            <section className="grid gap-6 xl:grid-cols-2">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Governance assignments</CardTitle>
+                        <CardDescription>
+                            Explicit HOD, principal, and coordinator responsibilities mapped to your account.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-3">
+                        {dashboard.leadershipAssignments.length ? (
+                            dashboard.leadershipAssignments.map((item) => (
+                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={`${item.assignmentType}-${item.organizationName}`}>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <h3 className="text-base font-semibold text-zinc-950">
+                                            {item.assignmentType}
+                                        </h3>
+                                        <Badge>{item.organizationType}</Badge>
+                                    </div>
+                                    <p className="mt-2 text-sm text-zinc-500">{item.organizationName}</p>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                                No explicit governance assignments are active yet.
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Committee memberships</CardTitle>
+                        <CardDescription>
+                            Active committees that can route review work and notifications to your account.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-3">
+                        {committeeMemberships.length ? (
+                            committeeMemberships.map((item) => (
+                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={`${item.name}-${item.memberRole}`}>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <h3 className="text-base font-semibold text-zinc-950">{item.name}</h3>
+                                        <Badge>{item.memberRole}</Badge>
+                                    </div>
+                                    <p className="mt-2 text-sm text-zinc-500">
+                                        {item.committeeType || "Committee"}
+                                        {item.organizationName ? ` • ${item.organizationName}` : ""}
+                                    </p>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                                No active committee memberships are mapped yet.
                             </div>
                         )}
                     </CardContent>

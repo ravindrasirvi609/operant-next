@@ -11,6 +11,7 @@ import { NotificationCenter } from "@/components/notifications/notification-cent
 const navigation = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard },
     { href: "/admin/hierarchy", label: "Hierarchy", icon: GitBranch },
+    { href: "/admin/governance", label: "Governance", icon: Users2 },
     { href: "/admin/academics", label: "Academics", icon: BookOpen },
     { href: "/admin/reference-masters", label: "Reference Masters", icon: ListTree },
     { href: "/admin/cas", label: "CAS", icon: FileStack },

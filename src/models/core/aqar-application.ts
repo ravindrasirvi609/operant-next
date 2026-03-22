@@ -162,7 +162,7 @@ export interface IAqarReviewCommitteeEntry {
     designation: string;
     remarks?: string;
     decision: string;
-    stage: "Department Head" | "AQAR Committee" | "Admin";
+    stage: "Department Head" | "AQAR Committee" | "Principal" | "Admin";
     reviewedAt: Date;
 }
 
@@ -416,7 +416,7 @@ const ReviewCommitteeSchema = new Schema<IAqarReviewCommitteeEntry>(
         decision: createStringSchema(true),
         stage: {
             type: String,
-            enum: ["Department Head", "AQAR Committee", "Admin"],
+            enum: ["Department Head", "AQAR Committee", "Principal", "Admin"],
             required: true,
         },
         reviewedAt: { type: Date, default: Date.now },

@@ -25,7 +25,7 @@ export interface IPbasReviewCommitteeEntry {
     designation: string;
     remarks?: string;
     decision: string;
-    stage: "Department Head" | "PBAS Committee" | "Admin";
+    stage: "Department Head" | "PBAS Committee" | "Principal" | "Admin";
     reviewedAt: Date;
 }
 
@@ -70,7 +70,7 @@ const ReviewCommitteeSchema = new Schema<IPbasReviewCommitteeEntry>(
         decision: { type: String, required: true, trim: true },
         stage: {
             type: String,
-            enum: ["Department Head", "PBAS Committee", "Admin"],
+            enum: ["Department Head", "PBAS Committee", "Principal", "Admin"],
             required: true,
         },
         reviewedAt: { type: Date, default: Date.now },

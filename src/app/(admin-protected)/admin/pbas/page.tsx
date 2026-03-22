@@ -11,7 +11,7 @@ export default async function AdminPbasReviewPage() {
         name: admin.name,
         role: admin.role,
         department: admin.department,
-    });
+    }, { stageKinds: ["final"] });
 
     const facultyMap = new Map(
         (await getFacultyByIds(queue.map((item) => item.facultyId.toString()))).map((faculty) => [

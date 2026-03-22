@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 
 import dbConnect from "@/lib/dbConnect";
+import { resolveWorkflowRoleRecipientIds } from "@/lib/governance/service";
 import Notification, {
     type NotificationKind,
     type NotificationModuleName,
@@ -326,11 +327,18 @@ export async function getNotificationSummary(userId: string, options?: { limit?:
 
 export async function resolveNotificationRecipientsForApproverRoles(
     approverRoles: WorkflowApproverRole[],
-    subjectDepartmentName?: string
+    subjectDepartmentName?: string,
+    subjectCollegeName?: string,
+    subjectUniversityName?: string
 ) {
     await dbConnect();
 
     const recipientIds = new Set<string>();
+    const subjectScope = {
+        departmentName: subjectDepartmentName,
+        collegeName: subjectCollegeName,
+        universityName: subjectUniversityName,
+    };
 
     if (approverRoles.includes("ADMIN")) {
         const admins = await User.find({
@@ -359,6 +367,10 @@ export async function resolveNotificationRecipientsForApproverRoles(
     }
 
     if (approverRoles.includes("DEPARTMENT_HEAD") && subjectDepartmentName) {
+        for (const userId of await resolveWorkflowRoleRecipientIds("DEPARTMENT_HEAD", subjectScope)) {
+            recipientIds.add(userId);
+        }
+
         const headedDepartment = await Organization.findOne({
             type: "Department",
             name: subjectDepartmentName,
@@ -367,6 +379,21 @@ export async function resolveNotificationRecipientsForApproverRoles(
 
         if (headedDepartment?.headUserId) {
             recipientIds.add(headedDepartment.headUserId.toString());
+        }
+    }
+
+    for (const role of approverRoles) {
+        if (
+            role === "ADMIN" ||
+            role === "DIRECTOR" ||
+            role === "DEPARTMENT_HEAD" ||
+            role === "FACULTY"
+        ) {
+            continue;
+        }
+
+        for (const userId of await resolveWorkflowRoleRecipientIds(role, subjectScope)) {
+            recipientIds.add(userId);
         }
     }
 
@@ -399,6 +426,8 @@ export async function resolveNotificationRecipientsForApproverRoles(
 export async function notifyWorkflowStageAssignees(options: {
     stage: Pick<IWorkflowDefinitionStage, "key" | "label" | "approverRoles">;
     subjectDepartmentName?: string;
+    subjectCollegeName?: string;
+    subjectUniversityName?: string;
     moduleName: NotificationModuleName;
     entityId: string;
     href: string;
@@ -408,7 +437,9 @@ export async function notifyWorkflowStageAssignees(options: {
 }) {
     const recipientIds = await resolveNotificationRecipientsForApproverRoles(
         options.stage.approverRoles,
-        options.subjectDepartmentName
+        options.subjectDepartmentName,
+        options.subjectCollegeName,
+        options.subjectUniversityName
     );
     const deduped = dedupeUserIds(
         recipientIds.filter((userId) => userId !== options.actor?.id)

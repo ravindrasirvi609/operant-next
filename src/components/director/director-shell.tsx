@@ -33,13 +33,13 @@ export function DirectorShell({
                     <div className="space-y-6">
                         <div>
                             <p className="text-xs font-medium uppercase tracking-[0.26em] text-zinc-500">
-                                UMIS Director
+                                UMIS Leadership
                             </p>
                             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-950">
                                 Leadership portal
                             </h1>
                             <p className="mt-3 text-sm leading-6 text-zinc-500">
-                                Review your assigned organizational units and the reporting hierarchy beneath them.
+                                Review your assigned units, governance responsibilities, and approval queues from one place.
                             </p>
                         </div>
 
@@ -75,7 +75,7 @@ export function DirectorShell({
                         <div className="flex items-start gap-3">
                             <ClipboardList className="mt-0.5 size-4 text-zinc-600" />
                             <p className="text-sm leading-6 text-zinc-500">
-                                Director access is limited to the organizational units assigned as your leadership responsibility.
+                                Leadership access is limited to units and committees that are actively assigned to your account.
                             </p>
                         </div>
                         <div className="mt-4">

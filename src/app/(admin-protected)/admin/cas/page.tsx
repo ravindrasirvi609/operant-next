@@ -14,7 +14,7 @@ export default async function AdminCasReviewPage() {
             name: admin.name,
             role: admin.role,
             department: admin.department,
-        }),
+        }, { stageKinds: ["final"] }),
         getCasPromotionRules(),
     ]);
 

@@ -20,7 +20,7 @@ export default async function AdminAqarReviewPage() {
             name: admin.name,
             role: admin.role,
             department: admin.department,
-        }),
+        }, { stageKinds: ["final"] }),
         listAqarCycles({
             id: admin.id,
             name: admin.name,

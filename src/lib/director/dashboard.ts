@@ -1,4 +1,6 @@
 import dbConnect from "@/lib/dbConnect";
+import GovernanceCommitteeMembership from "@/models/core/governance-committee-membership";
+import LeadershipAssignment from "@/models/core/leadership-assignment";
 import Organization from "@/models/core/organization";
 import User from "@/models/core/user";
 import Report from "@/models/reporting/report";
@@ -59,7 +61,7 @@ export async function getDirectorDashboardData(userId: string) {
         scopeFilters.push({ department: { $in: departmentNames } });
     }
 
-    const [facultyCount, studentCount, reportCount, lockedSections] = await Promise.all([
+    const [facultyCount, studentCount, reportCount, lockedSections, leadershipAssignments, committeeMemberships] = await Promise.all([
         User.countDocuments({
             role: "Faculty",
             $or: scopeFilters.length ? scopeFilters : [{ _id: { $in: [] } }],
@@ -74,11 +76,45 @@ export async function getDirectorDashboardData(userId: string) {
         ReportingStatus.find({
             collegeName: { $in: collegeNames.length ? collegeNames : ["__none__"] },
         }).sort({ updatedAt: -1 }),
+        LeadershipAssignment.find({
+            userId,
+            isActive: true,
+        })
+            .select("assignmentType organizationName organizationType collegeName universityName")
+            .lean(),
+        GovernanceCommitteeMembership.find({
+            userId,
+            isActive: true,
+        })
+            .populate("committeeId", "name committeeType organizationName")
+            .select("memberRole")
+            .lean(),
     ]);
 
     return {
         managedOrganizations,
         childOrganizations,
+        leadershipAssignments,
+        committeeMemberships: committeeMemberships
+            .map((membership) => {
+                const committee = membership.committeeId as {
+                    name?: string;
+                    committeeType?: string;
+                    organizationName?: string;
+                } | null;
+
+                if (!committee?.name) {
+                    return null;
+                }
+
+                return {
+                    name: committee.name,
+                    committeeType: committee.committeeType,
+                    organizationName: committee.organizationName,
+                    memberRole: membership.memberRole,
+                };
+            })
+            .filter(Boolean),
         metrics: {
             facultyCount,
             studentCount,

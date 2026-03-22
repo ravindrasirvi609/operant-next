@@ -18,6 +18,8 @@ export interface IWorkflowInstance extends Document {
     currentApproverRoles: WorkflowApproverRole[];
     currentApproverLabel?: string;
     scopeDepartmentName?: string;
+    scopeCollegeName?: string;
+    scopeUniversityName?: string;
     isActive: boolean;
     startedAt?: Date;
     completedAt?: Date;
@@ -57,7 +59,17 @@ const WorkflowInstanceSchema = new Schema<IWorkflowInstance>(
             type: [
                 {
                     type: String,
-                    enum: ["FACULTY", "DEPARTMENT_HEAD", "DIRECTOR", "IQAC", "PRINCIPAL", "ADMIN"],
+                    enum: [
+                        "FACULTY",
+                        "DEPARTMENT_HEAD",
+                        "DIRECTOR",
+                        "IQAC",
+                        "PBAS_COMMITTEE",
+                        "CAS_COMMITTEE",
+                        "AQAR_COMMITTEE",
+                        "PRINCIPAL",
+                        "ADMIN",
+                    ],
                 },
             ],
             default: [],
@@ -65,6 +77,8 @@ const WorkflowInstanceSchema = new Schema<IWorkflowInstance>(
         },
         currentApproverLabel: { type: String, trim: true },
         scopeDepartmentName: { type: String, trim: true, index: true },
+        scopeCollegeName: { type: String, trim: true, index: true },
+        scopeUniversityName: { type: String, trim: true, index: true },
         isActive: { type: Boolean, required: true, default: false, index: true },
         startedAt: { type: Date },
         completedAt: { type: Date },

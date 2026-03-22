@@ -8,6 +8,9 @@ export type WorkflowApproverRole =
     | "DEPARTMENT_HEAD"
     | "DIRECTOR"
     | "IQAC"
+    | "PBAS_COMMITTEE"
+    | "CAS_COMMITTEE"
+    | "AQAR_COMMITTEE"
     | "PRINCIPAL"
     | "ADMIN";
 
@@ -53,7 +56,17 @@ const WorkflowDefinitionStageSchema = new Schema<IWorkflowDefinitionStage>(
             type: [
                 {
                     type: String,
-                    enum: ["FACULTY", "DEPARTMENT_HEAD", "DIRECTOR", "IQAC", "PRINCIPAL", "ADMIN"],
+                    enum: [
+                        "FACULTY",
+                        "DEPARTMENT_HEAD",
+                        "DIRECTOR",
+                        "IQAC",
+                        "PBAS_COMMITTEE",
+                        "CAS_COMMITTEE",
+                        "AQAR_COMMITTEE",
+                        "PRINCIPAL",
+                        "ADMIN",
+                    ],
                 },
             ],
             default: [],

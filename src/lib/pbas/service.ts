@@ -993,18 +993,30 @@ async function getPbasWorkflowDepartmentName(application: InstanceType<typeof Fa
     return faculty.department;
 }
 
+async function getPbasWorkflowScope(application: InstanceType<typeof FacultyPbasForm>) {
+    const faculty = await getUserForApplication(application);
+
+    return {
+        departmentName: faculty.department,
+        collegeName: faculty.collegeName,
+        universityName: faculty.universityName,
+    };
+}
+
 async function canReviewPbasApplication(
     application: InstanceType<typeof FacultyPbasForm>,
     actor: SafeActor
 ) {
-    const subjectDepartmentName = await getPbasWorkflowDepartmentName(application);
+    const subjectScope = await getPbasWorkflowScope(application);
 
     return canActorProcessWorkflowStage({
         actor,
         moduleName: "PBAS",
         recordId: application._id.toString(),
         status: application.status,
-        subjectDepartmentName,
+        subjectDepartmentName: subjectScope.departmentName,
+        subjectCollegeName: subjectScope.collegeName,
+        subjectUniversityName: subjectScope.universityName,
         stageKinds: ["review"],
     });
 }
@@ -1063,19 +1075,27 @@ async function getUserForApplication(application: InstanceType<typeof FacultyPba
 
 async function notifyPbasStageAssignment(
     application: InstanceType<typeof FacultyPbasForm>,
-    stage: { key: string; label: string; approverRoles: Array<"DEPARTMENT_HEAD" | "DIRECTOR" | "IQAC" | "PRINCIPAL" | "ADMIN" | "FACULTY"> } | null,
+    stage: { key: string; label: string; approverRoles: string[] } | null,
     actor: SafeActor
 ) {
     if (!stage) {
         return;
     }
 
+    const subjectScope = await getPbasWorkflowScope(application);
+
     await notifyWorkflowStageAssignees({
-        stage,
-        subjectDepartmentName: await getPbasWorkflowDepartmentName(application),
+        stage: {
+            key: stage.key,
+            label: stage.label,
+            approverRoles: stage.approverRoles as Array<"DEPARTMENT_HEAD" | "DIRECTOR" | "IQAC" | "PBAS_COMMITTEE" | "PRINCIPAL" | "ADMIN" | "FACULTY">,
+        },
+        subjectDepartmentName: subjectScope.departmentName,
+        subjectCollegeName: subjectScope.collegeName,
+        subjectUniversityName: subjectScope.universityName,
         moduleName: "PBAS",
         entityId: application._id.toString(),
-        href: stage.key === "final_approval" ? "/admin/pbas" : "/director/pbas",
+        href: stage.key === "final_approval" ? "/director/pbas" : "/director/pbas",
         title: `PBAS moved to ${stage.label}`,
         message: `${actor.name} submitted PBAS appraisal ${application.academicYear} for ${stage.label}.`,
         actor,
@@ -1187,13 +1207,15 @@ async function upsertWorkflow(
     action?: "submit" | "approve" | "reject",
     session?: mongoose.ClientSession
 ) {
-    const subjectDepartmentName = await getPbasWorkflowDepartmentName(application);
+    const subjectScope = await getPbasWorkflowScope(application);
 
     await syncWorkflowInstanceState({
         moduleName: "PBAS",
         recordId: application._id.toString(),
         status: application.status,
-        subjectDepartmentName,
+        subjectDepartmentName: subjectScope.departmentName,
+        subjectCollegeName: subjectScope.collegeName,
+        subjectUniversityName: subjectScope.universityName,
         actor,
         remarks,
         action,
@@ -1802,6 +1824,22 @@ export async function getPbasApplicationById(actor: SafeActor, id: string) {
         }
     }
 
+    const subjectScope = await getPbasWorkflowScope(application);
+    const canAccessByWorkflowRole = await canActorProcessWorkflowStage({
+        actor,
+        moduleName: "PBAS",
+        recordId: application._id.toString(),
+        status: application.status,
+        subjectDepartmentName: subjectScope.departmentName,
+        subjectCollegeName: subjectScope.collegeName,
+        subjectUniversityName: subjectScope.universityName,
+        stageKinds: ["review", "final"],
+    });
+
+    if (canAccessByWorkflowRole) {
+        return application;
+    }
+
     throw new AuthError("You do not have access to this PBAS application.", 403);
 }
 
@@ -2156,17 +2194,16 @@ export async function approvePbasApplication(actor: SafeActor, id: string, rawIn
     const input = pbasApprovalSchema.parse(rawInput);
     const workflowDefinition = await getActiveWorkflowDefinition("PBAS");
 
-    if (actor.role !== "Admin") {
-        throw new AuthError("Only admin users can finalize PBAS approval.", 403);
-    }
-
     const application = await getPbasApplicationById(actor, id);
+    const subjectScope = await getPbasWorkflowScope(application);
     const canFinalize = await canActorProcessWorkflowStage({
         actor,
         moduleName: "PBAS",
         recordId: application._id.toString(),
         status: application.status,
-        subjectDepartmentName: await getPbasWorkflowDepartmentName(application),
+        subjectDepartmentName: subjectScope.departmentName,
+        subjectCollegeName: subjectScope.collegeName,
+        subjectUniversityName: subjectScope.universityName,
         stageKinds: ["final"],
     });
 
@@ -2226,10 +2263,10 @@ export async function approvePbasApplication(actor: SafeActor, id: string, rawIn
                 reviewerId: new Types.ObjectId(actor.id),
                 reviewerName: actor.name,
                 reviewerRole: actor.role,
-                designation: "Admin Final Approver",
+                designation: actor.role === "Admin" ? "Admin Final Approver" : "Principal Final Approver",
                 remarks: input.remarks,
                 decision: input.decision,
-                stage: "Admin",
+                stage: actor.role === "Admin" ? "Admin" : "Principal",
                 reviewedAt: new Date(),
             });
             pushStatusLog(txApplication, txApplication.status, actor, input.remarks);
@@ -2270,7 +2307,10 @@ export async function approvePbasApplication(actor: SafeActor, id: string, rawIn
     return buildApplicationResponse(refreshed);
 }
 
-export async function getPbasReviewQueue(actor: SafeActor) {
+export async function getPbasReviewQueue(
+    actor: SafeActor,
+    options?: { stageKinds?: Array<"review" | "final"> }
+) {
     await dbConnect();
     await ensurePbasDynamicMigration();
     const workflowDefinition = await getActiveWorkflowDefinition("PBAS");
@@ -2285,7 +2325,7 @@ export async function getPbasReviewQueue(actor: SafeActor) {
     const recordIds = await listPendingWorkflowRecordIds({
         actor,
         moduleName: "PBAS",
-        stageKinds: actor.role === "Admin" ? ["final"] : ["review"],
+        stageKinds: options?.stageKinds,
     });
     const recordIdSet = new Set(recordIds);
 

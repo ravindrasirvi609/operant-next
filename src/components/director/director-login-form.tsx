@@ -69,7 +69,7 @@ export function DirectorLoginForm() {
 
             <Button disabled={isPending} type="submit">
                 {isPending ? <Spinner /> : null}
-                Open Director Portal
+                Open Leadership Portal
             </Button>
         </form>
     );

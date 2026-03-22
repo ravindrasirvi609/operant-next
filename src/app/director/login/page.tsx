@@ -8,15 +8,15 @@ export default async function DirectorLoginPage() {
 
     return (
         <AuthShell
-            eyebrow="Director Portal"
-            title="Director login"
-            description="Directors sign in here to view their assigned colleges, departments, and reporting hierarchy."
+            eyebrow="Leadership Portal"
+            title="Leadership login"
+            description="Assigned HODs, principals, IQAC leaders, and review committee members sign in here to access governance workflows."
         >
             <Card>
                 <CardHeader>
-                    <CardTitle>Director sign in</CardTitle>
+                    <CardTitle>Leadership sign in</CardTitle>
                     <CardDescription>
-                        Only users with the Director role or assigned leadership responsibility can open the leadership portal.
+                        Only users with active leadership or governance responsibility can open the leadership portal.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

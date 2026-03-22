@@ -4,6 +4,7 @@ import dbConnect from "@/lib/dbConnect";
 import { clearSessionCookie, createSessionToken, getSessionPayload, setSessionCookie } from "@/lib/auth/session";
 import { AuthError } from "@/lib/auth/errors";
 import { authConfig } from "@/lib/auth/config";
+import { hasGovernancePortalAccess } from "@/lib/governance/service";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/auth/email";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { addHours, addMinutes, createRandomToken, hashToken } from "@/lib/auth/tokens";
@@ -244,6 +245,7 @@ export async function loginDirector(rawInput: unknown) {
 
     const hasLeadershipAccess =
         result.user.role === "Director" ||
+        (await hasGovernancePortalAccess(result.user.id)) ||
         Boolean(
             await Organization.findOne({
                 headUserId: result.user.id,
@@ -663,6 +665,7 @@ export async function requireDirector() {
 
     const hasLeadershipAccess =
         user.role === "Director" ||
+        (await hasGovernancePortalAccess(user.id)) ||
         Boolean(
             await Organization.findOne({
                 headUserId: user.id,
@@ -704,6 +707,7 @@ export async function redirectDirectorIfAuthenticated() {
 
     const hasLeadershipAccess =
         user.role === "Director" ||
+        (await hasGovernancePortalAccess(user.id)) ||
         Boolean(
             await Organization.findOne({
                 headUserId: user.id,

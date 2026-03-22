@@ -17,7 +17,7 @@ export interface ICasScreeningCommitteeMember extends Document {
     designation: string;
     role: CasCommitteeRole;
     reviewerRole?: string;
-    stage: "Department Head" | "CAS Committee" | "Admin";
+    stage: "Department Head" | "CAS Committee" | "Principal" | "Admin";
     remarks?: string;
     decision?: string;
     decisionDate?: Date;
@@ -50,7 +50,7 @@ const CasScreeningCommitteeMemberSchema = new Schema<ICasScreeningCommitteeMembe
         reviewerRole: { type: String, trim: true },
         stage: {
             type: String,
-            enum: ["Department Head", "CAS Committee", "Admin"],
+            enum: ["Department Head", "CAS Committee", "Principal", "Admin"],
             required: true,
             index: true,
         },
