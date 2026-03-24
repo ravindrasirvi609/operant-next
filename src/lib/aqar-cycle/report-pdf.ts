@@ -9,15 +9,16 @@ export async function buildAqarCyclePdf(cycle: InstanceType<typeof AqarCycle>) {
             [
                 `criterion_${criterion.criterionCode}_body`,
                 [
-                    criterion.summary,
-                    criterion.narrative ? `Narrative: ${criterion.narrative}` : undefined,
-                    `Completion: ${criterion.completionPercent}% | Status: ${criterion.status}`,
-                    `Metrics: ${Object.entries(criterion.metrics)
+                    `Criterion summary: ${criterion.summary}`,
+                    criterion.narrative ? `Narrative detail: ${criterion.narrative}` : undefined,
+                    `Completion status: ${criterion.completionPercent}% complete.`,
+                    `Current state: ${criterion.status}.`,
+                    `Metrics captured: ${Object.entries(criterion.metrics)
                         .map(([key, value]) => `${key}: ${value}`)
-                        .join(" | ") || "-"}`,
+                        .join(" | ") || "-"}.`,
                 ]
                     .filter(Boolean)
-                    .join(" | "),
+                    .join("\n"),
             ],
         ])
     );

@@ -194,19 +194,26 @@ async function buildSamplePreviewPdf(reportType: ReportTemplateType) {
             publications: 212,
             projects: 46,
             criterion_C1_heading: "C1 Curricular Aspects",
-            criterion_C1_body: "Curriculum review cycles aligned with OBE targets across all schools. Completion: 84% | Status: Ready | Metrics: curriculumRevisions: 12 | newCourses: 6",
+            criterion_C1_body:
+                "Criterion summary: Curriculum review cycles aligned with OBE targets across all schools.\nCompletion status: 84% complete.\nCurrent state: Ready.\nMetrics captured: curriculumRevisions: 12 | newCourses: 6.",
             criterion_C2_heading: "C2 Teaching-Learning and Evaluation",
-            criterion_C2_body: "Evaluation reforms and mentoring coverage improved across departments. Completion: 88% | Status: Ready | Metrics: mentorCoverage: 91 | feedbackCycles: 2",
+            criterion_C2_body:
+                "Criterion summary: Evaluation reforms and mentoring coverage improved across departments.\nCompletion status: 88% complete.\nCurrent state: Ready.\nMetrics captured: mentorCoverage: 91 | feedbackCycles: 2.",
             criterion_C3_heading: "C3 Research, Innovations, and Extension",
-            criterion_C3_body: "Strong publication and funded project pipeline with growing extension activity. Completion: 81% | Status: Ready | Metrics: publications: 212 | projects: 46",
+            criterion_C3_body:
+                "Criterion summary: Strong publication and funded project pipeline with growing extension activity.\nCompletion status: 81% complete.\nCurrent state: Ready.\nMetrics captured: publications: 212 | projects: 46.",
             criterion_C4_heading: "C4 Infrastructure and Learning Resources",
-            criterion_C4_body: "Digital learning resources expanded with new LMS-backed repositories. Completion: 76% | Status: Ready | Metrics: smartClassrooms: 38 | digitalCollections: 14",
+            criterion_C4_body:
+                "Criterion summary: Digital learning resources expanded with new LMS-backed repositories.\nCompletion status: 76% complete.\nCurrent state: Ready.\nMetrics captured: smartClassrooms: 38 | digitalCollections: 14.",
             criterion_C5_heading: "C5 Student Support and Progression",
-            criterion_C5_body: "Placement and progression indicators remain stable with stronger support interventions. Completion: 79% | Status: Ready | Metrics: placements: 384 | progressionRate: 72",
+            criterion_C5_body:
+                "Criterion summary: Placement and progression indicators remain stable with stronger support interventions.\nCompletion status: 79% complete.\nCurrent state: Ready.\nMetrics captured: placements: 384 | progressionRate: 72.",
             criterion_C6_heading: "C6 Governance, Leadership, and Management",
-            criterion_C6_body: "Institutional planning and administrative benchmarking were updated for the cycle. Completion: 82% | Status: Ready | Metrics: auditsClosed: 11 | trainingSessions: 19",
+            criterion_C6_body:
+                "Criterion summary: Institutional planning and administrative benchmarking were updated for the cycle.\nCompletion status: 82% complete.\nCurrent state: Ready.\nMetrics captured: auditsClosed: 11 | trainingSessions: 19.",
             criterion_C7_heading: "C7 Institutional Values and Best Practices",
-            criterion_C7_body: "Green campus and inclusion practices documented with cross-department evidence. Completion: 78% | Status: Ready | Metrics: bestPractices: 4 | outreachInitiatives: 17",
+            criterion_C7_body:
+                "Criterion summary: Green campus and inclusion practices documented with cross-department evidence.\nCompletion status: 78% complete.\nCurrent state: Ready.\nMetrics captured: bestPractices: 4 | outreachInitiatives: 17.",
         },
         FACULTY_CAS: {
             facultyName: "Dr. Meera Sharma",

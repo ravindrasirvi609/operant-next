@@ -143,7 +143,7 @@ export function ReportTemplateManager({
                 {
                     key: `section_${current.sections.length + 1}`,
                     title: "New Section",
-                    body: "Add template text here using placeholders like {{exampleValue}}.",
+                    body: "Start with the purpose of this section, then list the key metrics, evidence expectations, approval notes, and any reviewer guidance using placeholders like {{exampleValue}}.",
                     order: current.sections.length + 1,
                     isActive: true,
                 },
@@ -254,7 +254,7 @@ export function ReportTemplateManager({
                 <CardHeader>
                     <CardTitle>Template Library</CardTitle>
                     <CardDescription>
-                        Edit the active template for each report type. Saving creates a new active version.
+                        Edit the active template for each report type. Use structured, publication-ready copy so the preview reads like a final production document. Saving creates a new active version.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-3">
@@ -462,7 +462,7 @@ export function ReportTemplateManager({
                             <div>
                                 <CardTitle>Sections</CardTitle>
                                 <CardDescription>
-                                    Reword, reorder, or disable individual sections without touching code.
+                                    Reword, reorder, or disable individual sections without touching code. Strong sections usually include context, metrics, evidence, review notes, and release guidance.
                                 </CardDescription>
                             </div>
                             <Button type="button" variant="outline" onClick={addSection}>
