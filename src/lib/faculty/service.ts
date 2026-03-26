@@ -167,7 +167,7 @@ async function ensureCourse(
                     semesterId,
                 },
             },
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: "after" }
         );
     }
 
@@ -977,7 +977,7 @@ export async function saveFacultyWorkspace(
                     resultTargetPercentage: entry.resultTargetPercentage,
                 },
             },
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: "after" }
         );
     }
 
@@ -1005,7 +1005,7 @@ export async function saveFacultyWorkspace(
                     overallKpiScore: entry.overallKpiScore,
                 },
             },
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: "after" }
         );
     }
 
@@ -1036,7 +1036,7 @@ export async function saveFacultyWorkspace(
                     performanceGrade: entry.performanceGrade || undefined,
                 },
             },
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: "after" }
         );
     }
 

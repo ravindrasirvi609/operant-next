@@ -797,7 +797,7 @@ export async function updateStudentRecordDocument(
     const record = await (Model as any).findOneAndUpdate(
         { _id: recordId, studentId: student._id },
         { $set: { documentId: resolvedDocumentId } },
-        { new: true }
+        { returnDocument: "after" }
     );
 
     if (!record) {

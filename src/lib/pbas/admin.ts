@@ -94,7 +94,7 @@ export async function updatePbasCategory(id: string, input: unknown) {
     const category = await PbasCategoryMaster.findByIdAndUpdate(
         id,
         { $set: update },
-        { new: true }
+        { returnDocument: "after" }
     );
 
     if (!category) {
@@ -160,7 +160,7 @@ export async function updatePbasIndicator(id: string, input: unknown) {
     const indicator = await PbasIndicatorMaster.findByIdAndUpdate(
         id,
         { $set: update },
-        { new: true }
+        { returnDocument: "after" }
     ).populate("categoryId", "categoryCode categoryName");
 
     if (!indicator) {

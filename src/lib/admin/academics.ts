@@ -101,7 +101,7 @@ export async function updateAcademicYear(
             updated = await AcademicYear.findByIdAndUpdate(
                 id,
                 { $set: { ...input } },
-                { new: true, session }
+                { returnDocument: "after", session }
             );
 
             if (input.isActive) {
@@ -353,7 +353,7 @@ export async function updateProgram(
     const updated = await Program.findByIdAndUpdate(
         id,
         { $set: input },
-        { new: true }
+        { returnDocument: "after" }
     )
         .populate("institutionId", "name")
         .populate("departmentId", "name")
@@ -508,7 +508,7 @@ export async function updateSemester(
     const updated = await Semester.findByIdAndUpdate(
         id,
         { $set: input },
-        { new: true }
+        { returnDocument: "after" }
     )
         .populate("programId", "name")
         .populate("academicYearId", "yearStart yearEnd");
@@ -682,7 +682,7 @@ export async function updateCourse(
                 subjectCode: input.subjectCode || undefined,
             },
         },
-        { new: true }
+        { returnDocument: "after" }
     )
         .populate("programId", "name")
         .populate({

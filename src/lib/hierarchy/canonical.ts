@@ -151,7 +151,7 @@ async function syncUniversityProjection(
                 phone: organization.phone || undefined,
             },
         },
-        { upsert: true, new: true, session }
+        { upsert: true, returnDocument: "after", session }
     );
 }
 
@@ -193,7 +193,7 @@ async function syncDepartmentProjection(
                 hodName: organization.headName || undefined,
             },
         },
-        { upsert: true, new: true, session }
+        { upsert: true, returnDocument: "after", session }
     );
 }
 
