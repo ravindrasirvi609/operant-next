@@ -10,6 +10,7 @@ import type { z } from "zod";
 
 import { FieldError, FormMessage, Spinner } from "@/components/auth/auth-helpers";
 import { PasswordChecklist } from "@/components/auth/password-checklist";
+import { PasswordInput } from "@/components/auth/password-input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -60,13 +61,13 @@ function AuthCard({
     footer?: React.ReactNode;
 }) {
     return (
-        <Card className="border-zinc-200/80 bg-white/95 shadow-lg">
-            <CardHeader className="gap-2 border-b border-zinc-100">
-                <CardTitle className="text-xl">{title}</CardTitle>
-                <CardDescription className="text-sm text-zinc-500">{description}</CardDescription>
+        <Card className="overflow-hidden rounded-[28px] border border-white/80 bg-white/95 shadow-[0_24px_60px_-32px_rgba(15,23,42,0.35)] backdrop-blur">
+            <CardHeader className="gap-2 border-b border-zinc-100/80 bg-zinc-50/70 px-6 py-5">
+                <CardTitle className="text-xl text-zinc-950">{title}</CardTitle>
+                <CardDescription className="text-sm leading-6 text-zinc-500">{description}</CardDescription>
             </CardHeader>
-            <CardContent className="pt-6">{children}</CardContent>
-            {footer ? <CardFooter className="justify-between">{footer}</CardFooter> : null}
+            <CardContent className="px-6 py-6">{children}</CardContent>
+            {footer ? <CardFooter className="border-t border-zinc-100/80 bg-zinc-50/50 px-6 py-5">{footer}</CardFooter> : null}
         </Card>
     );
 }
@@ -118,7 +119,7 @@ export function LoginForm({
         <div className="space-y-6">
             <AuthCard
                 title="Sign in to UMIS"
-                description="Only verified users can access the UMIS home page. Public access is disabled."
+                description="Continue to the Operant Next University portal with your institutional email or your enrollment number after first-time activation."
                 footer={
                     <div className="text-sm text-zinc-500">
                         First time student?{" "}
@@ -139,12 +140,15 @@ export function LoginForm({
                     {errorMessage ? <FormMessage message={errorMessage} type="error" /> : null}
 
                     <div className="grid gap-2">
-                        <Label htmlFor="login-email">Email or Enrollment No.</Label>
+                        <Label htmlFor="login-email">Institutional email or enrollment number</Label>
                         <Input
                             id="login-email"
-                            placeholder="faculty@university.edu or CSE2024001"
+                            placeholder="you@university.edu or 24CSE001"
                             {...form.register("email")}
                         />
+                        <p className="text-sm leading-6 text-zinc-500">
+                            Use the identifier linked to your university record.
+                        </p>
                         <FieldError message={form.formState.errors.email?.message} />
                     </div>
 
@@ -158,9 +162,8 @@ export function LoginForm({
                                 Forgot password?
                             </Link>
                         </div>
-                        <Input
+                        <PasswordInput
                             id="login-password"
-                            type="password"
                             placeholder="Enter your password"
                             {...form.register("password")}
                         />
@@ -292,10 +295,10 @@ export function StudentActivationForm() {
 
                 <div className="grid gap-5 sm:grid-cols-2">
                     <Field label="Set password" id="activate-password" error={form.formState.errors.password?.message}>
-                        <Input id="activate-password" type="password" {...form.register("password")} />
+                        <PasswordInput id="activate-password" {...form.register("password")} />
                     </Field>
                     <Field label="Confirm password" id="activate-confirm-password" error={form.formState.errors.confirmPassword?.message}>
-                        <Input id="activate-confirm-password" type="password" {...form.register("confirmPassword")} />
+                        <PasswordInput id="activate-confirm-password" {...form.register("confirmPassword")} />
                     </Field>
                 </div>
 
@@ -381,10 +384,10 @@ export function FacultyActivationForm() {
 
                 <div className="grid gap-5 sm:grid-cols-2">
                     <Field label="Set password" id="activate-faculty-password" error={form.formState.errors.password?.message}>
-                        <Input id="activate-faculty-password" type="password" {...form.register("password")} />
+                        <PasswordInput id="activate-faculty-password" {...form.register("password")} />
                     </Field>
                     <Field label="Confirm password" id="activate-faculty-confirm-password" error={form.formState.errors.confirmPassword?.message}>
-                        <Input id="activate-faculty-confirm-password" type="password" {...form.register("confirmPassword")} />
+                        <PasswordInput id="activate-faculty-confirm-password" {...form.register("confirmPassword")} />
                     </Field>
                 </div>
 
@@ -508,7 +511,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
                 <input type="hidden" value={token} {...form.register("token")} />
 
                 <Field label="New password" id="reset-password" error={form.formState.errors.password?.message}>
-                    <Input id="reset-password" type="password" placeholder="Create a strong password" {...form.register("password")} />
+                    <PasswordInput id="reset-password" placeholder="Create a strong password" {...form.register("password")} />
                 </Field>
 
                 <PasswordChecklist password={password ?? ""} />
@@ -518,9 +521,8 @@ export function ResetPasswordForm({ token }: { token: string }) {
                     id="reset-confirm-password"
                     error={form.formState.errors.confirmPassword?.message}
                 >
-                    <Input
+                    <PasswordInput
                         id="reset-confirm-password"
-                        type="password"
                         placeholder="Re-enter the password"
                         {...form.register("confirmPassword")}
                     />

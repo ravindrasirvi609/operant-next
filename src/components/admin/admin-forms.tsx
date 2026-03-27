@@ -576,15 +576,7 @@ export function AdminLoginForm({
     );
 }
 
-export function AdminBootstrapForm({
-    universityOptions,
-    collegeOptions,
-    departmentOptions,
-}: {
-    universityOptions: Option[];
-    collegeOptions: Option[];
-    departmentOptions: Option[];
-}) {
+export function AdminBootstrapForm() {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [errorMessage, setErrorMessage] = useState("");
@@ -595,9 +587,6 @@ export function AdminBootstrapForm({
             name: "",
             email: "",
             password: "",
-            universityName: universityOptions[0]?.label ?? "",
-            collegeName: collegeOptions[0]?.label ?? "",
-            department: departmentOptions[0]?.label ?? "",
         },
     });
 
@@ -652,81 +641,6 @@ export function AdminBootstrapForm({
                     </Field>
 
                     <PasswordChecklist password={password} />
-
-                    <div className="grid gap-5 md:grid-cols-3">
-                        <Field label="University" id="bootstrap-university" error={form.formState.errors.universityName?.message}>
-                            {universityOptions.length ? (
-                                <Controller
-                                    control={form.control}
-                                    name="universityName"
-                                    render={({ field }) => (
-                                        <Select value={field.value || undefined} onValueChange={field.onChange}>
-                                            <SelectTrigger id="bootstrap-university" className="w-full">
-                                                <SelectValue placeholder="Select university" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {universityOptions.map((item) => (
-                                                    <SelectItem key={item.key} value={item.label}>
-                                                        {item.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                />
-                            ) : (
-                                <Input id="bootstrap-university" placeholder="University name" {...form.register("universityName")} />
-                            )}
-                        </Field>
-                        <Field label="College" id="bootstrap-college" error={form.formState.errors.collegeName?.message}>
-                            {collegeOptions.length ? (
-                                <Controller
-                                    control={form.control}
-                                    name="collegeName"
-                                    render={({ field }) => (
-                                        <Select value={field.value || undefined} onValueChange={field.onChange}>
-                                            <SelectTrigger id="bootstrap-college" className="w-full">
-                                                <SelectValue placeholder="Select college" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {collegeOptions.map((item) => (
-                                                    <SelectItem key={item.key} value={item.label}>
-                                                        {item.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                />
-                            ) : (
-                                <Input id="bootstrap-college" placeholder="College name" {...form.register("collegeName")} />
-                            )}
-                        </Field>
-                        <Field label="Department" id="bootstrap-department" error={form.formState.errors.department?.message}>
-                            {departmentOptions.length ? (
-                                <Controller
-                                    control={form.control}
-                                    name="department"
-                                    render={({ field }) => (
-                                        <Select value={field.value || undefined} onValueChange={field.onChange}>
-                                            <SelectTrigger id="bootstrap-department" className="w-full">
-                                                <SelectValue placeholder="Select department" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {departmentOptions.map((item) => (
-                                                    <SelectItem key={item.key} value={item.label}>
-                                                        {item.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                />
-                            ) : (
-                                <Input id="bootstrap-department" placeholder="Department name" {...form.register("department")} />
-                            )}
-                        </Field>
-                    </div>
 
                     <Button className="w-full" disabled={isPending} size="lg" type="submit">
                         {isPending ? <Spinner /> : <CheckCircle2 className="size-4" />}

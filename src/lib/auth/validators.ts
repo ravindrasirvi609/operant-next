@@ -66,9 +66,6 @@ export const adminBootstrapSchema = z.object({
     name: z.string().trim().min(3, "Name must be at least 3 characters."),
     email: z.email("Enter a valid email address."),
     password: passwordSchema,
-    universityName: z.string().trim().min(2, "University is required."),
-    department: z.string().trim().min(2, "Department is required."),
-    collegeName: z.string().trim().min(2, "College is required."),
 });
 
 export const forgotPasswordSchema = z.object({

@@ -1,85 +1,39 @@
 import Link from "next/link";
-import { GraduationCap, LibraryBig, ShieldCheck } from "lucide-react";
+import { GraduationCap, ShieldCheck, UserRoundCheck } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 
 export function AuthShell({
     eyebrow,
     title,
     description,
     children,
+    aside,
     footer,
 }: {
     eyebrow: string;
     title: string;
     description: string;
     children: React.ReactNode;
+    aside?: React.ReactNode;
     footer?: React.ReactNode;
 }) {
     return (
-        <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-zinc-50 via-white to-amber-50">
+        <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(245,158,11,0.14),_transparent_34%),linear-gradient(180deg,_#f8fafc_0%,_#fffdf7_100%)]">
             <div className="pointer-events-none absolute inset-0">
-                <div className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-sky-200/40 blur-3xl" />
-                <div className="absolute -right-16 bottom-0 h-80 w-80 rounded-full bg-amber-200/40 blur-3xl" />
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-zinc-300/70 to-transparent" />
+                <div className="absolute left-0 top-0 h-full w-full bg-[linear-gradient(rgba(255,255,255,0.62)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.62)_1px,transparent_1px)] bg-[size:72px_72px] opacity-40" />
+                <div className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-sky-300/35 blur-3xl" />
+                <div className="absolute -right-16 bottom-0 h-80 w-80 rounded-full bg-amber-300/35 blur-3xl" />
             </div>
-            <div className="relative mx-auto grid min-h-screen max-w-7xl gap-10 px-4 py-10 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
-                <Card className="flex h-full flex-col justify-between border-zinc-200/80 bg-white/90 shadow-xl backdrop-blur">
-                    <CardHeader className="gap-4 border-b border-zinc-100">
-                        <div className="flex items-center justify-between gap-4">
-                            <div>
-                                <p className="text-xs font-medium uppercase tracking-[0.24em] text-zinc-500">
-                                    UMIS Software
-                                </p>
-                                <CardTitle className="mt-3 max-w-xl text-4xl font-semibold tracking-tight text-zinc-950 sm:text-5xl">
-                                    Authentication built for academic operations.
-                                </CardTitle>
-                            </div>
-                            <Badge className="bg-zinc-900 text-white">Secure Portal</Badge>
-                        </div>
-                        <CardDescription className="max-w-2xl text-base leading-7 text-zinc-600">
-                            Students and faculty can self-register, verify email,
-                            recover access, and enter the protected UMIS workspace.
-                            The home page is locked behind authenticated access.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="grid gap-4 sm:grid-cols-3">
-                            <FeatureCard
-                                icon={<ShieldCheck className="size-5" />}
-                                title="Protected Access"
-                                text="HTTP-only cookie sessions, password hashing, email verification, and reset links."
-                            />
-                            <FeatureCard
-                                icon={<GraduationCap className="size-5" />}
-                                title="Role Aware"
-                                text="Faculty and student registration flows collect the right academic identity data."
-                            />
-                            <FeatureCard
-                                icon={<LibraryBig className="size-5" />}
-                                title="UMIS Ready"
-                                text="Works against your Mongo user model so future modules inherit the same auth layer."
-                            />
-                        </div>
-                        <Separator />
-                        <div className="grid gap-3 text-sm text-zinc-500">
-                            <p>Modern auth stack with Resend, bcryptjs, jose, Zod, and React Hook Form.</p>
-                            <div className="flex items-center gap-2">
-                                <span>Already onboarded?</span>
-                                <Link href="/login" className="font-medium text-zinc-950">
-                                    Sign in
-                                </Link>
-                            </div>
-                        </div>
-                    </CardContent>
-                    <CardFooter className="bg-zinc-50/70 text-sm text-zinc-500">
-                        Secure identity checks are required for every protected UMIS module.
-                    </CardFooter>
-                </Card>
+            <div className="relative mx-auto grid min-h-screen max-w-7xl gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:px-8 lg:py-10">
+                <div className="order-2 lg:order-1">
+                    {aside ?? <DefaultAside />}
+                </div>
 
-                <section className="flex items-center justify-center">
-                    <div className="w-full max-w-2xl">
+                <section className="order-1 flex items-center justify-center lg:order-2">
+                    <div className="w-full max-w-2xl rounded-[32px] border border-white/80 bg-white/72 p-5 shadow-[0_30px_90px_-40px_rgba(15,23,42,0.5)] backdrop-blur xl:p-7">
                         <div className="mb-6 space-y-3">
                             <p className="text-xs font-medium uppercase tracking-[0.24em] text-zinc-500">
                                 {eyebrow}
@@ -100,6 +54,74 @@ export function AuthShell({
     );
 }
 
+function DefaultAside() {
+    return (
+        <Card className="flex h-full flex-col justify-between overflow-hidden rounded-[32px] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.94)_0%,rgba(250,250,249,0.88)_100%)] shadow-[0_30px_90px_-40px_rgba(15,23,42,0.5)] backdrop-blur">
+            <CardHeader className="gap-5 border-b border-zinc-100/80 px-6 py-6 sm:px-8">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <p className="text-xs font-medium uppercase tracking-[0.24em] text-zinc-500">
+                            UMIS Software
+                        </p>
+                        <CardTitle className="mt-3 max-w-2xl text-4xl font-semibold tracking-tight text-zinc-950 sm:text-5xl">
+                            Secure access for everyday academic operations.
+                        </CardTitle>
+                    </div>
+                    <Badge className="border border-zinc-200 bg-white text-zinc-700 shadow-sm">
+                        University Portal
+                    </Badge>
+                </div>
+                <CardDescription className="max-w-2xl text-base leading-7 text-zinc-600">
+                    Bring student services, faculty workflows, and institutional operations into one reliable sign-in experience built for campus teams.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5 px-6 py-6 sm:px-8">
+                <div className="grid gap-4 sm:grid-cols-3">
+                    <FeatureCard
+                        icon={<ShieldCheck className="size-5" />}
+                        title="Protected Access"
+                        text="Secure entry for every protected workspace, record, and operational flow."
+                    />
+                    <FeatureCard
+                        icon={<GraduationCap className="size-5" />}
+                        title="Student Ready"
+                        text="Supports account activation and day-to-day access for enrolled learners."
+                    />
+                    <FeatureCard
+                        icon={<UserRoundCheck className="size-5" />}
+                        title="Faculty Ready"
+                        text="Keeps teaching, administration, and review responsibilities inside one portal."
+                    />
+                </div>
+                <div className="grid gap-4 rounded-[24px] border border-zinc-200/80 bg-white/80 p-5 shadow-sm sm:grid-cols-2">
+                    <div>
+                        <p className="text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">
+                            Access Scope
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-zinc-600">
+                            Students, faculty, administrators, and academic leadership enter the right workspace from a shared identity layer.
+                        </p>
+                    </div>
+                    <div>
+                        <p className="text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">
+                            Operational Focus
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-zinc-600">
+                            Registration, records, approvals, and institutional workflows stay aligned under one sign-in experience.
+                        </p>
+                    </div>
+                </div>
+            </CardContent>
+            <CardFooter className="flex items-center justify-between gap-4 border-t border-zinc-100/80 bg-zinc-50/70 px-6 py-5 text-sm text-zinc-500 sm:px-8">
+                <span>Already onboarded?</span>
+                <Link href="/login" className="font-medium text-zinc-950">
+                    Sign in
+                </Link>
+            </CardFooter>
+        </Card>
+    );
+}
+
 function FeatureCard({
     icon,
     title,
@@ -110,9 +132,9 @@ function FeatureCard({
     text: string;
 }) {
     return (
-        <Card className="border-zinc-200/80 bg-white/80 shadow-sm">
-            <CardContent className="space-y-3">
-                <div className="inline-flex size-11 items-center justify-center rounded-md bg-white text-zinc-700 shadow-sm">
+        <Card className="border-zinc-200/80 bg-white/88 shadow-sm">
+            <CardContent className="space-y-3 px-5 py-5">
+                <div className="inline-flex size-11 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-700 shadow-sm">
                     {icon}
                 </div>
                 <div>
