@@ -15,7 +15,7 @@ export default async function AdminMasterDataPage() {
                 <CardHeader>
                 <CardTitle>Institutional master data</CardTitle>
                 <CardDescription>
-                    Centralize academic-year options, reporting categories, offices, and other enum-style configuration that is not governed by the hierarchy or reference-master modules.
+                    Centralize reporting categories, offices, and other enum-style configuration that is not governed by the hierarchy or reference-master modules. Academic years are managed in Admin Academics.
                 </CardDescription>
                 </CardHeader>
                 <CardContent>

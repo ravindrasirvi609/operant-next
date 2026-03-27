@@ -10,7 +10,6 @@ import {
     Briefcase,
     Building2,
     Calendar,
-    CalendarDays,
     CheckCircle2,
     Download,
     FileSpreadsheet,
@@ -159,16 +158,6 @@ const templateHeaders = [
 
 const templateRows = [
     {
-        category: "academic-year",
-        label: "YYYY-YYYY",
-        code: "AY-YYYY-YY",
-        description: "Active academic year used for reporting and workflows.",
-        parentCategory: "",
-        parentKey: "",
-        sortOrder: 1,
-        isActive: true,
-    },
-    {
         category: "report-category",
         label: "AQAR",
         code: "AQAR",
@@ -208,10 +197,6 @@ const categoryVisuals: Record<
     department: {
         icon: Layers,
         tone: "border-teal-200 bg-teal-50 text-teal-700",
-    },
-    "academic-year": {
-        icon: CalendarDays,
-        tone: "border-amber-200 bg-amber-50 text-amber-700",
     },
     "report-category": {
         icon: FileText,
@@ -850,7 +835,7 @@ export function MasterDataManager({
                     <CardHeader>
                         <CardTitle>Create master data</CardTitle>
                         <CardDescription>
-                            Use this to add universities, colleges, departments, academic years, report categories, and other enum-style values.
+                            Use this to add universities, colleges, departments, report categories, and other enum-style values.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-5">

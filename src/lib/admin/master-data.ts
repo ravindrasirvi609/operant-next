@@ -22,11 +22,6 @@ export type MasterDataBulkResult = {
 
 export const masterDataCategories = [
     {
-        id: "academic-year",
-        label: "Academic Years",
-        description: "Selectable academic sessions for reporting and feedback.",
-    },
-    {
         id: "report-category",
         label: "Report Categories",
         description: "AQAR, NIRF, and internal reporting buckets.",
