@@ -46,6 +46,23 @@ function toAcademicYearLabel(yearStart?: number, yearEnd?: number) {
     return `${yearStart}-${yearEnd}`;
 }
 
+export async function listFacultyAcademicYearOptions() {
+    await dbConnect();
+
+    const academicYears = await AcademicYear.find({})
+        .sort({ yearStart: -1, yearEnd: -1 })
+        .select("yearStart yearEnd isActive")
+        .lean();
+
+    return academicYears
+        .map((item) => ({
+            id: item._id.toString(),
+            label: toAcademicYearLabel(item.yearStart, item.yearEnd),
+            isActive: Boolean(item.isActive),
+        }))
+        .filter((item) => Boolean(item.label));
+}
+
 function parseAcademicYearLabel(value: string) {
     const match = value.trim().match(/(\d{4})\D+(\d{2,4})/);
 

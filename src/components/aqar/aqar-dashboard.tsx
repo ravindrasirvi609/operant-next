@@ -17,9 +17,10 @@ import {
     Sparkles,
     Trash2,
     Trophy,
+    Upload,
     type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type FieldErrors, type UseFormReturn } from "react-hook-form";
 import type { z } from "zod";
 
@@ -40,7 +41,9 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { aqarApplicationSchema } from "@/lib/aqar/validators";
+import { uploadFile, UploadValidationError, validateFile, type UploadProgress } from "@/lib/upload/service";
 import { cn } from "@/lib/utils";
 
 type AqarFormValues = z.input<typeof aqarApplicationSchema>;
@@ -95,6 +98,12 @@ type StepConfig = {
 type Option = {
     label: string;
     value: string;
+};
+
+type AcademicYearOption = {
+    id: string;
+    label: string;
+    isActive?: boolean;
 };
 
 const editableStatuses = new Set(["Draft", "Rejected"]);
@@ -323,6 +332,22 @@ function formatTimestamp(value?: string) {
     return parsed.toLocaleString();
 }
 
+function parseAcademicYearLabel(value?: string) {
+    const trimmed = String(value ?? "").trim();
+    const match = trimmed.match(/^(\d{4})\D+(\d{4})$/);
+
+    if (!match) return null;
+
+    const startYear = Number(match[1]);
+    const endYear = Number(match[2]);
+
+    if (!Number.isFinite(startYear) || !Number.isFinite(endYear)) {
+        return null;
+    }
+
+    return { startYear, endYear };
+}
+
 function getLastActivity(application: AqarApp) {
     const statusDates = application.statusLogs.map((log) => log.changedAt).filter(Boolean);
     const candidates = [application.updatedAt, application.submittedAt, application.createdAt, ...statusDates].filter(Boolean) as string[];
@@ -350,15 +375,18 @@ function getStatusBadgeClass(status: string) {
 export function AqarDashboard({
     initialApplications,
     facultyName,
+    facultyId,
+    academicYearOptions,
     evidenceDefaults,
 }: {
     initialApplications: AqarApp[];
     facultyName: string;
+    facultyId: string;
+    academicYearOptions: AcademicYearOption[];
     evidenceDefaults: AqarFormValues["facultyContribution"];
 }) {
     const formSectionRef = useRef<HTMLElement | null>(null);
     const lastSavedPayloadRef = useRef<string>("");
-    const hasPrefilledRef = useRef(false);
     const [applications, setApplications] = useState(initialApplications);
     const [selectedId, setSelectedId] = useState<string | null>(initialApplications[0]?._id ?? null);
     const [currentStep, setCurrentStep] = useState(0);
@@ -368,8 +396,26 @@ export function AqarDashboard({
     const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved">("idle");
     const [reviewChecks, setReviewChecks] = useState<boolean[]>(() => reviewChecklistItems.map(() => false));
     const [prefillDefaults, setPrefillDefaults] = useState(evidenceDefaults);
+    const [prefillYear, setPrefillYear] = useState(initialApplications[0]?.academicYear ?? emptyForm().academicYear);
+    const [isPrefillLoading, setIsPrefillLoading] = useState(false);
 
     const selected = applications.find((item) => item._id === selectedId);
+    const academicYearSelectOptions = useMemo(() => {
+        const options = academicYearOptions.map((item) => ({
+            label: item.isActive ? `${item.label} (Active)` : item.label,
+            value: item.label,
+        }));
+        const selectedYear = String(selected?.academicYear ?? prefillYear ?? "").trim();
+
+        if (selectedYear && !options.some((item) => item.value === selectedYear)) {
+            options.unshift({
+                label: `${selectedYear} (Current record)`,
+                value: selectedYear,
+            });
+        }
+
+        return options;
+    }, [academicYearOptions, prefillYear, selected?.academicYear]);
     const initialValues = useMemo(
         () =>
             selected
@@ -411,7 +457,7 @@ export function AqarDashboard({
     }, [form, initialValues, selected]);
 
     useEffect(() => {
-        if (selected || hasPrefilledRef.current) {
+        if (selected) {
             return;
         }
 
@@ -419,14 +465,17 @@ export function AqarDashboard({
 
         const loadDefaults = async () => {
             try {
-                const response = await fetch("/api/faculty/report-defaults", { cache: "no-store" });
+                const response = await fetch(
+                    `/api/faculty/report-defaults?academicYear=${encodeURIComponent(form.getValues("academicYear"))}`,
+                    { cache: "no-store" }
+                );
                 if (!response.ok) return;
                 const data = (await response.json()) as {
                     defaults?: { aqar?: AqarFormValues["facultyContribution"] };
                 };
                 if (cancelled || form.formState.isDirty || !data.defaults?.aqar) return;
                 setPrefillDefaults(data.defaults.aqar);
-                hasPrefilledRef.current = true;
+                setPrefillYear(form.getValues("academicYear"));
             } catch {
                 // Ignore prefill refresh failures; keep initial server defaults.
             }
@@ -478,6 +527,67 @@ export function AqarDashboard({
     );
 
     const reviewWarnings = summarySections.filter((section) => section.count === 0);
+
+    async function loadYearPrefill(academicYear: string, options?: { announce?: boolean }) {
+        const normalizedYear = academicYear.trim();
+        if (!normalizedYear) {
+            return;
+        }
+
+        setIsPrefillLoading(true);
+
+        try {
+            const response = await fetch(
+                `/api/faculty/report-defaults?academicYear=${encodeURIComponent(normalizedYear)}`,
+                { cache: "no-store" }
+            );
+            const data = (await response.json()) as {
+                defaults?: { aqar?: AqarFormValues["facultyContribution"] };
+                message?: string;
+            };
+
+            if (!response.ok || !data.defaults?.aqar) {
+                throw new Error(data.message ?? "Unable to load AQAR defaults for the selected year.");
+            }
+
+            setPrefillDefaults(data.defaults.aqar);
+            setPrefillYear(normalizedYear);
+            form.setValue("facultyContribution", data.defaults.aqar, {
+                shouldDirty: Boolean(selectedId),
+                shouldTouch: true,
+            });
+
+            if (options?.announce ?? true) {
+                setMessage({
+                    type: "success",
+                    text: `AQAR records for ${normalizedYear} were loaded from your faculty profile.`,
+                });
+            }
+        } catch (error) {
+            setMessage({
+                type: "error",
+                text: error instanceof Error ? error.message : "Unable to load selected-year AQAR data.",
+            });
+        } finally {
+            setIsPrefillLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        if (selected || !editable) {
+            return;
+        }
+
+        const hasExistingRows = Object.values(form.getValues("facultyContribution")).some(
+            (value) => Array.isArray(value) && value.length > 0
+        );
+
+        if (hasExistingRows || prefillYear === normalizedValues.academicYear) {
+            return;
+        }
+
+        void loadYearPrefill(normalizedValues.academicYear, { announce: false });
+    }, [editable, form, normalizedValues.academicYear, prefillYear, selected]);
 
     useEffect(() => {
         if (!selectedId || !selected || !editable || !form.formState.isDirty || !resolved.success) return;
@@ -944,6 +1054,8 @@ export function AqarDashboard({
                         </div>
                     </div>
 
+                    <AQARDataTables values={normalizedValues} />
+
                     {currentStep === 0 ? (
                         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
                             <SectionCard
@@ -951,12 +1063,46 @@ export function AqarDashboard({
                                 description="Set the annual AQAR context before adding detailed faculty contribution records."
                             >
                                 <div className="grid gap-4 md:grid-cols-3">
-                                    <TextField form={form} name="academicYear" label="Academic year" placeholder="2025-2026" disabled={!editable} />
+                                    <SelectField
+                                        form={form}
+                                        name="academicYear"
+                                        label="Academic year"
+                                        options={academicYearSelectOptions}
+                                        placeholder="Select academic year"
+                                        disabled={!editable}
+                                        onValueChange={(value) => {
+                                            const range = parseAcademicYearLabel(value);
+                                            if (!range) return;
+
+                                            form.setValue("reportingPeriod.fromDate", `${range.startYear}-06-01`, {
+                                                shouldDirty: true,
+                                                shouldTouch: true,
+                                            });
+                                            form.setValue("reportingPeriod.toDate", `${range.endYear}-05-31`, {
+                                                shouldDirty: true,
+                                                shouldTouch: true,
+                                            });
+                                        }}
+                                    />
                                     <DatePickerField form={form} name="reportingPeriod.fromDate" label="Reporting from" disabled={!editable} />
                                     <DatePickerField form={form} name="reportingPeriod.toDate" label="Reporting to" disabled={!editable} />
                                 </div>
+                                <div className="flex flex-wrap gap-3">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => void loadYearPrefill(normalizedValues.academicYear)}
+                                        disabled={!editable || isPrefillLoading}
+                                    >
+                                        {isPrefillLoading ? <Spinner /> : <Sparkles className="h-4 w-4" />}
+                                        Autofill selected year
+                                    </Button>
+                                    <Badge variant="secondary">
+                                        Profile data mapped for {prefillYear}
+                                    </Badge>
+                                </div>
                                 <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5 text-sm text-zinc-600">
-                                    This workspace is designed for a cleaner AQAR flow. Start with the reporting window, then move step by step through publications, projects, awards, patents, books, and outreach records.
+                                    AQAR defaults are now tied to the selected academic year. Use the autofill action to refresh publications, projects, awards, FDPs, and other faculty records for the chosen cycle before submission.
                                 </div>
                             </SectionCard>
 
@@ -1012,8 +1158,8 @@ export function AqarDashboard({
                                                 <TextField form={form} name={`facultyContribution.researchPapers.${index}.impactFactor`} label="Impact factor" disabled={!editable} />
                                                 <TextField form={form} name={`facultyContribution.researchPapers.${index}.indexedIn`} label="Indexed in" disabled={!editable} />
                                                 <TextField form={form} name={`facultyContribution.researchPapers.${index}.links`} label="Links" disabled={!editable} />
-                                                <TextField form={form} name={`facultyContribution.researchPapers.${index}.proof`} label="Proof reference" disabled={!editable} />
-                                                <TextField form={form} name={`facultyContribution.researchPapers.${index}.ifProof`} label="IF proof" disabled={!editable} />
+                                                <ProofUploadField form={form} name={`facultyContribution.researchPapers.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
+                                                <ProofUploadField form={form} name={`facultyContribution.researchPapers.${index}.ifProof`} label="Impact factor proof" facultyId={facultyId} disabled={!editable} />
                                             </div>
                                         </EntryCard>
                                     ))}
@@ -1118,7 +1264,7 @@ export function AqarDashboard({
                                                 />
                                                 <TextField form={form} name={`facultyContribution.seedMoneyProjects.${index}.status`} label="Project status" disabled={!editable} />
                                                 <TextField form={form} name={`facultyContribution.seedMoneyProjects.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                <TextField form={form} name={`facultyContribution.seedMoneyProjects.${index}.proof`} label="Proof reference" disabled={!editable} />
+                                                <ProofUploadField form={form} name={`facultyContribution.seedMoneyProjects.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
                                             </div>
                                         </EntryCard>
                                     ))}
@@ -1206,7 +1352,7 @@ export function AqarDashboard({
                                                     <TextField form={form} name={`facultyContribution.awardsRecognition.${index}.awardAgencyName`} label="Award agency" disabled={!editable} />
                                                     <TextField form={form} name={`facultyContribution.awardsRecognition.${index}.incentiveDetails`} label="Incentive details" disabled={!editable} />
                                                     <TextField form={form} name={`facultyContribution.awardsRecognition.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.awardsRecognition.${index}.proof`} label="Proof reference" disabled={!editable} />
+                                                    <ProofUploadField form={form} name={`facultyContribution.awardsRecognition.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
                                                 </div>
                                             </EntryCard>
                                         ))}
@@ -1298,7 +1444,7 @@ export function AqarDashboard({
                                                             disabled={!editable}
                                                         />
                                                         <TextField form={form} name={`facultyContribution.fellowships.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                        <TextField form={form} name={`facultyContribution.fellowships.${index}.proof`} label="Proof reference" disabled={!editable} />
+                                                        <ProofUploadField form={form} name={`facultyContribution.fellowships.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
                                                     </div>
                                                 </EntryCard>
                                             ))
@@ -1365,7 +1511,7 @@ export function AqarDashboard({
                                                         <TextField form={form} name={`facultyContribution.researchFellows.${index}.grantingAgency`} label="Granting agency" disabled={!editable} />
                                                         <TextField form={form} name={`facultyContribution.researchFellows.${index}.qualifyingExam`} label="Qualifying exam" disabled={!editable} />
                                                         <TextField form={form} name={`facultyContribution.researchFellows.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                        <TextField form={form} name={`facultyContribution.researchFellows.${index}.proof`} label="Proof reference" disabled={!editable} />
+                                                        <ProofUploadField form={form} name={`facultyContribution.researchFellows.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
                                                     </div>
                                                 </EntryCard>
                                             ))
@@ -1454,7 +1600,7 @@ export function AqarDashboard({
                                                         registerOptions={{ valueAsNumber: true }}
                                                     />
                                                     <TextField form={form} name={`facultyContribution.patents.${index}.academicYear`} label="Academic year label" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.patents.${index}.proof`} label="Proof reference" disabled={!editable} />
+                                                    <ProofUploadField form={form} name={`facultyContribution.patents.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
                                                 </div>
                                             </EntryCard>
                                         ))}
@@ -1554,7 +1700,7 @@ export function AqarDashboard({
                                                         registerOptions={{ valueAsNumber: true }}
                                                     />
                                                     <TextField form={form} name={`facultyContribution.phdAwards.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.phdAwards.${index}.proof`} label="Proof reference" disabled={!editable} />
+                                                    <ProofUploadField form={form} name={`facultyContribution.phdAwards.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
                                                 </div>
                                             </EntryCard>
                                         ))}
@@ -1657,7 +1803,7 @@ export function AqarDashboard({
                                                     <TextField form={form} name={`facultyContribution.booksChapters.${index}.affiliationInstitute`} label="Affiliation institute" disabled={!editable} />
                                                     <TextField form={form} name={`facultyContribution.booksChapters.${index}.publisherName`} label="Publisher name" disabled={!editable} />
                                                     <TextField form={form} name={`facultyContribution.booksChapters.${index}.academicYear`} label="Academic year label" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.booksChapters.${index}.proof`} label="Proof reference" disabled={!editable} />
+                                                    <ProofUploadField form={form} name={`facultyContribution.booksChapters.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
                                                 </div>
                                             </EntryCard>
                                         ))}
@@ -1764,7 +1910,7 @@ export function AqarDashboard({
                                                     <TextField form={form} name={`facultyContribution.eContentDeveloped.${index}.platform`} label="Platform" disabled={!editable} />
                                                     <TextField form={form} name={`facultyContribution.eContentDeveloped.${index}.academicYear`} label="Academic year label" disabled={!editable} />
                                                     <TextField form={form} name={`facultyContribution.eContentDeveloped.${index}.linkToContent`} label="Link to content" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.eContentDeveloped.${index}.proof`} label="Proof reference" disabled={!editable} />
+                                                    <ProofUploadField form={form} name={`facultyContribution.eContentDeveloped.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
                                                 </div>
                                             </EntryCard>
                                         ))}
@@ -1832,7 +1978,7 @@ export function AqarDashboard({
                                                         registerOptions={{ valueAsNumber: true }}
                                                     />
                                                     <TextField form={form} name={`facultyContribution.consultancyServices.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.consultancyServices.${index}.proof`} label="Proof reference" disabled={!editable} />
+                                                    <ProofUploadField form={form} name={`facultyContribution.consultancyServices.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
                                                 </div>
                                             </EntryCard>
                                         ))}
@@ -1890,7 +2036,7 @@ export function AqarDashboard({
                                                     />
                                                     <TextField form={form} name={`facultyContribution.financialSupport.${index}.panNo`} label="PAN number" disabled={!editable} />
                                                     <TextField form={form} name={`facultyContribution.financialSupport.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.financialSupport.${index}.proof`} label="Proof reference" disabled={!editable} />
+                                                    <ProofUploadField form={form} name={`facultyContribution.financialSupport.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
                                                 </div>
                                             </EntryCard>
                                         ))}
@@ -1941,7 +2087,7 @@ export function AqarDashboard({
                                                     <DatePickerField form={form} name={`facultyContribution.facultyDevelopmentProgrammes.${index}.durationFrom`} label="Duration from" disabled={!editable} />
                                                     <DatePickerField form={form} name={`facultyContribution.facultyDevelopmentProgrammes.${index}.durationTo`} label="Duration to" disabled={!editable} />
                                                     <TextField form={form} name={`facultyContribution.facultyDevelopmentProgrammes.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.facultyDevelopmentProgrammes.${index}.proof`} label="Proof reference" disabled={!editable} />
+                                                    <ProofUploadField form={form} name={`facultyContribution.facultyDevelopmentProgrammes.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
                                                 </div>
                                             </EntryCard>
                                         ))}
@@ -2052,6 +2198,155 @@ export function AqarDashboard({
                 </div>
             </section>
         </div>
+    );
+}
+
+function AQARDataTables({
+    values,
+}: {
+    values: AqarResolvedValues;
+}) {
+    const sections = [
+        {
+            title: "Research Papers",
+            columns: ["Title", "Journal", "Year", "Proof"],
+            rows: values.facultyContribution.researchPapers.map((item) => [
+                item.paperTitle,
+                item.journalName,
+                String(item.publicationYear),
+                item.proof ? "Linked" : "-",
+            ]),
+        },
+        {
+            title: "Seed Money Projects",
+            columns: ["Project", "Funding Agency", "Award Year", "Funds"],
+            rows: values.facultyContribution.seedMoneyProjects.map((item) => [
+                item.schemeOrProjectTitle,
+                item.fundingAgencyName,
+                String(item.awardYear),
+                String(item.fundsInInr ?? 0),
+            ]),
+        },
+        {
+            title: "Awards and Recognition",
+            columns: ["Award", "Level", "Agency", "Proof"],
+            rows: values.facultyContribution.awardsRecognition.map((item) => [
+                item.awardName,
+                item.level,
+                item.awardAgencyName,
+                item.proof ? "Linked" : "-",
+            ]),
+        },
+        {
+            title: "Patents",
+            columns: ["Title", "Status", "Level", "Proof"],
+            rows: values.facultyContribution.patents.map((item) => [
+                item.title,
+                item.status,
+                item.level,
+                item.proof ? "Linked" : "-",
+            ]),
+        },
+        {
+            title: "Books and Chapters",
+            columns: ["Title", "Type", "Academic Year", "Proof"],
+            rows: values.facultyContribution.booksChapters.map((item) => [
+                item.titleOfWork,
+                item.type,
+                item.academicYear ?? "-",
+                item.proof ? "Linked" : "-",
+            ]),
+        },
+        {
+            title: "E-Content, Consultancy, Support, and FDP",
+            columns: ["Section", "Title", "Year", "Proof"],
+            rows: [
+                ...values.facultyContribution.eContentDeveloped.map((item) => [
+                    "E-content",
+                    item.moduleName,
+                    item.academicYear ?? "-",
+                    item.proof ? "Linked" : "-",
+                ]),
+                ...values.facultyContribution.consultancyServices.map((item) => [
+                    "Consultancy",
+                    item.consultancyProjectName,
+                    item.year ?? "-",
+                    item.proof ? "Linked" : "-",
+                ]),
+                ...values.facultyContribution.financialSupport.map((item) => [
+                    "Conference Support",
+                    item.conferenceName,
+                    item.year ?? "-",
+                    item.proof ? "Linked" : "-",
+                ]),
+                ...values.facultyContribution.facultyDevelopmentProgrammes.map((item) => [
+                    "FDP",
+                    item.programTitle,
+                    item.year ?? "-",
+                    item.proof ? "Linked" : "-",
+                ]),
+            ],
+        },
+    ].filter((section) => section.rows.length > 0);
+
+    if (!sections.length) {
+        return (
+            <Card className="rounded-[1.5rem] border-zinc-200 shadow-none">
+                <CardHeader>
+                    <CardTitle className="text-xl">Current AQAR data tables</CardTitle>
+                    <CardDescription>
+                        Selected-year faculty data will appear here in table form after autofill or manual entry.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                        No AQAR rows are loaded yet for the current academic year.
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    return (
+        <Card className="rounded-[1.5rem] border-zinc-200 shadow-none">
+            <CardHeader>
+                <CardTitle className="text-xl">Current AQAR data tables</CardTitle>
+                <CardDescription>
+                    Review the selected-year data in tables before editing section details below.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {sections.map((section) => (
+                    <details key={section.title} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4" open>
+                        <summary className="cursor-pointer text-sm font-semibold text-zinc-950">
+                            {section.title} ({section.rows.length})
+                        </summary>
+                        <div className="mt-4">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        {section.columns.map((column) => (
+                                            <TableHead key={column}>{column}</TableHead>
+                                        ))}
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {section.rows.map((row, index) => (
+                                        <TableRow key={`${section.title}-${index}`}>
+                                            {row.map((cell, cellIndex) => (
+                                                <TableCell key={`${section.title}-${index}-${cellIndex}`}>
+                                                    {cell}
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </details>
+                ))}
+            </CardContent>
+        </Card>
     );
 }
 
@@ -2371,6 +2666,7 @@ function SelectField({
     options,
     placeholder = "Select an option",
     disabled,
+    onValueChange,
 }: {
     form: AqarFormApi;
     name: string;
@@ -2378,6 +2674,7 @@ function SelectField({
     options: Option[];
     placeholder?: string;
     disabled?: boolean;
+    onValueChange?: (value: string) => void;
 }) {
     return (
         <FieldShell label={label} error={getErrorMessage(form.formState.errors, name)}>
@@ -2385,7 +2682,14 @@ function SelectField({
                 control={form.control}
                 name={name as never}
                 render={({ field }) => (
-                    <Select value={field.value ?? ""} onValueChange={field.onChange} disabled={disabled}>
+                    <Select
+                        value={field.value ?? ""}
+                        onValueChange={(value) => {
+                            field.onChange(value);
+                            onValueChange?.(value);
+                        }}
+                        disabled={disabled}
+                    >
                         <SelectTrigger>
                             <SelectValue placeholder={placeholder} />
                         </SelectTrigger>
@@ -2444,6 +2748,125 @@ function DatePickerField({
                             />
                         </PopoverContent>
                     </Popover>
+                )}
+            />
+        </FieldShell>
+    );
+}
+
+function ProofUploadField({
+    form,
+    name,
+    label,
+    facultyId,
+    disabled,
+}: {
+    form: AqarFormApi;
+    name: string;
+    label: string;
+    facultyId: string;
+    disabled?: boolean;
+}) {
+    const inputId = useId();
+    const [progress, setProgress] = useState<UploadProgress | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    return (
+        <FieldShell label={label} error={getErrorMessage(form.formState.errors, name) ?? error ?? undefined}>
+            <Controller
+                control={form.control}
+                name={name as never}
+                render={({ field }) => (
+                    <div className="grid gap-2.5 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/80 p-3">
+                        <div className="flex flex-wrap items-center gap-3">
+                            <Input
+                                id={inputId}
+                                type="file"
+                                accept="application/pdf,image/*"
+                                className="sr-only"
+                                disabled={disabled}
+                                onChange={(event) => {
+                                    const file = event.target.files?.[0];
+                                    if (!file) {
+                                        return;
+                                    }
+
+                                    const handleUpload = async () => {
+                                        setError(null);
+
+                                        try {
+                                            validateFile(file, "evidence");
+                                        } catch (uploadError) {
+                                            if (uploadError instanceof UploadValidationError) {
+                                                setError(uploadError.message);
+                                            }
+                                            return;
+                                        }
+
+                                        setProgress({ percent: 0, bytesTransferred: 0, totalBytes: file.size });
+
+                                        try {
+                                            const result = await uploadFile(file, "evidence", facultyId, (next) => {
+                                                setProgress(next);
+                                            });
+
+                                            const response = await fetch("/api/documents", {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify({
+                                                    fileName: file.name,
+                                                    fileUrl: result.downloadURL,
+                                                    fileType: file.type,
+                                                }),
+                                            });
+                                            const data = (await response.json()) as {
+                                                document?: { fileUrl?: string };
+                                                message?: string;
+                                            };
+
+                                            if (!response.ok || !data.document?.fileUrl) {
+                                                throw new Error(data.message ?? "Unable to save proof document.");
+                                            }
+
+                                            field.onChange(data.document.fileUrl);
+                                            setProgress(null);
+                                        } catch (uploadError) {
+                                            setProgress(null);
+                                            setError(
+                                                uploadError instanceof Error
+                                                    ? uploadError.message
+                                                    : "Proof upload failed."
+                                            );
+                                        }
+                                    };
+
+                                    void handleUpload();
+                                    event.target.value = "";
+                                }}
+                            />
+                            <Label
+                                htmlFor={inputId}
+                                className={cn(
+                                    "inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 transition-colors hover:border-zinc-400 hover:bg-zinc-100",
+                                    disabled && "cursor-not-allowed opacity-60"
+                                )}
+                            >
+                                <Upload className="size-4" />
+                                Upload proof
+                            </Label>
+                            {typeof field.value === "string" && field.value ? (
+                                <Button asChild type="button" variant="ghost" className="h-10 px-3 text-sm text-sky-700 hover:text-sky-800">
+                                    <a href={field.value} target="_blank" rel="noreferrer">
+                                        Open linked proof
+                                    </a>
+                                </Button>
+                            ) : null}
+                        </div>
+                        <p className="text-xs text-zinc-600">
+                            {field.value ? "Proof linked for this row." : "No proof file linked yet."}
+                            {progress ? ` Uploading ${progress.percent}%...` : ""}
+                        </p>
+                    </div>
                 )}
             />
         </FieldShell>
