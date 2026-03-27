@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useDeferredValue, useMemo, useState, useTransition } from "react";
 
 import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 type PbasReviewApplication = {
@@ -14,6 +17,12 @@ type PbasReviewApplication = {
     status: string;
     apiScore: { totalScore: number };
     facultyName?: string;
+    permissions?: {
+        canReview: boolean;
+        canApprove: boolean;
+        canReject: boolean;
+        canOverride: boolean;
+    };
 };
 
 type IndicatorEntry = {
@@ -32,9 +41,14 @@ export function PbasReviewBoard({
     mode,
 }: {
     applications: PbasReviewApplication[];
-    mode: "review" | "approve";
+    mode: "review" | "approve" | "scoped";
 }) {
     const [items, setItems] = useState(applications);
+    const [search, setSearch] = useState("");
+    const deferredSearch = useDeferredValue(search);
+    const [activeTab, setActiveTab] = useState<"actionable" | "history" | "all">(
+        mode === "scoped" ? "actionable" : "all"
+    );
     const [notes, setNotes] = useState<Record<string, string>>({});
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [entryMessage, setEntryMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -44,11 +58,53 @@ export function PbasReviewBoard({
     const [isEntrySaving, setIsEntrySaving] = useState<Record<string, boolean>>({});
     const [isPending, startTransition] = useTransition();
 
+    const filteredItems = useMemo(() => {
+        const query = deferredSearch.trim().toLowerCase();
+
+        return items.filter((application) => {
+            const canAct = Boolean(application.permissions?.canReview || application.permissions?.canApprove);
+            if (activeTab === "actionable" && !canAct) {
+                return false;
+            }
+
+            if (activeTab === "history" && canAct) {
+                return false;
+            }
+
+            if (!query) {
+                return true;
+            }
+
+            return [
+                application.facultyName,
+                application.currentDesignation,
+                application.academicYear,
+                application.status,
+            ]
+                .filter(Boolean)
+                .some((value) => String(value).toLowerCase().includes(query));
+        });
+    }, [activeTab, deferredSearch, items]);
+
+    const actionableCount = items.filter((item) => item.permissions?.canReview || item.permissions?.canApprove).length;
+    const historyCount = Math.max(items.length - actionableCount, 0);
+
     function act(applicationId: string, decision: string) {
         setMessage(null);
 
         startTransition(async () => {
-            const endpoint = mode === "review" ? `/api/pbas/${applicationId}/review` : `/api/pbas/${applicationId}/approve`;
+            const application = items.find((item) => item._id === applicationId);
+            const scopedMode =
+                application?.permissions?.canApprove ? "approve" : application?.permissions?.canReview ? "review" : null;
+            const effectiveMode = mode === "scoped" ? scopedMode : mode;
+
+            if (!effectiveMode) {
+                setMessage({ type: "error", text: "You cannot act on this PBAS record at the current stage." });
+                return;
+            }
+
+            const endpoint =
+                effectiveMode === "review" ? `/api/pbas/${applicationId}/review` : `/api/pbas/${applicationId}/approve`;
             const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -156,8 +212,39 @@ export function PbasReviewBoard({
         <div className="space-y-6">
             {message ? <FormMessage message={message.text} type={message.type} /> : null}
             {entryMessage ? <FormMessage message={entryMessage.text} type={entryMessage.type} /> : null}
-            {items.length ? (
-                items.map((application) => (
+            <Card>
+                <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
+                    <div>
+                        <CardTitle>PBAS record browser</CardTitle>
+                        <CardDescription>
+                            Separate current approvals from read-only history while staying inside your authorized scope.
+                        </CardDescription>
+                    </div>
+                    <div className="w-full max-w-sm">
+                        <Input
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="Search faculty, designation, year, or status"
+                        />
+                    </div>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "actionable" | "history" | "all")}>
+                        <TabsList>
+                            <TabsTrigger value="actionable">Actionable</TabsTrigger>
+                            <TabsTrigger value="history">History</TabsTrigger>
+                            <TabsTrigger value="all">All</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                    <div className="flex flex-wrap gap-2">
+                        <Badge variant="secondary">{actionableCount} actionable</Badge>
+                        <Badge variant="secondary">{historyCount} history</Badge>
+                        <Badge variant="secondary">{items.length} total</Badge>
+                    </div>
+                </CardContent>
+            </Card>
+            {filteredItems.length ? (
+                filteredItems.map((application) => (
                     <Card key={application._id}>
                         <CardHeader>
                             <CardTitle>{application.facultyName ?? "Faculty PBAS Application"}</CardTitle>
@@ -172,7 +259,11 @@ export function PbasReviewBoard({
                                 <Metric label="Status" value={application.status} />
                             </div>
                             <Textarea
-                                placeholder={mode === "review" ? "Add department head or committee remarks" : "Add final admin approval remarks"}
+                                placeholder={
+                                    mode === "approve"
+                                        ? "Add principal approval remarks"
+                                        : "Add workflow remarks"
+                                }
                                 value={notes[application._id] ?? ""}
                                 onChange={(event) => setNotes((current) => ({ ...current, [application._id]: event.target.value }))}
                             />
@@ -184,7 +275,7 @@ export function PbasReviewBoard({
                                 >
                                     {activeApplicationId === application._id ? "Hide Indicator Scores" : "Manage Indicator Scores"}
                                 </Button>
-                                {mode === "review" ? (
+                                {(mode === "review" || (mode === "scoped" && application.permissions?.canReview)) ? (
                                     <>
                                         <Button
                                             disabled={isPending}
@@ -197,7 +288,7 @@ export function PbasReviewBoard({
                                             Reject
                                         </Button>
                                     </>
-                                ) : (
+                                ) : mode === "approve" || (mode === "scoped" && application.permissions?.canApprove) ? (
                                     <>
                                         <Button disabled={isPending} onClick={() => act(application._id, "Approve")}>
                                             {isPending ? <Spinner /> : null}
@@ -207,6 +298,10 @@ export function PbasReviewBoard({
                                             Final Reject
                                         </Button>
                                     </>
+                                ) : (
+                                    <p className="text-sm text-zinc-500">
+                                        Read-only in your current governance scope.
+                                    </p>
                                 )}
                             </div>
 
@@ -277,7 +372,9 @@ export function PbasReviewBoard({
             ) : (
                 <Card>
                     <CardContent className="p-6 text-sm text-zinc-500">
-                        No PBAS applications are waiting in this review queue.
+                        {items.length
+                            ? "No PBAS records matched the current filters."
+                            : "No PBAS records are available in your current governance scope."}
                     </CardContent>
                 </Card>
             )}

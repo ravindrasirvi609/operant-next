@@ -76,7 +76,7 @@ export async function getHierarchyData() {
         User.find({
             isActive: true,
             emailVerified: true,
-            role: { $in: ["Admin", "Director", "Faculty"] },
+            role: { $in: ["Admin", "Faculty"] },
         })
             .sort({ role: 1, name: 1 })
             .select("name email role universityName collegeName department designation"),

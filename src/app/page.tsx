@@ -5,10 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireAuth } from "@/lib/auth/user";
+import { resolveAuthorizationProfile } from "@/lib/authorization/service";
 import Link from "next/link";
 
 export default async function Home() {
   const user = await requireAuth();
+  const authorizationProfile = await resolveAuthorizationProfile(user);
 
   return (
     <main className="min-h-screen bg-zinc-50">
@@ -31,9 +33,9 @@ export default async function Home() {
                   <Link href="/admin">Open Admin Console</Link>
                 </Button>
               ) : null}
-              {user.role === "Director" ? (
+              {authorizationProfile.hasLeadershipPortalAccess ? (
                 <Button asChild>
-                  <Link href="/director">Open Director Portal</Link>
+                  <Link href="/director">Open Leadership Workspace</Link>
                 </Button>
               ) : null}
               {user.role === "Faculty" ? (

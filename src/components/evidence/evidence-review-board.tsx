@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
     Table,
@@ -84,11 +85,13 @@ function statusBadge(status?: string) {
 
 export function EvidenceReviewBoard() {
     const [status, setStatus] = useState<(typeof STATUS_OPTIONS)[number]>("Pending");
+    const [search, setSearch] = useState("");
     const [items, setItems] = useState<EvidenceItem[]>([]);
     const [summary, setSummary] = useState<EvidenceSummary | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
     const [remarks, setRemarks] = useState<Record<string, string>>({});
+    const deferredSearch = useDeferredValue(search);
 
     const load = () => {
         startTransition(async () => {
@@ -116,15 +119,39 @@ export function EvidenceReviewBoard() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [status]);
 
+    const filteredItems = useMemo(() => {
+        const query = deferredSearch.trim().toLowerCase();
+
+        if (!query) {
+            return items;
+        }
+
+        return items.filter((item) =>
+            [
+                item.student.name,
+                item.student.enrollmentNo,
+                item.student.departmentName,
+                item.summary,
+                item.recordType,
+            ]
+                .filter(Boolean)
+                .some((value) => String(value).toLowerCase().includes(query))
+        );
+    }, [deferredSearch, items]);
+
     const emptyState = useMemo(() => {
         if (isPending) return "Loading evidence...";
-        if (items.length === 0) {
+        if (filteredItems.length === 0) {
             return status === "All"
-                ? "No evidence uploaded yet."
-                : `No ${status.toLowerCase()} evidence items found.`;
+                ? items.length
+                    ? "No evidence items matched this search."
+                    : "No evidence uploaded yet."
+                : items.length
+                  ? `No ${status.toLowerCase()} evidence items matched this search.`
+                  : `No ${status.toLowerCase()} evidence items found.`;
         }
         return null;
-    }, [isPending, items.length, status]);
+    }, [filteredItems.length, isPending, items.length, status]);
 
     async function updateStatus(documentId: string, nextStatus: "Verified" | "Rejected") {
         startTransition(async () => {
@@ -193,7 +220,8 @@ export function EvidenceReviewBoard() {
                         Review evidence documents submitted by students and mark them as verified or rejected.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-wrap items-center gap-3">
+                <CardContent className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-2 text-sm text-zinc-500">Filter</div>
                     <select
                         className="h-9 rounded-md border border-zinc-200 bg-white px-3 text-sm"
@@ -206,7 +234,15 @@ export function EvidenceReviewBoard() {
                             </option>
                         ))}
                     </select>
-                    {error ? <span className="text-sm text-rose-600">{error}</span> : null}
+                        {error ? <span className="text-sm text-rose-600">{error}</span> : null}
+                    </div>
+                    <div className="w-full max-w-sm">
+                        <Input
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="Search student, department, record type, or summary"
+                        />
+                    </div>
                 </CardContent>
             </Card>
 
@@ -285,7 +321,7 @@ export function EvidenceReviewBoard() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {items.map((item) => (
+                                {filteredItems.map((item) => (
                                     <TableRow key={item.document.id}>
                                         <TableCell>
                                             <div className="font-medium text-zinc-900">{item.student.name || "-"}</div>

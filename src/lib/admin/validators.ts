@@ -4,13 +4,6 @@ export const adminRoleOptions = [
     "Admin",
     "Faculty",
     "Student",
-    "Director",
-    "PRO",
-    "NSS",
-    "Sports",
-    "Swayam",
-    "Placement",
-    "Alumni",
 ] as const;
 
 export const masterDataSchema = z.object({

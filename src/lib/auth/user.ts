@@ -4,6 +4,7 @@ import dbConnect from "@/lib/dbConnect";
 import { clearSessionCookie, createSessionToken, getSessionPayload, setSessionCookie } from "@/lib/auth/session";
 import { AuthError } from "@/lib/auth/errors";
 import { authConfig } from "@/lib/auth/config";
+import { resolveAuthorizationProfile } from "@/lib/authorization/service";
 import { hasGovernancePortalAccess } from "@/lib/governance/service";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/auth/email";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
@@ -243,20 +244,12 @@ export async function loginDirector(rawInput: unknown) {
 
     await dbConnect();
 
-    const hasLeadershipAccess =
-        result.user.role === "Director" ||
-        (await hasGovernancePortalAccess(result.user.id)) ||
-        Boolean(
-            await Organization.findOne({
-                headUserId: result.user.id,
-                isActive: true,
-            }).select("_id")
-        );
+    const hasLeadershipAccess = (await resolveAuthorizationProfile(result.user)).hasLeadershipPortalAccess;
 
     if (!hasLeadershipAccess) {
         await clearSessionCookie();
         throw new AuthError(
-            "Only assigned directors or department heads can access the leadership portal.",
+            "Only users with active governance assignments or committee memberships can access the leadership portal.",
             403
         );
     }
@@ -662,16 +655,7 @@ export async function requireDirector() {
     }
 
     await dbConnect();
-
-    const hasLeadershipAccess =
-        user.role === "Director" ||
-        (await hasGovernancePortalAccess(user.id)) ||
-        Boolean(
-            await Organization.findOne({
-                headUserId: user.id,
-                isActive: true,
-            }).select("_id")
-        );
+    const hasLeadershipAccess = (await resolveAuthorizationProfile(user)).hasLeadershipPortalAccess;
 
     if (!hasLeadershipAccess) {
         redirect("/");
@@ -704,16 +688,7 @@ export async function redirectDirectorIfAuthenticated() {
     }
 
     await dbConnect();
-
-    const hasLeadershipAccess =
-        user.role === "Director" ||
-        (await hasGovernancePortalAccess(user.id)) ||
-        Boolean(
-            await Organization.findOne({
-                headUserId: user.id,
-                isActive: true,
-            }).select("_id")
-        );
+    const hasLeadershipAccess = (await resolveAuthorizationProfile(user)).hasLeadershipPortalAccess;
 
     if (hasLeadershipAccess) {
         redirect("/director");
@@ -725,6 +700,23 @@ export async function assertAdminApiAccess() {
 
     if (!user || user.role !== "Admin") {
         throw new AuthError("Admin access is required.", 403);
+    }
+
+    return user;
+}
+
+export async function assertLeadershipApiAccess() {
+    const user = await getCurrentUser();
+
+    if (!user) {
+        throw new AuthError("Leadership access is required.", 403);
+    }
+
+    await dbConnect();
+    const hasLeadershipAccess = (await resolveAuthorizationProfile(user)).hasLeadershipPortalAccess;
+
+    if (!hasLeadershipAccess) {
+        throw new AuthError("Leadership access is required.", 403);
     }
 
     return user;

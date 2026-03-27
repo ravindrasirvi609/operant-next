@@ -2,11 +2,12 @@ import { Types, type ClientSession } from "mongoose";
 
 import dbConnect from "@/lib/dbConnect";
 import {
-    listActiveLeadershipAssignmentsForUser,
-    listActiveWorkflowCommitteeMembershipsForUser,
-    mapLeadershipAssignmentTypeToWorkflowRoles,
-} from "@/lib/governance/service";
-import Organization from "@/models/core/organization";
+    canReviewWorkflowStage,
+    resolveAuthorizationProfile,
+    type AuthorizationActor,
+    type AuthorizationProfile,
+    type AuthorizationSubjectScope,
+} from "@/lib/authorization/service";
 import WorkflowDefinition, {
     type IWorkflowDefinition,
     type IWorkflowDefinitionStage,
@@ -18,25 +19,9 @@ import WorkflowInstance from "@/models/core/workflow-instance";
 
 export type WorkflowAction = "submit" | "approve" | "reject";
 
-export type WorkflowActor = {
-    id: string;
-    name: string;
-    role: string;
-    department?: string;
-};
-
-export type WorkflowActorContext = {
-    approverRoles: WorkflowApproverRole[];
-    headedDepartmentNames: string[];
-    principalScopes: WorkflowSubjectScope[];
-    committeeScopes: Partial<Record<WorkflowApproverRole, WorkflowSubjectScope[]>>;
-};
-
-export type WorkflowSubjectScope = {
-    departmentName?: string;
-    collegeName?: string;
-    universityName?: string;
-};
+export type WorkflowActor = AuthorizationActor;
+export type WorkflowActorContext = AuthorizationProfile;
+export type WorkflowSubjectScope = AuthorizationSubjectScope;
 
 type WorkflowDefinitionSeed = {
     moduleName: WorkflowModuleName;
@@ -66,7 +51,7 @@ const DEFAULT_WORKFLOW_DEFINITIONS: WorkflowDefinitionSeed[] = [
     {
         moduleName: "PBAS",
         name: "PBAS Default Review Chain",
-        version: 2,
+        version: 3,
         draftStatus: "Draft",
         approvedStatus: "Approved",
         rejectedStatus: "Rejected",
@@ -93,14 +78,14 @@ const DEFAULT_WORKFLOW_DEFINITIONS: WorkflowDefinitionSeed[] = [
                 status: "Committee Review",
                 kind: "final",
                 scope: "global",
-                approverRoles: ["PRINCIPAL", "ADMIN"],
+                approverRoles: ["PRINCIPAL"],
             },
         ],
     },
     {
         moduleName: "CAS",
         name: "CAS Default Review Chain",
-        version: 2,
+        version: 3,
         draftStatus: "Draft",
         approvedStatus: "Approved",
         rejectedStatus: "Rejected",
@@ -127,14 +112,14 @@ const DEFAULT_WORKFLOW_DEFINITIONS: WorkflowDefinitionSeed[] = [
                 status: "Committee Review",
                 kind: "final",
                 scope: "global",
-                approverRoles: ["PRINCIPAL", "ADMIN"],
+                approverRoles: ["PRINCIPAL"],
             },
         ],
     },
     {
         moduleName: "AQAR",
         name: "AQAR Default Review Chain",
-        version: 2,
+        version: 3,
         draftStatus: "Draft",
         approvedStatus: "Approved",
         rejectedStatus: "Rejected",
@@ -161,7 +146,7 @@ const DEFAULT_WORKFLOW_DEFINITIONS: WorkflowDefinitionSeed[] = [
                 status: "Committee Review",
                 kind: "final",
                 scope: "global",
-                approverRoles: ["PRINCIPAL", "ADMIN"],
+                approverRoles: ["PRINCIPAL"],
             },
         ],
     },
@@ -297,206 +282,29 @@ export async function getActiveWorkflowDefinition(moduleName: WorkflowModuleName
 }
 
 export async function resolveWorkflowActorContext(actor: WorkflowActor): Promise<WorkflowActorContext> {
-    await dbConnect();
-
-    const approverRoles = new Set<WorkflowApproverRole>();
-    const headedDepartmentNames: string[] = [];
-    const principalScopes: WorkflowSubjectScope[] = [];
-    const committeeScopes: Partial<Record<WorkflowApproverRole, WorkflowSubjectScope[]>> = {};
-
-    if (actor.role === "Faculty") approverRoles.add("FACULTY");
-    if (actor.role === "Director") approverRoles.add("DIRECTOR");
-    if (actor.role === "Admin") approverRoles.add("ADMIN");
-
-    const [leadershipAssignments, workflowCommittees] = await Promise.all([
-        listActiveLeadershipAssignmentsForUser(actor.id),
-        listActiveWorkflowCommitteeMembershipsForUser(actor.id),
-    ]);
-
-    for (const assignment of leadershipAssignments) {
-        for (const role of mapLeadershipAssignmentTypeToWorkflowRoles(
-            assignment.assignmentType as Parameters<typeof mapLeadershipAssignmentTypeToWorkflowRoles>[0]
-        )) {
-            approverRoles.add(role);
-        }
-
-        if (assignment.assignmentType === "HOD" && assignment.organizationName) {
-            headedDepartmentNames.push(assignment.organizationName);
-        }
-
-        if (assignment.assignmentType === "PRINCIPAL") {
-            principalScopes.push({
-                collegeName: assignment.collegeName || assignment.organizationName,
-                universityName: assignment.universityName,
-            });
-        }
-
-        if (assignment.assignmentType === "IQAC_COORDINATOR") {
-            const current = committeeScopes.IQAC ?? [];
-            current.push({
-                collegeName: assignment.collegeName || undefined,
-                universityName: assignment.universityName || undefined,
-            });
-            committeeScopes.IQAC = current;
-        }
-    }
-
-    for (const committee of workflowCommittees) {
-        const role =
-            committee.committeeType === "IQAC"
-                ? "IQAC"
-                : committee.committeeType === "PBAS_REVIEW"
-                  ? "PBAS_COMMITTEE"
-                  : committee.committeeType === "CAS_SCREENING"
-                    ? "CAS_COMMITTEE"
-                    : committee.committeeType === "AQAR_REVIEW"
-                      ? "AQAR_COMMITTEE"
-                      : null;
-
-        if (!role) {
-            continue;
-        }
-
-        approverRoles.add(role);
-        const current = committeeScopes[role] ?? [];
-        current.push({
-            departmentName: committee.organizationType === "Department" ? committee.organizationName : undefined,
-            collegeName: committee.collegeName || (committee.organizationType === "College" ? committee.organizationName : undefined),
-            universityName:
-                committee.universityName || (committee.organizationType === "University" ? committee.organizationName : undefined),
-        });
-        committeeScopes[role] = current;
-    }
-
-    const headedOrganizations = await Organization.find({
-        headUserId: actor.id,
-        isActive: true,
-    }).select("name type headTitle collegeName universityName");
-
-    for (const organization of headedOrganizations) {
-        const normalizedName = organization.name.toLowerCase();
-        const normalizedTitle = String(organization.headTitle ?? "").toLowerCase();
-
-        if (organization.type === "Department") {
-            approverRoles.add("DEPARTMENT_HEAD");
-            headedDepartmentNames.push(organization.name);
-        }
-
-        if (normalizedName.includes("iqac") || normalizedTitle.includes("iqac")) {
-            approverRoles.add("IQAC");
-            const current = committeeScopes.IQAC ?? [];
-            current.push({
-                collegeName:
-                    organization.collegeName ||
-                    (organization.type === "College" ? organization.name : undefined),
-                universityName:
-                    organization.universityName ||
-                    (organization.type === "University" ? organization.name : undefined),
-            });
-            committeeScopes.IQAC = current;
-        }
-
-        if (normalizedName.includes("principal") || normalizedTitle.includes("principal")) {
-            approverRoles.add("PRINCIPAL");
-            principalScopes.push({
-                collegeName:
-                    organization.collegeName ||
-                    (organization.type === "College" ? organization.name : undefined),
-                universityName:
-                    organization.universityName ||
-                    (organization.type === "University" ? organization.name : undefined),
-            });
-        }
-    }
-
-    return {
-        approverRoles: Array.from(approverRoles),
-        headedDepartmentNames,
-        principalScopes,
-        committeeScopes,
-    };
-}
-
-function matchesScopedAssignment(
-    subject: WorkflowSubjectScope,
-    scope: WorkflowSubjectScope
-) {
-    if (scope.departmentName) {
-        return scope.departmentName === subject.departmentName;
-    }
-
-    if (scope.collegeName) {
-        return scope.collegeName === subject.collegeName;
-    }
-
-    if (scope.universityName) {
-        return scope.universityName === subject.universityName;
-    }
-
-    return true;
+    return resolveAuthorizationProfile(actor);
 }
 
 function actorMatchesWorkflowStage(
     stage: Pick<IWorkflowDefinitionStage, "approverRoles" | "scope"> | null,
     context: WorkflowActorContext,
-    instance: {
-        scopeDepartmentName?: string | null;
-        scopeCollegeName?: string | null;
-        scopeUniversityName?: string | null;
-    }
+    subject: WorkflowSubjectScope
 ) {
     if (!stage) {
         return false;
     }
 
-    const subject: WorkflowSubjectScope = {
-        departmentName: instance.scopeDepartmentName ?? undefined,
-        collegeName: instance.scopeCollegeName ?? undefined,
-        universityName: instance.scopeUniversityName ?? undefined,
-    };
+    return canReviewWorkflowStage(context, subject, stage.approverRoles);
+}
 
-    for (const role of context.approverRoles) {
-        if (!stage.approverRoles.includes(role)) {
-            continue;
-        }
+function toObjectId(value?: string | null) {
+    return value && Types.ObjectId.isValid(value) ? new Types.ObjectId(value) : undefined;
+}
 
-        if (role === "DEPARTMENT_HEAD" && stage.scope === "department") {
-            if (
-                instance.scopeDepartmentName &&
-                context.headedDepartmentNames.includes(instance.scopeDepartmentName)
-            ) {
-                return true;
-            }
-
-            continue;
-        }
-
-        if (role === "PRINCIPAL") {
-            if (context.principalScopes.some((scope) => matchesScopedAssignment(subject, scope))) {
-                return true;
-            }
-
-            continue;
-        }
-
-        if (
-            role === "IQAC" ||
-            role === "PBAS_COMMITTEE" ||
-            role === "CAS_COMMITTEE" ||
-            role === "AQAR_COMMITTEE"
-        ) {
-            const scopes = context.committeeScopes[role] ?? [];
-            if (scopes.some((scope) => matchesScopedAssignment(subject, scope))) {
-                return true;
-            }
-
-            continue;
-        }
-
-        return true;
-    }
-
-    return false;
+function toObjectIdList(values?: string[]) {
+    return (values ?? [])
+        .filter((value) => Types.ObjectId.isValid(value))
+        .map((value) => new Types.ObjectId(value));
 }
 
 export async function syncWorkflowInstanceState(options: {
@@ -506,6 +314,12 @@ export async function syncWorkflowInstanceState(options: {
     subjectDepartmentName?: string;
     subjectCollegeName?: string;
     subjectUniversityName?: string;
+    subjectDepartmentId?: string;
+    subjectInstitutionId?: string;
+    subjectDepartmentOrganizationId?: string;
+    subjectCollegeOrganizationId?: string;
+    subjectUniversityOrganizationId?: string;
+    subjectOrganizationIds?: string[];
     actor?: WorkflowActor;
     remarks?: string;
     action?: WorkflowAction;
@@ -532,6 +346,12 @@ export async function syncWorkflowInstanceState(options: {
                 scopeDepartmentName: options.subjectDepartmentName || undefined,
                 scopeCollegeName: options.subjectCollegeName || undefined,
                 scopeUniversityName: options.subjectUniversityName || undefined,
+                scopeDepartmentId: toObjectId(options.subjectDepartmentId),
+                scopeInstitutionId: toObjectId(options.subjectInstitutionId),
+                scopeDepartmentOrganizationId: toObjectId(options.subjectDepartmentOrganizationId),
+                scopeCollegeOrganizationId: toObjectId(options.subjectCollegeOrganizationId),
+                scopeUniversityOrganizationId: toObjectId(options.subjectUniversityOrganizationId),
+                scopeOrganizationIds: toObjectIdList(options.subjectOrganizationIds),
                 isActive: Boolean(stage),
                 completedAt: stage ? undefined : now,
                 lastAction: options.action,
@@ -582,6 +402,12 @@ export async function canActorProcessWorkflowStage(options: {
     subjectDepartmentName?: string;
     subjectCollegeName?: string;
     subjectUniversityName?: string;
+    subjectDepartmentId?: string;
+    subjectInstitutionId?: string;
+    subjectDepartmentOrganizationId?: string;
+    subjectCollegeOrganizationId?: string;
+    subjectUniversityOrganizationId?: string;
+    subjectOrganizationIds?: string[];
     stageKinds?: WorkflowStageKind[];
 }) {
     const definition = await getActiveWorkflowDefinition(options.moduleName);
@@ -596,15 +422,17 @@ export async function canActorProcessWorkflowStage(options: {
     }
 
     const actorContext = await resolveWorkflowActorContext(options.actor);
-    return actorMatchesWorkflowStage(
-        stage,
-        actorContext,
-        {
-            scopeDepartmentName: options.subjectDepartmentName,
-            scopeCollegeName: options.subjectCollegeName,
-            scopeUniversityName: options.subjectUniversityName,
-        }
-    );
+    return actorMatchesWorkflowStage(stage, actorContext, {
+        departmentName: options.subjectDepartmentName,
+        collegeName: options.subjectCollegeName,
+        universityName: options.subjectUniversityName,
+        departmentId: options.subjectDepartmentId,
+        institutionId: options.subjectInstitutionId,
+        departmentOrganizationId: options.subjectDepartmentOrganizationId,
+        collegeOrganizationId: options.subjectCollegeOrganizationId,
+        universityOrganizationId: options.subjectUniversityOrganizationId,
+        subjectOrganizationIds: options.subjectOrganizationIds,
+    });
 }
 
 export async function listPendingWorkflowRecordIds(options: {
@@ -614,16 +442,18 @@ export async function listPendingWorkflowRecordIds(options: {
 }) {
     const actorContext = await resolveWorkflowActorContext(options.actor);
 
-    if (!actorContext.approverRoles.length) {
+    if (!actorContext.workflowRoles.length) {
         return [];
     }
 
     const instances = await WorkflowInstance.find({
         moduleName: options.moduleName,
         isActive: true,
-        currentApproverRoles: { $in: actorContext.approverRoles },
+        currentApproverRoles: { $in: actorContext.workflowRoles },
     })
-        .select("recordId currentApproverRoles currentStageKind scopeDepartmentName scopeCollegeName scopeUniversityName")
+        .select(
+            "recordId currentApproverRoles currentStageKind scopeDepartmentName scopeCollegeName scopeUniversityName scopeDepartmentId scopeInstitutionId scopeDepartmentOrganizationId scopeCollegeOrganizationId scopeUniversityOrganizationId scopeOrganizationIds"
+        )
         .lean();
 
     return instances
@@ -635,53 +465,22 @@ export async function listPendingWorkflowRecordIds(options: {
                 }
             }
 
-            for (const role of actorContext.approverRoles) {
-                if (!instance.currentApproverRoles.includes(role)) {
-                    continue;
-                }
-
-                if (role === "DEPARTMENT_HEAD") {
-                    return Boolean(
-                        instance.scopeDepartmentName &&
-                        actorContext.headedDepartmentNames.includes(instance.scopeDepartmentName)
-                    );
-                }
-
-                if (role === "PRINCIPAL") {
-                    return actorContext.principalScopes.some((scope) =>
-                        matchesScopedAssignment(
-                            {
-                                departmentName: instance.scopeDepartmentName ?? undefined,
-                                collegeName: instance.scopeCollegeName ?? undefined,
-                                universityName: instance.scopeUniversityName ?? undefined,
-                            },
-                            scope
-                        )
-                    );
-                }
-
-                if (
-                    role === "IQAC" ||
-                    role === "PBAS_COMMITTEE" ||
-                    role === "CAS_COMMITTEE" ||
-                    role === "AQAR_COMMITTEE"
-                ) {
-                    return (actorContext.committeeScopes[role] ?? []).some((scope) =>
-                        matchesScopedAssignment(
-                            {
-                                departmentName: instance.scopeDepartmentName ?? undefined,
-                                collegeName: instance.scopeCollegeName ?? undefined,
-                                universityName: instance.scopeUniversityName ?? undefined,
-                            },
-                            scope
-                        )
-                    );
-                }
-
-                return true;
-            }
-
-            return false;
+            return canReviewWorkflowStage(
+                actorContext,
+                {
+                    departmentName: instance.scopeDepartmentName ?? undefined,
+                    collegeName: instance.scopeCollegeName ?? undefined,
+                    universityName: instance.scopeUniversityName ?? undefined,
+                    departmentId: instance.scopeDepartmentId?.toString(),
+                    institutionId: instance.scopeInstitutionId?.toString(),
+                    departmentOrganizationId: instance.scopeDepartmentOrganizationId?.toString(),
+                    collegeOrganizationId: instance.scopeCollegeOrganizationId?.toString(),
+                    universityOrganizationId: instance.scopeUniversityOrganizationId?.toString(),
+                    subjectOrganizationIds:
+                        instance.scopeOrganizationIds?.map((value) => value.toString()) ?? [],
+                },
+                instance.currentApproverRoles
+            );
         })
         .map((instance) => instance.recordId);
 }

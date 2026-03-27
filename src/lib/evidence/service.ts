@@ -1,12 +1,14 @@
 import { Types } from "mongoose";
 
 import { createAuditLog, type AuditRequestContext } from "@/lib/audit/service";
+import {
+    resolveAuthorizationProfile,
+    resolveAuthorizedEvidenceDepartmentIds,
+} from "@/lib/authorization/service";
 import dbConnect from "@/lib/dbConnect";
 import { AuthError } from "@/lib/auth/errors";
 import { notifyUser } from "@/lib/notifications/service";
 import DocumentModel from "@/models/reference/document";
-import Organization from "@/models/core/organization";
-import Department from "@/models/reference/department";
 import Student from "@/models/student/student";
 import StudentAward from "@/models/student/student-award";
 import StudentSkill from "@/models/student/student-skill";
@@ -69,30 +71,15 @@ export type EvidenceDashboardSummary = {
     }>;
 };
 
-async function getDepartmentHeadedByUser(userId: string) {
-    return Organization.findOne({
-        type: "Department",
-        headUserId: userId,
-        isActive: true,
-    }).select("name");
-}
+async function getAuthorizedEvidenceDepartmentIds(actor: SafeActor) {
+    const profile = await resolveAuthorizationProfile(actor);
+    const departmentIds = await resolveAuthorizedEvidenceDepartmentIds(profile);
 
-async function getDepartmentScope(actor: SafeActor) {
-    if (actor.role === "Admin" || actor.role === "Director") {
-        return null;
-    }
-
-    const headedDepartment = await getDepartmentHeadedByUser(actor.id);
-    if (!headedDepartment) {
+    if (!departmentIds.length) {
         throw new AuthError("You do not have evidence review access.", 403);
     }
 
-    const department = await Department.findOne({ name: headedDepartment.name }).select("_id name");
-    if (!department) {
-        throw new AuthError("Department mapping not found for evidence review.", 404);
-    }
-
-    return department._id.toString();
+    return departmentIds;
 }
 
 function normalizeStudentName(student: { firstName?: string; lastName?: string }) {
@@ -153,7 +140,7 @@ export async function listStudentEvidenceForReview(
     status: EvidenceStatus = "Pending"
 ) {
     await dbConnect();
-    const departmentScope = await getDepartmentScope(actor);
+    const departmentScopes = await getAuthorizedEvidenceDepartmentIds(actor);
     const match = buildDocumentMatch(status);
 
     const basePopulate = {
@@ -283,11 +270,9 @@ export async function listStudentEvidenceForReview(
         ),
     ].filter(Boolean) as EvidenceItem[];
 
-    if (!departmentScope) {
-        return items.sort((a, b) => (b.document.uploadedAt?.getTime() ?? 0) - (a.document.uploadedAt?.getTime() ?? 0));
-    }
-
-    const allowedStudents = await Student.find({ departmentId: new Types.ObjectId(departmentScope) })
+    const allowedStudents = await Student.find({
+        departmentId: { $in: departmentScopes.map((departmentId) => new Types.ObjectId(departmentId)) },
+    })
         .select("_id")
         .lean();
     const allowedIds = new Set(allowedStudents.map((student) => student._id.toString()));
@@ -348,13 +333,15 @@ export async function getEvidenceDashboardSummary(actor: SafeActor): Promise<Evi
     };
 }
 
-async function ensureStudentEvidence(documentId: string, departmentId?: string) {
+async function ensureStudentEvidence(documentId: string, departmentIds: string[]) {
     const query = { documentId: new Types.ObjectId(documentId) };
-    const studentFilter = departmentId
+    const studentFilter = departmentIds.length
         ? {
               studentId: {
                   $in: (
-                      await Student.find({ departmentId: new Types.ObjectId(departmentId) })
+                      await Student.find({
+                          departmentId: { $in: departmentIds.map((departmentId) => new Types.ObjectId(departmentId)) },
+                      })
                           .select("_id")
                           .lean()
                   ).map((student) => student._id),
@@ -383,9 +370,9 @@ export async function updateEvidenceVerification(
     remarks?: string
 ) {
     await dbConnect();
-    const departmentScope = await getDepartmentScope(actor);
+    const departmentScopes = await getAuthorizedEvidenceDepartmentIds(actor);
 
-    const isStudentEvidence = await ensureStudentEvidence(documentId, departmentScope ?? undefined);
+    const isStudentEvidence = await ensureStudentEvidence(documentId, departmentScopes);
     if (!isStudentEvidence) {
         throw new AuthError("Evidence record not found for student modules.", 404);
     }

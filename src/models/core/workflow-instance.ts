@@ -20,6 +20,12 @@ export interface IWorkflowInstance extends Document {
     scopeDepartmentName?: string;
     scopeCollegeName?: string;
     scopeUniversityName?: string;
+    scopeDepartmentId?: Types.ObjectId;
+    scopeInstitutionId?: Types.ObjectId;
+    scopeDepartmentOrganizationId?: Types.ObjectId;
+    scopeCollegeOrganizationId?: Types.ObjectId;
+    scopeUniversityOrganizationId?: Types.ObjectId;
+    scopeOrganizationIds: Types.ObjectId[];
     isActive: boolean;
     startedAt?: Date;
     completedAt?: Date;
@@ -63,6 +69,7 @@ const WorkflowInstanceSchema = new Schema<IWorkflowInstance>(
                         "FACULTY",
                         "DEPARTMENT_HEAD",
                         "DIRECTOR",
+                        "OFFICE_HEAD",
                         "IQAC",
                         "PBAS_COMMITTEE",
                         "CAS_COMMITTEE",
@@ -79,6 +86,12 @@ const WorkflowInstanceSchema = new Schema<IWorkflowInstance>(
         scopeDepartmentName: { type: String, trim: true, index: true },
         scopeCollegeName: { type: String, trim: true, index: true },
         scopeUniversityName: { type: String, trim: true, index: true },
+        scopeDepartmentId: { type: Schema.Types.ObjectId, ref: "Department", index: true },
+        scopeInstitutionId: { type: Schema.Types.ObjectId, ref: "Institution", index: true },
+        scopeDepartmentOrganizationId: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
+        scopeCollegeOrganizationId: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
+        scopeUniversityOrganizationId: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
+        scopeOrganizationIds: { type: [{ type: Schema.Types.ObjectId, ref: "Organization" }], default: [] },
         isActive: { type: Boolean, required: true, default: false, index: true },
         startedAt: { type: Date },
         completedAt: { type: Date },

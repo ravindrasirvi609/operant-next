@@ -178,6 +178,12 @@ export interface IAqarStatusLog {
 export interface IAqarApplication extends Document {
     facultyId: Types.ObjectId;
     academicYear: string;
+    scopeDepartmentId?: Types.ObjectId;
+    scopeInstitutionId?: Types.ObjectId;
+    scopeDepartmentOrganizationId?: Types.ObjectId;
+    scopeCollegeOrganizationId?: Types.ObjectId;
+    scopeUniversityOrganizationId?: Types.ObjectId;
+    scopeOrganizationIds: Types.ObjectId[];
     reportingPeriod: {
         fromDate: string;
         toDate: string;
@@ -444,6 +450,12 @@ const AqarApplicationSchema = new Schema<IAqarApplication>(
     {
         facultyId: { type: Schema.Types.ObjectId, ref: "Faculty", required: true, index: true },
         academicYear: { type: String, required: true, trim: true, index: true },
+        scopeDepartmentId: { type: Schema.Types.ObjectId, ref: "Department", index: true },
+        scopeInstitutionId: { type: Schema.Types.ObjectId, ref: "Institution", index: true },
+        scopeDepartmentOrganizationId: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
+        scopeCollegeOrganizationId: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
+        scopeUniversityOrganizationId: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
+        scopeOrganizationIds: { type: [{ type: Schema.Types.ObjectId, ref: "Organization" }], default: [] },
         reportingPeriod: {
             fromDate: createStringSchema(true),
             toDate: createStringSchema(true),

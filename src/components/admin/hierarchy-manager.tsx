@@ -287,7 +287,7 @@ export function HierarchyManager({
                         </div>
 
                         <Field label="Head title" id="organization-head-title" error={form.formState.errors.headTitle?.message}>
-                            <Input id="organization-head-title" placeholder="Director / Head of Department" {...form.register("headTitle")} />
+                            <Input id="organization-head-title" placeholder="Head of Department / Principal / Office Head" {...form.register("headTitle")} />
                         </Field>
 
                         <Field label="Description" id="organization-description" error={form.formState.errors.description?.message}>

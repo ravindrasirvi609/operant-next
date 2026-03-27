@@ -6,6 +6,8 @@ import { AuthError } from "@/lib/auth/errors";
 import AqarApplication from "@/models/core/aqar-application";
 import AqarCycle, { type IAqarCycleCriterion } from "@/models/core/aqar-cycle";
 import CasApplication from "@/models/core/cas-application";
+import GovernanceCommitteeMembership from "@/models/core/governance-committee-membership";
+import LeadershipAssignment from "@/models/core/leadership-assignment";
 import MasterData from "@/models/core/master-data";
 import Organization from "@/models/core/organization";
 import User from "@/models/core/user";
@@ -402,7 +404,8 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         collaborations,
         activeOfficeMasters,
         systemUpdates,
-        leadershipUsers,
+        leadershipAssignmentUserIds,
+        committeeMemberUserIds,
         mappings,
     ] = await Promise.all([
         User.countDocuments({ role: "Faculty", isActive: true }),
@@ -432,9 +435,18 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         Project.countDocuments({ type: "Collaboration" }),
         MasterData.countDocuments({ category: "office", isActive: true }),
         SystemMisc.countDocuments({ isActive: true }),
-        User.countDocuments({ role: { $in: ["Admin", "Director", "PRO", "Placement"] } }),
+        LeadershipAssignment.distinct("userId", { isActive: true }),
+        GovernanceCommitteeMembership.distinct("userId", {
+            isActive: true,
+            userId: { $exists: true, $ne: null },
+        }),
         listNaacCriteriaMappings(),
     ]);
+
+    const leadershipUsers = new Set([
+        ...leadershipAssignmentUserIds.map((value) => value.toString()),
+        ...committeeMemberUserIds.map((value) => value.toString()),
+    ]).size;
 
     const averageCoursesTaught =
         facultyTeachingLoads.length > 0 && facultyRecords.length > 0

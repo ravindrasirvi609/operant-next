@@ -1,6 +1,6 @@
 import { CasReviewBoard } from "@/components/cas/cas-review-board";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getCasReviewQueue } from "@/lib/cas/service";
+import { getCasScopedApplications } from "@/lib/cas/service";
 import { getFacultyByIds } from "@/lib/faculty/migration";
 import { requireDirector } from "@/lib/auth/user";
 
@@ -12,15 +12,12 @@ export default async function DirectorCasReviewPage() {
         role: director.role,
         department: director.department,
     };
-    const [reviewQueue, finalQueue] = await Promise.all([
-        getCasReviewQueue(actor, { stageKinds: ["review"] }),
-        getCasReviewQueue(actor, { stageKinds: ["final"] }),
-    ]);
+    const scopedApplications = await getCasScopedApplications(actor);
 
     const facultyMap = new Map(
         (
             await getFacultyByIds(
-                [...reviewQueue, ...finalQueue].map((item) => item.facultyId.toString())
+                scopedApplications.map((item) => item.facultyId.toString())
             )
         ).map((faculty) => [
             faculty._id.toString(),
@@ -28,11 +25,7 @@ export default async function DirectorCasReviewPage() {
         ])
     );
 
-    const reviewItems = reviewQueue.map((item) => ({
-        ...JSON.parse(JSON.stringify(item)),
-        facultyName: facultyMap.get(item.facultyId.toString()),
-    }));
-    const finalItems = finalQueue.map((item) => ({
+    const items = scopedApplications.map((item) => ({
         ...JSON.parse(JSON.stringify(item)),
         facultyName: facultyMap.get(item.facultyId.toString()),
     }));
@@ -41,29 +34,15 @@ export default async function DirectorCasReviewPage() {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>CAS Review Queue</CardTitle>
+                    <CardTitle>CAS workspace</CardTitle>
                     <CardDescription>
-                        Department head and committee-side review queue for submitted CAS promotion applications.
+                        Browse CAS records inside your assigned scope. Review and approval controls appear only when the current workflow stage is assigned to you.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <CasReviewBoard applications={reviewItems} mode="review" />
+                    <CasReviewBoard applications={items} mode="scoped" />
                 </CardContent>
             </Card>
-
-            {finalItems.length ? (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>CAS Final Approval</CardTitle>
-                        <CardDescription>
-                            Principal-level CAS approvals assigned to your active governance role.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <CasReviewBoard applications={finalItems} mode="approve" />
-                    </CardContent>
-                </Card>
-            ) : null}
         </div>
     );
 }

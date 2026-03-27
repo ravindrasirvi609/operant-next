@@ -48,6 +48,12 @@ export interface IFacultyPbasForm extends Document {
     remarks?: string;
     academicYear: string;
     currentDesignation: string;
+    scopeDepartmentId?: Types.ObjectId;
+    scopeInstitutionId?: Types.ObjectId;
+    scopeDepartmentOrganizationId?: Types.ObjectId;
+    scopeCollegeOrganizationId?: Types.ObjectId;
+    scopeUniversityOrganizationId?: Types.ObjectId;
+    scopeOrganizationIds: Types.ObjectId[];
     appraisalPeriod: { fromDate: string; toDate: string };
     draftReferences: IPbasDraftReferences;
     activeRevisionId?: Types.ObjectId;
@@ -111,6 +117,12 @@ const FacultyPbasFormSchema = new Schema<IFacultyPbasForm>(
         remarks: { type: String, trim: true },
         academicYear: { type: String, required: true, trim: true, index: true },
         currentDesignation: { type: String, required: true, trim: true },
+        scopeDepartmentId: { type: Schema.Types.ObjectId, ref: "Department", index: true },
+        scopeInstitutionId: { type: Schema.Types.ObjectId, ref: "Institution", index: true },
+        scopeDepartmentOrganizationId: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
+        scopeCollegeOrganizationId: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
+        scopeUniversityOrganizationId: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
+        scopeOrganizationIds: { type: [{ type: Schema.Types.ObjectId, ref: "Organization" }], default: [] },
         appraisalPeriod: {
             fromDate: { type: String, required: true, trim: true },
             toDate: { type: String, required: true, trim: true },

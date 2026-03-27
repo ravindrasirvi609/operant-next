@@ -1,6 +1,6 @@
 import { requireDirector } from "@/lib/auth/user";
 import { getFacultyByIds } from "@/lib/faculty/migration";
-import { getAqarReviewQueue } from "@/lib/aqar/service";
+import { getAqarScopedApplications } from "@/lib/aqar/service";
 import { AqarReviewBoard } from "@/components/aqar/aqar-review-board";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -12,15 +12,12 @@ export default async function DirectorAqarReviewPage() {
         role: director.role,
         department: director.department,
     };
-    const [reviewQueue, finalQueue] = await Promise.all([
-        getAqarReviewQueue(actor, { stageKinds: ["review"] }),
-        getAqarReviewQueue(actor, { stageKinds: ["final"] }),
-    ]);
+    const scopedApplications = await getAqarScopedApplications(actor);
 
     const facultyMap = new Map(
         (
             await getFacultyByIds(
-                [...reviewQueue, ...finalQueue].map((item) => item.facultyId.toString())
+                scopedApplications.map((item) => item.facultyId.toString())
             )
         ).map((faculty) => [
             faculty._id.toString(),
@@ -28,11 +25,7 @@ export default async function DirectorAqarReviewPage() {
         ])
     );
 
-    const reviewItems = reviewQueue.map((item) => ({
-        ...JSON.parse(JSON.stringify(item)),
-        facultyName: facultyMap.get(item.facultyId.toString()),
-    }));
-    const finalItems = finalQueue.map((item) => ({
+    const items = scopedApplications.map((item) => ({
         ...JSON.parse(JSON.stringify(item)),
         facultyName: facultyMap.get(item.facultyId.toString()),
     }));
@@ -41,29 +34,15 @@ export default async function DirectorAqarReviewPage() {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>AQAR Review Queue</CardTitle>
+                    <CardTitle>AQAR workspace</CardTitle>
                     <CardDescription>
-                        Department head and committee-side review queue for submitted AQAR annual contributions.
+                        Browse AQAR records inside your assigned scope. Review and approval controls appear only when the current workflow stage is assigned to you.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <AqarReviewBoard applications={reviewItems} mode="review" />
+                    <AqarReviewBoard applications={items} mode="scoped" />
                 </CardContent>
             </Card>
-
-            {finalItems.length ? (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>AQAR Final Approval</CardTitle>
-                        <CardDescription>
-                            Principal-level AQAR approvals assigned to your active governance role.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <AqarReviewBoard applications={finalItems} mode="approve" />
-                    </CardContent>
-                </Card>
-            ) : null}
         </div>
     );
 }

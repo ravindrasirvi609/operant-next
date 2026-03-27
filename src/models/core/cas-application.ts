@@ -44,6 +44,12 @@ export interface ICasApplication extends Document {
     applicationYear: string;
     currentDesignation: string;
     applyingForDesignation: string;
+    scopeDepartmentId?: Types.ObjectId;
+    scopeInstitutionId?: Types.ObjectId;
+    scopeDepartmentOrganizationId?: Types.ObjectId;
+    scopeCollegeOrganizationId?: Types.ObjectId;
+    scopeUniversityOrganizationId?: Types.ObjectId;
+    scopeOrganizationIds: Types.ObjectId[];
     applicationDate?: Date;
     eligibilityDate?: Date;
     eligibilityPeriod: {
@@ -150,6 +156,12 @@ const CasApplicationSchema = new Schema<ICasApplication>(
         applicationYear: { type: String, required: true, trim: true, index: true },
         currentDesignation: { type: String, required: true, trim: true },
         applyingForDesignation: { type: String, required: true, trim: true },
+        scopeDepartmentId: { type: Schema.Types.ObjectId, ref: "Department", index: true },
+        scopeInstitutionId: { type: Schema.Types.ObjectId, ref: "Institution", index: true },
+        scopeDepartmentOrganizationId: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
+        scopeCollegeOrganizationId: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
+        scopeUniversityOrganizationId: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
+        scopeOrganizationIds: { type: [{ type: Schema.Types.ObjectId, ref: "Organization" }], default: [] },
         applicationDate: { type: Date },
         eligibilityDate: { type: Date },
         eligibilityPeriod: {

@@ -218,11 +218,13 @@ export const pbasSnapshotSchema = z.object({
 export const pbasReviewSchema = z.object({
     remarks: z.string().trim().min(2, "Review remarks are required."),
     decision: z.enum(["Forward", "Recommend", "Reject"]),
+    overrideReason: z.string().trim().min(5).optional(),
 });
 
 export const pbasApprovalSchema = z.object({
     remarks: z.string().trim().min(2, "Approval remarks are required."),
     decision: z.enum(["Approve", "Reject"]),
+    overrideReason: z.string().trim().min(5).optional(),
 });
 
 export const pbasScoringWeightsSchema = z.object({

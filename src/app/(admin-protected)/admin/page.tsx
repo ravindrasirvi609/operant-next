@@ -86,10 +86,10 @@ export default async function AdminDashboardPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-3">
-                        <QuickAction href="/admin/hierarchy" text="Build the university-college-department hierarchy and assign directors or heads." />
+                        <QuickAction href="/admin/hierarchy" text="Build the university-college-department hierarchy and map organizational heads for migration compatibility." />
                         <QuickAction href="/admin/master-data" text="Create supporting enums such as academic years, report categories, and offices." />
                         <QuickAction href="/admin/reference-masters" text="Govern awards, skills, sports, cultural activities, social programmes, and events before users submit records." />
-                        <QuickAction href="/admin/users" text="Promote responsible owners to Director, PRO, NSS, Sports, Swayam, or Placement roles." />
+                        <QuickAction href="/admin/governance" text="Create HOD, principal, IQAC, director, office-head, and committee assignments through governance mapping." />
                         <QuickAction href="/admin/system" text="Publish onboarding notices, reporting deadlines, and dashboard messages." />
                         <QuickAction href="/admin/audit-logs" text="Review production audit logs for admin, AQAR, faculty, student, and evidence changes." />
                         <QuickAction href="/register" text="Validate faculty and student onboarding after master data is populated." />

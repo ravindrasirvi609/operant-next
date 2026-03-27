@@ -340,52 +340,14 @@ export async function resolveNotificationRecipientsForApproverRoles(
         universityName: subjectUniversityName,
     };
 
-    if (approverRoles.includes("ADMIN")) {
-        const admins = await User.find({
-            role: "Admin",
-            isActive: true,
-            emailVerified: true,
-            accountStatus: "Active",
-        }).select("_id");
-
-        for (const admin of admins) {
-            recipientIds.add(admin._id.toString());
-        }
-    }
-
-    if (approverRoles.includes("DIRECTOR")) {
-        const directors = await User.find({
-            role: "Director",
-            isActive: true,
-            emailVerified: true,
-            accountStatus: "Active",
-        }).select("_id");
-
-        for (const director of directors) {
-            recipientIds.add(director._id.toString());
-        }
-    }
-
     if (approverRoles.includes("DEPARTMENT_HEAD") && subjectDepartmentName) {
         for (const userId of await resolveWorkflowRoleRecipientIds("DEPARTMENT_HEAD", subjectScope)) {
             recipientIds.add(userId);
-        }
-
-        const headedDepartment = await Organization.findOne({
-            type: "Department",
-            name: subjectDepartmentName,
-            isActive: true,
-        }).select("headUserId");
-
-        if (headedDepartment?.headUserId) {
-            recipientIds.add(headedDepartment.headUserId.toString());
         }
     }
 
     for (const role of approverRoles) {
         if (
-            role === "ADMIN" ||
-            role === "DIRECTOR" ||
             role === "DEPARTMENT_HEAD" ||
             role === "FACULTY"
         ) {
@@ -467,26 +429,6 @@ export async function resolveEvidenceReviewerRecipients(departmentId?: string) {
     await dbConnect();
 
     const recipients = new Map<string, NotificationRecipient>();
-
-    const [admins, directors] = await Promise.all([
-        User.find({
-            role: "Admin",
-            isActive: true,
-            accountStatus: "Active",
-        }).select("_id role"),
-        User.find({
-            role: "Director",
-            isActive: true,
-            accountStatus: "Active",
-        }).select("_id role"),
-    ]);
-
-    for (const user of [...admins, ...directors]) {
-        recipients.set(user._id.toString(), {
-            userId: user._id.toString(),
-            role: user.role,
-        });
-    }
 
     if (departmentId) {
         const department = await Department.findById(departmentId).select("name");

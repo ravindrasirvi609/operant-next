@@ -7,6 +7,7 @@ export type WorkflowApproverRole =
     | "FACULTY"
     | "DEPARTMENT_HEAD"
     | "DIRECTOR"
+    | "OFFICE_HEAD"
     | "IQAC"
     | "PBAS_COMMITTEE"
     | "CAS_COMMITTEE"
@@ -60,6 +61,7 @@ const WorkflowDefinitionStageSchema = new Schema<IWorkflowDefinitionStage>(
                         "FACULTY",
                         "DEPARTMENT_HEAD",
                         "DIRECTOR",
+                        "OFFICE_HEAD",
                         "IQAC",
                         "PBAS_COMMITTEE",
                         "CAS_COMMITTEE",

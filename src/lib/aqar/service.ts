@@ -2,9 +2,15 @@ import { Types } from "mongoose";
 
 import { createAuditLog, type AuditRequestContext } from "@/lib/audit/service";
 import dbConnect from "@/lib/dbConnect";
+import {
+    buildAuthorizedScopeQuery,
+    canUseBreakGlassOverride,
+    canViewModuleRecord,
+    resolveAuthorizationProfile,
+    resolveFacultyAuthorizationScope,
+} from "@/lib/authorization/service";
 import { AuthError } from "@/lib/auth/errors";
 import { ensureFacultyContext } from "@/lib/faculty/migration";
-import Organization from "@/models/core/organization";
 import Department from "@/models/reference/department";
 import Faculty from "@/models/faculty/faculty";
 import User from "@/models/core/user";
@@ -121,27 +127,39 @@ export function computeAqarMetrics(input: ReturnType<typeof aqarApplicationSchem
     };
 }
 
-async function getDepartmentHeadedByUser(userId: string) {
-    return Organization.findOne({
-        type: "Department",
-        headUserId: userId,
-        isActive: true,
-    }).select("name");
-}
-
 async function getAqarWorkflowDepartmentName(application: InstanceType<typeof AqarApplication>) {
     const faculty = await getUserForApplication(application);
     return faculty.department;
 }
 
 async function getAqarWorkflowScope(application: InstanceType<typeof AqarApplication>) {
-    const faculty = await getUserForApplication(application);
+    const resolved = await resolveFacultyAuthorizationScope(application.facultyId.toString());
 
-    return {
-        departmentName: faculty.department,
-        collegeName: faculty.collegeName,
-        universityName: faculty.universityName,
-    };
+    application.scopeDepartmentId =
+        resolved.departmentId && Types.ObjectId.isValid(resolved.departmentId)
+            ? new Types.ObjectId(resolved.departmentId)
+            : undefined;
+    application.scopeInstitutionId =
+        resolved.institutionId && Types.ObjectId.isValid(resolved.institutionId)
+            ? new Types.ObjectId(resolved.institutionId)
+            : undefined;
+    application.scopeDepartmentOrganizationId =
+        resolved.departmentOrganizationId && Types.ObjectId.isValid(resolved.departmentOrganizationId)
+            ? new Types.ObjectId(resolved.departmentOrganizationId)
+            : undefined;
+    application.scopeCollegeOrganizationId =
+        resolved.collegeOrganizationId && Types.ObjectId.isValid(resolved.collegeOrganizationId)
+            ? new Types.ObjectId(resolved.collegeOrganizationId)
+            : undefined;
+    application.scopeUniversityOrganizationId =
+        resolved.universityOrganizationId && Types.ObjectId.isValid(resolved.universityOrganizationId)
+            ? new Types.ObjectId(resolved.universityOrganizationId)
+            : undefined;
+    application.scopeOrganizationIds = (resolved.subjectOrganizationIds ?? [])
+        .filter((value) => Types.ObjectId.isValid(value))
+        .map((value) => new Types.ObjectId(value));
+
+    return resolved;
 }
 
 function pushStatusLog(
@@ -203,7 +221,7 @@ async function notifyAqarStageAssignment(
         stage: {
             key: stage.key,
             label: stage.label,
-            approverRoles: stage.approverRoles as Array<"DEPARTMENT_HEAD" | "DIRECTOR" | "IQAC" | "AQAR_COMMITTEE" | "PRINCIPAL" | "ADMIN" | "FACULTY">,
+            approverRoles: stage.approverRoles as Array<"DEPARTMENT_HEAD" | "DIRECTOR" | "OFFICE_HEAD" | "IQAC" | "AQAR_COMMITTEE" | "PRINCIPAL" | "FACULTY">,
         },
         subjectDepartmentName: subjectScope.departmentName,
         subjectCollegeName: subjectScope.collegeName,
@@ -403,28 +421,10 @@ export async function getAqarApplicationById(actor: SafeActor, id: string) {
         }
     }
 
-    const headedDepartment = await getDepartmentHeadedByUser(actor.id);
-
-    if (headedDepartment) {
-        const faculty = await getUserForApplication(application);
-        if (faculty.department === headedDepartment.name) {
-            return application;
-        }
-    }
-
     const subjectScope = await getAqarWorkflowScope(application);
-    const canAccessByWorkflowRole = await canActorProcessWorkflowStage({
-        actor,
-        moduleName: "AQAR",
-        recordId: application._id.toString(),
-        status: application.status,
-        subjectDepartmentName: subjectScope.departmentName,
-        subjectCollegeName: subjectScope.collegeName,
-        subjectUniversityName: subjectScope.universityName,
-        stageKinds: ["review", "final"],
-    });
+    const profile = await resolveAuthorizationProfile(actor);
 
-    if (canAccessByWorkflowRole) {
+    if (canViewModuleRecord(profile, "AQAR", subjectScope)) {
         return application;
     }
 
@@ -569,6 +569,7 @@ export async function reviewAqarApplication(actor: SafeActor, id: string, rawInp
     const application = await getAqarApplicationById(actor, id);
     const workflowDefinition = await getActiveWorkflowDefinition("AQAR");
     const subjectScope = await getAqarWorkflowScope(application);
+    const isOverride = canUseBreakGlassOverride(actor, "AQAR") && Boolean(input.overrideReason?.trim());
     const canReview = await canActorProcessWorkflowStage({
         actor,
         moduleName: "AQAR",
@@ -577,10 +578,16 @@ export async function reviewAqarApplication(actor: SafeActor, id: string, rawInp
         subjectDepartmentName: subjectScope.departmentName,
         subjectCollegeName: subjectScope.collegeName,
         subjectUniversityName: subjectScope.universityName,
+        subjectDepartmentId: subjectScope.departmentId,
+        subjectInstitutionId: subjectScope.institutionId,
+        subjectDepartmentOrganizationId: subjectScope.departmentOrganizationId,
+        subjectCollegeOrganizationId: subjectScope.collegeOrganizationId,
+        subjectUniversityOrganizationId: subjectScope.universityOrganizationId,
+        subjectOrganizationIds: subjectScope.subjectOrganizationIds,
         stageKinds: ["review"],
     });
 
-    if (!canReview) {
+    if (!canReview && !isOverride) {
         throw new AuthError("You are not authorized to review this AQAR application.", 403);
     }
 
@@ -624,6 +631,12 @@ export async function reviewAqarApplication(actor: SafeActor, id: string, rawInp
             subjectDepartmentName: subjectScope.departmentName,
             subjectCollegeName: subjectScope.collegeName,
             subjectUniversityName: subjectScope.universityName,
+            subjectDepartmentId: subjectScope.departmentId,
+            subjectInstitutionId: subjectScope.institutionId,
+            subjectDepartmentOrganizationId: subjectScope.departmentOrganizationId,
+            subjectCollegeOrganizationId: subjectScope.collegeOrganizationId,
+            subjectUniversityOrganizationId: subjectScope.universityOrganizationId,
+            subjectOrganizationIds: subjectScope.subjectOrganizationIds,
             actor,
             remarks: input.remarks,
             action: "reject",
@@ -631,7 +644,7 @@ export async function reviewAqarApplication(actor: SafeActor, id: string, rawInp
 
         await createAuditLog({
             actor,
-            action: "AQAR_REVIEW_REJECT",
+            action: isOverride ? "AQAR_REVIEW_REJECT_OVERRIDE" : "AQAR_REVIEW_REJECT",
             tableName: "aqar_applications",
             recordId: application._id.toString(),
             oldData: oldState,
@@ -672,6 +685,12 @@ export async function reviewAqarApplication(actor: SafeActor, id: string, rawInp
         subjectDepartmentName: subjectScope.departmentName,
         subjectCollegeName: subjectScope.collegeName,
         subjectUniversityName: subjectScope.universityName,
+        subjectDepartmentId: subjectScope.departmentId,
+        subjectInstitutionId: subjectScope.institutionId,
+        subjectDepartmentOrganizationId: subjectScope.departmentOrganizationId,
+        subjectCollegeOrganizationId: subjectScope.collegeOrganizationId,
+        subjectUniversityOrganizationId: subjectScope.universityOrganizationId,
+        subjectOrganizationIds: subjectScope.subjectOrganizationIds,
         actor,
         remarks: input.remarks,
         action: "approve",
@@ -679,7 +698,7 @@ export async function reviewAqarApplication(actor: SafeActor, id: string, rawInp
 
     await createAuditLog({
         actor,
-        action: "AQAR_REVIEW",
+        action: isOverride ? "AQAR_REVIEW_OVERRIDE" : "AQAR_REVIEW",
         tableName: "aqar_applications",
         recordId: application._id.toString(),
         oldData: oldState,
@@ -698,6 +717,7 @@ export async function approveAqarApplication(actor: SafeActor, id: string, rawIn
 
     const application = await getAqarApplicationById(actor, id);
     const subjectScope = await getAqarWorkflowScope(application);
+    const isOverride = canUseBreakGlassOverride(actor, "AQAR") && Boolean(input.overrideReason?.trim());
     const canFinalize = await canActorProcessWorkflowStage({
         actor,
         moduleName: "AQAR",
@@ -706,11 +726,17 @@ export async function approveAqarApplication(actor: SafeActor, id: string, rawIn
         subjectDepartmentName: subjectScope.departmentName,
         subjectCollegeName: subjectScope.collegeName,
         subjectUniversityName: subjectScope.universityName,
+        subjectDepartmentId: subjectScope.departmentId,
+        subjectInstitutionId: subjectScope.institutionId,
+        subjectDepartmentOrganizationId: subjectScope.departmentOrganizationId,
+        subjectCollegeOrganizationId: subjectScope.collegeOrganizationId,
+        subjectUniversityOrganizationId: subjectScope.universityOrganizationId,
+        subjectOrganizationIds: subjectScope.subjectOrganizationIds,
         stageKinds: ["final"],
     });
     const oldState = application.toObject();
 
-    if (!canFinalize) {
+    if (!canFinalize && !isOverride) {
         throw new AuthError("Only final-stage AQAR applications can be finalized.", 409);
     }
 
@@ -738,6 +764,12 @@ export async function approveAqarApplication(actor: SafeActor, id: string, rawIn
         subjectDepartmentName: subjectScope.departmentName,
         subjectCollegeName: subjectScope.collegeName,
         subjectUniversityName: subjectScope.universityName,
+        subjectDepartmentId: subjectScope.departmentId,
+        subjectInstitutionId: subjectScope.institutionId,
+        subjectDepartmentOrganizationId: subjectScope.departmentOrganizationId,
+        subjectCollegeOrganizationId: subjectScope.collegeOrganizationId,
+        subjectUniversityOrganizationId: subjectScope.universityOrganizationId,
+        subjectOrganizationIds: subjectScope.subjectOrganizationIds,
         actor,
         remarks: input.remarks,
         action: input.decision === "Approve" ? "approve" : "reject",
@@ -745,7 +777,14 @@ export async function approveAqarApplication(actor: SafeActor, id: string, rawIn
 
     await createAuditLog({
         actor,
-        action: input.decision === "Approve" ? "AQAR_APPROVE" : "AQAR_FINAL_REJECT",
+        action:
+            input.decision === "Approve"
+                ? isOverride
+                    ? "AQAR_APPROVE_OVERRIDE"
+                    : "AQAR_APPROVE"
+                : isOverride
+                  ? "AQAR_FINAL_REJECT_OVERRIDE"
+                  : "AQAR_FINAL_REJECT",
         tableName: "aqar_applications",
         recordId: application._id.toString(),
         oldData: oldState,
@@ -778,6 +817,12 @@ export async function getAqarReviewQueue(
                 subjectDepartmentName: subjectScope.departmentName,
                 subjectCollegeName: subjectScope.collegeName,
                 subjectUniversityName: subjectScope.universityName,
+                subjectDepartmentId: subjectScope.departmentId,
+                subjectInstitutionId: subjectScope.institutionId,
+                subjectDepartmentOrganizationId: subjectScope.departmentOrganizationId,
+                subjectCollegeOrganizationId: subjectScope.collegeOrganizationId,
+                subjectUniversityOrganizationId: subjectScope.universityOrganizationId,
+                subjectOrganizationIds: subjectScope.subjectOrganizationIds,
             });
         })
     );
@@ -790,4 +835,61 @@ export async function getAqarReviewQueue(
     const recordIdSet = new Set(recordIds);
 
     return applications.filter((application) => recordIdSet.has(application._id.toString()));
+}
+
+export async function getAqarScopedApplications(actor: SafeActor) {
+    await dbConnect();
+    const profile = await resolveAuthorizationProfile(actor);
+
+    if (!profile.hasLeadershipPortalAccess) {
+        return [];
+    }
+
+    const applications = await AqarApplication.find(buildAuthorizedScopeQuery(profile)).sort({ updatedAt: -1 });
+
+    await Promise.all(
+        applications.map(async (application) => {
+            const subjectScope = await getAqarWorkflowScope(application);
+            await syncWorkflowInstanceState({
+                moduleName: "AQAR",
+                recordId: application._id.toString(),
+                status: application.status,
+                subjectDepartmentName: subjectScope.departmentName,
+                subjectCollegeName: subjectScope.collegeName,
+                subjectUniversityName: subjectScope.universityName,
+                subjectDepartmentId: subjectScope.departmentId,
+                subjectInstitutionId: subjectScope.institutionId,
+                subjectDepartmentOrganizationId: subjectScope.departmentOrganizationId,
+                subjectCollegeOrganizationId: subjectScope.collegeOrganizationId,
+                subjectUniversityOrganizationId: subjectScope.universityOrganizationId,
+                subjectOrganizationIds: subjectScope.subjectOrganizationIds,
+            });
+        })
+    );
+
+    const [reviewIds, finalIds] = await Promise.all([
+        listPendingWorkflowRecordIds({
+            actor,
+            moduleName: "AQAR",
+            stageKinds: ["review"],
+        }),
+        listPendingWorkflowRecordIds({
+            actor,
+            moduleName: "AQAR",
+            stageKinds: ["final"],
+        }),
+    ]);
+
+    const reviewIdSet = new Set(reviewIds);
+    const finalIdSet = new Set(finalIds);
+
+    return applications.map((application) => ({
+        ...JSON.parse(JSON.stringify(application)),
+        permissions: {
+            canReview: reviewIdSet.has(application._id.toString()),
+            canApprove: finalIdSet.has(application._id.toString()),
+            canReject: reviewIdSet.has(application._id.toString()) || finalIdSet.has(application._id.toString()),
+            canOverride: profile.isAdmin,
+        },
+    }));
 }

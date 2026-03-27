@@ -2,10 +2,16 @@ import mongoose, { Types } from "mongoose";
 
 import dbConnect from "@/lib/dbConnect";
 import { createAuditLog, type AuditRequestContext } from "@/lib/audit/service";
+import {
+    buildAuthorizedScopeQuery,
+    canUseBreakGlassOverride,
+    canViewModuleRecord,
+    resolveAuthorizationProfile,
+    resolveFacultyAuthorizationScope,
+} from "@/lib/authorization/service";
 import { AuthError } from "@/lib/auth/errors";
 import { ensureFacultyContext } from "@/lib/faculty/migration";
 import { designationOptions } from "@/lib/faculty/options";
-import Organization from "@/models/core/organization";
 import Department from "@/models/reference/department";
 import Faculty from "@/models/faculty/faculty";
 import User from "@/models/core/user";
@@ -994,13 +1000,33 @@ async function getPbasWorkflowDepartmentName(application: InstanceType<typeof Fa
 }
 
 async function getPbasWorkflowScope(application: InstanceType<typeof FacultyPbasForm>) {
-    const faculty = await getUserForApplication(application);
+    const resolved = await resolveFacultyAuthorizationScope(application.facultyId.toString());
 
-    return {
-        departmentName: faculty.department,
-        collegeName: faculty.collegeName,
-        universityName: faculty.universityName,
-    };
+    application.scopeDepartmentId =
+        resolved.departmentId && Types.ObjectId.isValid(resolved.departmentId)
+            ? new Types.ObjectId(resolved.departmentId)
+            : undefined;
+    application.scopeInstitutionId =
+        resolved.institutionId && Types.ObjectId.isValid(resolved.institutionId)
+            ? new Types.ObjectId(resolved.institutionId)
+            : undefined;
+    application.scopeDepartmentOrganizationId =
+        resolved.departmentOrganizationId && Types.ObjectId.isValid(resolved.departmentOrganizationId)
+            ? new Types.ObjectId(resolved.departmentOrganizationId)
+            : undefined;
+    application.scopeCollegeOrganizationId =
+        resolved.collegeOrganizationId && Types.ObjectId.isValid(resolved.collegeOrganizationId)
+            ? new Types.ObjectId(resolved.collegeOrganizationId)
+            : undefined;
+    application.scopeUniversityOrganizationId =
+        resolved.universityOrganizationId && Types.ObjectId.isValid(resolved.universityOrganizationId)
+            ? new Types.ObjectId(resolved.universityOrganizationId)
+            : undefined;
+    application.scopeOrganizationIds = (resolved.subjectOrganizationIds ?? [])
+        .filter((value) => Types.ObjectId.isValid(value))
+        .map((value) => new Types.ObjectId(value));
+
+    return resolved;
 }
 
 async function canReviewPbasApplication(
@@ -1017,16 +1043,14 @@ async function canReviewPbasApplication(
         subjectDepartmentName: subjectScope.departmentName,
         subjectCollegeName: subjectScope.collegeName,
         subjectUniversityName: subjectScope.universityName,
+        subjectDepartmentId: subjectScope.departmentId,
+        subjectInstitutionId: subjectScope.institutionId,
+        subjectDepartmentOrganizationId: subjectScope.departmentOrganizationId,
+        subjectCollegeOrganizationId: subjectScope.collegeOrganizationId,
+        subjectUniversityOrganizationId: subjectScope.universityOrganizationId,
+        subjectOrganizationIds: subjectScope.subjectOrganizationIds,
         stageKinds: ["review"],
     });
-}
-
-async function getDepartmentHeadedByUser(userId: string) {
-    return Organization.findOne({
-        type: "Department",
-        headUserId: userId,
-        isActive: true,
-    }).select("name");
 }
 
 function pushStatusLog(
@@ -1216,6 +1240,12 @@ async function upsertWorkflow(
         subjectDepartmentName: subjectScope.departmentName,
         subjectCollegeName: subjectScope.collegeName,
         subjectUniversityName: subjectScope.universityName,
+        subjectDepartmentId: subjectScope.departmentId,
+        subjectInstitutionId: subjectScope.institutionId,
+        subjectDepartmentOrganizationId: subjectScope.departmentOrganizationId,
+        subjectCollegeOrganizationId: subjectScope.collegeOrganizationId,
+        subjectUniversityOrganizationId: subjectScope.universityOrganizationId,
+        subjectOrganizationIds: subjectScope.subjectOrganizationIds,
         actor,
         remarks,
         action,
@@ -1815,28 +1845,10 @@ export async function getPbasApplicationById(actor: SafeActor, id: string) {
         }
     }
 
-    const headedDepartment = await getDepartmentHeadedByUser(actor.id);
-
-    if (headedDepartment) {
-        const facultyUser = await getUserForApplication(application);
-        if (facultyUser.department === headedDepartment.name) {
-            return application;
-        }
-    }
-
     const subjectScope = await getPbasWorkflowScope(application);
-    const canAccessByWorkflowRole = await canActorProcessWorkflowStage({
-        actor,
-        moduleName: "PBAS",
-        recordId: application._id.toString(),
-        status: application.status,
-        subjectDepartmentName: subjectScope.departmentName,
-        subjectCollegeName: subjectScope.collegeName,
-        subjectUniversityName: subjectScope.universityName,
-        stageKinds: ["review", "final"],
-    });
+    const profile = await resolveAuthorizationProfile(actor);
 
-    if (canAccessByWorkflowRole) {
+    if (canViewModuleRecord(profile, "PBAS", subjectScope)) {
         return application;
     }
 
@@ -2069,10 +2081,11 @@ export async function reviewPbasApplication(actor: SafeActor, id: string, rawInp
     const input = pbasReviewSchema.parse(rawInput);
     const application = await getPbasApplicationById(actor, id);
     const workflowDefinition = await getActiveWorkflowDefinition("PBAS");
+    const isOverride = canUseBreakGlassOverride(actor, "PBAS") && Boolean(input.overrideReason?.trim());
 
     const canReview = await canReviewPbasApplication(application, actor);
 
-    if (!canReview) {
+    if (!canReview && !isOverride) {
         throw new AuthError("You are not authorized to review this PBAS application.", 403);
     }
 
@@ -2140,10 +2153,19 @@ export async function reviewPbasApplication(actor: SafeActor, id: string, rawInp
                 pushStatusLog(txApplication, "Rejected", actor, input.remarks);
                 await txApplication.save({ session });
                 await upsertWorkflow(txApplication, actor, input.remarks, "reject", session);
-                await audit(actor, "PBAS_REVIEW_REJECT", "faculty_pbas_forms", txApplication._id.toString(), undefined, {
-                    status: txApplication.status,
-                    remarks: input.remarks,
-                }, session);
+                await audit(
+                    actor,
+                    isOverride ? "PBAS_REVIEW_REJECT_OVERRIDE" : "PBAS_REVIEW_REJECT",
+                    "faculty_pbas_forms",
+                    txApplication._id.toString(),
+                    undefined,
+                    {
+                        status: txApplication.status,
+                        remarks: input.remarks,
+                        overrideReason: input.overrideReason,
+                    },
+                    session
+                );
                 return;
             }
 
@@ -2167,10 +2189,19 @@ export async function reviewPbasApplication(actor: SafeActor, id: string, rawInp
             pushStatusLog(txApplication, nextStatus, actor, input.remarks);
             await txApplication.save({ session });
             await upsertWorkflow(txApplication, actor, input.remarks, "approve", session);
-            await audit(actor, "PBAS_REVIEW", "faculty_pbas_forms", txApplication._id.toString(), undefined, {
-                status: txApplication.status,
-                remarks: input.remarks,
-            }, session);
+            await audit(
+                actor,
+                isOverride ? "PBAS_REVIEW_OVERRIDE" : "PBAS_REVIEW",
+                "faculty_pbas_forms",
+                txApplication._id.toString(),
+                undefined,
+                {
+                    status: txApplication.status,
+                    remarks: input.remarks,
+                    overrideReason: input.overrideReason,
+                },
+                session
+            );
         });
     } finally {
         await session.endSession();
@@ -2196,6 +2227,7 @@ export async function approvePbasApplication(actor: SafeActor, id: string, rawIn
 
     const application = await getPbasApplicationById(actor, id);
     const subjectScope = await getPbasWorkflowScope(application);
+    const isOverride = canUseBreakGlassOverride(actor, "PBAS") && Boolean(input.overrideReason?.trim());
     const canFinalize = await canActorProcessWorkflowStage({
         actor,
         moduleName: "PBAS",
@@ -2204,10 +2236,16 @@ export async function approvePbasApplication(actor: SafeActor, id: string, rawIn
         subjectDepartmentName: subjectScope.departmentName,
         subjectCollegeName: subjectScope.collegeName,
         subjectUniversityName: subjectScope.universityName,
+        subjectDepartmentId: subjectScope.departmentId,
+        subjectInstitutionId: subjectScope.institutionId,
+        subjectDepartmentOrganizationId: subjectScope.departmentOrganizationId,
+        subjectCollegeOrganizationId: subjectScope.collegeOrganizationId,
+        subjectUniversityOrganizationId: subjectScope.universityOrganizationId,
+        subjectOrganizationIds: subjectScope.subjectOrganizationIds,
         stageKinds: ["final"],
     });
 
-    if (!canFinalize) {
+    if (!canFinalize && !isOverride) {
         throw new AuthError("Only final-stage PBAS applications can be finalized.", 409);
     }
 
@@ -2282,11 +2320,20 @@ export async function approvePbasApplication(actor: SafeActor, id: string, rawIn
                 input.decision === "Approve" ? "approve" : "reject",
                 session
             );
-            await audit(actor, "PBAS_APPROVE", "faculty_pbas_forms", txApplication._id.toString(), undefined, {
-                status: txApplication.status,
-                decision: input.decision,
-                remarks: input.remarks,
-            }, session);
+            await audit(
+                actor,
+                isOverride ? "PBAS_APPROVE_OVERRIDE" : "PBAS_APPROVE",
+                "faculty_pbas_forms",
+                txApplication._id.toString(),
+                undefined,
+                {
+                    status: txApplication.status,
+                    decision: input.decision,
+                    remarks: input.remarks,
+                    overrideReason: input.overrideReason,
+                },
+                session
+            );
         });
     } finally {
         await session.endSession();
@@ -2330,6 +2377,48 @@ export async function getPbasReviewQueue(
     const recordIdSet = new Set(recordIds);
 
     return applications.filter((application) => recordIdSet.has(application._id.toString()));
+}
+
+export async function getPbasScopedApplications(actor: SafeActor) {
+    await dbConnect();
+    await ensurePbasDynamicMigration();
+    const profile = await resolveAuthorizationProfile(actor);
+
+    if (!profile.hasLeadershipPortalAccess) {
+        return [];
+    }
+
+    const applications = await FacultyPbasForm.find(buildAuthorizedScopeQuery(profile)).sort({ updatedAt: -1 });
+
+    await Promise.all(
+        applications.map((application) => upsertWorkflow(application, undefined))
+    );
+
+    const [reviewIds, finalIds] = await Promise.all([
+        listPendingWorkflowRecordIds({
+            actor,
+            moduleName: "PBAS",
+            stageKinds: ["review"],
+        }),
+        listPendingWorkflowRecordIds({
+            actor,
+            moduleName: "PBAS",
+            stageKinds: ["final"],
+        }),
+    ]);
+
+    const reviewIdSet = new Set(reviewIds);
+    const finalIdSet = new Set(finalIds);
+
+    return applications.map((application) => ({
+        ...JSON.parse(JSON.stringify(application)),
+        permissions: {
+            canReview: reviewIdSet.has(application._id.toString()),
+            canApprove: finalIdSet.has(application._id.toString()),
+            canReject: reviewIdSet.has(application._id.toString()) || finalIdSet.has(application._id.toString()),
+            canOverride: profile.isAdmin,
+        },
+    }));
 }
 
 export async function getPbasReportsForCas(facultyId: string) {

@@ -1,136 +1,190 @@
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getDirectorDashboardData } from "@/lib/director/dashboard";
 import { requireDirector } from "@/lib/auth/user";
+import { getLeadershipDashboardData } from "@/lib/director/dashboard";
 
 export default async function DirectorDashboardPage() {
     const director = await requireDirector();
-    const dashboard = await getDirectorDashboardData(director.id);
-    const committeeMemberships = dashboard.committeeMemberships.filter(
-        (
-            item
-        ): item is NonNullable<(typeof dashboard.committeeMemberships)[number]> => Boolean(item)
-    );
+    const dashboard = await getLeadershipDashboardData({
+        id: director.id,
+        name: director.name,
+        role: director.role,
+        department: director.department,
+        collegeName: director.collegeName,
+        universityName: director.universityName,
+    });
+
+    const facultyAttention = dashboard.facultyRoster.filter((row) => row.needsAttention).slice(0, 8);
 
     return (
         <div className="space-y-6">
-            <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-                <Badge>Director Dashboard</Badge>
-                <h1 className="mt-4 text-4xl font-semibold tracking-tight text-zinc-950">
-                    Organization leadership overview
-                </h1>
-                <p className="mt-4 max-w-3xl text-base leading-8 text-zinc-500">
-                    This portal reflects the colleges and departments where you are assigned as the institutional head or director.
-                </p>
+            <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="max-w-3xl">
+                        <Badge>{dashboard.access.displayRole} workspace</Badge>
+                        <h1 className="mt-4 text-4xl font-semibold tracking-tight text-zinc-950">
+                            Leadership operations overview
+                        </h1>
+                        <p className="mt-4 text-base leading-8 text-zinc-500">
+                            This workspace is scoped to your active governance assignments and committee memberships.
+                            You can browse only authorized records, and action controls appear only when a workflow is
+                            currently assigned to you.
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            {dashboard.access.roleLabels.map((label) => (
+                                <Badge key={label} variant="secondary">
+                                    {label}
+                                </Badge>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                        <Button asChild>
+                            <Link href="/director/approvals">Open action queue</Link>
+                        </Button>
+                        <Button asChild variant="secondary">
+                            <Link href="/director/faculty">View faculty roster</Link>
+                        </Button>
+                        <Button asChild variant="secondary">
+                            <Link href="/director/reports">Open reports</Link>
+                        </Button>
+                    </div>
+                </div>
             </section>
 
-            <section className="grid gap-4 md:grid-cols-4">
-                <MetricCard label="Managed units" value={dashboard.managedOrganizations.length} />
-                <MetricCard label="Child units" value={dashboard.childOrganizations.length} />
-                <MetricCard label="Faculty" value={dashboard.metrics.facultyCount} />
-                <MetricCard label="Students" value={dashboard.metrics.studentCount} />
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <MetricCard label="Faculty in scope" value={dashboard.metrics.facultyCount} />
+                <MetricCard label="Departments in scope" value={dashboard.metrics.departmentCount} />
+                <MetricCard label="Actionable items" value={dashboard.metrics.actionableItems} />
+                <MetricCard label="Active assignments" value={dashboard.metrics.activeAssignments} />
+                <MetricCard label="Active committees" value={dashboard.metrics.activeCommittees} />
+                <MetricCard label="Evidence pending" value={dashboard.metrics.evidencePending} />
             </section>
 
-            <section className="grid gap-6 xl:grid-cols-2">
+            <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Assigned leadership units</CardTitle>
+                        <CardTitle>Action queue</CardTitle>
                         <CardDescription>
-                            Units directly mapped to your director/head account.
+                            The most recent PBAS, CAS, and AQAR items currently waiting for your review or final approval.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="grid gap-3">
-                        {dashboard.managedOrganizations.length ? (
-                            dashboard.managedOrganizations.map((item) => (
+                    <CardContent className="space-y-3">
+                        {dashboard.queue.items.length ? (
+                            dashboard.queue.items.map((item) => (
                                 <div
                                     className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
-                                    key={item._id.toString()}
+                                    key={`${item.moduleName}-${item.id}`}
                                 >
-                                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">
-                                        {item.type}
-                                    </p>
-                                    <h3 className="mt-2 text-lg font-semibold text-zinc-950">
-                                        {item.name}
-                                    </h3>
-                                    <p className="mt-2 text-sm text-zinc-500">
-                                        {item.universityName || "No university"} / {item.collegeName || "No college"}
-                                    </p>
-                                    <p className="mt-1 text-sm text-zinc-500">
-                                        Title: {item.headTitle || "Director"}
-                                    </p>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                                No hierarchy assignment has been mapped to this director account yet.
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Subordinate structure</CardTitle>
-                        <CardDescription>
-                            Colleges, departments, centers, and offices falling under your current assignments.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid gap-3">
-                        {dashboard.childOrganizations.length ? (
-                            dashboard.childOrganizations.map((item) => (
-                                <div
-                                    className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
-                                    key={item._id.toString()}
-                                >
-                                    <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-start justify-between gap-3">
                                         <div>
                                             <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">
-                                                Level {item.hierarchyLevel} • {item.type}
+                                                {item.moduleName}
                                             </p>
-                                            <h3 className="mt-2 text-lg font-semibold text-zinc-950">
-                                                {item.name}
+                                            <h3 className="mt-2 text-base font-semibold text-zinc-950">
+                                                {item.title}
                                             </h3>
+                                            <p className="mt-1 text-sm text-zinc-500">{item.subtitle}</p>
                                         </div>
-                                        <Badge>{item.headName || "Unassigned"}</Badge>
+                                        <Badge>{item.actionLabel}</Badge>
                                     </div>
-                                    <p className="mt-2 text-sm text-zinc-500">
-                                        Parent: {item.parentOrganizationName || "Root"}
-                                    </p>
+                                    <div className="mt-3 flex items-center justify-between gap-3 text-sm text-zinc-500">
+                                        <span>Status: {item.status}</span>
+                                        <Link className="font-medium text-zinc-900 underline" href={item.href}>
+                                            Open module
+                                        </Link>
+                                    </div>
                                 </div>
                             ))
                         ) : (
                             <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                                No subordinate units are attached yet.
+                                No workflow items are currently assigned to your account.
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Governance scope</CardTitle>
+                        <CardDescription>
+                            Your current organizational reach across assignments, committees, and inherited scope.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {dashboard.scopes.length ? (
+                            dashboard.scopes.map((scope, index) => (
+                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={`${scope.label}-${index}`}>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <h3 className="text-base font-semibold text-zinc-950">{scope.label}</h3>
+                                        <Badge variant="secondary">{scope.scopeType}</Badge>
+                                    </div>
+                                    {scope.organizationName ? (
+                                        <p className="mt-2 text-sm text-zinc-500">{scope.organizationName}</p>
+                                    ) : null}
+                                </div>
+                            ))
+                        ) : (
+                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                                No active governance scope is mapped to this account yet.
                             </div>
                         )}
                     </CardContent>
                 </Card>
             </section>
 
-            <section className="grid gap-6 xl:grid-cols-2">
+            <section className="grid gap-6 xl:grid-cols-3">
+                <ModuleCard
+                    href="/director/pbas"
+                    label="PBAS"
+                    summary={dashboard.modules.PBAS}
+                    description="Academic performance and indicator moderation for faculty in scope."
+                />
+                <ModuleCard
+                    href="/director/cas"
+                    label="CAS"
+                    summary={dashboard.modules.CAS}
+                    description="Career advancement applications awaiting review or final decision."
+                />
+                <ModuleCard
+                    href="/director/aqar"
+                    label="AQAR"
+                    summary={dashboard.modules.AQAR}
+                    description="AQAR faculty contributions and quality review checkpoints."
+                />
+            </section>
+
+            <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Governance assignments</CardTitle>
+                        <CardTitle>Department backlog</CardTitle>
                         <CardDescription>
-                            Explicit HOD, principal, and coordinator responsibilities mapped to your account.
+                            Department-level pending load across approvals and student evidence verification.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="grid gap-3">
-                        {dashboard.leadershipAssignments.length ? (
-                            dashboard.leadershipAssignments.map((item) => (
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={`${item.assignmentType}-${item.organizationName}`}>
+                    <CardContent className="space-y-3">
+                        {dashboard.departmentBreakdown.length ? (
+                            dashboard.departmentBreakdown.slice(0, 8).map((row) => (
+                                <div
+                                    className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                                    key={row.departmentId}
+                                >
                                     <div className="flex items-center justify-between gap-3">
-                                        <h3 className="text-base font-semibold text-zinc-950">
-                                            {item.assignmentType}
-                                        </h3>
-                                        <Badge>{item.organizationType}</Badge>
+                                        <h3 className="text-base font-semibold text-zinc-950">{row.departmentName}</h3>
+                                        <Badge variant="secondary">{row.facultyCount} faculty</Badge>
                                     </div>
-                                    <p className="mt-2 text-sm text-zinc-500">{item.organizationName}</p>
+                                    <p className="mt-2 text-sm text-zinc-500">
+                                        PBAS {row.pbasPending} • CAS {row.casPending} • AQAR {row.aqarPending} • Evidence {row.evidencePending}
+                                    </p>
                                 </div>
                             ))
                         ) : (
                             <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                                No explicit governance assignments are active yet.
+                                No departments were resolved from your current governance scope.
                             </div>
                         )}
                     </CardContent>
@@ -138,30 +192,37 @@ export default async function DirectorDashboardPage() {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Committee memberships</CardTitle>
+                        <CardTitle>Faculty needing attention</CardTitle>
                         <CardDescription>
-                            Active committees that can route review work and notifications to your account.
+                            Faculty records with active PBAS, CAS, or AQAR workflow movement inside your scope.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="grid gap-3">
-                        {committeeMemberships.length ? (
-                            committeeMemberships.map((item) => (
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={`${item.name}-${item.memberRole}`}>
+                    <CardContent className="space-y-3">
+                        {facultyAttention.length ? (
+                            facultyAttention.map((row) => (
+                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={row.facultyId}>
                                     <div className="flex items-center justify-between gap-3">
-                                        <h3 className="text-base font-semibold text-zinc-950">{item.name}</h3>
-                                        <Badge>{item.memberRole}</Badge>
+                                        <div>
+                                            <h3 className="text-base font-semibold text-zinc-950">{row.facultyName}</h3>
+                                            <p className="text-sm text-zinc-500">
+                                                {row.departmentName ?? "Department not mapped"} • {row.designation}
+                                            </p>
+                                        </div>
+                                        <Badge className="bg-amber-100 text-amber-800">Needs attention</Badge>
                                     </div>
                                     <p className="mt-2 text-sm text-zinc-500">
-                                        {item.committeeType || "Committee"}
-                                        {item.organizationName ? ` • ${item.organizationName}` : ""}
+                                        PBAS {row.pbasStatus ?? "No record"} • CAS {row.casStatus ?? "No record"} • AQAR {row.aqarStatus ?? "No record"}
                                     </p>
                                 </div>
                             ))
                         ) : (
                             <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                                No active committee memberships are mapped yet.
+                                No faculty members currently need workflow attention in your scope.
                             </div>
                         )}
+                        <Button asChild className="w-full" variant="secondary">
+                            <Link href="/director/faculty">Open full faculty roster</Link>
+                        </Button>
                     </CardContent>
                 </Card>
             </section>
@@ -179,5 +240,56 @@ function MetricCard({ label, value }: { label: string; value: number }) {
                 <p className="mt-2 text-3xl font-semibold text-zinc-950">{value}</p>
             </CardContent>
         </Card>
+    );
+}
+
+function ModuleCard({
+    href,
+    label,
+    summary,
+    description,
+}: {
+    href: string;
+    label: string;
+    summary: {
+        total: number;
+        actionable: number;
+        finalApprovals: number;
+        approved: number;
+        rejected: number;
+        draft: number;
+    };
+    description: string;
+}) {
+    return (
+        <Card>
+            <CardHeader>
+                <div className="flex items-center justify-between gap-3">
+                    <CardTitle>{label}</CardTitle>
+                    <Badge>{summary.actionable} actionable</Badge>
+                </div>
+                <CardDescription>{description}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                    <MiniMetric label="Total" value={summary.total} />
+                    <MiniMetric label="Final approvals" value={summary.finalApprovals} />
+                    <MiniMetric label="Approved" value={summary.approved} />
+                    <MiniMetric label="Rejected" value={summary.rejected} />
+                </div>
+                <Button asChild className="w-full" variant="secondary">
+                    <Link href={href}>Open {label}</Link>
+                </Button>
+            </CardContent>
+        </Card>
+    );
+}
+
+function MiniMetric({ label, value }: { label: string; value: number }) {
+    return (
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+            <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">{label}</p>
+            <p className="mt-2 text-xl font-semibold text-zinc-950">{value}</p>
+        </div>
     );
 }

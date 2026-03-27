@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, ClipboardList, FileStack } from "lucide-react";
+import { BarChart3, Building2, ClipboardList, FileStack, Users2 } from "lucide-react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Badge } from "@/components/ui/badge";
@@ -11,10 +11,12 @@ import { NotificationCenter } from "@/components/notifications/notification-cent
 const navigation = [
     { href: "/director", label: "Overview", icon: Building2 },
     { href: "/director/approvals", label: "Approvals", icon: ClipboardList },
+    { href: "/director/faculty", label: "Faculty", icon: Users2 },
     { href: "/director/evidence", label: "Evidence Review", icon: FileStack },
     { href: "/director/cas", label: "CAS Reviews", icon: FileStack },
     { href: "/director/pbas", label: "PBAS Reviews", icon: FileStack },
     { href: "/director/aqar", label: "AQAR Reviews", icon: FileStack },
+    { href: "/director/reports", label: "Reports", icon: BarChart3 },
 ];
 
 export function DirectorShell({
@@ -36,10 +38,10 @@ export function DirectorShell({
                                 UMIS Leadership
                             </p>
                             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-950">
-                                Leadership portal
+                                Leadership workspace
                             </h1>
                             <p className="mt-3 text-sm leading-6 text-zinc-500">
-                                Review your assigned units, governance responsibilities, and approval queues from one place.
+                                Move between scoped approvals, faculty operations, evidence review, and exported reports from one place.
                             </p>
                         </div>
 
@@ -75,7 +77,7 @@ export function DirectorShell({
                         <div className="flex items-start gap-3">
                             <ClipboardList className="mt-0.5 size-4 text-zinc-600" />
                             <p className="text-sm leading-6 text-zinc-500">
-                                Leadership access is limited to units and committees that are actively assigned to your account.
+                                Every screen in this workspace is filtered by your active governance assignments and committee memberships.
                             </p>
                         </div>
                         <div className="mt-4">

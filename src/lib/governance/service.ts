@@ -245,7 +245,7 @@ export async function getGovernanceData() {
         User.find({
             isActive: true,
             accountStatus: "Active",
-            role: { $in: ["Admin", "Faculty", "Director"] },
+            role: { $in: ["Admin", "Faculty"] },
         })
             .sort({ name: 1 })
             .select("name email role designation")
@@ -757,6 +757,10 @@ export function mapLeadershipAssignmentTypeToWorkflowRoles(assignmentType: Leade
         return ["DIRECTOR"] as const;
     }
 
+    if (assignmentType === "OFFICE_HEAD") {
+        return ["OFFICE_HEAD"] as const;
+    }
+
     return [] as const;
 }
 
@@ -853,6 +857,10 @@ export async function resolveWorkflowRoleRecipientIds(
 
     if (role === "PRINCIPAL") {
         return resolveLeadershipRecipientIds("PRINCIPAL", subject);
+    }
+
+    if (role === "OFFICE_HEAD") {
+        return resolveLeadershipRecipientIds("OFFICE_HEAD", subject);
     }
 
     return resolveWorkflowCommitteeRecipientIds(committeeTypesForWorkflowRole(role), subject);

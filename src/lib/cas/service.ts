@@ -2,10 +2,16 @@ import { Types } from "mongoose";
 
 import dbConnect from "@/lib/dbConnect";
 import { createAuditLog, type AuditRequestContext } from "@/lib/audit/service";
+import {
+    buildAuthorizedScopeQuery,
+    canUseBreakGlassOverride,
+    canViewModuleRecord,
+    resolveAuthorizationProfile,
+    resolveFacultyAuthorizationScope,
+} from "@/lib/authorization/service";
 import { AuthError } from "@/lib/auth/errors";
 import { ensureFacultyContext } from "@/lib/faculty/migration";
 import { getFacultyReportDefaults } from "@/lib/faculty/report-defaults";
-import Organization from "@/models/core/organization";
 import Department from "@/models/reference/department";
 import Faculty from "@/models/faculty/faculty";
 import User from "@/models/core/user";
@@ -502,13 +508,33 @@ async function getCasWorkflowDepartmentName(application: InstanceType<typeof Cas
 }
 
 async function getCasWorkflowScope(application: InstanceType<typeof CasApplication>) {
-    const faculty = await getUserForApplication(application);
+    const resolved = await resolveFacultyAuthorizationScope(application.facultyId.toString());
 
-    return {
-        departmentName: faculty.department,
-        collegeName: faculty.collegeName,
-        universityName: faculty.universityName,
-    };
+    application.scopeDepartmentId =
+        resolved.departmentId && Types.ObjectId.isValid(resolved.departmentId)
+            ? new Types.ObjectId(resolved.departmentId)
+            : undefined;
+    application.scopeInstitutionId =
+        resolved.institutionId && Types.ObjectId.isValid(resolved.institutionId)
+            ? new Types.ObjectId(resolved.institutionId)
+            : undefined;
+    application.scopeDepartmentOrganizationId =
+        resolved.departmentOrganizationId && Types.ObjectId.isValid(resolved.departmentOrganizationId)
+            ? new Types.ObjectId(resolved.departmentOrganizationId)
+            : undefined;
+    application.scopeCollegeOrganizationId =
+        resolved.collegeOrganizationId && Types.ObjectId.isValid(resolved.collegeOrganizationId)
+            ? new Types.ObjectId(resolved.collegeOrganizationId)
+            : undefined;
+    application.scopeUniversityOrganizationId =
+        resolved.universityOrganizationId && Types.ObjectId.isValid(resolved.universityOrganizationId)
+            ? new Types.ObjectId(resolved.universityOrganizationId)
+            : undefined;
+    application.scopeOrganizationIds = (resolved.subjectOrganizationIds ?? [])
+        .filter((value) => Types.ObjectId.isValid(value))
+        .map((value) => new Types.ObjectId(value));
+
+    return resolved;
 }
 
 async function upsertWorkflow(
@@ -526,6 +552,12 @@ async function upsertWorkflow(
         subjectDepartmentName: subjectScope.departmentName,
         subjectCollegeName: subjectScope.collegeName,
         subjectUniversityName: subjectScope.universityName,
+        subjectDepartmentId: subjectScope.departmentId,
+        subjectInstitutionId: subjectScope.institutionId,
+        subjectDepartmentOrganizationId: subjectScope.departmentOrganizationId,
+        subjectCollegeOrganizationId: subjectScope.collegeOrganizationId,
+        subjectUniversityOrganizationId: subjectScope.universityOrganizationId,
+        subjectOrganizationIds: subjectScope.subjectOrganizationIds,
         actor,
         remarks,
         action,
@@ -542,14 +574,6 @@ async function audit(actor: SafeActor | undefined, action: string, tableName: st
         newData,
         auditContext: actor?.auditContext,
     });
-}
-
-async function getDepartmentHeadedByUser(userId: string) {
-    return Organization.findOne({
-        type: "Department",
-        headUserId: userId,
-        isActive: true,
-    }).select("name");
 }
 
 function pushStatusLog(
@@ -611,7 +635,7 @@ async function notifyCasStageAssignment(
         stage: {
             key: stage.key,
             label: stage.label,
-            approverRoles: stage.approverRoles as Array<"DEPARTMENT_HEAD" | "DIRECTOR" | "IQAC" | "CAS_COMMITTEE" | "PRINCIPAL" | "ADMIN" | "FACULTY">,
+            approverRoles: stage.approverRoles as Array<"DEPARTMENT_HEAD" | "DIRECTOR" | "OFFICE_HEAD" | "IQAC" | "CAS_COMMITTEE" | "PRINCIPAL" | "FACULTY">,
         },
         subjectDepartmentName: subjectScope.departmentName,
         subjectCollegeName: subjectScope.collegeName,
@@ -744,7 +768,7 @@ async function getCasApplicationDocumentById(actor: SafeActor, id: string) {
         throw new AuthError("CAS application not found.", 404);
     }
 
-    if (actor.role === "Admin" || actor.role === "Director") {
+    if (actor.role === "Admin") {
         return application;
     }
 
@@ -755,28 +779,10 @@ async function getCasApplicationDocumentById(actor: SafeActor, id: string) {
         }
     }
 
-    const headedDepartment = await getDepartmentHeadedByUser(actor.id);
-
-    if (headedDepartment) {
-        const faculty = await getUserForApplication(application);
-        if (faculty.department === headedDepartment.name) {
-            return application;
-        }
-    }
-
     const subjectScope = await getCasWorkflowScope(application);
-    const canAccessByWorkflowRole = await canActorProcessWorkflowStage({
-        actor,
-        moduleName: "CAS",
-        recordId: application._id.toString(),
-        status: application.status,
-        subjectDepartmentName: subjectScope.departmentName,
-        subjectCollegeName: subjectScope.collegeName,
-        subjectUniversityName: subjectScope.universityName,
-        stageKinds: ["review", "final"],
-    });
+    const profile = await resolveAuthorizationProfile(actor);
 
-    if (canAccessByWorkflowRole) {
+    if (canViewModuleRecord(profile, "CAS", subjectScope)) {
         return application;
     }
 
@@ -1001,6 +1007,7 @@ export async function reviewCasApplication(actor: SafeActor, id: string, rawInpu
     const application = await getCasApplicationDocumentById(actor, id);
     const workflowDefinition = await getActiveWorkflowDefinition("CAS");
     const subjectScope = await getCasWorkflowScope(application);
+    const isOverride = canUseBreakGlassOverride(actor, "CAS") && Boolean(input.overrideReason?.trim());
     const canReview = await canActorProcessWorkflowStage({
         actor,
         moduleName: "CAS",
@@ -1009,10 +1016,16 @@ export async function reviewCasApplication(actor: SafeActor, id: string, rawInpu
         subjectDepartmentName: subjectScope.departmentName,
         subjectCollegeName: subjectScope.collegeName,
         subjectUniversityName: subjectScope.universityName,
+        subjectDepartmentId: subjectScope.departmentId,
+        subjectInstitutionId: subjectScope.institutionId,
+        subjectDepartmentOrganizationId: subjectScope.departmentOrganizationId,
+        subjectCollegeOrganizationId: subjectScope.collegeOrganizationId,
+        subjectUniversityOrganizationId: subjectScope.universityOrganizationId,
+        subjectOrganizationIds: subjectScope.subjectOrganizationIds,
         stageKinds: ["review"],
     });
 
-    if (!canReview) {
+    if (!canReview && !isOverride) {
         throw new AuthError("You are not authorized to review this CAS application.", 403);
     }
 
@@ -1035,10 +1048,18 @@ export async function reviewCasApplication(actor: SafeActor, id: string, rawInpu
         pushStatusLog(application, "Rejected", actor, input.remarks);
         await application.save();
         await upsertWorkflow(application, actor, input.remarks, "reject");
-        await audit(actor, "CAS_REVIEW_REJECT", "cas_applications", application._id.toString(), undefined, {
-            status: application.status,
-            remarks: input.remarks,
-        });
+        await audit(
+            actor,
+            isOverride ? "CAS_REVIEW_REJECT_OVERRIDE" : "CAS_REVIEW_REJECT",
+            "cas_applications",
+            application._id.toString(),
+            undefined,
+            {
+                status: application.status,
+                remarks: input.remarks,
+                overrideReason: input.overrideReason,
+            }
+        );
         await notifyCasFacultyOutcome(application, actor, "Reject");
         return serializeCasApplication(application);
     }
@@ -1050,10 +1071,18 @@ export async function reviewCasApplication(actor: SafeActor, id: string, rawInpu
     pushStatusLog(application, nextStatus, actor, input.remarks);
     await application.save();
     await upsertWorkflow(application, actor, input.remarks, "approve");
-    await audit(actor, "CAS_REVIEW", "cas_applications", application._id.toString(), undefined, {
-        status: application.status,
-        remarks: input.remarks,
-    });
+    await audit(
+        actor,
+        isOverride ? "CAS_REVIEW_OVERRIDE" : "CAS_REVIEW",
+        "cas_applications",
+        application._id.toString(),
+        undefined,
+        {
+            status: application.status,
+            remarks: input.remarks,
+            overrideReason: input.overrideReason,
+        }
+    );
     await notifyCasStageAssignment(application, reviewTransition.stage, actor);
 
     return serializeCasApplication(application);
@@ -1065,6 +1094,7 @@ export async function approveCasApplication(actor: SafeActor, id: string, rawInp
 
     const application = await getCasApplicationDocumentById(actor, id);
     const subjectScope = await getCasWorkflowScope(application);
+    const isOverride = canUseBreakGlassOverride(actor, "CAS") && Boolean(input.overrideReason?.trim());
     const canFinalize = await canActorProcessWorkflowStage({
         actor,
         moduleName: "CAS",
@@ -1073,10 +1103,16 @@ export async function approveCasApplication(actor: SafeActor, id: string, rawInp
         subjectDepartmentName: subjectScope.departmentName,
         subjectCollegeName: subjectScope.collegeName,
         subjectUniversityName: subjectScope.universityName,
+        subjectDepartmentId: subjectScope.departmentId,
+        subjectInstitutionId: subjectScope.institutionId,
+        subjectDepartmentOrganizationId: subjectScope.departmentOrganizationId,
+        subjectCollegeOrganizationId: subjectScope.collegeOrganizationId,
+        subjectUniversityOrganizationId: subjectScope.universityOrganizationId,
+        subjectOrganizationIds: subjectScope.subjectOrganizationIds,
         stageKinds: ["final"],
     });
 
-    if (!canFinalize) {
+    if (!canFinalize && !isOverride) {
         throw new AuthError("Only committee-reviewed CAS applications can be finalized.", 409);
     }
 
@@ -1095,11 +1131,19 @@ export async function approveCasApplication(actor: SafeActor, id: string, rawInp
         input.remarks,
         input.decision === "Approve" ? "approve" : "reject"
     );
-    await audit(actor, "CAS_APPROVE", "cas_applications", application._id.toString(), undefined, {
-        status: application.status,
-        decision: input.decision,
-        remarks: input.remarks,
-    });
+    await audit(
+        actor,
+        isOverride ? "CAS_APPROVE_OVERRIDE" : "CAS_APPROVE",
+        "cas_applications",
+        application._id.toString(),
+        undefined,
+        {
+            status: application.status,
+            decision: input.decision,
+            remarks: input.remarks,
+            overrideReason: input.overrideReason,
+        }
+    );
     await notifyCasFacultyOutcome(application, actor, input.decision);
 
     if (application.status === "Approved") {
@@ -1207,4 +1251,44 @@ export async function getCasReviewQueue(
     const recordIdSet = new Set(recordIds);
 
     return applications.filter((application) => recordIdSet.has(application._id.toString()));
+}
+
+export async function getCasScopedApplications(actor: SafeActor) {
+    await dbConnect();
+    await ensureCasPromotionRules();
+    const profile = await resolveAuthorizationProfile(actor);
+
+    if (!profile.hasLeadershipPortalAccess) {
+        return [];
+    }
+
+    const applications = await CasApplication.find(buildAuthorizedScopeQuery(profile)).sort({ updatedAt: -1 });
+
+    await Promise.all(applications.map((application) => upsertWorkflow(application, undefined)));
+
+    const [reviewIds, finalIds] = await Promise.all([
+        listPendingWorkflowRecordIds({
+            actor,
+            moduleName: "CAS",
+            stageKinds: ["review"],
+        }),
+        listPendingWorkflowRecordIds({
+            actor,
+            moduleName: "CAS",
+            stageKinds: ["final"],
+        }),
+    ]);
+
+    const reviewIdSet = new Set(reviewIds);
+    const finalIdSet = new Set(finalIds);
+
+    return applications.map((application) => ({
+        ...JSON.parse(JSON.stringify(application)),
+        permissions: {
+            canReview: reviewIdSet.has(application._id.toString()),
+            canApprove: finalIdSet.has(application._id.toString()),
+            canReject: reviewIdSet.has(application._id.toString()) || finalIdSet.has(application._id.toString()),
+            canOverride: profile.isAdmin,
+        },
+    }));
 }
