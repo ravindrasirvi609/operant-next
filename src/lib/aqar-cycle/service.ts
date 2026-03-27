@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 
+import { formatAcademicYearLabel, parseAcademicYearLabel } from "@/lib/academic-year";
 import { createAuditLog, type AuditRequestContext } from "@/lib/audit/service";
 import dbConnect from "@/lib/dbConnect";
 import { AuthError } from "@/lib/auth/errors";
@@ -36,6 +37,11 @@ import StudentSkill from "@/models/student/student-skill";
 import StudentSocialParticipation from "@/models/student/student-social-participation";
 import StudentSport from "@/models/student/student-sport";
 import Semester from "@/models/reference/semester";
+import AcademicYear from "@/models/reference/academic-year";
+import {
+    aqarCycleCreateSchema,
+    aqarCycleUpdateSchema,
+} from "@/lib/aqar-cycle/validators";
 import {
     getNaacCriterionMeta,
     getNaacMetricMeta,
@@ -119,6 +125,53 @@ function parseAcademicYearRange(academicYear: string) {
     };
 }
 
+async function resolveAcademicYearFromInput(input: {
+    academicYearId?: string;
+    academicYear?: string;
+}) {
+    const normalizedId = input.academicYearId?.trim();
+
+    if (normalizedId) {
+        if (!Types.ObjectId.isValid(normalizedId)) {
+            throw new AuthError("Invalid academic year id.", 400);
+        }
+
+        const byId = await AcademicYear.findById(normalizedId).select("_id yearStart yearEnd");
+        if (!byId) {
+            throw new AuthError("Academic year not found.", 404);
+        }
+
+        return {
+            id: byId._id,
+            label: formatAcademicYearLabel(byId.yearStart, byId.yearEnd),
+        };
+    }
+
+    const normalizedLabel = input.academicYear?.trim();
+    const parsed = parseAcademicYearLabel(normalizedLabel);
+
+    if (!parsed) {
+        throw new AuthError("Invalid academic year label.", 400);
+    }
+
+    const byLabel = await AcademicYear.findOne({
+        yearStart: parsed.start,
+        yearEnd: parsed.end,
+    }).select("_id yearStart yearEnd");
+
+    if (!byLabel) {
+        throw new AuthError(
+            `Academic year \"${normalizedLabel}\" is not configured. Add it in Admin > Academics first.`,
+            400
+        );
+    }
+
+    return {
+        id: byLabel._id,
+        label: formatAcademicYearLabel(byLabel.yearStart, byLabel.yearEnd),
+    };
+}
+
 function buildInRangeOrCreatedFilter(
     primaryField: string,
     range: { startDate: Date; endDate: Date },
@@ -137,7 +190,11 @@ function buildInRangeOrCreatedFilter(
     return { $or: conditions };
 }
 
-async function syncStudentAqarEntries(cycleId: string, academicYear: string) {
+async function syncStudentAqarEntries(
+    cycleId: string,
+    academicYear: string,
+    academicYearId?: Types.ObjectId
+) {
     const range = parseAcademicYearRange(academicYear);
     const activeStudents = await Student.find({ status: "Active" }).select("_id").lean();
     const studentIds = activeStudents.map((student) => student._id);
@@ -147,10 +204,12 @@ async function syncStudentAqarEntries(cycleId: string, academicYear: string) {
         return;
     }
 
-    const academicYearDoc = await (await import("@/models/reference/academic-year")).default.findOne({
-        yearStart: range.startYear,
-        yearEnd: range.endYear,
-    }).select("_id");
+    const academicYearDoc = academicYearId
+        ? { _id: academicYearId }
+        : await (await import("@/models/reference/academic-year")).default.findOne({
+              yearStart: range.startYear,
+              yearEnd: range.endYear,
+          }).select("_id");
 
     const semesterIds = academicYearDoc
         ? (
@@ -295,19 +354,27 @@ async function syncStudentAqarEntries(cycleId: string, academicYear: string) {
 
 export async function createAqarCycle(
     actor: SafeActor,
-    rawInput: { academicYear: string; reportingPeriod: { fromDate: string; toDate: string } }
+    rawInput: unknown
 ) {
     ensureAdmin(actor);
     await dbConnect();
+    const input = aqarCycleCreateSchema.parse(rawInput);
+    const resolvedAcademicYear = await resolveAcademicYearFromInput(input);
 
-    const existing = await AqarCycle.findOne({ academicYear: rawInput.academicYear });
+    const existing = await AqarCycle.findOne({
+        $or: [
+            { academicYearId: resolvedAcademicYear.id },
+            { academicYear: resolvedAcademicYear.label },
+        ],
+    });
     if (existing) {
         throw new AuthError("An AQAR cycle already exists for this academic year.", 409);
     }
 
     const cycle = await AqarCycle.create({
-        academicYear: rawInput.academicYear,
-        reportingPeriod: rawInput.reportingPeriod,
+        academicYearId: resolvedAcademicYear.id,
+        academicYear: resolvedAcademicYear.label,
+        reportingPeriod: input.reportingPeriod,
         institutionProfile: {
             totalFaculty: 0,
             totalStudents: 0,
@@ -357,7 +424,7 @@ export async function createAqarCycle(
 export async function listAqarCycles(actor: SafeActor) {
     ensureAdmin(actor);
     await dbConnect();
-    return AqarCycle.find().sort({ academicYear: -1, updatedAt: -1 });
+    return AqarCycle.find().sort({ updatedAt: -1 });
 }
 
 export async function getAqarCycleById(actor: SafeActor, id: string) {
@@ -372,7 +439,10 @@ export async function getAqarCycleById(actor: SafeActor, id: string) {
     return cycle;
 }
 
-async function buildCriteriaSections(academicYear: string): Promise<{
+async function buildCriteriaSections(
+    academicYear: string,
+    academicYearId?: Types.ObjectId
+): Promise<{
     institutionProfile: InstanceType<typeof AqarCycle>["institutionProfile"];
     summaryMetrics: InstanceType<typeof AqarCycle>["summaryMetrics"];
     criteriaSections: IAqarCycleCriterion[];
@@ -420,11 +490,21 @@ async function buildCriteriaSections(academicYear: string): Promise<{
         FacultyTeachingLoad.find().select("facultyId courseName"),
         FacultyAdminRole.find().select("facultyId"),
         FacultyPbasForm.countDocuments({
-            academicYear,
+            ...(academicYearId
+                ? {
+                      $or: [{ academicYearId }, { academicYear }],
+                  }
+                : { academicYear }),
             status: { $in: ["Approved", "Committee Review", "Under Review", "Submitted"] },
         }),
         CasApplication.countDocuments({ applicationYear: academicYear }),
-        AqarApplication.countDocuments({ academicYear }),
+        AqarApplication.countDocuments(
+            academicYearId
+                ? {
+                      $or: [{ academicYearId }, { academicYear }],
+                  }
+                : { academicYear }
+        ),
         Placement.countDocuments(buildInRangeOrCreatedFilter("offerDate", range, "joiningDate")),
         Internship.countDocuments(buildInRangeOrCreatedFilter("startDate", range, "endDate")),
         Publication.countDocuments({ year: academicYear }),
@@ -615,7 +695,7 @@ export async function generateAqarCycleSnapshot(actor: SafeActor, id: string) {
 
     const oldState = cycle.toObject();
 
-    const aggregated = await buildCriteriaSections(cycle.academicYear);
+    const aggregated = await buildCriteriaSections(cycle.academicYear, cycle.academicYearId);
     const existingCriteria = new Map(
         cycle.criteriaSections.map((criterion) => [criterion.criterionCode, criterion])
     );
@@ -638,7 +718,7 @@ export async function generateAqarCycleSnapshot(actor: SafeActor, id: string) {
 
     pushCycleLog(cycle, actor, "Snapshot Generated", "Institutional AQAR criteria were refreshed from source modules.");
     await cycle.save();
-    await syncStudentAqarEntries(cycle._id.toString(), cycle.academicYear);
+    await syncStudentAqarEntries(cycle._id.toString(), cycle.academicYear, cycle.academicYearId);
 
     await createAuditLog({
         actor,
@@ -656,23 +736,16 @@ export async function generateAqarCycleSnapshot(actor: SafeActor, id: string) {
 export async function updateAqarCycle(
     actor: SafeActor,
     id: string,
-    rawInput: {
-        status?: "Draft" | "Department Review" | "IQAC Review" | "Finalized" | "Submitted";
-        criteriaSections?: Array<{
-            criterionCode: string;
-            narrative?: string;
-            summary?: string;
-            status?: "Pending" | "Ready" | "Reviewed";
-        }>;
-    }
+    rawInput: unknown
 ) {
     ensureAdmin(actor);
+    const input = aqarCycleUpdateSchema.parse(rawInput);
     const cycle = await getAqarCycleById(actor, id);
     const oldState = cycle.toObject();
 
-    if (rawInput.criteriaSections?.length) {
+    if (input.criteriaSections?.length) {
         const updates = new Map(
-            rawInput.criteriaSections.map((item) => [item.criterionCode, item])
+            input.criteriaSections.map((item) => [item.criterionCode, item])
         );
         cycle.criteriaSections = cycle.criteriaSections.map((criterion) => {
             const update = updates.get(criterion.criterionCode);
@@ -691,9 +764,9 @@ export async function updateAqarCycle(
         }) as typeof cycle.criteriaSections;
     }
 
-    if (rawInput.status) {
-        cycle.status = rawInput.status;
-        pushCycleLog(cycle, actor, `Status Changed: ${rawInput.status}`, "AQAR cycle workflow status updated.");
+    if (input.status) {
+        cycle.status = input.status;
+        pushCycleLog(cycle, actor, `Status Changed: ${input.status}`, "AQAR cycle workflow status updated.");
     } else {
         pushCycleLog(cycle, actor, "Cycle Updated", "AQAR narratives or criterion statuses updated.");
     }

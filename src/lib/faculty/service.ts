@@ -1,4 +1,6 @@
 import { createAuditLog, type AuditActor, type AuditRequestContext } from "@/lib/audit/service";
+import { formatAcademicYearLabel, parseAcademicYearLabel } from "@/lib/academic-year";
+import { AuthError } from "@/lib/auth/errors";
 import dbConnect from "@/lib/dbConnect";
 import { facultyRecordSchema } from "@/lib/faculty/validators";
 import { ensureFacultyContext } from "@/lib/faculty/migration";
@@ -39,11 +41,7 @@ function toDateInput(value?: Date | null) {
 }
 
 function toAcademicYearLabel(yearStart?: number, yearEnd?: number) {
-    if (!yearStart || !yearEnd) {
-        return "";
-    }
-
-    return `${yearStart}-${yearEnd}`;
+    return formatAcademicYearLabel(yearStart, yearEnd);
 }
 
 export async function listFacultyAcademicYearOptions() {
@@ -63,36 +61,23 @@ export async function listFacultyAcademicYearOptions() {
         .filter((item) => Boolean(item.label));
 }
 
-function parseAcademicYearLabel(value: string) {
-    const match = value.trim().match(/(\d{4})\D+(\d{2,4})/);
-
-    if (!match) {
-        throw new Error(`Invalid academic year "${value}".`);
-    }
-
-    const start = Number(match[1]);
-    const endValue = Number(match[2]);
-    const end =
-        endValue < 100
-            ? Number(`${String(start).slice(0, 2)}${String(endValue).padStart(2, "0")}`)
-            : endValue;
-
-    return { start, end };
-}
-
 async function ensureAcademicYear(value: string) {
     const parsed = parseAcademicYearLabel(value);
-    let academicYear = await AcademicYear.findOne({
+
+    if (!parsed) {
+        throw new AuthError(`Invalid academic year \"${value}\".`, 400);
+    }
+
+    const academicYear = await AcademicYear.findOne({
         yearStart: parsed.start,
         yearEnd: parsed.end,
     });
 
     if (!academicYear) {
-        academicYear = await AcademicYear.create({
-            yearStart: parsed.start,
-            yearEnd: parsed.end,
-            isActive: false,
-        });
+        throw new AuthError(
+            `Academic year \"${value}\" is not configured. Add it in Admin > Academics first.`,
+            400
+        );
     }
 
     return academicYear;

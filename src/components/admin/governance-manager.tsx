@@ -685,7 +685,7 @@ export function GovernanceManager({
                                                     academicYearLabel: event.target.value,
                                                 }))
                                             }
-                                            placeholder="2026-2027"
+                                            placeholder="YYYY-YYYY"
                                         />
                                     </Field>
                                 </div>

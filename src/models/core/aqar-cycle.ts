@@ -35,6 +35,7 @@ export interface IAqarCycleStatusLog {
 }
 
 export interface IAqarCycle extends Document {
+    academicYearId?: Types.ObjectId;
     academicYear: string;
     reportingPeriod: {
         fromDate: string;
@@ -113,6 +114,7 @@ const StatusLogSchema = new Schema<IAqarCycleStatusLog>(
 
 const AqarCycleSchema = new Schema<IAqarCycle>(
     {
+        academicYearId: { type: Schema.Types.ObjectId, ref: "AcademicYear", unique: true, sparse: true, index: true },
         academicYear: { type: String, required: true, trim: true, unique: true, index: true },
         reportingPeriod: {
             fromDate: { type: String, required: true, trim: true },

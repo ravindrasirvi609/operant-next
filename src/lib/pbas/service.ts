@@ -1,5 +1,9 @@
 import mongoose, { Types } from "mongoose";
 
+import {
+    formatAcademicYearLabel,
+    parseAcademicYearLabel,
+} from "@/lib/academic-year";
 import dbConnect from "@/lib/dbConnect";
 import { createAuditLog, type AuditRequestContext } from "@/lib/audit/service";
 import {
@@ -1147,23 +1151,6 @@ async function notifyPbasFacultyOutcome(
     });
 }
 
-function parseAcademicYearLabel(value: string) {
-    const match = value.trim().match(/(\d{4})\D+(\d{2,4})/);
-
-    if (!match) {
-        throw new Error(`Invalid academic year "${value}".`);
-    }
-
-    const start = Number(match[1]);
-    const endValue = Number(match[2]);
-    const end =
-        endValue < 100
-            ? Number(`${String(start).slice(0, 2)}${String(endValue).padStart(2, "0")}`)
-            : endValue;
-
-    return { start, end };
-}
-
 function parseDateInput(value: string) {
     const trimmed = value.trim();
     const dateOnly = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/)
@@ -1175,6 +1162,11 @@ function parseDateInput(value: string) {
 
 function assertAppraisalPeriodWithinAcademicYear(input: { academicYear: string; appraisalPeriod: { fromDate: string; toDate: string } }) {
     const parsedYear = parseAcademicYearLabel(input.academicYear);
+
+    if (!parsedYear) {
+        throw new AuthError(`Invalid academic year \"${input.academicYear}\".`, 400);
+    }
+
     const fromDate = parseDateInput(input.appraisalPeriod.fromDate);
     const toDate = parseDateInput(input.appraisalPeriod.toDate);
 
@@ -1198,30 +1190,30 @@ function assertAppraisalPeriodWithinAcademicYear(input: { academicYear: string; 
     }
 }
 
+function toAcademicYearLabel(yearStart?: number, yearEnd?: number) {
+    return formatAcademicYearLabel(yearStart, yearEnd);
+}
+
 async function ensureAcademicYear(value: string) {
     const parsed = parseAcademicYearLabel(value);
-    let academicYear = await AcademicYear.findOne({
+
+    if (!parsed) {
+        throw new AuthError(`Invalid academic year \"${value}\".`, 400);
+    }
+
+    const academicYear = await AcademicYear.findOne({
         yearStart: parsed.start,
         yearEnd: parsed.end,
     });
 
     if (!academicYear) {
-        academicYear = await AcademicYear.create({
-            yearStart: parsed.start,
-            yearEnd: parsed.end,
-            isActive: false,
-        });
+        throw new AuthError(
+            `Academic year \"${value}\" is not configured. Add it in Admin > Academics first.`,
+            400
+        );
     }
 
     return academicYear;
-}
-
-function toAcademicYearLabel(yearStart?: number, yearEnd?: number) {
-    if (!yearStart || !yearEnd) {
-        return "";
-    }
-
-    return `${yearStart}-${yearEnd}`;
 }
 
 async function upsertWorkflow(
@@ -1401,13 +1393,16 @@ export async function getPbasSummaryForFaculty(actor: SafeActor): Promise<PbasSu
     if (!extensionCount) warnings.push("No extension or social outreach entries recorded yet.");
     if (!evidenceCount) warnings.push("No supporting evidence uploaded for PBAS yet.");
 
-    const yearFallback = new Date().getFullYear();
+    if (!activeYear) {
+        throw new AuthError("No academic year is configured. Add at least one in Admin > Academics.", 400);
+    }
+
     const meta = pbasApplicationSchema.parse({
-        academicYear: activeYearLabel || `${yearFallback}-${yearFallback + 1}`,
+        academicYear: activeYearLabel,
         currentDesignation: normalizeDesignation(faculty.designation),
         appraisalPeriod: {
-            fromDate: activeYear?.yearStart ? `${activeYear.yearStart}-06-01` : `${yearFallback}-06-01`,
-            toDate: activeYear?.yearEnd ? `${activeYear.yearEnd}-05-31` : `${yearFallback + 1}-05-31`,
+            fromDate: `${activeYear.yearStart}-06-01`,
+            toDate: `${activeYear.yearEnd}-05-31`,
         },
     });
     const snapshot = await buildPbasSnapshot(faculty._id, activeYear?._id ?? null);

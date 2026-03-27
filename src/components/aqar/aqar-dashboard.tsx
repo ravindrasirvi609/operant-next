@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getAcademicYearReportingPeriod } from "@/lib/academic-year";
 import { aqarApplicationSchema } from "@/lib/aqar/validators";
 import { uploadFile, UploadValidationError, validateFile, type UploadProgress } from "@/lib/upload/service";
 import { cn } from "@/lib/utils";
@@ -202,15 +203,14 @@ const reviewChecklistItems = [
     "I reviewed the summary counts and I am ready to submit this AQAR contribution.",
 ] as const;
 
-function emptyForm(): AqarFormValues {
-    const year = new Date().getFullYear();
-    const nextYear = year + 1;
+function emptyForm(defaultAcademicYear = ""): AqarFormValues {
+    const defaultPeriod = getAcademicYearReportingPeriod(defaultAcademicYear);
 
     return {
-        academicYear: `${year}-${nextYear}`,
+        academicYear: defaultAcademicYear,
         reportingPeriod: {
-            fromDate: `${year}-06-01`,
-            toDate: `${nextYear}-05-31`,
+            fromDate: defaultPeriod?.fromDate ?? "",
+            toDate: defaultPeriod?.toDate ?? "",
         },
         facultyContribution: {
             researchPapers: [],
@@ -395,8 +395,12 @@ export function AqarDashboard({
     const [isPending, startTransition] = useTransition();
     const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved">("idle");
     const [reviewChecks, setReviewChecks] = useState<boolean[]>(() => reviewChecklistItems.map(() => false));
+    const defaultAcademicYear =
+        academicYearOptions.find((item) => item.isActive)?.label ?? academicYearOptions[0]?.label ?? "";
     const [prefillDefaults, setPrefillDefaults] = useState(evidenceDefaults);
-    const [prefillYear, setPrefillYear] = useState(initialApplications[0]?.academicYear ?? emptyForm().academicYear);
+    const [prefillYear, setPrefillYear] = useState(
+        initialApplications[0]?.academicYear ?? defaultAcademicYear
+    );
     const [isPrefillLoading, setIsPrefillLoading] = useState(false);
 
     const selected = applications.find((item) => item._id === selectedId);
@@ -421,13 +425,13 @@ export function AqarDashboard({
             selected
                 ? toFormValues(selected)
                 : {
-                      ...emptyForm(),
+                      ...emptyForm(defaultAcademicYear),
                       facultyContribution: {
-                          ...emptyForm().facultyContribution,
+                          ...emptyForm(defaultAcademicYear).facultyContribution,
                           ...prefillDefaults,
                       },
                   },
-        [selected, prefillDefaults]
+        [defaultAcademicYear, selected, prefillDefaults]
     );
 
     const form = useForm<AqarFormValues, unknown, AqarResolvedValues>({

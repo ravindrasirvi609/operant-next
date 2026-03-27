@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 
+import { parseAcademicYearLabel } from "@/lib/academic-year";
 import dbConnect from "@/lib/dbConnect";
 import { AuthError } from "@/lib/auth/errors";
 import {
@@ -44,25 +45,6 @@ function parseDate(value?: string | Date | null) {
     return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-function parseAcademicYearLabel(value?: string | null) {
-    const text = String(value ?? "").trim();
-    const match = text.match(/(\d{4})\D+(\d{2,4})/);
-
-    if (!match) {
-        return null;
-    }
-
-    const start = Number(match[1]);
-    const endValue = Number(match[2]);
-    const end = endValue < 100 ? Number(`${String(start).slice(0, 2)}${String(endValue).padStart(2, "0")}`) : endValue;
-
-    if (!Number.isFinite(start) || !Number.isFinite(end)) {
-        return null;
-    }
-
-    return { start, end };
-}
-
 async function ensureInstitution(name?: string | null) {
     const { institution } = await ensureCanonicalUniversityProjection(
         String(name ?? "").trim() || "Institution"
@@ -87,18 +69,10 @@ async function ensureAcademicYear(label?: string | null) {
         return null;
     }
 
-    let academicYear = await AcademicYear.findOne({
+    const academicYear = await AcademicYear.findOne({
         yearStart: parsed.start,
         yearEnd: parsed.end,
     });
-
-    if (!academicYear) {
-        academicYear = await AcademicYear.create({
-            yearStart: parsed.start,
-            yearEnd: parsed.end,
-            isActive: false,
-        });
-    }
 
     return academicYear;
 }

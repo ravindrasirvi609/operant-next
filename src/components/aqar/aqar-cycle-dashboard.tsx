@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { getAcademicYearReportingPeriod } from "@/lib/academic-year";
 
 type Criterion = {
     criterionCode: string;
@@ -54,17 +55,23 @@ type AqarCycle = {
 
 const cycleStatusOptions = ["Draft", "Department Review", "IQAC Review", "Finalized", "Submitted"] as const;
 
-export function AqarCycleDashboard({ initialCycles }: { initialCycles: AqarCycle[] }) {
+export function AqarCycleDashboard({
+    initialCycles,
+    defaultAcademicYearLabel = "",
+}: {
+    initialCycles: AqarCycle[];
+    defaultAcademicYearLabel?: string;
+}) {
     const [cycles, setCycles] = useState(initialCycles);
     const [selectedId, setSelectedId] = useState<string | null>(initialCycles[0]?._id ?? null);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [isPending, startTransition] = useTransition();
     const [createForm, setCreateForm] = useState(() => {
-        const year = new Date().getFullYear();
+        const period = getAcademicYearReportingPeriod(defaultAcademicYearLabel);
         return {
-            academicYear: `${year}-${year + 1}`,
-            fromDate: `${year}-06-01`,
-            toDate: `${year + 1}-05-31`,
+            academicYear: defaultAcademicYearLabel,
+            fromDate: period?.fromDate ?? "",
+            toDate: period?.toDate ?? "",
         };
     });
 
@@ -180,7 +187,7 @@ export function AqarCycleDashboard({ initialCycles }: { initialCycles: AqarCycle
                     <Input
                         value={createForm.academicYear}
                         onChange={(event) => setCreateForm((current) => ({ ...current, academicYear: event.target.value }))}
-                        placeholder="2025-2026"
+                        placeholder="YYYY-YYYY"
                     />
                     <Input
                         type="date"

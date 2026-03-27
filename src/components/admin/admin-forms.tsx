@@ -160,8 +160,8 @@ const templateHeaders = [
 const templateRows = [
     {
         category: "academic-year",
-        label: "2026-2027",
-        code: "AY-2026-27",
+        label: "YYYY-YYYY",
+        code: "AY-YYYY-YY",
         description: "Active academic year used for reporting and workflows.",
         parentCategory: "",
         parentKey: "",

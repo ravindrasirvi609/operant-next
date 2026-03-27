@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 
+import { formatAcademicYearLabel, parseAcademicYearLabel } from "@/lib/academic-year";
 import { createAuditLog, type AuditRequestContext } from "@/lib/audit/service";
 import dbConnect from "@/lib/dbConnect";
 import {
@@ -15,6 +16,7 @@ import Department from "@/models/reference/department";
 import Faculty from "@/models/faculty/faculty";
 import User from "@/models/core/user";
 import AqarApplication, { type AqarStatus } from "@/models/core/aqar-application";
+import AcademicYear from "@/models/reference/academic-year";
 import AqarCycle from "@/models/core/aqar-cycle";
 import { aqarApplicationSchema, aqarApprovalSchema, aqarReviewSchema } from "@/lib/aqar/validators";
 import WorkflowInstance from "@/models/core/workflow-instance";
@@ -124,6 +126,53 @@ export function computeAqarMetrics(input: ReturnType<typeof aqarApplicationSchem
         financialSupportCount,
         fdpCount,
         totalContributionIndex,
+    };
+}
+
+async function resolveAcademicYearFromInput(input: {
+    academicYearId?: string;
+    academicYear?: string;
+}) {
+    const normalizedId = input.academicYearId?.trim();
+
+    if (normalizedId) {
+        if (!Types.ObjectId.isValid(normalizedId)) {
+            throw new AuthError("Invalid academic year id.", 400);
+        }
+
+        const byId = await AcademicYear.findById(normalizedId).select("_id yearStart yearEnd");
+        if (!byId) {
+            throw new AuthError("Academic year not found.", 404);
+        }
+
+        return {
+            id: byId._id,
+            label: formatAcademicYearLabel(byId.yearStart, byId.yearEnd),
+        };
+    }
+
+    const normalizedLabel = input.academicYear?.trim();
+    const parsed = parseAcademicYearLabel(normalizedLabel);
+
+    if (!parsed) {
+        throw new AuthError("Invalid academic year label.", 400);
+    }
+
+    const byLabel = await AcademicYear.findOne({
+        yearStart: parsed.start,
+        yearEnd: parsed.end,
+    }).select("_id yearStart yearEnd");
+
+    if (!byLabel) {
+        throw new AuthError(
+            `Academic year \"${normalizedLabel}\" is not configured. Add it in Admin > Academics first.`,
+            400
+        );
+    }
+
+    return {
+        id: byLabel._id,
+        label: formatAcademicYearLabel(byLabel.yearStart, byLabel.yearEnd),
     };
 }
 
@@ -265,11 +314,13 @@ export async function createAqarApplication(actor: SafeActor, rawInput: unknown)
     }
 
     const { faculty } = await ensureFacultyContext(actor.id);
+    const resolvedAcademicYear = await resolveAcademicYearFromInput(input);
     const metrics = computeAqarMetrics(input);
 
     const application = await AqarApplication.create({
         facultyId: faculty._id,
-        academicYear: input.academicYear,
+        academicYearId: resolvedAcademicYear.id,
+        academicYear: resolvedAcademicYear.label,
         reportingPeriod: input.reportingPeriod,
         facultyContribution: input.facultyContribution,
         metrics,
@@ -342,10 +393,20 @@ export async function ensureAqarReminderForFaculty(
         return;
     }
 
-    const applications = await AqarApplication.find({
-        facultyId: faculty._id,
-        academicYear: cycle.academicYear,
-    })
+    const applications = await AqarApplication.find(
+        cycle.academicYearId
+            ? {
+                  facultyId: faculty._id,
+                  $or: [
+                      { academicYearId: cycle.academicYearId },
+                      { academicYear: cycle.academicYear },
+                  ],
+              }
+            : {
+                  facultyId: faculty._id,
+                  academicYear: cycle.academicYear,
+              }
+    )
         .select("status")
         .sort({ updatedAt: -1 })
         .lean();
@@ -448,8 +509,10 @@ export async function updateAqarApplication(actor: SafeActor, id: string, rawInp
     }
 
     const oldState = application.toObject();
+    const resolvedAcademicYear = await resolveAcademicYearFromInput(input);
 
-    application.academicYear = input.academicYear;
+    application.academicYearId = resolvedAcademicYear.id;
+    application.academicYear = resolvedAcademicYear.label;
     application.reportingPeriod = input.reportingPeriod;
     application.facultyContribution = input.facultyContribution;
     application.metrics = computeAqarMetrics(input);

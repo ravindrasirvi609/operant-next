@@ -2,14 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import { pbasApplicationSchema, pbasEntryModerationSchema } from "@/lib/pbas/validators";
 
+const baseYear = new Date().getFullYear();
+const testAcademicYear = `${baseYear}-${baseYear + 1}`;
+
 describe("PBAS application schema", () => {
     it("accepts valid academic year and appraisal period", () => {
         const parsed = pbasApplicationSchema.safeParse({
-            academicYear: "2025-2026",
+            academicYear: testAcademicYear,
             currentDesignation: "Assistant Professor (Stage 1)",
             appraisalPeriod: {
-                fromDate: "2025-06-01",
-                toDate: "2026-05-31",
+                fromDate: `${baseYear}-06-01`,
+                toDate: `${baseYear + 1}-05-31`,
             },
         });
 
@@ -18,11 +21,11 @@ describe("PBAS application schema", () => {
 
     it("rejects reversed appraisal dates", () => {
         const parsed = pbasApplicationSchema.safeParse({
-            academicYear: "2025-2026",
+            academicYear: testAcademicYear,
             currentDesignation: "Assistant Professor (Stage 1)",
             appraisalPeriod: {
-                fromDate: "2026-05-31",
-                toDate: "2025-06-01",
+                fromDate: `${baseYear + 1}-05-31`,
+                toDate: `${baseYear}-06-01`,
             },
         });
 
@@ -31,11 +34,11 @@ describe("PBAS application schema", () => {
 
     it("rejects dates outside selected academic year", () => {
         const parsed = pbasApplicationSchema.safeParse({
-            academicYear: "2025-2026",
+            academicYear: testAcademicYear,
             currentDesignation: "Assistant Professor (Stage 1)",
             appraisalPeriod: {
-                fromDate: "2024-06-01",
-                toDate: "2026-05-31",
+                fromDate: `${baseYear - 1}-06-01`,
+                toDate: `${baseYear + 1}-05-31`,
             },
         });
 

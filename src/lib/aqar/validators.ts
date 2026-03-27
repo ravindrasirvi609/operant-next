@@ -159,27 +159,33 @@ const fdpSchema = z.object({
     proof: z.string().trim().optional(),
 });
 
-export const aqarApplicationSchema = z.object({
-    academicYear: z.string().trim().min(4, "Academic year is required."),
-    reportingPeriod: z.object({
-        fromDate: z.string().trim().min(4, "Reporting start date is required."),
-        toDate: z.string().trim().min(4, "Reporting end date is required."),
-    }),
-    facultyContribution: z.object({
-        researchPapers: z.array(researchPaperSchema).default([]),
-        seedMoneyProjects: z.array(seedMoneyProjectSchema).default([]),
-        awardsRecognition: z.array(awardRecognitionSchema).default([]),
-        fellowships: z.array(fellowshipSupportSchema).default([]),
-        researchFellows: z.array(researchFellowSchema).default([]),
-        patents: z.array(patentSchema).default([]),
-        phdAwards: z.array(phdAwardSchema).default([]),
-        booksChapters: z.array(bookChapterSchema).default([]),
-        eContentDeveloped: z.array(eContentSchema).default([]),
-        consultancyServices: z.array(consultancySchema).default([]),
-        financialSupport: z.array(financialSupportSchema).default([]),
-        facultyDevelopmentProgrammes: z.array(fdpSchema).default([]),
-    }),
-});
+export const aqarApplicationSchema = z
+    .object({
+        academicYearId: z.string().trim().optional(),
+        academicYear: z.string().trim().min(4, "Academic year is required.").optional(),
+        reportingPeriod: z.object({
+            fromDate: z.string().trim().min(4, "Reporting start date is required."),
+            toDate: z.string().trim().min(4, "Reporting end date is required."),
+        }),
+        facultyContribution: z.object({
+            researchPapers: z.array(researchPaperSchema).default([]),
+            seedMoneyProjects: z.array(seedMoneyProjectSchema).default([]),
+            awardsRecognition: z.array(awardRecognitionSchema).default([]),
+            fellowships: z.array(fellowshipSupportSchema).default([]),
+            researchFellows: z.array(researchFellowSchema).default([]),
+            patents: z.array(patentSchema).default([]),
+            phdAwards: z.array(phdAwardSchema).default([]),
+            booksChapters: z.array(bookChapterSchema).default([]),
+            eContentDeveloped: z.array(eContentSchema).default([]),
+            consultancyServices: z.array(consultancySchema).default([]),
+            financialSupport: z.array(financialSupportSchema).default([]),
+            facultyDevelopmentProgrammes: z.array(fdpSchema).default([]),
+        }),
+    })
+    .refine((value) => Boolean(value.academicYearId?.trim() || value.academicYear?.trim()), {
+        message: "Academic year id or label is required.",
+        path: ["academicYearId"],
+    });
 
 export const aqarReviewSchema = z.object({
     remarks: z.string().trim().min(2, "Review remarks are required."),

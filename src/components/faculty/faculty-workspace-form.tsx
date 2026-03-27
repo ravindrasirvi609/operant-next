@@ -734,7 +734,7 @@ export function FacultyWorkspaceForm({
         const workbook = XLSX.utils.book_new();
         const template = XLSX.utils.json_to_sheet([
             {
-                academic_year: "2023-2024",
+                academic_year: templateAcademicYearLabel,
                 classes_taken: 120,
                 course_preparation_hours: 85,
                 courses_taught: "DSA, Operating Systems",
@@ -809,7 +809,7 @@ export function FacultyWorkspaceForm({
         const workbook = XLSX.utils.book_new();
         const template = XLSX.utils.json_to_sheet([
             {
-                academic_year: "2023-2024",
+                academic_year: templateAcademicYearLabel,
                 program_name: "B.Tech CSE",
                 course_name: "Operating Systems",
                 semester: 5,
@@ -877,7 +877,7 @@ export function FacultyWorkspaceForm({
         const workbook = XLSX.utils.book_new();
         const template = XLSX.utils.json_to_sheet([
             {
-                academic_year: "2023-2024",
+                academic_year: templateAcademicYearLabel,
                 subject_name: "Operating Systems",
                 appeared_students: 120,
                 passed_students: 114,
@@ -1152,6 +1152,7 @@ export function FacultyWorkspaceForm({
     }, [watchedValues, form.formState.isDirty, isSaving, form, submit]);
 
     const selectedAcademicYear = academicYearOptions[0] ?? "Academic Year";
+    const templateAcademicYearLabel = academicYearOptions[0] ?? "YYYY-YYYY";
 
     return (
         <div className="space-y-6 pb-20">
@@ -3089,7 +3090,7 @@ export function FacultyWorkspaceForm({
                                     downloadSectionTemplateExcel(
                                         {
                                             title: "Operating Systems Video Lecture",
-                                            academic_year: "2023-2024",
+                                            academic_year: templateAcademicYearLabel,
                                             platform: "youtube",
                                             content_type: "video",
                                             url: "https://example.com/video",
@@ -3333,7 +3334,7 @@ export function FacultyWorkspaceForm({
                                 onTemplate={() =>
                                     downloadSectionTemplateExcel(
                                         {
-                                            academic_year: "2023-2024",
+                                            academic_year: templateAcademicYearLabel,
                                             role_name: "Coordinator",
                                             committee_name: "IQAC",
                                             responsibility_description: "Committee reporting",
@@ -3422,7 +3423,7 @@ export function FacultyWorkspaceForm({
                                 onTemplate={() =>
                                     downloadSectionTemplateExcel(
                                         {
-                                            academic_year: "2023-2024",
+                                            academic_year: templateAcademicYearLabel,
                                             activity_title: "Mentorship Program",
                                             role: "Lead",
                                             impact_level: "dept",
@@ -3637,7 +3638,7 @@ export function FacultyWorkspaceForm({
                                 onTemplate={() =>
                                     downloadSectionTemplateExcel(
                                         {
-                                            academic_year: "2023-2024",
+                                            academic_year: templateAcademicYearLabel,
                                             program_name: "NSS",
                                             activity_name: "Cleanliness Drive",
                                             hours_contributed: 12,
@@ -3740,7 +3741,7 @@ export function FacultyWorkspaceForm({
                                 onTemplate={() =>
                                     downloadSectionTemplateExcel(
                                         {
-                                            academic_year: "2023-2024",
+                                            academic_year: templateAcademicYearLabel,
                                             research_publications_target: 4,
                                             fdp_target: 2,
                                             consultancy_target: 1,
@@ -3892,7 +3893,7 @@ export function FacultyWorkspaceForm({
                                 onTemplate={() =>
                                     downloadSectionTemplateExcel(
                                         {
-                                            academic_year: "2023-2024",
+                                            academic_year: templateAcademicYearLabel,
                                             publications_done: 5,
                                             fdp_conducted: 2,
                                             consultancy_generated: 1,
@@ -4057,7 +4058,7 @@ export function FacultyWorkspaceForm({
                                 onTemplate={() =>
                                     downloadSectionTemplateExcel(
                                         {
-                                            academic_year: "2023-2024",
+                                            academic_year: templateAcademicYearLabel,
                                             teaching_score: 80,
                                             research_score: 70,
                                             publication_score: 65,

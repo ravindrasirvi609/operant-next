@@ -2,6 +2,8 @@ import { NaacCriteriaMappingManager } from "@/components/admin/naac-criteria-map
 import { requireAdmin } from "@/lib/auth/user";
 import { getAqarReviewQueue } from "@/lib/aqar/service";
 import { listAqarCycles } from "@/lib/aqar-cycle/service";
+import { formatAcademicYearLabel } from "@/lib/academic-year";
+import { listAcademicYears } from "@/lib/admin/academics";
 import { getFacultyByIds } from "@/lib/faculty/migration";
 import {
     naacCriterionCatalog,
@@ -14,7 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 export default async function AdminAqarReviewPage() {
     const admin = await requireAdmin();
-    const [queue, cycles, mappings] = await Promise.all([
+    const [queue, cycles, mappings, academicYears] = await Promise.all([
         getAqarReviewQueue({
             id: admin.id,
             name: admin.name,
@@ -27,7 +29,14 @@ export default async function AdminAqarReviewPage() {
             role: admin.role,
         }),
         listNaacCriteriaMappings(),
+        listAcademicYears(),
     ]);
+
+    const activeAcademicYear = academicYears.find((year) => year.isActive);
+    const defaultAcademicYearLabel = formatAcademicYearLabel(
+        activeAcademicYear?.yearStart ?? academicYears[0]?.yearStart,
+        activeAcademicYear?.yearEnd ?? academicYears[0]?.yearEnd
+    );
 
     const facultyMap = new Map(
         (await getFacultyByIds(queue.map((item) => item.facultyId.toString()))).map((faculty) => [
@@ -57,7 +66,10 @@ export default async function AdminAqarReviewPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <AqarCycleDashboard initialCycles={JSON.parse(JSON.stringify(cycles))} />
+                    <AqarCycleDashboard
+                        initialCycles={JSON.parse(JSON.stringify(cycles))}
+                        defaultAcademicYearLabel={defaultAcademicYearLabel}
+                    />
                 </CardContent>
             </Card>
 

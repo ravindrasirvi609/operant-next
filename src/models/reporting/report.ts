@@ -2,6 +2,7 @@ import mongoose, { Schema, Document, Model, Types } from "mongoose";
 
 export interface IReport extends Document {
     type: 'AQAR' | 'NIRF' | 'AcademicAudit' | 'GeneralReport';
+    academicYearId?: Types.ObjectId;
     academicYear: string;
     category: string; // e.g., "Criteria 1", "Student Strength"
     title: string;
@@ -24,6 +25,7 @@ const ReportSchema = new Schema<IReport>(
             enum: ['AQAR', 'NIRF', 'AcademicAudit', 'GeneralReport'],
             index: true
         },
+        academicYearId: { type: Schema.Types.ObjectId, ref: 'AcademicYear', index: true },
         academicYear: { type: String, required: true, index: true },
         category: { type: String, required: true, index: true },
         title: { type: String, required: true },

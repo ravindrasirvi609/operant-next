@@ -113,13 +113,14 @@ export async function getReportTemplatePreviewOptions(id: string) {
 
 async function buildSamplePreviewPdf(reportType: ReportTemplateType) {
     const commonFacultyMeta = "demo.faculty@umis.edu | Computer Science | Engineering College | State University";
+    const sampleAcademicYear = "YYYY-YYYY";
 
     const sampleContexts: Record<ReportTemplateType, Record<string, string | number>> = {
         PBAS_APPRAISAL: {
             facultyName: "Dr. Meera Sharma",
             facultyDesignation: "Associate Professor",
             facultyMeta: commonFacultyMeta,
-            academicYear: "2025-2026",
+            academicYear: sampleAcademicYear,
             appraisalFromDate: "2025-07-01",
             appraisalToDate: "2026-06-30",
             workflowStatus: "Under Review",
@@ -149,7 +150,7 @@ async function buildSamplePreviewPdf(reportType: ReportTemplateType) {
             facultyName: "Dr. Meera Sharma",
             facultyDesignation: "Associate Professor",
             facultyMeta: commonFacultyMeta,
-            academicYear: "2025-2026",
+            academicYear: sampleAcademicYear,
             reportingFromDate: "2025-07-01",
             reportingToDate: "2026-03-31",
             workflowStatus: "Draft",
@@ -179,7 +180,7 @@ async function buildSamplePreviewPdf(reportType: ReportTemplateType) {
             fdpSummary: "OBE FDP; Research writing bootcamp; IQAC systems workshop",
         },
         AQAR_CYCLE: {
-            academicYear: "2025-2026",
+            academicYear: sampleAcademicYear,
             cycleStatus: "Finalized",
             reportingFromDate: "2025-07-01",
             reportingToDate: "2026-03-31",
@@ -239,7 +240,7 @@ async function buildSamplePreviewPdf(reportType: ReportTemplateType) {
             facultyName: "Dr. Meera Sharma",
             facultyDesignation: "Associate Professor",
             facultyMeta: commonFacultyMeta,
-            academicYear: "2025-2026",
+            academicYear: sampleAcademicYear,
             teachingHours: 276,
             coursesHandled: "Data Structures, AI Fundamentals, Software Engineering",
             mentoringCount: 28,
