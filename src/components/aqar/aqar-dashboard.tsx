@@ -53,6 +53,7 @@ type AqarFormApi = UseFormReturn<AqarFormValues, unknown, AqarResolvedValues>;
 
 type AqarApp = {
     _id: string;
+    academicYearId?: string;
     academicYear: string;
     reportingPeriod: {
         fromDate: string;
@@ -233,6 +234,7 @@ function toFormValues(application?: AqarApp): AqarFormValues {
     if (!application) return emptyForm();
 
     return {
+        academicYearId: application.academicYearId,
         academicYear: application.academicYear,
         reportingPeriod: application.reportingPeriod,
         facultyContribution: application.facultyContribution,
@@ -397,6 +399,10 @@ export function AqarDashboard({
     const [reviewChecks, setReviewChecks] = useState<boolean[]>(() => reviewChecklistItems.map(() => false));
     const defaultAcademicYear =
         academicYearOptions.find((item) => item.isActive)?.label ?? academicYearOptions[0]?.label ?? "";
+    const defaultAcademicYearId =
+        academicYearOptions.find((item) => item.isActive)?.id ??
+        academicYearOptions.find((item) => item.label === defaultAcademicYear)?.id ??
+        "";
     const [prefillDefaults, setPrefillDefaults] = useState(evidenceDefaults);
     const [prefillYear, setPrefillYear] = useState(
         initialApplications[0]?.academicYear ?? defaultAcademicYear
@@ -407,31 +413,34 @@ export function AqarDashboard({
     const academicYearSelectOptions = useMemo(() => {
         const options = academicYearOptions.map((item) => ({
             label: item.isActive ? `${item.label} (Active)` : item.label,
-            value: item.label,
+            value: item.id,
+            yearLabel: item.label,
         }));
         const selectedYear = String(selected?.academicYear ?? prefillYear ?? "").trim();
 
-        if (selectedYear && !options.some((item) => item.value === selectedYear)) {
+        if (selectedYear && !options.some((item) => item.yearLabel === selectedYear)) {
             options.unshift({
                 label: `${selectedYear} (Current record)`,
-                value: selectedYear,
+                value: selected?.academicYearId ?? selectedYear,
+                yearLabel: selectedYear,
             });
         }
 
         return options;
-    }, [academicYearOptions, prefillYear, selected?.academicYear]);
+    }, [academicYearOptions, prefillYear, selected?.academicYear, selected?.academicYearId]);
     const initialValues = useMemo(
         () =>
             selected
                 ? toFormValues(selected)
                 : {
+                      academicYearId: defaultAcademicYearId,
                       ...emptyForm(defaultAcademicYear),
                       facultyContribution: {
                           ...emptyForm(defaultAcademicYear).facultyContribution,
                           ...prefillDefaults,
                       },
                   },
-        [defaultAcademicYear, selected, prefillDefaults]
+        [defaultAcademicYear, defaultAcademicYearId, selected, prefillDefaults]
     );
 
     const form = useForm<AqarFormValues, unknown, AqarResolvedValues>({
@@ -470,7 +479,7 @@ export function AqarDashboard({
         const loadDefaults = async () => {
             try {
                 const response = await fetch(
-                    `/api/faculty/report-defaults?academicYear=${encodeURIComponent(form.getValues("academicYear"))}`,
+                    `/api/faculty/report-defaults?academicYear=${encodeURIComponent(form.getValues("academicYear") ?? "")}`,
                     { cache: "no-store" }
                 );
                 if (!response.ok) return;
@@ -479,7 +488,7 @@ export function AqarDashboard({
                 };
                 if (cancelled || form.formState.isDirty || !data.defaults?.aqar) return;
                 setPrefillDefaults(data.defaults.aqar);
-                setPrefillYear(form.getValues("academicYear"));
+                setPrefillYear(form.getValues("academicYear") ?? "");
             } catch {
                 // Ignore prefill refresh failures; keep initial server defaults.
             }
@@ -493,12 +502,31 @@ export function AqarDashboard({
     }, [selected]);
 
     const watchedValues = useWatch({ control: form.control });
+    const watchedAcademicYear = useWatch({ control: form.control, name: "academicYear" });
     const resolved = aqarApplicationSchema.safeParse(watchedValues);
     const normalizedValues = resolved.success ? resolved.data : aqarApplicationSchema.parse(emptyForm());
     const liveMetrics = computeMetrics(normalizedValues);
     const dashboardMetrics = selected?.metrics ?? liveMetrics;
     const editable = !selected || editableStatuses.has(selected.status);
     const reviewReady = reviewChecks.every(Boolean);
+
+    useEffect(() => {
+        const selectedYear = String(watchedAcademicYear ?? "").trim();
+        if (!selectedYear) {
+            return;
+        }
+
+        const matchingOption = academicYearSelectOptions.find((option) => option.yearLabel === selectedYear);
+        if (!matchingOption) {
+            return;
+        }
+
+        if (form.getValues("academicYearId") === matchingOption.value) {
+            return;
+        }
+
+        form.setValue("academicYearId", matchingOption.value, { shouldDirty: false });
+    }, [academicYearSelectOptions, form, watchedAcademicYear]);
 
     const summarySections = useMemo(
         () => [
@@ -586,11 +614,11 @@ export function AqarDashboard({
             (value) => Array.isArray(value) && value.length > 0
         );
 
-        if (hasExistingRows || prefillYear === normalizedValues.academicYear) {
+        if (hasExistingRows || prefillYear === (normalizedValues.academicYear ?? "")) {
             return;
         }
 
-        void loadYearPrefill(normalizedValues.academicYear, { announce: false });
+        void loadYearPrefill(normalizedValues.academicYear ?? "", { announce: false });
     }, [editable, form, normalizedValues.academicYear, prefillYear, selected]);
 
     useEffect(() => {
@@ -1069,13 +1097,24 @@ export function AqarDashboard({
                                 <div className="grid gap-4 md:grid-cols-3">
                                     <SelectField
                                         form={form}
-                                        name="academicYear"
+                                        name="academicYearId"
                                         label="Academic year"
                                         options={academicYearSelectOptions}
                                         placeholder="Select academic year"
                                         disabled={!editable}
                                         onValueChange={(value) => {
-                                            const range = parseAcademicYearLabel(value);
+                                            const selectedOption = academicYearSelectOptions.find((option) => option.value === value);
+                                            if (!selectedOption) {
+                                                return;
+                                            }
+
+                                            form.setValue("academicYear", selectedOption.yearLabel, {
+                                                shouldDirty: true,
+                                                shouldTouch: true,
+                                                shouldValidate: true,
+                                            });
+
+                                            const range = parseAcademicYearLabel(selectedOption.yearLabel);
                                             if (!range) return;
 
                                             form.setValue("reportingPeriod.fromDate", `${range.startYear}-06-01`, {
@@ -1095,7 +1134,7 @@ export function AqarDashboard({
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        onClick={() => void loadYearPrefill(normalizedValues.academicYear)}
+                                        onClick={() => void loadYearPrefill(normalizedValues.academicYear ?? "")}
                                         disabled={!editable || isPrefillLoading}
                                     >
                                         {isPrefillLoading ? <Spinner /> : <Sparkles className="h-4 w-4" />}

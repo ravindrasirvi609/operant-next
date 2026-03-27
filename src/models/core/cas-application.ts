@@ -41,6 +41,7 @@ export interface ICasStatusLog {
 
 export interface ICasApplication extends Document {
     facultyId: Types.ObjectId;
+    applicationYearId?: Types.ObjectId;
     applicationYear: string;
     currentDesignation: string;
     applyingForDesignation: string;
@@ -153,6 +154,7 @@ const CasStatusLogSchema = new Schema<ICasStatusLog>(
 const CasApplicationSchema = new Schema<ICasApplication>(
     {
         facultyId: { type: Schema.Types.ObjectId, ref: "Faculty", required: true, index: true },
+        applicationYearId: { type: Schema.Types.ObjectId, ref: "AcademicYear", index: true },
         applicationYear: { type: String, required: true, trim: true, index: true },
         currentDesignation: { type: String, required: true, trim: true },
         applyingForDesignation: { type: String, required: true, trim: true },
@@ -201,6 +203,7 @@ const CasApplicationSchema = new Schema<ICasApplication>(
 );
 
 CasApplicationSchema.index({ facultyId: 1, applicationYear: 1 });
+CasApplicationSchema.index({ facultyId: 1, applicationYearId: 1 }, { sparse: true });
 CasApplicationSchema.index({ facultyId: 1, status: 1, updatedAt: -1 });
 
 const CasApplication: Model<ICasApplication> =

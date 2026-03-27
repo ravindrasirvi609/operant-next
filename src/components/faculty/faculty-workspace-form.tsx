@@ -74,6 +74,12 @@ type CourseOption = {
     programName?: string;
 };
 
+type AcademicYearOption = {
+    id: string;
+    label: string;
+    isActive?: boolean;
+};
+
 function toCsv(value?: string[]) {
     return value?.join(", ") ?? "";
 }
@@ -95,7 +101,7 @@ export function FacultyWorkspaceForm({
 }: {
     user: FacultyUser;
     facultyRecord: ExistingRecord;
-    academicYearOptions: string[];
+    academicYearOptions: AcademicYearOption[];
     programOptions: string[];
     courseOptions: CourseOption[];
 }) {
@@ -221,6 +227,7 @@ export function FacultyWorkspaceForm({
     const [editingQualificationIndex, setEditingQualificationIndex] = useState<number | null>(null);
     const [qualificationDraftError, setQualificationDraftError] = useState<string | null>(null);
     const [teachingSummaryDraft, setTeachingSummaryDraft] = useState({
+        academicYearId: "",
         academicYear: "",
         classesTaken: "0",
         coursePreparationHours: "0",
@@ -232,6 +239,7 @@ export function FacultyWorkspaceForm({
     const [editingTeachingSummaryIndex, setEditingTeachingSummaryIndex] = useState<number | null>(null);
     const [teachingSummaryDraftError, setTeachingSummaryDraftError] = useState<string | null>(null);
     const [teachingLoadDraft, setTeachingLoadDraft] = useState({
+        academicYearId: "",
         academicYear: "",
         programName: "",
         courseName: "",
@@ -245,6 +253,7 @@ export function FacultyWorkspaceForm({
     const [editingTeachingLoadIndex, setEditingTeachingLoadIndex] = useState<number | null>(null);
     const [teachingLoadDraftError, setTeachingLoadDraftError] = useState<string | null>(null);
     const [resultSummaryDraft, setResultSummaryDraft] = useState({
+        academicYearId: "",
         academicYear: "",
         subjectName: "",
         appearedStudents: "0",
@@ -255,6 +264,10 @@ export function FacultyWorkspaceForm({
     const [resultSummaryDraftError, setResultSummaryDraftError] = useState<string | null>(null);
     const [activitiesBulkError, setActivitiesBulkError] = useState<string | null>(null);
     const [complianceBulkError, setComplianceBulkError] = useState<string | null>(null);
+    const academicYearIdByLabel = useMemo(
+        () => new Map(academicYearOptions.map((option) => [option.label, option.id])),
+        [academicYearOptions]
+    );
 
     const watchedValues = useWatch({ control: form.control });
 
@@ -492,6 +505,7 @@ export function FacultyWorkspaceForm({
 
     function resetTeachingSummaryDraft() {
         setTeachingSummaryDraft({
+            academicYearId: "",
             academicYear: "",
             classesTaken: "0",
             coursePreparationHours: "0",
@@ -539,6 +553,7 @@ export function FacultyWorkspaceForm({
         if (!selected) return;
 
         setTeachingSummaryDraft({
+            academicYearId: academicYearIdByLabel.get(selected.academicYear ?? "") ?? "",
             academicYear: selected.academicYear ?? "",
             classesTaken: String(selected.classesTaken ?? 0),
             coursePreparationHours: String(selected.coursePreparationHours ?? 0),
@@ -553,6 +568,7 @@ export function FacultyWorkspaceForm({
 
     function resetTeachingLoadDraft() {
         setTeachingLoadDraft({
+            academicYearId: "",
             academicYear: "",
             programName: "",
             courseName: "",
@@ -605,6 +621,7 @@ export function FacultyWorkspaceForm({
         if (!selected) return;
 
         setTeachingLoadDraft({
+            academicYearId: academicYearIdByLabel.get(selected.academicYear ?? "") ?? "",
             academicYear: selected.academicYear ?? "",
             programName: selected.programName ?? "",
             courseName: selected.courseName ?? "",
@@ -621,6 +638,7 @@ export function FacultyWorkspaceForm({
 
     function resetResultSummaryDraft() {
         setResultSummaryDraft({
+            academicYearId: "",
             academicYear: "",
             subjectName: "",
             appearedStudents: "0",
@@ -664,6 +682,7 @@ export function FacultyWorkspaceForm({
         if (!selected) return;
 
         setResultSummaryDraft({
+            academicYearId: academicYearIdByLabel.get(selected.academicYear ?? "") ?? "",
             academicYear: selected.academicYear ?? "",
             subjectName: selected.subjectName ?? "",
             appearedStudents: String(selected.appearedStudents ?? 0),
@@ -1151,8 +1170,8 @@ export function FacultyWorkspaceForm({
         };
     }, [watchedValues, form.formState.isDirty, isSaving, form, submit]);
 
-    const selectedAcademicYear = academicYearOptions[0] ?? "Academic Year";
-    const templateAcademicYearLabel = academicYearOptions[0] ?? "YYYY-YYYY";
+    const selectedAcademicYear = academicYearOptions[0]?.label ?? "Academic Year";
+    const templateAcademicYearLabel = academicYearOptions[0]?.label ?? "YYYY-YYYY";
 
     return (
         <div className="space-y-6 pb-20">
@@ -1577,7 +1596,11 @@ export function FacultyWorkspaceForm({
                                     <Field label="Academic year" id="teachingSummaryAcademicYear">
                                         <AcademicYearSelect
                                             value={teachingSummaryDraft.academicYear}
-                                            onChange={(value) => setTeachingSummaryDraft((prev) => ({ ...prev, academicYear: value }))}
+                                            onChange={(value) => setTeachingSummaryDraft((prev) => ({
+                                                ...prev,
+                                                academicYear: value,
+                                                academicYearId: academicYearIdByLabel.get(value) ?? "",
+                                            }))}
                                             options={academicYearOptions}
                                         />
                                     </Field>
@@ -1717,7 +1740,11 @@ export function FacultyWorkspaceForm({
                                     <Field label="Academic year" id="teachingLoadAcademicYear">
                                         <AcademicYearSelect
                                             value={teachingLoadDraft.academicYear}
-                                            onChange={(value) => setTeachingLoadDraft((prev) => ({ ...prev, academicYear: value }))}
+                                            onChange={(value) => setTeachingLoadDraft((prev) => ({
+                                                ...prev,
+                                                academicYear: value,
+                                                academicYearId: academicYearIdByLabel.get(value) ?? "",
+                                            }))}
                                             options={academicYearOptions}
                                         />
                                     </Field>
@@ -1869,7 +1896,11 @@ export function FacultyWorkspaceForm({
                                     <Field label="Academic year" id="resultSummaryAcademicYear">
                                         <AcademicYearSelect
                                             value={resultSummaryDraft.academicYear}
-                                            onChange={(value) => setResultSummaryDraft((prev) => ({ ...prev, academicYear: value }))}
+                                            onChange={(value) => setResultSummaryDraft((prev) => ({
+                                                ...prev,
+                                                academicYear: value,
+                                                academicYearId: academicYearIdByLabel.get(value) ?? "",
+                                            }))}
                                             options={academicYearOptions}
                                         />
                                     </Field>
@@ -4485,17 +4516,44 @@ function AcademicYearSelect({
 }: {
     value?: string;
     onChange: (value: string) => void;
-    options: string[];
+    options: AcademicYearOption[];
 }) {
+    const resolvedOptions = useMemo(() => {
+        const list = [...options];
+        const selectedLabel = String(value ?? "").trim();
+
+        if (selectedLabel && !list.some((option) => option.label === selectedLabel)) {
+            list.unshift({
+                id: selectedLabel,
+                label: selectedLabel,
+            });
+        }
+
+        return list;
+    }, [options, value]);
+
+    const selectedValue =
+        resolvedOptions.find((option) => option.label === value)?.id ?? undefined;
+
     return (
-        <Select value={value || undefined} onValueChange={onChange}>
+        <Select
+            value={selectedValue}
+            onValueChange={(selectedId) => {
+                const selectedOption = resolvedOptions.find((option) => option.id === selectedId);
+                if (!selectedOption) {
+                    return;
+                }
+
+                onChange(selectedOption.label);
+            }}
+        >
             <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select academic year" />
             </SelectTrigger>
             <SelectContent>
-                {options.map((option) => (
-                    <SelectItem key={option} value={option}>
-                        {option}
+                {resolvedOptions.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                        {option.label}{option.isActive ? " (Active)" : ""}
                     </SelectItem>
                 ))}
             </SelectContent>

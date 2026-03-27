@@ -1216,6 +1216,38 @@ async function ensureAcademicYear(value: string) {
     return academicYear;
 }
 
+async function resolveAcademicYearFromInput(input: { academicYearId?: string; academicYear?: string }) {
+    const normalizedId = input.academicYearId?.trim();
+
+    if (normalizedId) {
+        if (!Types.ObjectId.isValid(normalizedId)) {
+            throw new AuthError("Invalid academic year id.", 400);
+        }
+
+        const byId = await AcademicYear.findById(normalizedId).select("_id yearStart yearEnd");
+        if (!byId) {
+            throw new AuthError("Academic year not found.", 404);
+        }
+
+        return {
+            model: byId,
+            label: toAcademicYearLabel(byId.yearStart, byId.yearEnd),
+        };
+    }
+
+    const normalizedLabel = input.academicYear?.trim();
+    if (!normalizedLabel) {
+        throw new AuthError("Academic year id or label is required.", 400);
+    }
+
+    const byLabel = await ensureAcademicYear(normalizedLabel);
+
+    return {
+        model: byLabel,
+        label: toAcademicYearLabel(byLabel.yearStart, byLabel.yearEnd),
+    };
+}
+
 async function upsertWorkflow(
     application: InstanceType<typeof FacultyPbasForm>,
     actor: SafeActor | undefined,
@@ -1397,14 +1429,14 @@ export async function getPbasSummaryForFaculty(actor: SafeActor): Promise<PbasSu
         throw new AuthError("No academic year is configured. Add at least one in Admin > Academics.", 400);
     }
 
-    const meta = pbasApplicationSchema.parse({
+    const meta = {
         academicYear: activeYearLabel,
         currentDesignation: normalizeDesignation(faculty.designation),
         appraisalPeriod: {
             fromDate: `${activeYear.yearStart}-06-01`,
             toDate: `${activeYear.yearEnd}-05-31`,
         },
-    });
+    };
     const snapshot = await buildPbasSnapshot(faculty._id, activeYear?._id ?? null);
     const summaryContext = activeYear ? await loadPbasReferenceContext(faculty._id, activeYear._id) : undefined;
     const summaryReferences = summaryContext ? deriveAutoDraftReferences(summaryContext) : emptyPbasDraftReferences();
@@ -1706,7 +1738,6 @@ export async function moderatePbasEntriesForForm(actor: SafeActor, id: string, r
 
 export async function createPbasApplication(actor: SafeActor, rawInput: unknown) {
     const input = pbasApplicationSchema.parse(rawInput);
-    assertAppraisalPeriodWithinAcademicYear(input);
     await dbConnect();
     await ensurePbasDynamicMigration();
 
@@ -1728,7 +1759,12 @@ export async function createPbasApplication(actor: SafeActor, rawInput: unknown)
         );
     }
 
-    const academicYear = await ensureAcademicYear(input.academicYear);
+    const resolvedAcademicYear = await resolveAcademicYearFromInput(input);
+    const academicYear = resolvedAcademicYear.model;
+    assertAppraisalPeriodWithinAcademicYear({
+        academicYear: resolvedAcademicYear.label,
+        appraisalPeriod: input.appraisalPeriod,
+    });
     const context = await loadPbasReferenceContext(faculty._id, academicYear._id);
     const scoringWeights = await getPbasScoringWeightsFromMasterData();
     const draftReferences = deriveAutoDraftReferences(context);
@@ -1751,7 +1787,7 @@ export async function createPbasApplication(actor: SafeActor, rawInput: unknown)
     const application = await FacultyPbasForm.create({
         facultyId: faculty._id,
         academicYearId: academicYear._id,
-        academicYear: input.academicYear,
+        academicYear: resolvedAcademicYear.label,
         submissionStatus: "Draft",
         currentDesignation: input.currentDesignation,
         appraisalPeriod: input.appraisalPeriod,
@@ -1852,7 +1888,6 @@ export async function getPbasApplicationById(actor: SafeActor, id: string) {
 
 export async function updatePbasApplication(actor: SafeActor, id: string, rawInput: unknown) {
     const input = pbasApplicationSchema.parse(rawInput);
-    assertAppraisalPeriodWithinAcademicYear(input);
     const application = await getPbasApplicationById(actor, id);
     const facultyContext = actor.role === "Faculty" ? await ensureFacultyContext(actor.id) : null;
 
@@ -1868,7 +1903,12 @@ export async function updatePbasApplication(actor: SafeActor, id: string, rawInp
     }
 
     const oldState = application.toObject();
-    const academicYear = await ensureAcademicYear(input.academicYear);
+    const resolvedAcademicYear = await resolveAcademicYearFromInput(input);
+    const academicYear = resolvedAcademicYear.model;
+    assertAppraisalPeriodWithinAcademicYear({
+        academicYear: resolvedAcademicYear.label,
+        appraisalPeriod: input.appraisalPeriod,
+    });
     const academicYearChanged = application.academicYearId.toString() !== academicYear._id.toString();
     const context = await loadPbasReferenceContext(application.facultyId, academicYear._id);
     const nextDraftReferences = academicYearChanged
@@ -1884,7 +1924,7 @@ export async function updatePbasApplication(actor: SafeActor, id: string, rawInp
     const selectedContext = selectPbasReferenceContext(context, nextDraftReferences);
     const scorecard = await computePbasDynamicScorecard(snapshot, scoringWeights, selectedContext);
     application.academicYearId = academicYear._id;
-    application.academicYear = input.academicYear;
+    application.academicYear = resolvedAcademicYear.label;
     application.currentDesignation = input.currentDesignation;
     application.appraisalPeriod = input.appraisalPeriod;
     application.draftReferences = nextDraftReferences;

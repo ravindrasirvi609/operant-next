@@ -53,13 +53,21 @@ type AqarCycle = {
     }>;
 };
 
+type AcademicYearOption = {
+    id: string;
+    label: string;
+    isActive?: boolean;
+};
+
 const cycleStatusOptions = ["Draft", "Department Review", "IQAC Review", "Finalized", "Submitted"] as const;
 
 export function AqarCycleDashboard({
     initialCycles,
+    academicYearOptions,
     defaultAcademicYearLabel = "",
 }: {
     initialCycles: AqarCycle[];
+    academicYearOptions: AcademicYearOption[];
     defaultAcademicYearLabel?: string;
 }) {
     const [cycles, setCycles] = useState(initialCycles);
@@ -67,9 +75,15 @@ export function AqarCycleDashboard({
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [isPending, startTransition] = useTransition();
     const [createForm, setCreateForm] = useState(() => {
-        const period = getAcademicYearReportingPeriod(defaultAcademicYearLabel);
+        const initialOption =
+            academicYearOptions.find((option) => option.label === defaultAcademicYearLabel) ??
+            academicYearOptions.find((option) => option.isActive) ??
+            academicYearOptions[0];
+        const initialLabel = initialOption?.label ?? defaultAcademicYearLabel;
+        const period = getAcademicYearReportingPeriod(initialLabel);
         return {
-            academicYear: defaultAcademicYearLabel,
+            academicYearId: initialOption?.id ?? "",
+            academicYear: initialLabel,
             fromDate: period?.fromDate ?? "",
             toDate: period?.toDate ?? "",
         };
@@ -96,6 +110,7 @@ export function AqarCycleDashboard({
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
+                    academicYearId: createForm.academicYearId,
                     academicYear: createForm.academicYear,
                     reportingPeriod: { fromDate: createForm.fromDate, toDate: createForm.toDate },
                 }),
@@ -184,11 +199,35 @@ export function AqarCycleDashboard({
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-4">
-                    <Input
-                        value={createForm.academicYear}
-                        onChange={(event) => setCreateForm((current) => ({ ...current, academicYear: event.target.value }))}
-                        placeholder="YYYY-YYYY"
-                    />
+                    <Select
+                        value={createForm.academicYearId || undefined}
+                        onValueChange={(value) => {
+                            const selectedOption = academicYearOptions.find((option) => option.id === value);
+                            if (!selectedOption) {
+                                return;
+                            }
+
+                            const period = getAcademicYearReportingPeriod(selectedOption.label);
+                            setCreateForm((current) => ({
+                                ...current,
+                                academicYearId: selectedOption.id,
+                                academicYear: selectedOption.label,
+                                fromDate: period?.fromDate ?? current.fromDate,
+                                toDate: period?.toDate ?? current.toDate,
+                            }));
+                        }}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select academic year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {academicYearOptions.map((option) => (
+                                <SelectItem key={option.id} value={option.id}>
+                                    {option.label}{option.isActive ? " (Active)" : ""}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                     <Input
                         type="date"
                         value={createForm.fromDate}

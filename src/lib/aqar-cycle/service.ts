@@ -497,7 +497,13 @@ async function buildCriteriaSections(
                 : { academicYear }),
             status: { $in: ["Approved", "Committee Review", "Under Review", "Submitted"] },
         }),
-        CasApplication.countDocuments({ applicationYear: academicYear }),
+        CasApplication.countDocuments(
+            academicYearId
+                ? {
+                      $or: [{ applicationYearId: academicYearId }, { applicationYear: academicYear }],
+                  }
+                : { applicationYear: academicYear }
+        ),
         AqarApplication.countDocuments(
             academicYearId
                 ? {

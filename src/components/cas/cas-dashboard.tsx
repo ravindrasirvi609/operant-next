@@ -43,6 +43,7 @@ type PbasOption = {
 
 type CasApp = {
     _id: string;
+    applicationYearId?: string;
     applicationYear: string;
     currentDesignation: string;
     applyingForDesignation: string;
@@ -190,6 +191,7 @@ function toFormValues(application?: CasApp): CasFormValues {
     }
 
     return {
+        applicationYearId: application.applicationYearId,
         applicationYear: application.applicationYear,
         currentDesignation: application.currentDesignation,
         applyingForDesignation: application.applyingForDesignation,
@@ -519,6 +521,7 @@ export function CASCommitteeTimeline({
 export function CasDashboard({
     initialApplications,
     pbasOptions,
+    academicYearOptions,
     facultyName,
     facultyId,
     evidenceDefaults,
@@ -526,6 +529,7 @@ export function CasDashboard({
 }: {
     initialApplications: CasApp[];
     pbasOptions: PbasOption[];
+    academicYearOptions: Array<{ id: string; label: string; isActive?: boolean }>;
     facultyName: string;
     facultyId: string;
     evidenceDefaults: {
@@ -553,6 +557,19 @@ export function CasDashboard({
     const [workflowError, setWorkflowError] = useState<string | null>(null);
 
     const selected = applications.find((item) => item._id === selectedId);
+    const applicationYearOptions = useMemo(() => {
+        const options = [...academicYearOptions];
+        const selectedYear = String(selected?.applicationYear ?? "").trim();
+
+        if (selectedYear && !options.some((option) => option.label === selectedYear)) {
+            options.unshift({
+                id: selected?.applicationYearId ?? selectedYear,
+                label: selectedYear,
+            });
+        }
+
+        return options;
+    }, [academicYearOptions, selected?.applicationYear, selected?.applicationYearId]);
     const linkedAchievements = selected?.linkedAchievements ?? {
         ...emptyAchievements(),
         ...evidenceDefaults,
@@ -571,7 +588,24 @@ export function CasDashboard({
         form.reset(selected ? toFormValues(selected) : emptyForm());
     }, [selectedId, selected, form, evidenceDefaults]);
 
+    useEffect(() => {
+        if (selected) {
+            return;
+        }
+
+        const selectedYear = String(form.getValues("applicationYear") ?? "").trim();
+        const hasMatchingOption = applicationYearOptions.some((option) => option.label === selectedYear);
+        if (hasMatchingOption || !applicationYearOptions.length) {
+            return;
+        }
+
+        const fallback = applicationYearOptions.find((option) => option.isActive) ?? applicationYearOptions[0];
+        form.setValue("applicationYear", fallback.label, { shouldDirty: false, shouldValidate: true });
+        form.setValue("applicationYearId", fallback.id, { shouldDirty: false, shouldValidate: true });
+    }, [applicationYearOptions, form, selected]);
+
     const watchedValues = useWatch({ control: form.control });
+    const watchedApplicationYear = useWatch({ control: form.control, name: "applicationYear" });
     const resolved = casApplicationSchema.safeParse(watchedValues);
     const normalizedValues = resolved.success ? resolved.data : casApplicationSchema.parse(emptyForm());
     const designationProfile = useMemo(
@@ -594,6 +628,24 @@ export function CasDashboard({
             ? "Waiting for the latest CAS calculation from the server."
             : "Create a CAS draft to calculate the authoritative API score and eligibility.",
     };
+
+    useEffect(() => {
+        const selectedYear = String(watchedApplicationYear ?? "").trim();
+        if (!selectedYear) {
+            return;
+        }
+
+        const matchingOption = applicationYearOptions.find((option) => option.label === selectedYear);
+        if (!matchingOption) {
+            return;
+        }
+
+        if (form.getValues("applicationYearId") === matchingOption.id) {
+            return;
+        }
+
+        form.setValue("applicationYearId", matchingOption.id, { shouldDirty: false });
+    }, [applicationYearOptions, form, watchedApplicationYear]);
 
     useEffect(() => {
         const nextOptions = getAllowedCasPromotionTargets(form.getValues("currentDesignation"));
@@ -1022,7 +1074,36 @@ export function CasDashboard({
                         {currentStep === 0 ? (
                             <div className="space-y-4">
                                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                                    <Field label="Application Year"><Input {...form.register("applicationYear")} /></Field>
+                                    <Field label="Application Year">
+                                        <Controller
+                                            control={form.control}
+                                            name="applicationYearId"
+                                            render={({ field }) => (
+                                                <Select
+                                                    value={field.value || undefined}
+                                                    onValueChange={(value) => {
+                                                        field.onChange(value);
+                                                        const matchingOption = applicationYearOptions.find((option) => option.id === value);
+                                                        form.setValue("applicationYear", matchingOption?.label ?? "", {
+                                                            shouldDirty: true,
+                                                            shouldValidate: true,
+                                                        });
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Select application year" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {applicationYearOptions.map((option) => (
+                                                            <SelectItem key={option.id} value={option.id}>
+                                                                {option.label}{option.isActive ? " (Active)" : ""}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
+                                        />
+                                    </Field>
                                     <Field label="Current Designation">
                                         <Controller
                                             control={form.control}

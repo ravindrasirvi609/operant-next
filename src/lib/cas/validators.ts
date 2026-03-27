@@ -47,18 +47,24 @@ const emptyAchievementBucket: z.infer<typeof achievementBucketSchema> = {
     conferences: 0,
 };
 
-export const casApplicationSchema = z.object({
-    applicationYear: z.string().trim().min(4, "Application year is required."),
-    currentDesignation: z.string().trim().min(2, "Current designation is required."),
-    applyingForDesignation: z.string().trim().min(2, "Applying designation is required."),
-    eligibilityPeriod: z.object({
-        fromYear: z.coerce.number().int().min(1900).max(2100),
-        toYear: z.coerce.number().int().min(1900).max(2100),
-    }),
-    experienceYears: z.coerce.number().min(0),
-    pbasReports: z.array(z.string().trim().min(1)).default([]),
-    manualAchievements: achievementBucketSchema.default(emptyAchievementBucket),
-});
+export const casApplicationSchema = z
+    .object({
+        applicationYearId: z.string().trim().optional(),
+        applicationYear: z.string().trim().min(4, "Application year is required.").optional(),
+        currentDesignation: z.string().trim().min(2, "Current designation is required."),
+        applyingForDesignation: z.string().trim().min(2, "Applying designation is required."),
+        eligibilityPeriod: z.object({
+            fromYear: z.coerce.number().int().min(1900).max(2100),
+            toYear: z.coerce.number().int().min(1900).max(2100),
+        }),
+        experienceYears: z.coerce.number().min(0),
+        pbasReports: z.array(z.string().trim().min(1)).default([]),
+        manualAchievements: achievementBucketSchema.default(emptyAchievementBucket),
+    })
+    .refine((value) => Boolean(value.applicationYearId?.trim() || value.applicationYear?.trim()), {
+        message: "Application year id or label is required.",
+        path: ["applicationYearId"],
+    });
 
 export const casReviewSchema = z.object({
     remarks: z.string().trim().min(2, "Review remarks are required."),

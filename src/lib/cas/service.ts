@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 
+import { formatAcademicYearLabel, parseAcademicYearLabel } from "@/lib/academic-year";
 import dbConnect from "@/lib/dbConnect";
 import { createAuditLog, type AuditRequestContext } from "@/lib/audit/service";
 import {
@@ -22,6 +23,7 @@ import CasApiScoreBreakup from "@/models/core/cas-api-score-breakup";
 import CasPromotionHistory from "@/models/core/cas-promotion-history";
 import CasPromotionRule from "@/models/core/cas-promotion-rule";
 import FacultyPbasForm from "@/models/core/faculty-pbas-form";
+import AcademicYear from "@/models/reference/academic-year";
 import CasSupportingDocument from "@/models/core/cas-supporting-document";
 import CasScreeningCommitteeMember from "@/models/core/cas-screening-committee";
 import DocumentModel from "@/models/reference/document";
@@ -64,6 +66,53 @@ type CasCategoryMinimums = {
 };
 
 type CasApplicationInput = ReturnType<typeof casApplicationSchema.parse>;
+
+async function resolveApplicationYearFromInput(input: {
+    applicationYearId?: string;
+    applicationYear?: string;
+}) {
+    const normalizedId = input.applicationYearId?.trim();
+
+    if (normalizedId) {
+        if (!Types.ObjectId.isValid(normalizedId)) {
+            throw new AuthError("Invalid application year id.", 400);
+        }
+
+        const byId = await AcademicYear.findById(normalizedId).select("_id yearStart yearEnd");
+        if (!byId) {
+            throw new AuthError("Application year not found.", 404);
+        }
+
+        return {
+            id: byId._id,
+            label: formatAcademicYearLabel(byId.yearStart, byId.yearEnd),
+        };
+    }
+
+    const normalizedLabel = input.applicationYear?.trim();
+    const parsed = parseAcademicYearLabel(normalizedLabel);
+
+    if (!parsed) {
+        throw new AuthError("Invalid application year label.", 400);
+    }
+
+    const byLabel = await AcademicYear.findOne({
+        yearStart: parsed.start,
+        yearEnd: parsed.end,
+    }).select("_id yearStart yearEnd");
+
+    if (!byLabel) {
+        throw new AuthError(
+            `Application year \"${normalizedLabel}\" is not configured. Add it in Admin > Academics first.`,
+            400
+        );
+    }
+
+    return {
+        id: byLabel._id,
+        label: formatAcademicYearLabel(byLabel.yearStart, byLabel.yearEnd),
+    };
+}
 
 const CAS_SCORE_CAPS: CasCategoryMinimums = {
     teachingLearning: 100,
@@ -836,13 +885,15 @@ export async function createCasApplication(actor: SafeActor, rawInput: unknown) 
     }
 
     const { faculty } = await ensureFacultyContext(actor.id);
+    const resolvedApplicationYear = await resolveApplicationYearFromInput(input);
     const linkedAchievements = await buildLinkedAchievementsForFaculty(actor.id);
     const apiScore = await computeCasApiScore(faculty._id.toString(), input);
     const eligibility = await evaluateCasEligibility(input, apiScore.totalScore);
 
     const application = await CasApplication.create({
         facultyId: faculty._id,
-        applicationYear: input.applicationYear,
+        applicationYearId: resolvedApplicationYear.id,
+        applicationYear: resolvedApplicationYear.label,
         currentDesignation: input.currentDesignation,
         applyingForDesignation: input.applyingForDesignation,
         applicationDate: new Date(),
@@ -915,11 +966,13 @@ export async function updateCasApplication(actor: SafeActor, id: string, rawInpu
     }
 
     const oldState = application.toObject();
+    const resolvedApplicationYear = await resolveApplicationYearFromInput(input);
     const linkedAchievements = await buildLinkedAchievementsForFaculty(actor.id);
     const apiScore = await computeCasApiScore(facultyContext.faculty._id.toString(), input);
     const eligibility = await evaluateCasEligibility(input, apiScore.totalScore);
 
-    application.applicationYear = input.applicationYear;
+    application.applicationYearId = resolvedApplicationYear.id;
+    application.applicationYear = resolvedApplicationYear.label;
     application.currentDesignation = input.currentDesignation;
     application.applyingForDesignation = input.applyingForDesignation;
     application.eligibilityPeriod = input.eligibilityPeriod;

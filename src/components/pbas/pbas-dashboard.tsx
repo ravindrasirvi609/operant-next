@@ -29,6 +29,7 @@ type PbasFormValues = z.input<typeof pbasApplicationSchema>;
 
 type PbasApp = {
     _id: string;
+    academicYearId?: string;
     academicYear: string;
     currentDesignation: PbasFormValues["currentDesignation"];
     appraisalPeriod: {
@@ -278,6 +279,7 @@ function toFormValues(application?: PbasApp, prefill?: Partial<PbasFormValues>):
     }
 
     return {
+        academicYearId: application.academicYearId,
         academicYear: application.academicYear,
         currentDesignation: application.currentDesignation,
         appraisalPeriod: application.appraisalPeriod,
@@ -408,7 +410,14 @@ export function PbasDashboard({
         : !canEdit
             ? `Submission is available only in Draft or Rejected status. Current status: ${selected?.status ?? "Unknown"}.`
             : null;
-    const defaultDraft = useMemo(() => emptyForm(summary?.meta), [summary]);
+    const defaultDraft = useMemo(() => {
+        const fallbackYear = academicYearOptions.find((option) => option.isActive) ?? academicYearOptions[0];
+        return emptyForm({
+            ...summary?.meta,
+            academicYearId: fallbackYear?.id,
+            academicYear: fallbackYear?.label ?? summary?.meta?.academicYear,
+        });
+    }, [academicYearOptions, summary]);
 
     function deleteApplication(applicationId: string) {
         if (!confirm("Are you sure you want to delete this PBAS draft?")) {
@@ -446,12 +455,48 @@ export function PbasDashboard({
         );
     }, [selectedId, selected, form, defaultDraft, summary]);
 
+    useEffect(() => {
+        if (selected) {
+            return;
+        }
+
+        const selectedYear = String(form.getValues("academicYear") ?? "").trim();
+        const hasMatchingOption = academicYearOptions.some((option) => option.label === selectedYear);
+        if (hasMatchingOption || !academicYearOptions.length) {
+            return;
+        }
+
+        const fallback = academicYearOptions.find((option) => option.isActive) ?? academicYearOptions[0];
+        form.setValue("academicYear", fallback.label, { shouldDirty: false, shouldValidate: true });
+        form.setValue("academicYearId", fallback.id, { shouldDirty: false, shouldValidate: true });
+    }, [academicYearOptions, form, selected]);
+
     const watchedValues = useWatch({ control: form.control });
     const designationProfile = useMemo(
         () => getDesignationProfile(watchedValues.currentDesignation ?? selected?.currentDesignation ?? summary.meta.currentDesignation),
         [watchedValues.currentDesignation, selected?.currentDesignation, summary.meta.currentDesignation]
     );
     const resolved = pbasApplicationSchema.safeParse(watchedValues);
+    const watchedAcademicYear = useWatch({ control: form.control, name: "academicYear" });
+
+    useEffect(() => {
+        const selectedYear = String(watchedAcademicYear ?? "").trim();
+        if (!selectedYear) {
+            return;
+        }
+
+        const matchingOption = academicYearOptions.find((option) => option.label === selectedYear);
+        if (!matchingOption) {
+            return;
+        }
+
+        if (form.getValues("academicYearId") === matchingOption.id) {
+            return;
+        }
+
+        form.setValue("academicYearId", matchingOption.id, { shouldDirty: false });
+    }, [academicYearOptions, form, watchedAcademicYear]);
+
     const score = useMemo(
         () => selectedDetail?.apiScore ?? selected?.apiScore ?? summary.apiScore,
         [selectedDetail, selected, summary.apiScore]
@@ -1316,11 +1361,18 @@ export function PbasDashboard({
                                 <Field label="Academic Year">
                                     <Controller
                                         control={form.control}
-                                        name="academicYear"
+                                        name="academicYearId"
                                         render={({ field }) => (
                                             <Select
                                                 value={field.value || undefined}
-                                                onValueChange={field.onChange}
+                                                onValueChange={(value) => {
+                                                    field.onChange(value);
+                                                    const matchingOption = academicYearOptions.find((option) => option.id === value);
+                                                    form.setValue("academicYear", matchingOption?.label ?? "", {
+                                                        shouldDirty: true,
+                                                        shouldValidate: true,
+                                                    });
+                                                }}
                                                 disabled={!canEdit}
                                             >
                                                 <SelectTrigger className="w-full">
@@ -1328,7 +1380,7 @@ export function PbasDashboard({
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     {academicYearOptions.map((option) => (
-                                                        <SelectItem key={option.id} value={option.label}>
+                                                        <SelectItem key={option.id} value={option.id}>
                                                             {option.label}{option.isActive ? " (Active)" : ""}
                                                         </SelectItem>
                                                     ))}

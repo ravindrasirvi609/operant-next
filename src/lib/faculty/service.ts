@@ -256,7 +256,7 @@ export async function getFacultyWorkspace(userId: string) {
 
     const academicYears = await AcademicYear.find({})
         .sort({ yearStart: -1, yearEnd: -1 })
-        .select("yearStart yearEnd")
+        .select("yearStart yearEnd isActive")
         .lean();
 
     const programMasters = await Program.find({
@@ -618,8 +618,12 @@ export async function getFacultyWorkspace(userId: string) {
         faculty,
         facultyRecord,
         academicYearOptions: academicYears
-            .map((item) => toAcademicYearLabel(item.yearStart, item.yearEnd))
-            .filter(Boolean),
+            .map((item) => ({
+                id: item._id.toString(),
+                label: toAcademicYearLabel(item.yearStart, item.yearEnd),
+                isActive: Boolean(item.isActive),
+            }))
+            .filter((item) => Boolean(item.label)),
         programOptions: programMasters.map((item) => item.name),
         courseOptions: courseMasters.map((item) => ({
             name: item.name,

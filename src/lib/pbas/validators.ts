@@ -137,10 +137,8 @@ const category3Schema = z.object({
 });
 
 export const pbasApplicationSchema = z.object({
-    academicYear: z.string().trim().min(4, "Academic year is required.").refine(
-        (value) => Boolean(parseAcademicYear(value)),
-        "Academic year must be in YYYY-YYYY format."
-    ),
+    academicYearId: z.string().trim().optional(),
+    academicYear: z.string().trim().min(4, "Academic year is required.").optional(),
     currentDesignation: z.enum(designationOptions, { message: "Select a valid designation." }),
     appraisalPeriod: z.object({
         fromDate: z.string().trim().min(4, "Appraisal start date is required.").refine(
@@ -153,11 +151,27 @@ export const pbasApplicationSchema = z.object({
         ),
     }),
 }).superRefine((data, ctx) => {
+    if (!data.academicYearId?.trim() && !data.academicYear?.trim()) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["academicYearId"],
+            message: "Academic year id or label is required.",
+        });
+    }
+
     const from = parseDateInput(data.appraisalPeriod.fromDate);
     const to = parseDateInput(data.appraisalPeriod.toDate);
-    const year = parseAcademicYear(data.academicYear);
+    const year = data.academicYear ? parseAcademicYear(data.academicYear) : null;
 
-    if (!from || !to || !year) {
+    if (data.academicYear?.trim() && !year) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["academicYear"],
+            message: "Academic year must be in YYYY-YYYY format.",
+        });
+    }
+
+    if (!from || !to) {
         return;
     }
 
@@ -167,6 +181,10 @@ export const pbasApplicationSchema = z.object({
             path: ["appraisalPeriod", "toDate"],
             message: "Appraisal end date must be on or after appraisal start date.",
         });
+    }
+
+    if (!year) {
+        return;
     }
 
     const fromYear = from.getUTCFullYear();

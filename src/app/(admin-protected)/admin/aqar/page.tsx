@@ -37,6 +37,13 @@ export default async function AdminAqarReviewPage() {
         activeAcademicYear?.yearStart ?? academicYears[0]?.yearStart,
         activeAcademicYear?.yearEnd ?? academicYears[0]?.yearEnd
     );
+    const academicYearOptions = academicYears
+        .map((year) => ({
+            id: String(year._id),
+            label: formatAcademicYearLabel(year.yearStart, year.yearEnd),
+            isActive: Boolean(year.isActive),
+        }))
+        .filter((year) => Boolean(year.label));
 
     const facultyMap = new Map(
         (await getFacultyByIds(queue.map((item) => item.facultyId.toString()))).map((faculty) => [
@@ -68,6 +75,7 @@ export default async function AdminAqarReviewPage() {
                 <CardContent>
                     <AqarCycleDashboard
                         initialCycles={JSON.parse(JSON.stringify(cycles))}
+                        academicYearOptions={JSON.parse(JSON.stringify(academicYearOptions))}
                         defaultAcademicYearLabel={defaultAcademicYearLabel}
                     />
                 </CardContent>
