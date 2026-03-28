@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 
+import { normalizeDegreeType } from "@/lib/academic/program-classification";
 import { parseAcademicYearLabel } from "@/lib/academic-year";
 import dbConnect from "@/lib/dbConnect";
 import { AuthError } from "@/lib/auth/errors";
@@ -95,7 +96,7 @@ async function ensureProgram(
             name: normalizedName,
             institutionId,
             departmentId,
-            degreeType: normalizedName,
+            degreeType: normalizeDegreeType(normalizedName) ?? "Other",
             durationYears: 4,
             type: "Regular",
             isCBCS: true,

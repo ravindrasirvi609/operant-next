@@ -32,11 +32,6 @@ export const masterDataCategories = [
         description: "Institutional events and engagement classifications.",
     },
     {
-        id: "program-type",
-        label: "Program Types",
-        description: "Curriculum and offering-level classifications.",
-    },
-    {
         id: "notification-category",
         label: "Notification Categories",
         description: "Administrative categories for system alerts and notices.",

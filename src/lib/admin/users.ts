@@ -7,6 +7,7 @@ import {
     adminStudentProvisionSchema,
     adminUserUpdateSchema,
 } from "@/lib/admin/validators";
+import { normalizeDegreeType } from "@/lib/academic/program-classification";
 import { AuthError } from "@/lib/auth/errors";
 import { ensureCanonicalHierarchyPath } from "@/lib/hierarchy/canonical";
 import Program from "@/models/academic/program";
@@ -191,7 +192,7 @@ export async function createProvisionedStudent(
                             name: input.course,
                             institutionId: institution._id,
                             departmentId: department._id,
-                            degreeType: input.course,
+                            degreeType: normalizeDegreeType(input.course) ?? "Other",
                             durationYears: input.durationYears,
                             collegeName: input.collegeName,
                             type: "Regular",

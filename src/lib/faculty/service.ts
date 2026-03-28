@@ -1,4 +1,5 @@
 import { createAuditLog, type AuditActor, type AuditRequestContext } from "@/lib/audit/service";
+import { normalizeDegreeType } from "@/lib/academic/program-classification";
 import { formatAcademicYearLabel, parseAcademicYearLabel } from "@/lib/academic-year";
 import { AuthError } from "@/lib/auth/errors";
 import dbConnect from "@/lib/dbConnect";
@@ -99,7 +100,7 @@ async function ensureProgram(
             name: programName,
             institutionId,
             departmentId,
-            degreeType: programName,
+            degreeType: normalizeDegreeType(programName) ?? "Other",
             durationYears: 4,
             type: "Regular",
             isCBCS: true,

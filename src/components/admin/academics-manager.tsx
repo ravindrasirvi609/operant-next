@@ -21,6 +21,11 @@ import {
     programSchema,
     semesterSchema,
 } from "@/lib/admin/academics-validators";
+import {
+    DEGREE_TYPE_CHOICES,
+    formatDegreeTypeLabel,
+    normalizeDegreeType,
+} from "@/lib/academic/program-classification";
 
 type AcademicYearValues = z.input<typeof academicYearSchema>;
 type AcademicYearResolvedValues = z.output<typeof academicYearSchema>;
@@ -111,6 +116,11 @@ function yearLabel(value?: { yearStart?: number; yearEnd?: number } | string) {
     return "-";
 }
 
+function semesterYearLabel(value?: { yearStart?: number; yearEnd?: number } | string) {
+    const label = yearLabel(value);
+    return label === "-" ? "Template (Year-independent)" : label;
+}
+
 function unwrapId(value?: { _id?: string } | string) {
     if (!value) return "";
     if (typeof value === "string") return value;
@@ -158,7 +168,8 @@ function courseSemesterLabel(course: CourseRecord) {
     }
 
     const semNo = course.semesterId.semesterNumber ?? "-";
-    return `Sem ${semNo} (${yearLabel(course.semesterId.academicYearId)})`;
+    const year = yearLabel(course.semesterId.academicYearId);
+    return year === "-" ? `Sem ${semNo}` : `Sem ${semNo} (${year})`;
 }
 
 const PAGE_SIZE = 8;
@@ -222,7 +233,7 @@ export function AcademicsManager({
             institutionId: "",
             departmentId: "",
             startAcademicYearId: "",
-            degreeType: "",
+            degreeType: "Other",
             durationYears: 4,
             isActive: true,
         },
@@ -250,11 +261,16 @@ export function AcademicsManager({
         },
     });
 
-    const selectedInstitutionId = programForm.watch("institutionId");
-    const filteredDepartments = useMemo(() => {
-        if (!selectedInstitutionId) return departments;
-        return departments.filter((dept) => unwrapId(dept.institutionId) === selectedInstitutionId);
-    }, [departments, selectedInstitutionId]);
+    const selectedDepartmentId = programForm.watch("departmentId");
+    const resolvedInstitution = useMemo(() => {
+        const matchedDepartment = departments.find((dept) => dept._id === selectedDepartmentId);
+        if (!matchedDepartment) {
+            return null;
+        }
+
+        const institutionId = unwrapId(matchedDepartment.institutionId);
+        return institutions.find((institution) => institution._id === institutionId) ?? null;
+    }, [departments, institutions, selectedDepartmentId]);
 
     const selectedCourseProgramId = courseForm.watch("programId");
     const filteredSemestersForCourse = useMemo(() => {
@@ -378,12 +394,27 @@ export function AcademicsManager({
         setProgramMessage(null);
         startTransition(async () => {
             try {
+                const matchedDepartment = departments.find((item) => item._id === values.departmentId);
+                if (!matchedDepartment) {
+                    throw new Error("Select a valid department.");
+                }
+                const resolvedInstitutionId = unwrapId(matchedDepartment.institutionId);
+
+                if (!resolvedInstitutionId) {
+                    throw new Error("Institution mapping for selected department is missing.");
+                }
+
+                const payload: ProgramResolvedValues = {
+                    ...values,
+                    institutionId: resolvedInstitutionId,
+                };
+
                 if (editingProgramId) {
                     const data = await requestJson<{ program: ProgramRecord }>(
                         `/api/admin/programs/${editingProgramId}`,
                         {
                             method: "PATCH",
-                            body: JSON.stringify(values),
+                            body: JSON.stringify(payload),
                         }
                     );
                     setPrograms((current) =>
@@ -395,16 +426,23 @@ export function AcademicsManager({
                         "/api/admin/programs",
                         {
                             method: "POST",
-                            body: JSON.stringify(values),
+                            body: JSON.stringify(payload),
                         }
                     );
                     setPrograms((current) => [data.program, ...current]);
-                    setProgramMessage({ type: "success", text: "Program created. Semesters auto-generated." });
+                    setProgramMessage({
+                        type: "success",
+                        text: payload.startAcademicYearId
+                            ? "Program created. Semesters auto-generated."
+                            : "Program created.",
+                    });
 
-                    const semesterData = await requestJson<{ semesters: SemesterRecord[] }>(
-                        "/api/admin/semesters"
-                    );
-                    setSemesters(semesterData.semesters);
+                    if (payload.startAcademicYearId) {
+                        const semesterData = await requestJson<{ semesters: SemesterRecord[] }>(
+                            "/api/admin/semesters"
+                        );
+                        setSemesters(semesterData.semesters);
+                    }
                 }
                 setEditingProgramId(null);
                 programForm.reset({
@@ -412,7 +450,7 @@ export function AcademicsManager({
                     institutionId: "",
                     departmentId: "",
                     startAcademicYearId: "",
-                    degreeType: "",
+                    degreeType: "Other",
                     durationYears: 4,
                     isActive: true,
                 });
@@ -636,16 +674,19 @@ export function AcademicsManager({
                 institution: institutions[0]?.name ?? "Institution Name",
                 department: departments[0]?.name ?? "Department Name",
                 start_academic_year: `${academicYears[0]?.yearStart ?? 2024}-${academicYears[0]?.yearEnd ?? 2025}`,
-                degree_type: "B.Tech",
+                degree_type: "BTech",
                 duration_years: 4,
                 is_active: true,
             },
         ]);
         const instructions = XLSX.utils.aoa_to_sheet([
             ["Programs Bulk Upload"],
-            ["Required columns: name, institution, department, start_academic_year, degree_type, duration_years"],
+            ["Required columns: name, department, degree_type, duration_years"],
+            ["Optional column: institution (used only to validate department-institution mapping)."],
+            ["Optional column: start_academic_year (provide only when you want semester auto-generation)."],
+            ["degree_type values: BA, BSc, BCom, BBA, BCA, BTech, MA, MSc, MCom, MBA, MCA, MTech, PhD, Diploma, Certificate, Other"],
             ["Optional column: is_active (true/false)"],
-            ["Institution/Department should match existing names in masters."],
+            ["Department should match existing masters; institution is auto-resolved from selected department."],
         ]);
         XLSX.utils.book_append_sheet(workbook, template, "Template");
         XLSX.utils.book_append_sheet(workbook, instructions, "Instructions");
@@ -655,7 +696,15 @@ export function AcademicsManager({
     async function handleProgramBulkUpload(file: File) {
         setProgramMessage(null);
         const institutionMap = new Map(institutions.map((item) => [item.name.trim().toLowerCase(), item._id]));
-        const departmentMap = new Map(departments.map((item) => [item.name.trim().toLowerCase(), item._id]));
+        const departmentMap = new Map(
+            departments.map((item) => [
+                item.name.trim().toLowerCase(),
+                {
+                    departmentId: item._id,
+                    institutionId: unwrapId(item.institutionId),
+                },
+            ])
+        );
         const academicYearMap = new Map(academicYears.map((item) => [`${item.yearStart}-${item.yearEnd}`, item._id]));
 
         const rows = await readFirstSheetRows(file);
@@ -668,48 +717,88 @@ export function AcademicsManager({
 
             const institutionName = String(normalized.institution ?? normalized.institution_name ?? "").trim();
             const departmentName = String(normalized.department ?? normalized.department_name ?? "").trim();
-            const yearValue = String(normalized.start_academic_year ?? normalized.start_year ?? "").trim();
+            const yearValue = String(
+                normalized.start_academic_year ??
+                    normalized.start_year ??
+                    normalized.start_acade ??
+                    normalized.startacademicyear ??
+                    ""
+            ).trim();
 
-            const institutionId = institutionMap.get(institutionName.toLowerCase());
-            const departmentId = departmentMap.get(departmentName.toLowerCase());
+            const departmentMapping = departmentMap.get(departmentName.toLowerCase());
+            const institutionIdFromFile = institutionMap.get(institutionName.toLowerCase());
             const startAcademicYearId = academicYearMap.get(yearValue);
 
-            if (!institutionId || !departmentId || !startAcademicYearId) {
+            if (!departmentMapping?.departmentId || !departmentMapping.institutionId) {
+                continue;
+            }
+
+            if (
+                institutionName &&
+                institutionIdFromFile &&
+                institutionIdFromFile !== departmentMapping.institutionId
+            ) {
                 continue;
             }
 
             payloads.push({
                 name: String(normalized.name ?? "").trim(),
-                institutionId,
-                departmentId,
-                startAcademicYearId,
-                degreeType: String(normalized.degree_type ?? normalized.degreetype ?? "").trim(),
+                institutionId: departmentMapping.institutionId,
+                departmentId: departmentMapping.departmentId,
+                ...(startAcademicYearId ? { startAcademicYearId } : {}),
+                degreeType:
+                    normalizeDegreeType(
+                        String(normalized.degree_type ?? normalized.degreetype ?? "")
+                    ) ?? "Other",
                 durationYears: Number(normalized.duration_years ?? normalized.durationyears ?? 0),
                 isActive: parseBooleanValue(normalized.is_active ?? normalized.isactive, true),
             });
         }
 
         if (!payloads.length) {
-            setProgramMessage({ type: "error", text: "No valid program rows found. Verify names and academic year labels." });
+            setProgramMessage({ type: "error", text: "No valid program rows found. Verify department names and required fields." });
             return;
         }
 
         startTransition(async () => {
             try {
+                const failures: string[] = [];
+                let createdCount = 0;
+
                 for (const payload of payloads) {
-                    await requestJson<{ program: ProgramRecord }>("/api/admin/programs", {
-                        method: "POST",
-                        body: JSON.stringify(payload),
-                    });
+                    try {
+                        await requestJson<{ program: ProgramRecord }>("/api/admin/programs", {
+                            method: "POST",
+                            body: JSON.stringify(payload),
+                        });
+                        createdCount += 1;
+                    } catch (rowError) {
+                        const message =
+                            rowError instanceof Error ? rowError.message : "Unable to import this row.";
+                        failures.push(`${payload.name}: ${message}`);
+                    }
                 }
 
-                const [refreshedPrograms, refreshedSemesters] = await Promise.all([
-                    requestJson<{ programs: ProgramRecord[] }>("/api/admin/programs"),
-                    requestJson<{ semesters: SemesterRecord[] }>("/api/admin/semesters"),
-                ]);
-                setPrograms(refreshedPrograms.programs);
-                setSemesters(refreshedSemesters.semesters);
-                setProgramMessage({ type: "success", text: `${payloads.length} programs imported.` });
+                if (createdCount > 0) {
+                    const [refreshedPrograms, refreshedSemesters] = await Promise.all([
+                        requestJson<{ programs: ProgramRecord[] }>("/api/admin/programs"),
+                        requestJson<{ semesters: SemesterRecord[] }>("/api/admin/semesters"),
+                    ]);
+                    setPrograms(refreshedPrograms.programs);
+                    setSemesters(refreshedSemesters.semesters);
+                }
+
+                if (failures.length) {
+                    const preview = failures.slice(0, 3).join(" | ");
+                    const more = failures.length > 3 ? ` (+${failures.length - 3} more)` : "";
+                    setProgramMessage({
+                        type: "error",
+                        text: `Imported ${createdCount} program(s). Failed ${failures.length}: ${preview}${more}`,
+                    });
+                    return;
+                }
+
+                setProgramMessage({ type: "success", text: `${createdCount} programs imported.` });
             } catch (error) {
                 setProgramMessage({
                     type: "error",
@@ -724,14 +813,15 @@ export function AcademicsManager({
         const template = XLSX.utils.json_to_sheet([
             {
                 program: programs[0]?.name ?? "Program Name",
-                academic_year: `${academicYears[0]?.yearStart ?? 2024}-${academicYears[0]?.yearEnd ?? 2025}`,
+                academic_year: "",
                 semester_number: 1,
             },
         ]);
         const instructions = XLSX.utils.aoa_to_sheet([
             ["Semesters Bulk Upload"],
-            ["Required columns: program, academic_year, semester_number"],
-            ["Program and academic_year should map to existing masters."],
+            ["Required columns: program, semester_number"],
+            ["Optional column: academic_year (for legacy year-specific semesters)."],
+            ["Leave academic_year empty to create year-independent semester templates."],
         ]);
         XLSX.utils.book_append_sheet(workbook, template, "Template");
         XLSX.utils.book_append_sheet(workbook, instructions, "Instructions");
@@ -754,14 +844,18 @@ export function AcademicsManager({
             const programName = String(normalized.program ?? normalized.program_name ?? "").trim();
             const academicYear = String(normalized.academic_year ?? normalized.academicyear ?? "").trim();
             const programId = programMap.get(programName.toLowerCase());
-            const academicYearId = academicYearMap.get(academicYear);
+            const academicYearId = academicYear ? academicYearMap.get(academicYear) : undefined;
             const semesterNumber = Number(normalized.semester_number ?? normalized.semesternumber ?? 0);
 
-            if (!programId || !academicYearId || !Number.isInteger(semesterNumber) || semesterNumber <= 0) {
+            if (!programId || (academicYear && !academicYearId) || !Number.isInteger(semesterNumber) || semesterNumber <= 0) {
                 continue;
             }
 
-            payloads.push({ programId, academicYearId, semesterNumber });
+            payloads.push({
+                programId,
+                ...(academicYearId ? { academicYearId } : {}),
+                semesterNumber,
+            });
         }
 
         if (!payloads.length) {
@@ -797,7 +891,7 @@ export function AcademicsManager({
                 name: "Data Structures",
                 subject_code: "CS201",
                 program: programs[0]?.name ?? "Program Name",
-                academic_year: `${academicYears[0]?.yearStart ?? 2024}-${academicYears[0]?.yearEnd ?? 2025}`,
+                academic_year: "",
                 semester_number: 3,
                 course_type: "Theory",
                 credits: 4,
@@ -806,8 +900,9 @@ export function AcademicsManager({
         ]);
         const instructions = XLSX.utils.aoa_to_sheet([
             ["Courses Bulk Upload"],
-            ["Required columns: name, program, academic_year, semester_number, course_type, credits"],
+            ["Required columns: name, program, semester_number, course_type, credits"],
             ["Optional columns: subject_code, is_active"],
+            ["Optional column: academic_year (required only for legacy year-specific semester rows)."],
             ["course_type allowed: Theory, Lab, Project, Other"],
         ]);
         XLSX.utils.book_append_sheet(workbook, template, "Template");
@@ -819,12 +914,20 @@ export function AcademicsManager({
         setCourseMessage(null);
         const programIdByName = new Map(programs.map((item) => [item.name.trim().toLowerCase(), item._id]));
         const yearIdByLabel = new Map(academicYears.map((item) => [`${item.yearStart}-${item.yearEnd}`, item._id]));
-        const semesterKeyToId = new Map(
+        const semesterKeyWithYearToId = new Map(
             semesters.map((item) => {
                 const programId = unwrapId(item.programId);
                 const academicYearId = unwrapId(item.academicYearId);
                 return [`${programId}:${academicYearId}:${item.semesterNumber}`, item._id] as const;
             })
+        );
+        const semesterTemplateKeyToId = new Map(
+            semesters
+                .filter((item) => !unwrapId(item.academicYearId))
+                .map((item) => {
+                    const programId = unwrapId(item.programId);
+                    return [`${programId}:${item.semesterNumber}`, item._id] as const;
+                })
         );
 
         const rows = await readFirstSheetRows(file);
@@ -839,12 +942,15 @@ export function AcademicsManager({
             const academicYear = String(normalized.academic_year ?? normalized.academicyear ?? "").trim();
             const semesterNumber = Number(normalized.semester_number ?? normalized.semesternumber ?? 0);
             const programId = programIdByName.get(programName.toLowerCase());
-            const academicYearId = yearIdByLabel.get(academicYear);
-            const semesterId = programId && academicYearId
-                ? semesterKeyToId.get(`${programId}:${academicYearId}:${semesterNumber}`)
+            const academicYearId = academicYear ? yearIdByLabel.get(academicYear) : undefined;
+            const semesterId = programId
+                ? academicYearId
+                    ? semesterKeyWithYearToId.get(`${programId}:${academicYearId}:${semesterNumber}`) ??
+                      semesterTemplateKeyToId.get(`${programId}:${semesterNumber}`)
+                    : semesterTemplateKeyToId.get(`${programId}:${semesterNumber}`)
                 : undefined;
 
-            if (!programId || !semesterId || !Number.isInteger(semesterNumber) || semesterNumber <= 0) {
+            if (!programId || (academicYear && !academicYearId) || !semesterId || !Number.isInteger(semesterNumber) || semesterNumber <= 0) {
                 continue;
             }
 
@@ -930,7 +1036,7 @@ export function AcademicsManager({
         return semesters.filter((item) => {
             const programId = unwrapId(item.programId);
             const programMatch = semesterProgramFilter === "all" || programId === semesterProgramFilter;
-            const text = `semester ${item.semesterNumber} ${typeof item.programId === "string" ? item.programId : item.programId?.name ?? ""} ${yearLabel(item.academicYearId)}`.toLowerCase();
+            const text = `semester ${item.semesterNumber} ${typeof item.programId === "string" ? item.programId : item.programId?.name ?? ""} ${semesterYearLabel(item.academicYearId)}`.toLowerCase();
             return programMatch && (!q || text.includes(q));
         });
     }, [semesters, semesterQuery, semesterProgramFilter]);
@@ -1070,8 +1176,8 @@ export function AcademicsManager({
                             </Select>
                         </div>
 
-                        <div className="max-h-[420px] overflow-auto rounded-lg border border-zinc-200">
-                            <Table>
+                        <div className="max-h-[420px] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200">
+                            <Table disableContainer className="min-w-[640px]">
                                 <TableHeader className="sticky top-0 z-10 bg-white">
                                 <TableRow>
                                     <TableHead>Academic Year</TableHead>
@@ -1146,7 +1252,7 @@ export function AcademicsManager({
                     <div>
                         <CardTitle>Programs</CardTitle>
                         <CardDescription>
-                            Create programs and auto-generate semester mappings based on the start academic year.
+                            Create reusable programs for all batches. Department is primary, and institution is auto-resolved from department mapping.
                         </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1188,26 +1294,6 @@ export function AcademicsManager({
                             <Field label="Program name" id="programName" error={programForm.formState.errors.name?.message}>
                                 <Input id="programName" {...programForm.register("name")} />
                             </Field>
-                            <Field label="Institution" id="programInstitution" error={programForm.formState.errors.institutionId?.message}>
-                                <Controller
-                                    control={programForm.control}
-                                    name="institutionId"
-                                    render={({ field }) => (
-                                        <Select value={field.value} onValueChange={field.onChange}>
-                                            <SelectTrigger id="programInstitution">
-                                                <SelectValue placeholder="Select institution" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {institutions.map((inst) => (
-                                                    <SelectItem key={inst._id} value={inst._id}>
-                                                        {inst.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                />
-                            </Field>
                             <Field label="Department" id="programDepartment" error={programForm.formState.errors.departmentId?.message}>
                                 <Controller
                                     control={programForm.control}
@@ -1218,7 +1304,7 @@ export function AcademicsManager({
                                                 <SelectValue placeholder="Select department" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {filteredDepartments.map((dept) => (
+                                                {departments.map((dept) => (
                                                     <SelectItem key={dept._id} value={dept._id}>
                                                         {dept.name}
                                                     </SelectItem>
@@ -1228,16 +1314,27 @@ export function AcademicsManager({
                                     )}
                                 />
                             </Field>
-                            <Field label="Start academic year" id="startAcademicYear" error={programForm.formState.errors.startAcademicYearId?.message}>
+                            <Field label="Institution (auto)" id="programInstitutionAuto">
+                                <Input
+                                    id="programInstitutionAuto"
+                                    readOnly
+                                    value={resolvedInstitution?.name ?? "Auto-resolved from selected department"}
+                                />
+                            </Field>
+                            <Field label="Start academic year (optional)" id="startAcademicYear" error={programForm.formState.errors.startAcademicYearId?.message}>
                                 <Controller
                                     control={programForm.control}
                                     name="startAcademicYearId"
                                     render={({ field }) => (
-                                        <Select value={field.value} onValueChange={field.onChange}>
+                                        <Select
+                                            value={typeof field.value === "string" && field.value ? field.value : "__none__"}
+                                            onValueChange={(value) => field.onChange(value === "__none__" ? "" : value)}
+                                        >
                                             <SelectTrigger id="startAcademicYear">
-                                                <SelectValue placeholder="Select academic year" />
+                                                <SelectValue placeholder="No auto-generation baseline" />
                                             </SelectTrigger>
                                             <SelectContent>
+                                                <SelectItem value="__none__">No baseline (reuse for all batches)</SelectItem>
                                                 {academicYears.map((year) => (
                                                     <SelectItem key={year._id} value={year._id}>
                                                         {year.yearStart}-{year.yearEnd}
@@ -1249,7 +1346,24 @@ export function AcademicsManager({
                                 />
                             </Field>
                             <Field label="Degree type" id="degreeType" error={programForm.formState.errors.degreeType?.message}>
-                                <Input id="degreeType" {...programForm.register("degreeType")} placeholder="B.Tech / BSc / MBA" />
+                                <Controller
+                                    control={programForm.control}
+                                    name="degreeType"
+                                    render={({ field }) => (
+                                        <Select value={field.value} onValueChange={field.onChange}>
+                                            <SelectTrigger id="degreeType">
+                                                <SelectValue placeholder="Select degree type" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {DEGREE_TYPE_CHOICES.map((item) => (
+                                                    <SelectItem key={item.value} value={item.value}>
+                                                        {item.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
                             </Field>
                             <div className="grid gap-4 md:grid-cols-2">
                                 <Field label="Duration (years)" id="durationYears" error={programForm.formState.errors.durationYears?.message}>
@@ -1276,7 +1390,7 @@ export function AcademicsManager({
                                                 institutionId: "",
                                                 departmentId: "",
                                                 startAcademicYearId: "",
-                                                degreeType: "",
+                                                degreeType: "Other",
                                                 durationYears: 4,
                                                 isActive: true,
                                             });
@@ -1320,8 +1434,8 @@ export function AcademicsManager({
                             </Select>
                         </div>
 
-                        <div className="max-h-[420px] overflow-auto rounded-lg border border-zinc-200">
-                            <Table>
+                        <div className="max-h-[420px] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200">
+                            <Table disableContainer className="min-w-[980px]">
                                 <TableHeader className="sticky top-0 z-10 bg-white">
                                 <TableRow>
                                     <TableHead>Program</TableHead>
@@ -1336,7 +1450,7 @@ export function AcademicsManager({
                                     <TableRow key={program._id}>
                                         <TableCell>
                                             <p className="font-medium text-zinc-900">{program.name}</p>
-                                            <p className="text-xs text-zinc-500">{program.degreeType} • {program.durationYears} years</p>
+                                            <p className="text-xs text-zinc-500">{formatDegreeTypeLabel(program.degreeType)} • {program.durationYears} years</p>
                                         </TableCell>
                                         <TableCell className="text-sm text-zinc-600">
                                             {(typeof program.departmentId === "string" ? program.departmentId : program.departmentId?.name) ?? "-"}
@@ -1359,7 +1473,7 @@ export function AcademicsManager({
                                                         setEditingProgramId(program._id);
                                                         programForm.reset({
                                                             name: program.name,
-                                                            degreeType: program.degreeType,
+                                                            degreeType: normalizeDegreeType(program.degreeType) ?? "Other",
                                                             durationYears: program.durationYears,
                                                             isActive: program.isActive,
                                                             institutionId: unwrapId(program.institutionId),
@@ -1458,16 +1572,20 @@ export function AcademicsManager({
                                     )}
                                 />
                             </Field>
-                            <Field label="Academic year" id="semesterAcademicYear" error={semesterForm.formState.errors.academicYearId?.message}>
+                            <Field label="Academic year (optional)" id="semesterAcademicYear" error={semesterForm.formState.errors.academicYearId?.message}>
                                 <Controller
                                     control={semesterForm.control}
                                     name="academicYearId"
                                     render={({ field }) => (
-                                        <Select value={field.value} onValueChange={field.onChange}>
+                                        <Select
+                                            value={typeof field.value === "string" && field.value ? field.value : "__none__"}
+                                            onValueChange={(value) => field.onChange(value === "__none__" ? "" : value)}
+                                        >
                                             <SelectTrigger id="semesterAcademicYear">
-                                                <SelectValue placeholder="Select academic year" />
+                                                <SelectValue placeholder="Template semester (year-independent)" />
                                             </SelectTrigger>
                                             <SelectContent>
+                                                <SelectItem value="__none__">Template semester (year-independent)</SelectItem>
                                                 {academicYears.map((year) => (
                                                     <SelectItem key={year._id} value={year._id}>
                                                         {year.yearStart}-{year.yearEnd}
@@ -1540,8 +1658,8 @@ export function AcademicsManager({
                             </Select>
                         </div>
 
-                        <div className="max-h-[420px] overflow-auto rounded-lg border border-zinc-200">
-                            <Table>
+                        <div className="max-h-[420px] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200">
+                            <Table disableContainer className="min-w-[820px]">
                                 <TableHeader className="sticky top-0 z-10 bg-white">
                                 <TableRow>
                                     <TableHead>Semester</TableHead>
@@ -1557,7 +1675,7 @@ export function AcademicsManager({
                                         <TableCell>
                                             {(typeof semester.programId === "string" ? semester.programId : semester.programId?.name) ?? "-"}
                                         </TableCell>
-                                        <TableCell>{yearLabel(semester.academicYearId)}</TableCell>
+                                        <TableCell>{semesterYearLabel(semester.academicYearId)}</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
                                                 <Button
@@ -1692,7 +1810,7 @@ export function AcademicsManager({
                                             <SelectContent>
                                                 {filteredSemestersForCourse.map((semester) => (
                                                     <SelectItem key={semester._id} value={semester._id}>
-                                                        Sem {semester.semesterNumber} - {yearLabel(semester.academicYearId)}
+                                                        Sem {semester.semesterNumber} - {semesterYearLabel(semester.academicYearId)}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -1806,8 +1924,8 @@ export function AcademicsManager({
                             </Select>
                         </div>
 
-                        <div className="max-h-[420px] overflow-auto rounded-lg border border-zinc-200">
-                            <Table>
+                        <div className="max-h-[420px] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200">
+                            <Table disableContainer className="min-w-[980px]">
                                 <TableHeader className="sticky top-0 z-10 bg-white">
                                 <TableRow>
                                     <TableHead>Course</TableHead>

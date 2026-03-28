@@ -6,7 +6,6 @@ import { useState, useTransition, type ChangeEvent, type FormEvent } from "react
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
     Bell,
-    BookOpen,
     Briefcase,
     Building2,
     Calendar,
@@ -205,10 +204,6 @@ const categoryVisuals: Record<
     "event-type": {
         icon: Calendar,
         tone: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    },
-    "program-type": {
-        icon: BookOpen,
-        tone: "border-cyan-200 bg-cyan-50 text-cyan-700",
     },
     "notification-category": {
         icon: Bell,
