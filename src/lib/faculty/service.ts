@@ -125,21 +125,11 @@ async function ensureSocialProgram(name: string) {
     return program;
 }
 
-async function ensureSemesterMapping(
-    programId: string,
-    academicYearId: string,
-    semesterNumber: number
-) {
-    let semester = await Semester.findOne({
-        programId,
-        academicYearId,
-        semesterNumber,
-    });
+async function ensureSemesterMapping(semesterNumber: number) {
+    let semester = await Semester.findOne({ semesterNumber });
 
     if (!semester) {
         semester = await Semester.create({
-            programId,
-            academicYearId,
             semesterNumber,
         });
     }
@@ -723,8 +713,6 @@ export async function saveFacultyWorkspace(
             entry.programName
         );
         const semester = await ensureSemesterMapping(
-            program._id.toString(),
-            academicYear._id.toString(),
             entry.semester
         );
         const course = await ensureCourse(

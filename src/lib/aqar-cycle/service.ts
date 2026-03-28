@@ -204,20 +204,11 @@ async function syncStudentAqarEntries(
         return;
     }
 
-    const academicYearDoc = academicYearId
-        ? { _id: academicYearId }
-        : await (await import("@/models/reference/academic-year")).default.findOne({
-              yearStart: range.startYear,
-              yearEnd: range.endYear,
-          }).select("_id");
-
-    const semesterIds = academicYearDoc
-        ? (
-              await Semester.find({ academicYearId: academicYearDoc._id })
-                  .select("_id")
-                  .lean()
-          ).map((semester) => semester._id)
-        : [];
+    const semesterIds = (
+        await Semester.find({})
+            .select("_id")
+            .lean()
+    ).map((semester) => semester._id);
 
     const eventIds = (
         await (await import("@/models/reference/event")).default.find({

@@ -23,7 +23,6 @@ import Event from "@/models/reference/event";
 import SocialProgram from "@/models/reference/social-program";
 import Semester from "@/models/reference/semester";
 import AcademicYear from "@/models/reference/academic-year";
-import Program from "@/models/academic/program";
 import DocumentModel from "@/models/reference/document";
 import { notifyEvidencePendingReview } from "@/lib/notifications/service";
 import type { RecordType } from "./record-validators";
@@ -179,7 +178,7 @@ export async function getAllStudentRecords(userId: string) {
         internships,
     ] = await Promise.all([
         StudentAcademicRecord.find({ studentId })
-            .populate("semesterId", "semesterNumber academicYearId")
+            .populate("semesterId", "semesterNumber")
             .sort({ semesterId: 1 })
             .lean(),
         populateIfPathExists(
@@ -274,27 +273,11 @@ export async function getAllStudentRecords(userId: string) {
 
 export async function getStudentSemesters(userId: string) {
     await dbConnect();
-    const { student, user } = await resolveStudent(userId);
+    await resolveStudent(userId);
 
-    let semesters = await Semester.find({ programId: student.programId })
-        .populate("academicYearId", "yearStart yearEnd")
+    return Semester.find({})
         .sort({ semesterNumber: 1 })
         .lean();
-
-    if (semesters.length === 0) {
-        const programs = await Program.find({ departmentId: student.departmentId })
-            .select("_id")
-            .lean();
-        const programIds = programs.map((program) => program._id);
-        if (programIds.length) {
-            semesters = await Semester.find({ programId: { $in: programIds } })
-                .populate("academicYearId", "yearStart yearEnd")
-                .sort({ semesterNumber: 1 })
-                .lean();
-        }
-    }
-
-    return semesters;
 }
 
 // ── CREATE a record ──────────────────────────────────────────────

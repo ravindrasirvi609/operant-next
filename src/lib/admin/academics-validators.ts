@@ -61,18 +61,6 @@ export const programSchema = z.object({
 export const programUpdateSchema = programSchema.partial();
 
 export const semesterSchema = z.object({
-    programId: z.string().trim().min(1, "Program is required."),
-    academicYearId: z.preprocess(
-        (value) => {
-            if (value === undefined || value === null) {
-                return undefined;
-            }
-
-            const normalized = String(value).trim();
-            return normalized.length ? normalized : undefined;
-        },
-        z.string().trim().optional()
-    ),
     semesterNumber: z.coerce.number().int().min(1, "Semester number is required."),
 });
 

@@ -68,8 +68,6 @@ type ProgramRecord = {
 type SemesterRecord = {
     _id: string;
     semesterNumber: number;
-    programId?: { _id?: string; name?: string } | string;
-    academicYearId?: { _id?: string; yearStart?: number; yearEnd?: number } | string;
 };
 
 type CourseRecord = {
@@ -84,7 +82,6 @@ type CourseRecord = {
         | {
               _id?: string;
               semesterNumber?: number;
-              academicYearId?: { yearStart?: number; yearEnd?: number } | string;
           }
         | string;
 };
@@ -114,11 +111,6 @@ function yearLabel(value?: { yearStart?: number; yearEnd?: number } | string) {
         return `${value.yearStart}-${value.yearEnd}`;
     }
     return "-";
-}
-
-function semesterYearLabel(value?: { yearStart?: number; yearEnd?: number } | string) {
-    const label = yearLabel(value);
-    return label === "-" ? "Template (Year-independent)" : label;
 }
 
 function unwrapId(value?: { _id?: string } | string) {
@@ -168,8 +160,7 @@ function courseSemesterLabel(course: CourseRecord) {
     }
 
     const semNo = course.semesterId.semesterNumber ?? "-";
-    const year = yearLabel(course.semesterId.academicYearId);
-    return year === "-" ? `Sem ${semNo}` : `Sem ${semNo} (${year})`;
+    return `Sem ${semNo}`;
 }
 
 const PAGE_SIZE = 8;
@@ -242,8 +233,6 @@ export function AcademicsManager({
     const semesterForm = useForm<SemesterValues, unknown, SemesterResolvedValues>({
         resolver: zodResolver(semesterSchema),
         defaultValues: {
-            programId: "",
-            academicYearId: "",
             semesterNumber: 1,
         },
     });
@@ -274,12 +263,18 @@ export function AcademicsManager({
 
     const selectedCourseProgramId = courseForm.watch("programId");
     const filteredSemestersForCourse = useMemo(() => {
+        const sorted = [...semesters].sort((left, right) => left.semesterNumber - right.semesterNumber);
         if (!selectedCourseProgramId) {
-            return semesters;
+            return sorted;
         }
 
-        return semesters.filter((semester) => unwrapId(semester.programId) === selectedCourseProgramId);
-    }, [semesters, selectedCourseProgramId]);
+        const selectedProgram = programs.find((program) => program._id === selectedCourseProgramId);
+        if (!selectedProgram) {
+            return sorted;
+        }
+
+        return sorted.filter((semester) => semester.semesterNumber <= selectedProgram.durationYears * 2);
+    }, [programs, semesters, selectedCourseProgramId]);
 
     const academicYearUploadInputId = useId();
     const programUploadInputId = useId();
@@ -295,7 +290,6 @@ export function AcademicsManager({
     const [programPage, setProgramPage] = useState(1);
 
     const [semesterQuery, setSemesterQuery] = useState("");
-    const [semesterProgramFilter, setSemesterProgramFilter] = useState<string>("all");
     const [semesterPage, setSemesterPage] = useState(1);
 
     const [courseQuery, setCourseQuery] = useState("");
@@ -471,7 +465,6 @@ export function AcademicsManager({
                     method: "DELETE",
                 });
                 setPrograms((current) => current.filter((item) => item._id !== id));
-                setSemesters((current) => current.filter((item) => unwrapId(item.programId) !== id));
                 setCourses((current) => current.filter((item) => unwrapId(item.programId) !== id));
                 setProgramMessage({ type: "success", text: "Program deleted." });
             } catch (error) {
@@ -512,8 +505,6 @@ export function AcademicsManager({
                 }
                 setEditingSemesterId(null);
                 semesterForm.reset({
-                    programId: "",
-                    academicYearId: "",
                     semesterNumber: 1,
                 });
             } catch (error) {
@@ -812,16 +803,12 @@ export function AcademicsManager({
         const workbook = XLSX.utils.book_new();
         const template = XLSX.utils.json_to_sheet([
             {
-                program: programs[0]?.name ?? "Program Name",
-                academic_year: "",
                 semester_number: 1,
             },
         ]);
         const instructions = XLSX.utils.aoa_to_sheet([
             ["Semesters Bulk Upload"],
-            ["Required columns: program, semester_number"],
-            ["Optional column: academic_year (for legacy year-specific semesters)."],
-            ["Leave academic_year empty to create year-independent semester templates."],
+            ["Required columns: semester_number"],
         ]);
         XLSX.utils.book_append_sheet(workbook, template, "Template");
         XLSX.utils.book_append_sheet(workbook, instructions, "Instructions");
@@ -830,8 +817,6 @@ export function AcademicsManager({
 
     async function handleSemesterBulkUpload(file: File) {
         setSemesterMessage(null);
-        const programMap = new Map(programs.map((item) => [item.name.trim().toLowerCase(), item._id]));
-        const academicYearMap = new Map(academicYears.map((item) => [`${item.yearStart}-${item.yearEnd}`, item._id]));
 
         const rows = await readFirstSheetRows(file);
         const payloads: SemesterResolvedValues[] = [];
@@ -841,19 +826,13 @@ export function AcademicsManager({
                 Object.entries(row).map(([key, value]) => [normalizeHeader(key), value])
             );
 
-            const programName = String(normalized.program ?? normalized.program_name ?? "").trim();
-            const academicYear = String(normalized.academic_year ?? normalized.academicyear ?? "").trim();
-            const programId = programMap.get(programName.toLowerCase());
-            const academicYearId = academicYear ? academicYearMap.get(academicYear) : undefined;
             const semesterNumber = Number(normalized.semester_number ?? normalized.semesternumber ?? 0);
 
-            if (!programId || (academicYear && !academicYearId) || !Number.isInteger(semesterNumber) || semesterNumber <= 0) {
+            if (!Number.isInteger(semesterNumber) || semesterNumber <= 0) {
                 continue;
             }
 
             payloads.push({
-                programId,
-                ...(academicYearId ? { academicYearId } : {}),
                 semesterNumber,
             });
         }
@@ -891,7 +870,6 @@ export function AcademicsManager({
                 name: "Data Structures",
                 subject_code: "CS201",
                 program: programs[0]?.name ?? "Program Name",
-                academic_year: "",
                 semester_number: 3,
                 course_type: "Theory",
                 credits: 4,
@@ -902,7 +880,6 @@ export function AcademicsManager({
             ["Courses Bulk Upload"],
             ["Required columns: name, program, semester_number, course_type, credits"],
             ["Optional columns: subject_code, is_active"],
-            ["Optional column: academic_year (required only for legacy year-specific semester rows)."],
             ["course_type allowed: Theory, Lab, Project, Other"],
         ]);
         XLSX.utils.book_append_sheet(workbook, template, "Template");
@@ -912,22 +889,11 @@ export function AcademicsManager({
 
     async function handleCourseBulkUpload(file: File) {
         setCourseMessage(null);
-        const programIdByName = new Map(programs.map((item) => [item.name.trim().toLowerCase(), item._id]));
-        const yearIdByLabel = new Map(academicYears.map((item) => [`${item.yearStart}-${item.yearEnd}`, item._id]));
-        const semesterKeyWithYearToId = new Map(
-            semesters.map((item) => {
-                const programId = unwrapId(item.programId);
-                const academicYearId = unwrapId(item.academicYearId);
-                return [`${programId}:${academicYearId}:${item.semesterNumber}`, item._id] as const;
-            })
+        const programByName = new Map(
+            programs.map((item) => [item.name.trim().toLowerCase(), item])
         );
-        const semesterTemplateKeyToId = new Map(
-            semesters
-                .filter((item) => !unwrapId(item.academicYearId))
-                .map((item) => {
-                    const programId = unwrapId(item.programId);
-                    return [`${programId}:${item.semesterNumber}`, item._id] as const;
-                })
+        const semesterNumberToId = new Map(
+            semesters.map((item) => [item.semesterNumber, item._id] as const)
         );
 
         const rows = await readFirstSheetRows(file);
@@ -939,18 +905,18 @@ export function AcademicsManager({
             );
 
             const programName = String(normalized.program ?? normalized.program_name ?? "").trim();
-            const academicYear = String(normalized.academic_year ?? normalized.academicyear ?? "").trim();
             const semesterNumber = Number(normalized.semester_number ?? normalized.semesternumber ?? 0);
-            const programId = programIdByName.get(programName.toLowerCase());
-            const academicYearId = academicYear ? yearIdByLabel.get(academicYear) : undefined;
-            const semesterId = programId
-                ? academicYearId
-                    ? semesterKeyWithYearToId.get(`${programId}:${academicYearId}:${semesterNumber}`) ??
-                      semesterTemplateKeyToId.get(`${programId}:${semesterNumber}`)
-                    : semesterTemplateKeyToId.get(`${programId}:${semesterNumber}`)
+            const program = programByName.get(programName.toLowerCase());
+            const programId = program?._id;
+            const semesterId = Number.isInteger(semesterNumber)
+                ? semesterNumberToId.get(semesterNumber)
                 : undefined;
+            const isSemesterInRange =
+                program && Number.isInteger(semesterNumber)
+                    ? semesterNumber > 0 && semesterNumber <= program.durationYears * 2
+                    : false;
 
-            if (!programId || (academicYear && !academicYearId) || !semesterId || !Number.isInteger(semesterNumber) || semesterNumber <= 0) {
+            if (!programId || !semesterId || !isSemesterInRange) {
                 continue;
             }
 
@@ -1034,12 +1000,10 @@ export function AcademicsManager({
     const filteredSemesters = useMemo(() => {
         const q = semesterQuery.trim().toLowerCase();
         return semesters.filter((item) => {
-            const programId = unwrapId(item.programId);
-            const programMatch = semesterProgramFilter === "all" || programId === semesterProgramFilter;
-            const text = `semester ${item.semesterNumber} ${typeof item.programId === "string" ? item.programId : item.programId?.name ?? ""} ${semesterYearLabel(item.academicYearId)}`.toLowerCase();
-            return programMatch && (!q || text.includes(q));
+            const text = `semester ${item.semesterNumber}`.toLowerCase();
+            return !q || text.includes(q);
         });
-    }, [semesters, semesterQuery, semesterProgramFilter]);
+    }, [semesters, semesterQuery]);
 
     const pagedSemesters = useMemo(
         () => paginateRows(filteredSemesters, semesterPage),
@@ -1552,50 +1516,6 @@ export function AcademicsManager({
                             </Button>
                         </div>
                         <form className="grid gap-4" onSubmit={semesterForm.handleSubmit(handleSemesterSubmit)}>
-                            <Field label="Program" id="semesterProgram" error={semesterForm.formState.errors.programId?.message}>
-                                <Controller
-                                    control={semesterForm.control}
-                                    name="programId"
-                                    render={({ field }) => (
-                                        <Select value={field.value} onValueChange={field.onChange}>
-                                            <SelectTrigger id="semesterProgram">
-                                                <SelectValue placeholder="Select program" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {programs.map((program) => (
-                                                    <SelectItem key={program._id} value={program._id}>
-                                                        {program.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                />
-                            </Field>
-                            <Field label="Academic year (optional)" id="semesterAcademicYear" error={semesterForm.formState.errors.academicYearId?.message}>
-                                <Controller
-                                    control={semesterForm.control}
-                                    name="academicYearId"
-                                    render={({ field }) => (
-                                        <Select
-                                            value={typeof field.value === "string" && field.value ? field.value : "__none__"}
-                                            onValueChange={(value) => field.onChange(value === "__none__" ? "" : value)}
-                                        >
-                                            <SelectTrigger id="semesterAcademicYear">
-                                                <SelectValue placeholder="Template semester (year-independent)" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="__none__">Template semester (year-independent)</SelectItem>
-                                                {academicYears.map((year) => (
-                                                    <SelectItem key={year._id} value={year._id}>
-                                                        {year.yearStart}-{year.yearEnd}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                />
-                            </Field>
                             <Field label="Semester number" id="semesterNumber" error={semesterForm.formState.errors.semesterNumber?.message}>
                                 <Input id="semesterNumber" type="number" min={1} {...semesterForm.register("semesterNumber", { valueAsNumber: true })} />
                             </Field>
@@ -1611,8 +1531,6 @@ export function AcademicsManager({
                                         onClick={() => {
                                             setEditingSemesterId(null);
                                             semesterForm.reset({
-                                                programId: "",
-                                                academicYearId: "",
                                                 semesterNumber: 1,
                                             });
                                         }}
@@ -1624,7 +1542,7 @@ export function AcademicsManager({
                         </form>
                     </div>
                     <div className="space-y-3">
-                        <div className="grid gap-3 md:grid-cols-[1fr_260px]">
+                        <div className="grid gap-3 md:grid-cols-[1fr]">
                             <div className="relative">
                                 <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-zinc-400" />
                                 <Input
@@ -1634,28 +1552,9 @@ export function AcademicsManager({
                                         setSemesterPage(1);
                                     }}
                                     className="pl-9"
-                                    placeholder="Search semester, program, year"
+                                    placeholder="Search semester"
                                 />
                             </div>
-                            <Select
-                                value={semesterProgramFilter}
-                                onValueChange={(value) => {
-                                    setSemesterProgramFilter(value);
-                                    setSemesterPage(1);
-                                }}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Filter by program" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All programs</SelectItem>
-                                    {programs.map((program) => (
-                                        <SelectItem key={program._id} value={program._id}>
-                                            {program.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
                         </div>
 
                         <div className="max-h-[420px] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200">
@@ -1663,8 +1562,6 @@ export function AcademicsManager({
                                 <TableHeader className="sticky top-0 z-10 bg-white">
                                 <TableRow>
                                     <TableHead>Semester</TableHead>
-                                    <TableHead>Program</TableHead>
-                                    <TableHead>Academic Year</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                                 </TableHeader>
@@ -1672,10 +1569,6 @@ export function AcademicsManager({
                                 {pagedSemesters.items.length ? pagedSemesters.items.map((semester) => (
                                     <TableRow key={semester._id}>
                                         <TableCell className="font-medium text-zinc-900">Semester {semester.semesterNumber}</TableCell>
-                                        <TableCell>
-                                            {(typeof semester.programId === "string" ? semester.programId : semester.programId?.name) ?? "-"}
-                                        </TableCell>
-                                        <TableCell>{semesterYearLabel(semester.academicYearId)}</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
                                                 <Button
@@ -1685,8 +1578,6 @@ export function AcademicsManager({
                                                     onClick={() => {
                                                         setEditingSemesterId(semester._id);
                                                         semesterForm.reset({
-                                                            programId: unwrapId(semester.programId),
-                                                            academicYearId: unwrapId(semester.academicYearId),
                                                             semesterNumber: semester.semesterNumber,
                                                         });
                                                     }}
@@ -1702,7 +1593,7 @@ export function AcademicsManager({
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="text-center text-zinc-500">
+                                        <TableCell colSpan={2} className="text-center text-zinc-500">
                                             No semesters match your search/filter.
                                         </TableCell>
                                     </TableRow>
@@ -1810,7 +1701,7 @@ export function AcademicsManager({
                                             <SelectContent>
                                                 {filteredSemestersForCourse.map((semester) => (
                                                     <SelectItem key={semester._id} value={semester._id}>
-                                                        Sem {semester.semesterNumber} - {semesterYearLabel(semester.academicYearId)}
+                                                        Sem {semester.semesterNumber}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>

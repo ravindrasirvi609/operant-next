@@ -169,14 +169,11 @@ export async function deleteAcademicYear(
         throw new AuthError("Academic year not found.", 404);
     }
 
-    const [usedByPrograms, usedBySemesters] = await Promise.all([
-        Program.exists({ startAcademicYearId: id }),
-        Semester.exists({ academicYearId: id }),
-    ]);
+    const usedByPrograms = await Program.exists({ startAcademicYearId: id });
 
-    if (usedByPrograms || usedBySemesters) {
+    if (usedByPrograms) {
         throw new AuthError(
-            "Academic year is mapped to programs or semesters and cannot be deleted.",
+            "Academic year is mapped to programs and cannot be deleted.",
             409
         );
     }
@@ -240,31 +237,17 @@ function ensureSupportedDegreeType(value: string) {
 }
 
 type SemesterKeyOptions = {
-    programId: string | mongoose.Types.ObjectId;
     semesterNumber: number;
-    academicYearId?: string | mongoose.Types.ObjectId;
 };
 
-function buildSemesterKeyFilter({ programId, semesterNumber, academicYearId }: SemesterKeyOptions) {
-    if (academicYearId) {
-        return {
-            programId,
-            academicYearId,
-            semesterNumber,
-        };
-    }
-
+function buildSemesterKeyFilter({ semesterNumber }: SemesterKeyOptions) {
     return {
-        programId,
-        academicYearId: { $exists: false },
         semesterNumber,
     };
 }
 
-function semesterDuplicateMessage(academicYearId?: string) {
-    return academicYearId
-        ? "Semester already exists for this program and academic year."
-        : "Semester template already exists for this program.";
+function semesterDuplicateMessage() {
+    return "Semester already exists.";
 }
 
 async function resolveInstitutionForDepartment(
@@ -335,14 +318,14 @@ export async function createProgram(
             createdProgramId = doc._id.toString();
 
             if (startAcademicYear) {
-                const semesters = Array.from({ length: input.durationYears * 2 }, (_, index) => ({
-                    programId: doc._id,
-                    semesterNumber: index + 1,
-                }));
-                await Semester.insertMany(
-                    semesters,
-                    { session }
-                );
+                const totalSemesters = input.durationYears * 2;
+                for (let semesterNumber = 1; semesterNumber <= totalSemesters; semesterNumber += 1) {
+                    await Semester.findOneAndUpdate(
+                        { semesterNumber },
+                        { $setOnInsert: { semesterNumber } },
+                        { upsert: true, session }
+                    );
+                }
             }
         });
 
@@ -445,18 +428,6 @@ export async function updateProgram(
             resolvedInstitutionId = currentDepartment.institutionId.toString();
         }
 
-        const semestersExist = await Semester.exists({ programId: program._id });
-        if (
-            semestersExist &&
-            ((sanitizedInput.startAcademicYearId && sanitizedInput.startAcademicYearId !== program.startAcademicYearId?.toString()) ||
-                (sanitizedInput.durationYears && sanitizedInput.durationYears !== program.durationYears))
-        ) {
-            throw new AuthError(
-                "Cannot change start academic year or duration after semesters are generated.",
-                400
-            );
-        }
-
         const updatePayload = {
             ...sanitizedInput,
             institutionId: resolvedInstitutionId,
@@ -530,15 +501,14 @@ export async function deleteProgram(
         throw new AuthError("Program not found.", 404);
     }
 
-    const [hasSemesters, hasCourses, hasTeachingLoads] = await Promise.all([
-        Semester.exists({ programId: id }),
+    const [hasCourses, hasTeachingLoads] = await Promise.all([
         Course.exists({ programId: id }),
         FacultyTeachingLoad.exists({ programId: id }),
     ]);
 
-    if (hasSemesters || hasCourses || hasTeachingLoads) {
+    if (hasCourses || hasTeachingLoads) {
         throw new AuthError(
-            "Program is linked to semesters, courses, or faculty teaching loads and cannot be deleted.",
+            "Program is linked to courses or faculty teaching loads and cannot be deleted.",
             409
         );
     }
@@ -561,8 +531,6 @@ export async function deleteProgram(
 export async function listSemesters() {
     await dbConnect();
     return Semester.find({})
-        .populate("programId", "name")
-        .populate("academicYearId", "yearStart yearEnd")
         .sort({ semesterNumber: 1 })
         .lean();
 }
@@ -574,47 +542,24 @@ export async function createSemester(
     await dbConnect();
     const input = semesterSchema.parse(rawInput) as SemesterInput;
 
-    const program = await Program.findById(input.programId);
-    if (!program) {
-        throw new AuthError("Program not found.", 404);
-    }
-
-    if (input.academicYearId) {
-        const academicYear = await AcademicYear.findById(input.academicYearId);
-        if (!academicYear) {
-            throw new AuthError("Academic year not found.", 404);
-        }
-    }
-
     const existing = await Semester.findOne(
         buildSemesterKeyFilter({
-            programId: program._id,
-            academicYearId: input.academicYearId,
             semesterNumber: input.semesterNumber,
         })
     ).select("_id");
     if (existing) {
-        throw new AuthError(semesterDuplicateMessage(input.academicYearId), 409);
+        throw new AuthError(semesterDuplicateMessage(), 409);
     }
 
     const semesterPayload: {
-        programId: mongoose.Types.ObjectId;
         semesterNumber: number;
-        academicYearId?: string;
     } = {
-        programId: program._id,
         semesterNumber: input.semesterNumber,
     };
 
-    if (input.academicYearId) {
-        semesterPayload.academicYearId = input.academicYearId;
-    }
-
     const semester = await Semester.create(semesterPayload);
 
-    const createdSemester = await Semester.findById(semester._id)
-        .populate("programId", "name")
-        .populate("academicYearId", "yearStart yearEnd");
+    const createdSemester = await Semester.findById(semester._id);
 
     if (createdSemester && options?.actor) {
         await createAuditLog({
@@ -645,72 +590,37 @@ export async function updateSemester(
 
     const oldState = existing.toObject();
 
-    const hasAcademicYearIdInPayload = Object.prototype.hasOwnProperty.call(input, "academicYearId");
-    const existingAcademicYearId =
-        existing.academicYearId instanceof mongoose.Types.ObjectId
-            ? existing.academicYearId.toString()
-            : undefined;
-
-    const nextProgramId = input.programId ?? existing.programId.toString();
-    const nextAcademicYearId = hasAcademicYearIdInPayload
-        ? input.academicYearId
-        : existingAcademicYearId;
     const nextSemesterNumber = input.semesterNumber ?? existing.semesterNumber;
-
-    if (nextAcademicYearId) {
-        const academicYear = await AcademicYear.findById(nextAcademicYearId).select("_id");
-        if (!academicYear) {
-            throw new AuthError("Academic year not found.", 404);
-        }
-    }
 
     const duplicate = await Semester.findOne({
         _id: { $ne: existing._id },
         ...buildSemesterKeyFilter({
-            programId: nextProgramId,
-            academicYearId: nextAcademicYearId,
             semesterNumber: nextSemesterNumber,
         }),
     }).select("_id");
     if (duplicate) {
-        throw new AuthError(
-            nextAcademicYearId
-                ? "Another semester already exists with this program + academic year + semester number."
-                : "Another semester template already exists with this program + semester number.",
-            409
-        );
+        throw new AuthError("Another semester already exists with this number.", 409);
     }
 
     const updatePayload: {
-        programId?: string;
         semesterNumber?: number;
-        academicYearId?: string;
     } = {
-        ...(input.programId ? { programId: input.programId } : {}),
         ...(input.semesterNumber !== undefined ? { semesterNumber: input.semesterNumber } : {}),
-        ...(nextAcademicYearId ? { academicYearId: nextAcademicYearId } : {}),
     };
 
     const updateOps: {
         $set?: typeof updatePayload;
-        $unset?: { academicYearId: 1 };
     } = {};
 
     if (Object.keys(updatePayload).length) {
         updateOps.$set = updatePayload;
     }
 
-    if (hasAcademicYearIdInPayload && !nextAcademicYearId) {
-        updateOps.$unset = { academicYearId: 1 };
-    }
-
     const updated = await Semester.findByIdAndUpdate(
         id,
         updateOps,
         { returnDocument: "after" }
-    )
-        .populate("programId", "name")
-        .populate("academicYearId", "yearStart yearEnd");
+    );
 
     if (!updated) {
         throw new AuthError("Semester update failed.", 500);
@@ -771,8 +681,7 @@ export async function listCourses() {
         .populate("programId", "name")
         .populate({
             path: "semesterId",
-            select: "semesterNumber academicYearId",
-            populate: { path: "academicYearId", select: "yearStart yearEnd" },
+            select: "semesterNumber",
         })
         .sort({ name: 1 })
         .lean();
@@ -790,13 +699,9 @@ export async function createCourse(
         throw new AuthError("Program not found.", 404);
     }
 
-    const semester = await Semester.findById(input.semesterId).select("_id programId semesterNumber");
+    const semester = await Semester.findById(input.semesterId).select("_id semesterNumber");
     if (!semester) {
         throw new AuthError("Semester not found.", 404);
-    }
-
-    if (semester.programId.toString() !== program._id.toString()) {
-        throw new AuthError("Semester does not belong to the selected program.", 400);
     }
 
     const maxSemester = program.durationYears * 2;
@@ -818,8 +723,7 @@ export async function createCourse(
         .populate("programId", "name")
         .populate({
             path: "semesterId",
-            select: "semesterNumber academicYearId",
-            populate: { path: "academicYearId", select: "yearStart yearEnd" },
+            select: "semesterNumber",
         });
 
     if (createdCourse && options?.actor) {
@@ -859,13 +763,9 @@ export async function updateCourse(
         throw new AuthError("Program not found.", 404);
     }
 
-    const semester = await Semester.findById(nextSemesterId).select("_id programId semesterNumber");
+    const semester = await Semester.findById(nextSemesterId).select("_id semesterNumber");
     if (!semester) {
         throw new AuthError("Semester not found.", 404);
-    }
-
-    if (semester.programId.toString() !== program._id.toString()) {
-        throw new AuthError("Semester does not belong to the selected program.", 400);
     }
 
     const maxSemester = program.durationYears * 2;
@@ -886,8 +786,7 @@ export async function updateCourse(
         .populate("programId", "name")
         .populate({
             path: "semesterId",
-            select: "semesterNumber academicYearId",
-            populate: { path: "academicYearId", select: "yearStart yearEnd" },
+            select: "semesterNumber",
         });
 
     if (!updated) {
