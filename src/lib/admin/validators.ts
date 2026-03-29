@@ -43,6 +43,8 @@ export const adminStudentProvisionSchema = z.object({
     universityName: z.string().trim().min(2, "University is required."),
     collegeName: z.string().trim().min(2, "College is required."),
     department: z.string().trim().min(2, "Department is required."),
+    programId: z.string().trim().optional(),
+    courseId: z.string().trim().optional(),
     course: z.string().trim().min(2, "Program / course is required."),
     durationYears: z.coerce.number().int().min(1).max(10),
     admissionYear: z.coerce.number().int().min(1900).max(9999),

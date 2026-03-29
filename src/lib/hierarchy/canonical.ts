@@ -13,6 +13,33 @@ export type HierarchyOption = {
 
 type HierarchySession = mongoose.mongo.ClientSession;
 
+function isDuplicateKeyError(error: unknown) {
+    return (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        (error as { code?: unknown }).code === 11000
+    );
+}
+
+async function findOrganizationWithRetry(
+    filter: Record<string, unknown>,
+    session?: HierarchySession
+) {
+    const withSession = await Organization.findOne(filter).session(session ?? null);
+    if (withSession) {
+        return withSession;
+    }
+
+    if (!session) {
+        return null;
+    }
+
+    // If another transaction committed this row after the current snapshot,
+    // a non-session read can still resolve the existing document.
+    return Organization.findOne(filter);
+}
+
 function normalizeName(value?: string | null) {
     return String(value ?? "").trim();
 }
@@ -26,24 +53,34 @@ async function upsertUniversityOrganization(
         return null;
     }
 
-    let organization = await Organization.findOne({
+    const lookup = {
         type: "University",
         name,
-    }).session(session ?? null);
+    };
+
+    let organization = await findOrganizationWithRetry(lookup, session);
 
     if (!organization) {
-        organization = await Organization.create(
-            [
-                {
-                    name,
-                    type: "University",
-                    hierarchyLevel: 1,
-                    universityName: name,
-                    isActive: true,
-                },
-            ],
-            session ? { session } : undefined
-        ).then((docs) => docs[0]);
+        try {
+            organization = await Organization.create(
+                [
+                    {
+                        name,
+                        type: "University",
+                        hierarchyLevel: 1,
+                        universityName: name,
+                        isActive: true,
+                    },
+                ],
+                session ? { session } : undefined
+            ).then((docs) => docs[0]);
+        } catch (error) {
+            if (!isDuplicateKeyError(error)) {
+                throw error;
+            }
+
+            organization = await findOrganizationWithRetry(lookup, session);
+        }
     }
 
     return organization;
@@ -60,31 +97,84 @@ async function upsertCollegeOrganization(
         return null;
     }
 
-    let organization = await Organization.findOne({
+    const contextualLookup = {
         type: "College",
         name,
         universityName,
-    }).session(session ?? null);
+    };
+    const fallbackLookup = {
+        type: "College",
+        name,
+    };
+
+    let organization = await findOrganizationWithRetry(contextualLookup, session);
 
     if (!organization) {
-        organization = await Organization.create(
-            [
-                {
-                    name,
-                    type: "College",
-                    parentOrganizationId: universityOrganizationId,
-                    parentOrganizationName: universityName,
-                    hierarchyLevel: 2,
-                    universityName,
-                    collegeName: name,
-                    isActive: true,
-                },
-            ],
-            session ? { session } : undefined
-        ).then((docs) => docs[0]);
+        organization = await findOrganizationWithRetry(fallbackLookup, session);
     }
 
-    return organization;
+    if (!organization) {
+        try {
+            organization = await Organization.create(
+                [
+                    {
+                        name,
+                        type: "College",
+                        parentOrganizationId: universityOrganizationId,
+                        parentOrganizationName: universityName,
+                        hierarchyLevel: 2,
+                        universityName,
+                        collegeName: name,
+                        isActive: true,
+                    },
+                ],
+                session ? { session } : undefined
+            ).then((docs) => docs[0]);
+        } catch (error) {
+            if (!isDuplicateKeyError(error)) {
+                throw error;
+            }
+
+            organization =
+                (await findOrganizationWithRetry(contextualLookup, session)) ??
+                (await findOrganizationWithRetry(fallbackLookup, session));
+        }
+    }
+
+    if (!organization) {
+        return null;
+    }
+
+    const nextUniversityName = normalizeName(universityName);
+    const nextParentId = normalizeName(universityOrganizationId);
+    const updates: Record<string, unknown> = {};
+
+    if (!normalizeName(organization.universityName) && nextUniversityName) {
+        updates.universityName = nextUniversityName;
+    }
+
+    if (!normalizeName(organization.parentOrganizationName) && nextUniversityName) {
+        updates.parentOrganizationName = nextUniversityName;
+    }
+
+    if (!organization.parentOrganizationId && nextParentId) {
+        updates.parentOrganizationId = nextParentId;
+    }
+
+    if (!Object.keys(updates).length) {
+        return organization;
+    }
+
+    const updated = await Organization.findByIdAndUpdate(
+        organization._id,
+        { $set: updates },
+        {
+            returnDocument: "after",
+            ...(session ? { session } : {}),
+        }
+    );
+
+    return updated ?? organization;
 }
 
 async function upsertDepartmentOrganization(
@@ -102,36 +192,99 @@ async function upsertDepartmentOrganization(
         return null;
     }
 
-    let organization = await Organization.findOne({
+    const contextualLookup = {
         type: "Department",
         name,
         universityName: input.universityName,
         collegeName: input.collegeName,
-    }).session(session ?? null);
+    };
+    const fallbackLookup = {
+        type: "Department",
+        name,
+    };
+
+    let organization = await findOrganizationWithRetry(contextualLookup, session);
+
+    if (!organization) {
+        organization = await findOrganizationWithRetry(fallbackLookup, session);
+    }
 
     const parentOrganizationId = input.collegeOrganizationId ?? input.universityOrganizationId;
     const parentOrganizationName = input.collegeName ?? input.universityName;
     const hierarchyLevel = input.collegeOrganizationId ? 3 : 2;
 
     if (!organization) {
-        organization = await Organization.create(
-            [
-                {
-                    name,
-                    type: "Department",
-                    parentOrganizationId,
-                    parentOrganizationName,
-                    hierarchyLevel,
-                    universityName: input.universityName,
-                    collegeName: input.collegeName,
-                    isActive: true,
-                },
-            ],
-            session ? { session } : undefined
-        ).then((docs) => docs[0]);
+        try {
+            organization = await Organization.create(
+                [
+                    {
+                        name,
+                        type: "Department",
+                        parentOrganizationId,
+                        parentOrganizationName,
+                        hierarchyLevel,
+                        universityName: input.universityName,
+                        collegeName: input.collegeName,
+                        isActive: true,
+                    },
+                ],
+                session ? { session } : undefined
+            ).then((docs) => docs[0]);
+        } catch (error) {
+            if (!isDuplicateKeyError(error)) {
+                throw error;
+            }
+
+            organization =
+                (await findOrganizationWithRetry(contextualLookup, session)) ??
+                (await findOrganizationWithRetry(fallbackLookup, session));
+        }
     }
 
-    return organization;
+    if (!organization) {
+        return null;
+    }
+
+    const updates: Record<string, unknown> = {};
+    const nextUniversityName = normalizeName(input.universityName);
+    const nextCollegeName = normalizeName(input.collegeName);
+    const nextParentName = normalizeName(parentOrganizationName);
+    const nextParentId = normalizeName(parentOrganizationId);
+
+    if (!normalizeName(organization.universityName) && nextUniversityName) {
+        updates.universityName = nextUniversityName;
+    }
+
+    if (!normalizeName(organization.collegeName) && nextCollegeName) {
+        updates.collegeName = nextCollegeName;
+    }
+
+    if (!normalizeName(organization.parentOrganizationName) && nextParentName) {
+        updates.parentOrganizationName = nextParentName;
+    }
+
+    if (!organization.parentOrganizationId && nextParentId) {
+        updates.parentOrganizationId = nextParentId;
+    }
+
+    if (!organization.hierarchyLevel && hierarchyLevel) {
+        updates.hierarchyLevel = hierarchyLevel;
+    }
+
+    if (!Object.keys(updates).length) {
+        return organization;
+    }
+
+    const updated = await Organization.findByIdAndUpdate(
+        organization._id,
+        { $set: updates },
+        {
+            returnDocument: "after",
+            ...(session ? { session } : {}),
+        }
+    );
+
+    return updated ?? organization;
 }
 
 async function syncUniversityProjection(

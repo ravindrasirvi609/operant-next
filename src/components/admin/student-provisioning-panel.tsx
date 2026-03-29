@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useState, useTransition, type ChangeEvent, type FormEvent } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Download, FileSpreadsheet, UploadCloud } from "lucide-react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import * as XLSX from "xlsx";
 import type { z } from "zod";
 
@@ -20,6 +20,23 @@ type Option = {
     key: string;
     label: string;
     code?: string;
+};
+
+type ProgramOption = {
+    key: string;
+    label: string;
+    departmentId?: string;
+    departmentName?: string;
+    durationYears?: number;
+    isActive?: boolean;
+};
+
+type CourseOption = {
+    key: string;
+    label: string;
+    programId?: string;
+    programName?: string;
+    isActive?: boolean;
 };
 
 type StudentProvisionValues = z.input<typeof adminStudentProvisionSchema>;
@@ -347,10 +364,14 @@ export function StudentProvisioningPanel({
     universityOptions,
     collegeOptions,
     departmentOptions,
+    programOptions,
+    courseOptions,
 }: {
     universityOptions: Option[];
     collegeOptions: Option[];
     departmentOptions: Option[];
+    programOptions: ProgramOption[];
+    courseOptions: CourseOption[];
 }) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
@@ -377,11 +398,94 @@ export function StudentProvisioningPanel({
             universityName: universityOptions[0]?.label ?? "",
             collegeName: collegeOptions[0]?.label ?? "",
             department: departmentOptions[0]?.label ?? "",
+            programId: "",
+            courseId: "",
             course: "",
             durationYears: 4,
             admissionYear: new Date().getFullYear(),
         },
     });
+
+    const selectedDepartment = useWatch({
+        control: form.control,
+        name: "department",
+    });
+    const selectedProgramId = useWatch({
+        control: form.control,
+        name: "programId",
+    });
+
+    const filteredProgramOptions = useMemo(() => {
+        const activePrograms = programOptions.filter((item) => item.isActive !== false);
+        if (!selectedDepartment?.trim()) {
+            return activePrograms;
+        }
+
+        const normalizedDepartment = selectedDepartment.trim().toLowerCase();
+        const departmentScopedPrograms = activePrograms.filter(
+            (item) => item.departmentName?.trim().toLowerCase() === normalizedDepartment
+        );
+
+        return departmentScopedPrograms;
+    }, [programOptions, selectedDepartment]);
+
+    const filteredCourseOptions = useMemo(() => {
+        if (!selectedProgramId) {
+            return [];
+        }
+
+        return courseOptions.filter(
+            (item) => item.isActive !== false && item.programId === selectedProgramId
+        );
+    }, [courseOptions, selectedProgramId]);
+
+    useEffect(() => {
+        if (!filteredProgramOptions.length) {
+            if (form.getValues("programId")) {
+                form.setValue("programId", "", { shouldValidate: false });
+                form.setValue("course", "", { shouldValidate: false });
+            }
+            if (form.getValues("courseId")) {
+                form.setValue("courseId", "", { shouldValidate: false });
+            }
+            return;
+        }
+
+        const currentProgramId = form.getValues("programId");
+        const currentProgram = filteredProgramOptions.find((item) => item.key === currentProgramId);
+
+        if (currentProgram) {
+            if (form.getValues("course") !== currentProgram.label) {
+                form.setValue("course", currentProgram.label, { shouldValidate: false });
+            }
+            return;
+        }
+
+        const firstProgram = filteredProgramOptions[0];
+        if (!firstProgram) {
+            return;
+        }
+
+        form.setValue("programId", firstProgram.key, { shouldValidate: false });
+        form.setValue("course", firstProgram.label, { shouldValidate: false });
+        form.setValue("courseId", "", { shouldValidate: false });
+
+        if (typeof firstProgram.durationYears === "number" && firstProgram.durationYears > 0) {
+            form.setValue("durationYears", firstProgram.durationYears, { shouldValidate: false });
+        }
+    }, [filteredProgramOptions, form]);
+
+    useEffect(() => {
+        const selectedCourseId = form.getValues("courseId");
+        if (!selectedCourseId) {
+            return;
+        }
+
+        const isMappedCourse = filteredCourseOptions.some((item) => item.key === selectedCourseId);
+        if (!isMappedCourse) {
+            form.setValue("courseId", "", { shouldValidate: false });
+        }
+    }, [filteredCourseOptions, form]);
 
     function onSubmit(values: StudentProvisionResolvedValues) {
         setMessage(null);
@@ -412,8 +516,6 @@ export function StudentProvisioningPanel({
                 enrollmentNo: "",
                 email: "",
                 mobile: "",
-                course: "",
-                durationYears: 4,
                 admissionYear: new Date().getFullYear(),
             });
             setMessage({
@@ -506,6 +608,8 @@ export function StudentProvisioningPanel({
                     {message ? <FormMessage message={message.text} type={message.type} /> : null}
 
                     <form className="grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
+                        <input type="hidden" {...form.register("course")} />
+
                         <div className="grid gap-5 md:grid-cols-2">
                             <Field label="First name" id="student-first-name" error={form.formState.errors.firstName?.message}>
                                 <Input id="student-first-name" {...form.register("firstName")} />
@@ -554,9 +658,97 @@ export function StudentProvisioningPanel({
                             />
                         </div>
 
-                        <div className="grid gap-5 md:grid-cols-3">
-                            <Field label="Program / Course" id="student-course" error={form.formState.errors.course?.message}>
-                                <Input id="student-course" placeholder="B.Tech CSE" {...form.register("course")} />
+                        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+                            <Field label="Program" id="student-program" error={form.formState.errors.course?.message}>
+                                <Controller
+                                    control={form.control}
+                                    name="programId"
+                                    render={({ field }) => (
+                                        <Select
+                                            value={field.value || undefined}
+                                            onValueChange={(value) => {
+                                                field.onChange(value);
+
+                                                const selectedProgram = filteredProgramOptions.find(
+                                                    (item) => item.key === value
+                                                );
+
+                                                form.setValue("course", selectedProgram?.label ?? "", {
+                                                    shouldValidate: true,
+                                                });
+                                                form.setValue("courseId", "", {
+                                                    shouldValidate: false,
+                                                });
+
+                                                if (
+                                                    selectedProgram &&
+                                                    typeof selectedProgram.durationYears === "number" &&
+                                                    selectedProgram.durationYears > 0
+                                                ) {
+                                                    form.setValue(
+                                                        "durationYears",
+                                                        selectedProgram.durationYears,
+                                                        { shouldValidate: true }
+                                                    );
+                                                }
+                                            }}
+                                        >
+                                            <SelectTrigger id="student-program" className="w-full">
+                                                <SelectValue
+                                                    placeholder={
+                                                        filteredProgramOptions.length
+                                                            ? "Select program"
+                                                            : "No program records found"
+                                                    }
+                                                />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {filteredProgramOptions.map((item) => (
+                                                    <SelectItem key={item.key} value={item.key}>
+                                                        {item.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                            </Field>
+                            <Field
+                                label="Course (optional)"
+                                id="student-course-master"
+                                error={form.formState.errors.courseId?.message}
+                            >
+                                <Controller
+                                    control={form.control}
+                                    name="courseId"
+                                    render={({ field }) => (
+                                        <Select
+                                            value={field.value || "__none"}
+                                            onValueChange={(value) => {
+                                                field.onChange(value === "__none" ? "" : value);
+                                            }}
+                                            disabled={!filteredCourseOptions.length}
+                                        >
+                                            <SelectTrigger id="student-course-master" className="w-full">
+                                                <SelectValue
+                                                    placeholder={
+                                                        filteredCourseOptions.length
+                                                            ? "Select course"
+                                                            : "No courses for selected program"
+                                                    }
+                                                />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="__none">Not selected</SelectItem>
+                                                {filteredCourseOptions.map((item) => (
+                                                    <SelectItem key={item.key} value={item.key}>
+                                                        {item.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
                             </Field>
                             <Field label="Duration (years)" id="student-duration" error={form.formState.errors.durationYears?.message}>
                                 <Input id="student-duration" type="number" min={1} max={10} {...form.register("durationYears", { valueAsNumber: true })} />

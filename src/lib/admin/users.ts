@@ -10,6 +10,7 @@ import {
 import { normalizeDegreeType } from "@/lib/academic/program-classification";
 import { AuthError } from "@/lib/auth/errors";
 import { ensureCanonicalHierarchyPath } from "@/lib/hierarchy/canonical";
+import Course from "@/models/academic/course";
 import Program from "@/models/academic/program";
 import User from "@/models/core/user";
 import Faculty from "@/models/faculty/faculty";
@@ -180,33 +181,67 @@ export async function createProvisionedStudent(
                 session
             );
 
-            let program = await Program.findOne({
-                departmentId: department._id,
-                name: input.course,
-            }).session(session);
+            let program: InstanceType<typeof Program> | null = null;
 
-            if (!program) {
-                program = await Program.create(
-                    [
-                        {
-                            name: input.course,
-                            institutionId: institution._id,
-                            departmentId: department._id,
-                            degreeType: normalizeDegreeType(input.course) ?? "Other",
-                            durationYears: input.durationYears,
-                            collegeName: input.collegeName,
-                            type: "Regular",
-                            yearOfIntroduction: String(input.admissionYear),
-                            isCBCS: true,
-                            isActive: true,
-                        },
-                    ],
-                    { session }
-                ).then((docs) => docs[0]);
+            if (input.programId) {
+                program = await Program.findById(input.programId).session(session);
+
+                if (!program) {
+                    throw new AuthError("Selected program was not found.", 404);
+                }
+
+                if (program.departmentId.toString() !== department._id.toString()) {
+                    throw new AuthError(
+                        "Selected program does not belong to the chosen department.",
+                        400
+                    );
+                }
+            } else {
+                program = await Program.findOne({
+                    departmentId: department._id,
+                    name: input.course,
+                }).session(session);
+
+                if (!program) {
+                    program = await Program.create(
+                        [
+                            {
+                                name: input.course,
+                                institutionId: institution._id,
+                                departmentId: department._id,
+                                degreeType: normalizeDegreeType(input.course) ?? "Other",
+                                durationYears: input.durationYears,
+                                collegeName: input.collegeName,
+                                type: "Regular",
+                                yearOfIntroduction: String(input.admissionYear),
+                                isCBCS: true,
+                                isActive: true,
+                            },
+                        ],
+                        { session }
+                    ).then((docs) => docs[0]);
+                }
             }
 
             if (!program) {
                 throw new AuthError("Program provisioning failed.", 500);
+            }
+
+            if (input.courseId) {
+                const selectedCourse = await Course.findById(input.courseId)
+                    .select("_id programId")
+                    .session(session);
+
+                if (!selectedCourse) {
+                    throw new AuthError("Selected course was not found.", 404);
+                }
+
+                if (selectedCourse.programId.toString() !== program._id.toString()) {
+                    throw new AuthError(
+                        "Selected course does not belong to the chosen program.",
+                        400
+                    );
+                }
             }
 
             const fullName = [input.firstName, input.lastName].filter(Boolean).join(" ");
