@@ -12,6 +12,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
+const AWARD_CATEGORY_OPTIONS_ID = "award-category-options";
+const AWARD_ORGANIZING_BODY_OPTIONS_ID = "award-organizing-body-options";
+
+function uniqueSortedValues(values: Array<string | undefined>) {
+    const seen = new Set<string>();
+    const unique: string[] = [];
+
+    values.forEach((value) => {
+        const normalized = value?.trim();
+        if (!normalized) {
+            return;
+        }
+
+        const key = normalized.toLowerCase();
+        if (seen.has(key)) {
+            return;
+        }
+
+        seen.add(key);
+        unique.push(normalized);
+    });
+
+    return unique.sort((left, right) => left.localeCompare(right));
+}
+
 type AwardRecord = {
     _id: string;
     title: string;
@@ -134,6 +159,16 @@ export function ReferenceMasterManager({ initialData }: { initialData: Reference
         [data]
     );
 
+    const awardCategoryOptions = useMemo(
+        () => uniqueSortedValues(data.awards.map((item) => item.category)),
+        [data.awards]
+    );
+
+    const awardOrganizingBodyOptions = useMemo(
+        () => uniqueSortedValues(data.awards.map((item) => item.organizingBody)),
+        [data.awards]
+    );
+
     function refresh() {
         startTransition(async () => {
             try {
@@ -222,8 +257,22 @@ export function ReferenceMasterManager({ initialData }: { initialData: Reference
                     >
                         <div className="grid gap-4 md:grid-cols-4">
                             <Field label="Title"><Input value={awardForm.title} onChange={(event) => setAwardForm((current) => ({ ...current, title: event.target.value }))} /></Field>
-                            <Field label="Category"><Input value={awardForm.category} onChange={(event) => setAwardForm((current) => ({ ...current, category: event.target.value }))} /></Field>
-                            <Field label="Organizing body"><Input value={awardForm.organizingBody} onChange={(event) => setAwardForm((current) => ({ ...current, organizingBody: event.target.value }))} /></Field>
+                            <Field label="Category">
+                                <Input
+                                    list={AWARD_CATEGORY_OPTIONS_ID}
+                                    placeholder="Select or type category"
+                                    value={awardForm.category}
+                                    onChange={(event) => setAwardForm((current) => ({ ...current, category: event.target.value }))}
+                                />
+                            </Field>
+                            <Field label="Organizing body">
+                                <Input
+                                    list={AWARD_ORGANIZING_BODY_OPTIONS_ID}
+                                    placeholder="Select or type organizing body"
+                                    value={awardForm.organizingBody}
+                                    onChange={(event) => setAwardForm((current) => ({ ...current, organizingBody: event.target.value }))}
+                                />
+                            </Field>
                             <Field label="Level">
                                 <Select value={awardForm.level} onValueChange={(value) => setAwardForm((current) => ({ ...current, level: value }))}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -231,6 +280,16 @@ export function ReferenceMasterManager({ initialData }: { initialData: Reference
                                 </Select>
                             </Field>
                         </div>
+                        <datalist id={AWARD_CATEGORY_OPTIONS_ID}>
+                            {awardCategoryOptions.map((option) => (
+                                <option key={option} value={option} />
+                            ))}
+                        </datalist>
+                        <datalist id={AWARD_ORGANIZING_BODY_OPTIONS_ID}>
+                            {awardOrganizingBodyOptions.map((option) => (
+                                <option key={option} value={option} />
+                            ))}
+                        </datalist>
                         <Button disabled={isPending} onClick={() => create("award", awardForm, () => setAwardForm({ title: "", category: "", organizingBody: "", level: "College" }))}>Add award</Button>
                         <ListTable rows={data.awards.map((item) => ({ id: item._id, title: item.title, detail: [item.category, item.organizingBody, item.level].filter(Boolean).join(" | "), active: item.isActive !== false, kind: "award" }))} onToggle={toggle} />
                     </ReferenceSection>
