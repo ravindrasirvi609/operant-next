@@ -1,105 +1,189 @@
-import { BookOpenText, GraduationCap, ShieldCheck, UserRound } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, ShieldCheck, UserRound } from "lucide-react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireAuth } from "@/lib/auth/user";
+import { getCurrentUser } from "@/lib/auth/user";
 import { resolveAuthorizationProfile } from "@/lib/authorization/service";
-import Link from "next/link";
+
+type PortalLink = {
+  label: string;
+  href: string;
+  description: string;
+};
+
+const publicPortalLinks: PortalLink[] = [
+  {
+    label: "Student and Faculty Login",
+    href: "/login",
+    description: "Use this for regular institutional sign-in.",
+  },
+  {
+    label: "Leadership Login",
+    href: "/director/login",
+    description: "For HOD, IQAC, principal, and review board access.",
+  },
+  {
+    label: "Admin Login",
+    href: "/admin/login",
+    description: "For system administration and governance operations.",
+  },
+];
+
+function getSignedInLinks(role: string, hasLeadershipPortalAccess: boolean): PortalLink[] {
+  const links: PortalLink[] = [];
+
+  if (role === "Student") {
+    links.push({
+      label: "Open Student Workspace",
+      href: "/student/records",
+      description: "View records, profile, and student services.",
+    });
+  }
+
+  if (role === "Faculty") {
+    links.push({
+      label: "Open Faculty Workspace",
+      href: "/faculty",
+      description: "Manage PBAS, CAS, AQAR, and faculty profile data.",
+    });
+  }
+
+  if (hasLeadershipPortalAccess) {
+    links.push({
+      label: "Open Leadership Workspace",
+      href: "/director",
+      description: "Review governance dashboards and submissions.",
+    });
+  }
+
+  if (role === "Admin") {
+    links.push({
+      label: "Open Admin Console",
+      href: "/admin",
+      description: "Configure system settings, users, and masters.",
+    });
+  }
+
+  return links;
+}
 
 export default async function Home() {
-  const user = await requireAuth();
-  const authorizationProfile = await resolveAuthorizationProfile(user);
+  const user = await getCurrentUser();
+  const authorizationProfile = user ? await resolveAuthorizationProfile(user) : null;
+  const signedInLinks = user
+    ? getSignedInLinks(user.role, authorizationProfile?.hasLeadershipPortalAccess ?? false)
+    : [];
 
   return (
     <main className="min-h-screen bg-zinc-50">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <Badge>Protected Home Page</Badge>
-              <h1 className="mt-4 text-4xl font-semibold tracking-tight text-zinc-950 sm:text-5xl">
-                Welcome to the UMIS workspace
-              </h1>
-              <p className="mt-4 max-w-2xl text-base leading-8 text-zinc-500">
-                This home page is no longer public. Access is restricted to authenticated,
-                verified UMIS users only.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {user.role === "Admin" ? (
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
+          <Badge>{user ? "Common Home" : "Public Landing Page"}</Badge>
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-zinc-950 sm:text-5xl">
+            Unified Management Information System
+          </h1>
+          <p className="mt-4 max-w-3xl text-base leading-8 text-zinc-600">
+            This is now the common home page for everyone. It can be opened without login,
+            and signed-in users can continue to their role workspaces from here.
+          </p>
+
+          <div className="mt-7 flex flex-wrap items-center gap-3">
+            {user ? (
+              <>
+                {signedInLinks.map((link) => (
+                  <Button key={link.href} asChild>
+                    <Link href={link.href}>
+                      {link.label}
+                      <ArrowRight className="size-4" />
+                    </Link>
+                  </Button>
+                ))}
+                <LogoutButton />
+              </>
+            ) : (
+              <>
                 <Button asChild>
-                  <Link href="/admin">Open Admin Console</Link>
+                  <Link href="/login">Sign In</Link>
                 </Button>
-              ) : null}
-              {authorizationProfile.hasLeadershipPortalAccess ? (
-                <Button asChild>
-                  <Link href="/director">Open Leadership Workspace</Link>
+                <Button asChild variant="secondary">
+                  <Link href="/register">Create Account</Link>
                 </Button>
-              ) : null}
-              {user.role === "Faculty" ? (
-                <>
-                  <Button asChild>
-                    <Link href="/faculty">Open Faculty Workspace</Link>
-                  </Button>
-                  <Button asChild variant="secondary">
-                    <Link href="/faculty/cas">Open CAS Module</Link>
-                  </Button>
-                  <Button asChild variant="secondary">
-                    <Link href="/faculty/pbas">Open PBAS Module</Link>
-                  </Button>
-                  <Button asChild variant="secondary">
-                    <Link href="/faculty/aqar">Open AQAR Module</Link>
-                  </Button>
-                  <Button asChild variant="secondary">
-                    <Link href="/faculty/profile">Open Faculty Data</Link>
-                  </Button>
-                </>
-              ) : null}
-              {user.role === "Student" ? (
-                <Button asChild>
-                  <Link href="/student/records">Open Student Portal</Link>
-                </Button>
-              ) : null}
-              <Button variant="secondary">Authenticated Session Active</Button>
-              <LogoutButton />
-            </div>
+              </>
+            )}
           </div>
         </section>
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <Card className="overflow-hidden">
+        <section className="mt-8 grid gap-6 lg:grid-cols-2">
+          <Card>
             <CardHeader>
-              <CardTitle>Account overview</CardTitle>
+              <CardTitle>Portal Access</CardTitle>
               <CardDescription>
-                Current signed-in identity and the minimum profile data now attached to your UMIS session.
+                Quick links for each portal from the same common home page.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
-              <OverviewItem icon={<UserRound className="size-5" />} label="Name" value={user.name} />
-              <OverviewItem icon={<ShieldCheck className="size-5" />} label="Role" value={user.role} />
-              <OverviewItem icon={<GraduationCap className="size-5" />} label="University" value={user.universityName ?? "Not set"} />
-              <OverviewItem icon={<BookOpenText className="size-5" />} label="Department" value={user.department ?? "Not set"} />
-              <OverviewItem icon={<GraduationCap className="size-5" />} label="College" value={user.collegeName ?? "Not set"} />
-              <OverviewItem icon={<ShieldCheck className="size-5" />} label="Email" value={user.email} />
-              <OverviewItem icon={<UserRound className="size-5" />} label="Verification" value={user.emailVerified ? "Verified" : "Pending"} />
+            <CardContent className="grid gap-3">
+              {publicPortalLinks.map((portal) => (
+                <div
+                  key={portal.href}
+                  className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-zinc-900">{portal.label}</p>
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={portal.href}>Open</Link>
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-sm text-zinc-600">{portal.description}</p>
+                </div>
+              ))}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Auth stack included</CardTitle>
+              <CardTitle>Session Status</CardTitle>
               <CardDescription>
-                The application now uses production-grade authentication building blocks.
+                Common visibility for guests and authenticated users.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-3 text-sm text-zinc-600">
-              <FeatureLine text="bcryptjs password hashing with strong validation rules" />
-              <FeatureLine text="Signed jose JWT session cookie stored as HTTP-only" />
-              <FeatureLine text="Resend-driven email verification and password recovery" />
-              <FeatureLine text="Institutional pre-provisioning with first-time activation for faculty and students" />
-              <FeatureLine text="Forgot password, reset password, resend verification, logout" />
+            <CardContent className="grid gap-3 text-sm text-zinc-700">
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                  Current State
+                </p>
+                <p className="mt-2 font-medium text-zinc-950">
+                  {user ? "Authenticated session active" : "Guest mode (no login required)"}
+                </p>
+              </div>
+              {user ? (
+                <>
+                  <DetailRow label="Name" value={user.name} />
+                  <DetailRow label="Role" value={user.role} />
+                  <DetailRow label="Email" value={user.email} />
+                  <DetailRow
+                    label="Verification"
+                    value={user.emailVerified ? "Verified" : "Pending"}
+                  />
+                </>
+              ) : (
+                <>
+                  <DetailRow
+                    label="Who can view this page"
+                    value="Anyone, with or without login"
+                  />
+                  <DetailRow
+                    label="Role dashboards"
+                    value="Still protected and available after login"
+                  />
+                </>
+              )}
+              <div className="flex items-center gap-2 text-zinc-600">
+                {user ? <UserRound className="size-4" /> : <ShieldCheck className="size-4" />}
+                <span>{user ? "Signed-in user detected" : "Public access enabled"}</span>
+              </div>
             </CardContent>
           </Card>
         </section>
@@ -108,32 +192,11 @@ export default async function Home() {
   );
 }
 
-function OverviewItem({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
+function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-      <div className="mb-3 inline-flex size-10 items-center justify-center rounded-md bg-white text-zinc-700 shadow-sm">
-        {icon}
-      </div>
-      <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">
-        {label}
-      </p>
-      <p className="mt-2 text-base font-semibold text-zinc-950">{value}</p>
-    </div>
-  );
-}
-
-function FeatureLine({ text }: { text: string }) {
-  return (
-    <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3">
-      {text}
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">{label}</p>
+      <p className="mt-1 font-medium text-zinc-950">{value}</p>
     </div>
   );
 }

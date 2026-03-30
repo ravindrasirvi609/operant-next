@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { adminFacultyProvisionSchema } from "@/lib/admin/validators";
+import { designationOptions } from "@/lib/faculty/options";
 
 type Option = {
     key: string;
@@ -441,9 +442,7 @@ export function FacultyProvisioningPanel({
                         </div>
 
                         <div className="grid gap-5 md:grid-cols-3">
-                            <Field label="Designation" id="faculty-designation" error={form.formState.errors.designation?.message}>
-                                <Input id="faculty-designation" placeholder="Associate Professor" {...form.register("designation")} />
-                            </Field>
+                            <DesignationField control={form.control} error={form.formState.errors.designation?.message} />
                             <Field label="Joining date" id="faculty-joining-date" error={form.formState.errors.joiningDate?.message}>
                                 <Input id="faculty-joining-date" type="date" {...form.register("joiningDate")} />
                             </Field>
@@ -611,6 +610,37 @@ function EmploymentTypeField({
                             <SelectItem value="Permanent">Permanent</SelectItem>
                             <SelectItem value="AdHoc">AdHoc</SelectItem>
                             <SelectItem value="Guest">Guest</SelectItem>
+                        </SelectContent>
+                    </Select>
+                )}
+            />
+        </Field>
+    );
+}
+
+function DesignationField({
+    control,
+    error,
+}: {
+    control: ReturnType<typeof useForm<FacultyProvisionValues>>["control"];
+    error?: string;
+}) {
+    return (
+        <Field label="Designation" id="faculty-designation" error={error}>
+            <Controller
+                control={control}
+                name="designation"
+                render={({ field }) => (
+                    <Select value={field.value || undefined} onValueChange={field.onChange}>
+                        <SelectTrigger id="faculty-designation" className="w-full">
+                            <SelectValue placeholder="Select designation" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {designationOptions.map((designation) => (
+                                <SelectItem key={designation} value={designation}>
+                                    {designation}
+                                </SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                 )}
