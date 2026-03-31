@@ -139,6 +139,7 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
     const [recordsErrorByFacultyId, setRecordsErrorByFacultyId] = useState<Record<string, string>>({});
     const [loadingFacultyId, setLoadingFacultyId] = useState<string | null>(null);
     const deferredSearch = useDeferredValue(search);
+    const queryString = searchParams.toString();
 
     const filteredRows = useMemo(() => {
         const query = deferredSearch.trim().toLowerCase();
@@ -178,12 +179,11 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
     const currentDialogRoute = selectedFacultyId
         ? `${pathname}?facultyId=${selectedFacultyId}&facultyTab=${activeTab}`
         : pathname;
+    const routeFacultyId = searchParams.get("facultyId");
+    const routeTab = searchParams.get("facultyTab");
 
     useEffect(() => {
-        const routeFacultyId = searchParams.get("facultyId");
-        const routeTab = searchParams.get("facultyTab");
-
-        if (routeTab && dialogTabValues.has(routeTab as FacultyDialogTab)) {
+        if (routeTab && dialogTabValues.has(routeTab as FacultyDialogTab) && routeTab !== activeTab) {
             setActiveTab(routeTab as FacultyDialogTab);
         }
 
@@ -200,22 +200,22 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
         setSelectedFaculty((current) =>
             current?.facultyId === matchedFaculty.facultyId ? current : matchedFaculty
         );
-    }, [searchParams, rows]);
+    }, [routeFacultyId, routeTab, rows, activeTab]);
 
     useEffect(() => {
-        const params = new URLSearchParams(searchParams.toString());
-        const routeFacultyId = params.get("facultyId");
-        const routeTab = params.get("facultyTab");
+        const params = new URLSearchParams(queryString);
+        const currentRouteFacultyId = params.get("facultyId");
+        const currentRouteTab = params.get("facultyTab");
 
         if (!selectedFacultyId) {
-            if (!routeFacultyId && !routeTab) {
+            if (!currentRouteFacultyId && !currentRouteTab) {
                 return;
             }
 
             params.delete("facultyId");
             params.delete("facultyTab");
         } else {
-            if (routeFacultyId === selectedFacultyId && routeTab === activeTab) {
+            if (currentRouteFacultyId === selectedFacultyId && currentRouteTab === activeTab) {
                 return;
             }
 
@@ -225,25 +225,31 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
 
         const nextRoute = params.toString() ? `${pathname}?${params.toString()}` : pathname;
         router.replace(nextRoute, { scroll: false });
-    }, [selectedFacultyId, activeTab, pathname, router, searchParams]);
+    }, [selectedFacultyId, activeTab, pathname, router, queryString]);
 
     useEffect(() => {
         if (!selectedFacultyId) {
             return;
         }
 
-        if (recordsByFacultyId[selectedFacultyId]) {
+        const facultyId = selectedFacultyId;
+
+        if (loadingFacultyId === facultyId) {
+            return;
+        }
+
+        if (recordsByFacultyId[facultyId]) {
             return;
         }
 
         let disposed = false;
         const controller = new AbortController();
 
-        setLoadingFacultyId(selectedFacultyId);
+        setLoadingFacultyId(facultyId);
 
         const loadFacultyRecords = async () => {
             try {
-                const response = await fetch(`/api/director/faculty/${selectedFacultyId}/records`, {
+                const response = await fetch(`/api/director/faculty/${facultyId}/records`, {
                     method: "GET",
                     cache: "no-store",
                     signal: controller.signal,
@@ -258,21 +264,23 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
                     throw new Error(payload.message ?? "Unable to load faculty records.");
                 }
 
-                if (disposed || !payload.records) {
+                const records = payload.records;
+
+                if (disposed || !records) {
                     return;
                 }
 
                 setRecordsByFacultyId((current) => ({
                     ...current,
-                    [selectedFacultyId]: payload.records,
+                    [facultyId]: records,
                 }));
                 setRecordsErrorByFacultyId((current) => {
-                    if (!current[selectedFacultyId]) {
+                    if (!current[facultyId]) {
                         return current;
                     }
 
                     const next = { ...current };
-                    delete next[selectedFacultyId];
+                    delete next[facultyId];
                     return next;
                 });
             } catch (error) {
@@ -286,7 +294,7 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
 
                 setRecordsErrorByFacultyId((current) => ({
                     ...current,
-                    [selectedFacultyId]:
+                    [facultyId]:
                         error instanceof Error
                             ? error.message
                             : "Unable to load faculty records.",
@@ -294,7 +302,7 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
             } finally {
                 if (!disposed) {
                     setLoadingFacultyId((current) =>
-                        current === selectedFacultyId ? null : current
+                        current === facultyId ? null : current
                     );
                 }
             }
@@ -306,7 +314,7 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
             disposed = true;
             controller.abort();
         };
-    }, [selectedFacultyId, recordsByFacultyId]);
+    }, [selectedFacultyId, loadingFacultyId, recordsByFacultyId]);
 
     function renderRecordsTab(content: (records: LeadershipFacultyRecordsData) => ReactNode) {
         if (isLoadingRecords) {
@@ -522,8 +530,6 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
                                         <TabsTrigger value="aqar">AQAR</TabsTrigger>
                                     </TabsList>
                                 </div>
-
-                      
 
                                 <TabsContent value="overview" className="space-y-4">
                                     {renderRecordsTab((records) => (

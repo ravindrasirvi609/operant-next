@@ -165,6 +165,7 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
     const [recordsErrorByStudentId, setRecordsErrorByStudentId] = useState<Record<string, string>>({});
     const [loadingStudentId, setLoadingStudentId] = useState<string | null>(null);
     const deferredSearch = useDeferredValue(search);
+    const queryString = searchParams.toString();
 
     const filteredRows = useMemo(() => {
         const query = deferredSearch.trim().toLowerCase();
@@ -205,12 +206,11 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
     const currentDialogRoute = selectedStudentId
         ? `${pathname}?studentId=${selectedStudentId}&tab=${activeTab}`
         : pathname;
+    const routeStudentId = searchParams.get("studentId");
+    const routeTab = searchParams.get("tab");
 
     useEffect(() => {
-        const routeStudentId = searchParams.get("studentId");
-        const routeTab = searchParams.get("tab");
-
-        if (routeTab && dialogTabValues.has(routeTab as StudentDialogTab)) {
+        if (routeTab && dialogTabValues.has(routeTab as StudentDialogTab) && routeTab !== activeTab) {
             setActiveTab(routeTab as StudentDialogTab);
         }
 
@@ -227,22 +227,22 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
         setSelectedStudent((current) =>
             current?.studentId === matchedStudent.studentId ? current : matchedStudent
         );
-    }, [searchParams, rows]);
+    }, [routeStudentId, routeTab, rows, activeTab]);
 
     useEffect(() => {
-        const params = new URLSearchParams(searchParams.toString());
-        const routeStudentId = params.get("studentId");
-        const routeTab = params.get("tab");
+        const params = new URLSearchParams(queryString);
+        const currentRouteStudentId = params.get("studentId");
+        const currentRouteTab = params.get("tab");
 
         if (!selectedStudentId) {
-            if (!routeStudentId && !routeTab) {
+            if (!currentRouteStudentId && !currentRouteTab) {
                 return;
             }
 
             params.delete("studentId");
             params.delete("tab");
         } else {
-            if (routeStudentId === selectedStudentId && routeTab === activeTab) {
+            if (currentRouteStudentId === selectedStudentId && currentRouteTab === activeTab) {
                 return;
             }
 
@@ -252,25 +252,31 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
 
         const nextRoute = params.toString() ? `${pathname}?${params.toString()}` : pathname;
         router.replace(nextRoute, { scroll: false });
-    }, [selectedStudentId, activeTab, pathname, router, searchParams]);
+    }, [selectedStudentId, activeTab, pathname, router, queryString]);
 
     useEffect(() => {
         if (!selectedStudentId) {
             return;
         }
 
-        if (recordsByStudentId[selectedStudentId]) {
+        const studentId = selectedStudentId;
+
+        if (loadingStudentId === studentId) {
+            return;
+        }
+
+        if (recordsByStudentId[studentId]) {
             return;
         }
 
         let disposed = false;
         const controller = new AbortController();
 
-        setLoadingStudentId(selectedStudentId);
+        setLoadingStudentId(studentId);
 
         const loadStudentRecords = async () => {
             try {
-                const response = await fetch(`/api/director/students/${selectedStudentId}/records`, {
+                const response = await fetch(`/api/director/students/${studentId}/records`, {
                     method: "GET",
                     cache: "no-store",
                     signal: controller.signal,
@@ -291,15 +297,15 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
 
                 setRecordsByStudentId((current) => ({
                     ...current,
-                    [selectedStudentId]: payload.records as LeadershipStudentRecordsData,
+                    [studentId]: payload.records as LeadershipStudentRecordsData,
                 }));
                 setRecordsErrorByStudentId((current) => {
-                    if (!current[selectedStudentId]) {
+                    if (!current[studentId]) {
                         return current;
                     }
 
                     const next = { ...current };
-                    delete next[selectedStudentId];
+                    delete next[studentId];
                     return next;
                 });
             } catch (error) {
@@ -313,7 +319,7 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
 
                 setRecordsErrorByStudentId((current) => ({
                     ...current,
-                    [selectedStudentId]:
+                    [studentId]:
                         error instanceof Error
                             ? error.message
                             : "Unable to load student records.",
@@ -321,7 +327,7 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
             } finally {
                 if (!disposed) {
                     setLoadingStudentId((current) =>
-                        current === selectedStudentId ? null : current
+                        current === studentId ? null : current
                     );
                 }
             }
@@ -333,7 +339,7 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
             disposed = true;
             controller.abort();
         };
-    }, [selectedStudentId, recordsByStudentId]);
+    }, [selectedStudentId, loadingStudentId, recordsByStudentId]);
 
     function renderRecordsTab(content: (records: LeadershipStudentRecordsData) => ReactNode) {
         if (isLoadingRecords) {
@@ -517,7 +523,6 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
                                         <TabsTrigger value="career">Career</TabsTrigger>
                                     </TabsList>
                                 </div>
-
                                 <TabsContent value="overview" className="space-y-4">
                                     {renderRecordsTab((records) => (
                                         <>
