@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createApiErrorResponse } from "@/lib/auth/http";
 import { getCurrentUser } from "@/lib/auth/user";
-import { getStudentProfile } from "@/lib/student/service";
+import { getStudentProfile, saveStudentProfile } from "@/lib/student/service";
 
 export async function GET() {
     try {
@@ -28,10 +28,10 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Student access required." }, { status: 403 });
         }
 
-        return NextResponse.json({
-            message:
-                "Student self-profile editing has been retired. Use the institutional records workspace for student data entry.",
-        }, { status: 410 });
+        const body = await request.json();
+        const result = await saveStudentProfile(user.id, body);
+
+        return NextResponse.json(result);
     } catch (error) {
         return createApiErrorResponse(error);
     }

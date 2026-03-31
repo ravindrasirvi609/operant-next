@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Building2, ClipboardList, FileStack, Users2 } from "lucide-react";
+import { BarChart3, Building2, ClipboardList, FileStack, GraduationCap, Users2 } from "lucide-react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ const navigation = [
     { href: "/director", label: "Overview", icon: Building2 },
     { href: "/director/approvals", label: "Approvals", icon: ClipboardList },
     { href: "/director/faculty", label: "Faculty", icon: Users2 },
+    { href: "/director/students", label: "Students", icon: GraduationCap },
     { href: "/director/evidence", label: "Evidence Review", icon: FileStack },
     { href: "/director/cas", label: "CAS Reviews", icon: FileStack },
     { href: "/director/pbas", label: "PBAS Reviews", icon: FileStack },

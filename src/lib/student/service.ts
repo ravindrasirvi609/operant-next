@@ -1,5 +1,6 @@
 import dbConnect from "@/lib/dbConnect";
 import { AuthError } from "@/lib/auth/errors";
+import { studentProfileSchema } from "@/lib/student/validators";
 import User from "@/models/core/user";
 import Student from "@/models/student/student";
 import Program from "@/models/academic/program";
@@ -114,5 +115,52 @@ export async function getStudentProfile(userId: string) {
         institution: student.institutionId,
         department: student.departmentId,
         program: program ?? student.programId,
+    };
+}
+
+export async function saveStudentProfile(userId: string, rawInput: unknown) {
+    const input = studentProfileSchema.parse(rawInput);
+
+    await dbConnect();
+
+    const user = await User.findById(userId);
+
+    if (!user || user.role !== "Student") {
+        throw new AuthError("Student account not found.", 404);
+    }
+
+    const student =
+        (user.studentId
+            ? await Student.findById(user.studentId)
+            : await Student.findOne({ userId: user._id })) ?? null;
+
+    if (!student) {
+        throw new AuthError("Student record not found.", 404);
+    }
+
+    const fullName = [input.firstName, input.lastName].filter(Boolean).join(" ").trim();
+
+    student.firstName = input.firstName;
+    student.lastName = input.lastName || undefined;
+    student.gender = input.gender;
+    student.dob = toDateOrUndefined(input.dob) ?? undefined;
+    student.mobile = input.mobile || undefined;
+    student.address = input.address || undefined;
+
+    user.name = fullName || input.firstName;
+    user.phone = input.mobile || undefined;
+
+    await Promise.all([student.save(), user.save()]);
+
+    return {
+        message: "Student profile updated successfully.",
+        profile: {
+            firstName: student.firstName,
+            lastName: student.lastName ?? "",
+            gender: student.gender,
+            dob: student.dob ? student.dob.toISOString().slice(0, 10) : "",
+            mobile: student.mobile ?? "",
+            address: student.address ?? "",
+        },
     };
 }

@@ -8,6 +8,7 @@ import {
     type AuthorizationProfile,
     type AuthorizationScope,
 } from "@/lib/authorization/service";
+import { AuthError } from "@/lib/auth/errors";
 import dbConnect from "@/lib/dbConnect";
 import { getEvidenceDashboardSummary } from "@/lib/evidence/service";
 import { listPendingWorkflowRecordIds } from "@/lib/workflow/engine";
@@ -16,9 +17,30 @@ import GovernanceCommitteeMembership from "@/models/core/governance-committee-me
 import LeadershipAssignment, { type LeadershipAssignmentType } from "@/models/core/leadership-assignment";
 import CasApplication from "@/models/core/cas-application";
 import FacultyPbasForm from "@/models/core/faculty-pbas-form";
+import Program from "@/models/academic/program";
 import Department from "@/models/reference/department";
 import Faculty from "@/models/faculty/faculty";
+import Internship from "@/models/student/internship";
+import Placement from "@/models/student/placement";
+import StudentAcademicRecord from "@/models/student/student-academic-record";
+import StudentAward from "@/models/student/student-award";
+import StudentCulturalParticipation from "@/models/student/student-cultural-participation";
+import StudentEventParticipation from "@/models/student/student-event-participation";
+import Student from "@/models/student/student";
+import StudentPublication from "@/models/student/student-publication";
+import StudentResearchProject from "@/models/student/student-research-project";
+import StudentSkill from "@/models/student/student-skill";
+import StudentSocialParticipation from "@/models/student/student-social-participation";
+import StudentSport from "@/models/student/student-sport";
 import User from "@/models/core/user";
+import "@/models/reference/award";
+import "@/models/reference/cultural-activity";
+import "@/models/reference/document";
+import "@/models/reference/event";
+import "@/models/reference/semester";
+import "@/models/reference/skill";
+import "@/models/reference/social-program";
+import "@/models/reference/sport";
 
 type LeadershipDashboardActor = AuthorizationActor;
 
@@ -42,12 +64,19 @@ type LeadershipModuleSummary = {
     draft: number;
 };
 
-type LeadershipFacultyRow = {
+export type LeadershipFacultyRow = {
     facultyId: string;
     facultyName: string;
     employeeCode: string;
     designation: string;
+    photoURL?: string;
     email?: string;
+    mobile?: string;
+    employmentType?: string;
+    highestQualification?: string;
+    experienceYears?: number;
+    accountStatus?: string;
+    lastLoginAt?: string;
     departmentId?: string;
     departmentName?: string;
     institutionName?: string;
@@ -59,6 +88,195 @@ type LeadershipFacultyRow = {
     aqarStatus?: string;
     aqarAcademicYear?: string;
     needsAttention: boolean;
+};
+
+export type LeadershipStudentRow = {
+    studentId: string;
+    studentName: string;
+    enrollmentNo: string;
+    photoURL?: string;
+    email?: string;
+    mobile?: string;
+    departmentId?: string;
+    departmentName?: string;
+    programId?: string;
+    programName?: string;
+    institutionName?: string;
+    admissionYear: number;
+    status: string;
+    gender?: string;
+    dob?: string;
+    address?: string;
+    accountStatus?: string;
+    lastLoginAt?: string;
+};
+
+type LeadershipStudentRecordDocument = {
+    fileName?: string;
+    fileUrl?: string;
+    verificationStatus?: string;
+};
+
+export type LeadershipFacultyRecordsData = {
+    summary: {
+        pbas: number;
+        cas: number;
+        aqar: number;
+        pending: number;
+        approved: number;
+        rejected: number;
+        total: number;
+    };
+    pbas: Array<{
+        id: string;
+        academicYear: string;
+        status: string;
+        submissionStatus: string;
+        submittedAt?: string;
+        updatedAt?: string;
+        reviewCount: number;
+    }>;
+    cas: Array<{
+        id: string;
+        applicationYear: string;
+        currentDesignation: string;
+        applyingForDesignation: string;
+        status: string;
+        apiScore?: number;
+        experienceYears?: number;
+        submittedAt?: string;
+        updatedAt?: string;
+    }>;
+    aqar: Array<{
+        id: string;
+        academicYear: string;
+        status: string;
+        contributionIndex?: number;
+        researchPaperCount?: number;
+        patentCount?: number;
+        submittedAt?: string;
+        updatedAt?: string;
+    }>;
+};
+
+export type LeadershipStudentRecordsData = {
+    summary: {
+        academics: number;
+        publications: number;
+        researchProjects: number;
+        awards: number;
+        skills: number;
+        sports: number;
+        cultural: number;
+        events: number;
+        social: number;
+        internships: number;
+        placements: number;
+        total: number;
+    };
+    academics: Array<{
+        id: string;
+        semester: string;
+        sgpa?: number;
+        cgpa?: number;
+        percentage?: number;
+        rank?: number;
+        resultStatus?: string;
+    }>;
+    publications: Array<{
+        id: string;
+        title: string;
+        publicationType?: string;
+        journalName?: string;
+        publisher?: string;
+        publicationDate?: string;
+        doi?: string;
+        indexedIn?: string;
+        document?: LeadershipStudentRecordDocument;
+    }>;
+    researchProjects: Array<{
+        id: string;
+        title: string;
+        guideName?: string;
+        status?: string;
+        startDate?: string;
+        endDate?: string;
+        description?: string;
+        document?: LeadershipStudentRecordDocument;
+    }>;
+    awards: Array<{
+        id: string;
+        title: string;
+        category?: string;
+        level?: string;
+        organizingBody?: string;
+        awardDate?: string;
+        document?: LeadershipStudentRecordDocument;
+    }>;
+    skills: Array<{
+        id: string;
+        name: string;
+        category?: string;
+        provider?: string;
+        startDate?: string;
+        endDate?: string;
+        document?: LeadershipStudentRecordDocument;
+    }>;
+    sports: Array<{
+        id: string;
+        sportName: string;
+        eventName: string;
+        level?: string;
+        position?: string;
+        eventDate?: string;
+        document?: LeadershipStudentRecordDocument;
+    }>;
+    cultural: Array<{
+        id: string;
+        activityName: string;
+        category?: string;
+        eventName: string;
+        level?: string;
+        position?: string;
+        date?: string;
+        document?: LeadershipStudentRecordDocument;
+    }>;
+    events: Array<{
+        id: string;
+        title: string;
+        eventType?: string;
+        organizedBy?: string;
+        role: string;
+        paperTitle?: string;
+        eventDate?: string;
+        document?: LeadershipStudentRecordDocument;
+    }>;
+    social: Array<{
+        id: string;
+        programName: string;
+        programType?: string;
+        activityName: string;
+        hoursContributed?: number;
+        date?: string;
+        document?: LeadershipStudentRecordDocument;
+    }>;
+    internships: Array<{
+        id: string;
+        companyName: string;
+        role?: string;
+        startDate?: string;
+        endDate?: string;
+        stipend?: number;
+        document?: LeadershipStudentRecordDocument;
+    }>;
+    placements: Array<{
+        id: string;
+        companyName: string;
+        jobRole?: string;
+        package?: number;
+        offerDate?: string;
+        joiningDate?: string;
+    }>;
 };
 
 type LeadershipDepartmentRow = {
@@ -196,6 +414,24 @@ function formatQueueDate(value?: Date) {
     return new Date(value).toISOString();
 }
 
+function mapDocumentRef(document: unknown): LeadershipStudentRecordDocument | undefined {
+    if (!document || typeof document !== "object") {
+        return undefined;
+    }
+
+    const doc = document as {
+        fileName?: string;
+        fileUrl?: string;
+        verificationStatus?: string;
+    };
+
+    return {
+        fileName: doc.fileName,
+        fileUrl: doc.fileUrl,
+        verificationStatus: doc.verificationStatus,
+    };
+}
+
 async function loadAssignments(actorId: string) {
     return LeadershipAssignment.find({
         userId: new Types.ObjectId(actorId),
@@ -246,7 +482,9 @@ async function loadFacultyRoster(
     const faculty = await Faculty.find({
         departmentId: { $in: toObjectIdArray(departmentIds) },
     })
-        .select("userId employeeCode firstName lastName designation departmentId status")
+        .select(
+            "userId employeeCode firstName lastName designation departmentId status mobile employmentType highestQualification experienceYears"
+        )
         .sort({ firstName: 1, lastName: 1 })
         .lean();
 
@@ -256,7 +494,7 @@ async function loadFacultyRoster(
 
     const [users, pbasRows, casRows, aqarRows] = await Promise.all([
         User.find({ _id: { $in: toObjectIdArray(userIds) } })
-            .select("email")
+            .select("email phone photoURL accountStatus lastLoginAt")
             .lean(),
         FacultyPbasForm.find({ facultyId: { $in: faculty.map((row) => row._id) } })
             .select("facultyId academicYear status updatedAt")
@@ -272,7 +510,18 @@ async function loadFacultyRoster(
             .lean(),
     ]);
 
-    const emailByUserId = new Map(users.map((user) => [user._id.toString(), user.email]));
+    const userById = new Map(
+        users.map((user) => [
+            user._id.toString(),
+            {
+                email: user.email,
+                phone: user.phone,
+                photoURL: user.photoURL,
+                accountStatus: user.accountStatus,
+                lastLoginAt: formatQueueDate(user.lastLoginAt),
+            },
+        ])
+    );
     const latestPbas = indexLatestRecord(pbasRows);
     const latestCas = indexLatestRecord(casRows);
     const latestAqar = indexLatestRecord(aqarRows);
@@ -284,13 +533,21 @@ async function loadFacultyRoster(
         const aqar = latestAqar.get(facultyId);
         const facultyName = [row.firstName, row.lastName].filter(Boolean).join(" ");
         const departmentId = row.departmentId?.toString();
+        const userSnapshot = row.userId ? userById.get(row.userId.toString()) : undefined;
 
         return {
             facultyId,
             facultyName,
             employeeCode: row.employeeCode,
             designation: row.designation,
-            email: row.userId ? emailByUserId.get(row.userId.toString()) : undefined,
+            photoURL: userSnapshot?.photoURL,
+            email: userSnapshot?.email,
+            mobile: row.mobile ?? userSnapshot?.phone,
+            employmentType: row.employmentType,
+            highestQualification: row.highestQualification,
+            experienceYears: row.experienceYears,
+            accountStatus: userSnapshot?.accountStatus,
+            lastLoginAt: userSnapshot?.lastLoginAt,
             departmentId,
             departmentName: departmentId ? departmentNameById.get(departmentId) : undefined,
             institutionName: departmentId ? institutionNameByDepartmentId.get(departmentId) : undefined,
@@ -302,6 +559,82 @@ async function loadFacultyRoster(
             aqarStatus: aqar?.status,
             aqarAcademicYear: aqar?.academicYear,
             needsAttention: [pbas?.status, cas?.status, aqar?.status].some((status) => isPendingStatus(status)),
+        };
+    });
+}
+
+async function loadStudentRoster(
+    departmentIds: string[],
+    departmentNameById: Map<string, string>,
+    institutionNameByDepartmentId: Map<string, string | undefined>
+): Promise<LeadershipStudentRow[]> {
+    const students = await Student.find({
+        departmentId: { $in: toObjectIdArray(departmentIds) },
+    })
+        .select(
+            "userId enrollmentNo firstName lastName email mobile departmentId programId admissionYear status gender dob address"
+        )
+        .sort({ firstName: 1, lastName: 1, enrollmentNo: 1 })
+        .lean();
+
+    const userIds = uniqueStrings(
+        students.map((row) => row.userId?.toString())
+    );
+    const programIds = uniqueStrings(
+        students.map((row) => row.programId?.toString())
+    );
+
+    const [users, programs] = await Promise.all([
+        User.find({ _id: { $in: toObjectIdArray(userIds) } })
+            .select("email phone photoURL accountStatus lastLoginAt")
+            .lean(),
+        Program.find({ _id: { $in: toObjectIdArray(programIds) } })
+            .select("name")
+            .lean(),
+    ]);
+
+    const userById = new Map(
+        users.map((user) => [
+            user._id.toString(),
+            {
+                email: user.email,
+                phone: user.phone,
+                photoURL: user.photoURL,
+                accountStatus: user.accountStatus,
+                lastLoginAt: formatQueueDate(user.lastLoginAt),
+            },
+        ])
+    );
+    const programNameById = new Map(
+        programs.map((program) => [program._id.toString(), program.name])
+    );
+
+    return students.map((row) => {
+        const studentId = row._id.toString();
+        const studentName = [row.firstName, row.lastName].filter(Boolean).join(" ") || row.enrollmentNo;
+        const departmentId = row.departmentId?.toString();
+        const programId = row.programId?.toString();
+        const userSnapshot = row.userId ? userById.get(row.userId.toString()) : undefined;
+
+        return {
+            studentId,
+            studentName,
+            enrollmentNo: row.enrollmentNo,
+            photoURL: userSnapshot?.photoURL,
+            email: row.email ?? userSnapshot?.email,
+            mobile: row.mobile ?? userSnapshot?.phone,
+            departmentId,
+            departmentName: departmentId ? departmentNameById.get(departmentId) : undefined,
+            programId,
+            programName: programId ? programNameById.get(programId) : undefined,
+            institutionName: departmentId ? institutionNameByDepartmentId.get(departmentId) : undefined,
+            admissionYear: row.admissionYear,
+            status: row.status,
+            gender: row.gender,
+            dob: row.dob ? row.dob.toISOString() : undefined,
+            address: row.address,
+            accountStatus: userSnapshot?.accountStatus,
+            lastLoginAt: userSnapshot?.lastLoginAt,
         };
     });
 }
@@ -631,5 +964,392 @@ export async function getLeadershipCsvExport(
                 row.needsAttention ? "Yes" : "No",
             ]),
         ],
+    };
+}
+
+export async function getLeadershipStudentRoster(
+    actor: LeadershipDashboardActor
+): Promise<LeadershipStudentRow[]> {
+    await dbConnect();
+
+    const profile = await resolveAuthorizationProfile(actor);
+    const departmentIds = await resolveAuthorizedEvidenceDepartmentIds(profile);
+
+    if (!departmentIds.length) {
+        return [];
+    }
+
+    const departments = await Department.find({ _id: { $in: toObjectIdArray(departmentIds) } })
+        .populate("institutionId", "name")
+        .select("_id name institutionId")
+        .lean();
+
+    const departmentNameById = new Map(departments.map((row) => [row._id.toString(), row.name]));
+    const institutionNameByDepartmentId = new Map(
+        departments.map((row) => [
+            row._id.toString(),
+            typeof row.institutionId === "object" && row.institutionId && "name" in row.institutionId
+                ? String(row.institutionId.name)
+                : undefined,
+        ])
+    );
+
+    return loadStudentRoster(departmentIds, departmentNameById, institutionNameByDepartmentId);
+}
+
+export async function getLeadershipStudentRecords(
+    actor: LeadershipDashboardActor,
+    studentId: string
+): Promise<LeadershipStudentRecordsData> {
+    await dbConnect();
+
+    if (!Types.ObjectId.isValid(studentId)) {
+        throw new AuthError("Invalid student identifier.", 400);
+    }
+
+    const profile = await resolveAuthorizationProfile(actor);
+    const departmentIds = await resolveAuthorizedEvidenceDepartmentIds(profile);
+
+    if (!departmentIds.length) {
+        throw new AuthError("You do not have department scope access.", 403);
+    }
+
+    const student = await Student.findById(studentId).select("departmentId").lean();
+
+    if (!student) {
+        throw new AuthError("Student not found.", 404);
+    }
+
+    const studentDepartmentId = student.departmentId?.toString();
+    if (!studentDepartmentId || !departmentIds.includes(studentDepartmentId)) {
+        throw new AuthError("You are not authorized to view this student.", 403);
+    }
+
+    const [
+        academics,
+        publications,
+        researchProjects,
+        awards,
+        skills,
+        sports,
+        cultural,
+        events,
+        social,
+        internships,
+        placements,
+    ] = await Promise.all([
+        StudentAcademicRecord.find({ studentId: student._id })
+            .populate("semesterId", "semesterNumber")
+            .sort({ semesterId: 1 })
+            .lean(),
+        StudentPublication.find({ studentId: student._id })
+            .populate("documentId", "fileName fileUrl verificationStatus")
+            .sort({ publicationDate: -1, createdAt: -1 })
+            .lean(),
+        StudentResearchProject.find({ studentId: student._id })
+            .populate("documentId", "fileName fileUrl verificationStatus")
+            .sort({ startDate: -1, createdAt: -1 })
+            .lean(),
+        StudentAward.find({ studentId: student._id })
+            .populate("awardId", "title category level organizingBody")
+            .populate("documentId", "fileName fileUrl verificationStatus")
+            .sort({ awardDate: -1, createdAt: -1 })
+            .lean(),
+        StudentSkill.find({ studentId: student._id })
+            .populate("skillId", "name category")
+            .populate("documentId", "fileName fileUrl verificationStatus")
+            .sort({ startDate: -1, createdAt: -1 })
+            .lean(),
+        StudentSport.find({ studentId: student._id })
+            .populate("sportId", "sportName")
+            .populate("documentId", "fileName fileUrl verificationStatus")
+            .sort({ eventDate: -1, createdAt: -1 })
+            .lean(),
+        StudentCulturalParticipation.find({ studentId: student._id })
+            .populate("activityId", "name category")
+            .populate("documentId", "fileName fileUrl verificationStatus")
+            .sort({ date: -1, createdAt: -1 })
+            .lean(),
+        StudentEventParticipation.find({ studentId: student._id })
+            .populate("eventId", "title eventType organizedBy startDate")
+            .populate("documentId", "fileName fileUrl verificationStatus")
+            .sort({ createdAt: -1 })
+            .lean(),
+        StudentSocialParticipation.find({ studentId: student._id })
+            .populate("programId", "name type")
+            .populate("documentId", "fileName fileUrl verificationStatus")
+            .sort({ date: -1, createdAt: -1 })
+            .lean(),
+        Internship.find({ studentId: student._id })
+            .populate("documentId", "fileName fileUrl verificationStatus")
+            .sort({ startDate: -1, createdAt: -1 })
+            .lean(),
+        Placement.find({ studentId: student._id })
+            .sort({ offerDate: -1, createdAt: -1 })
+            .lean(),
+    ]);
+
+    const payload: LeadershipStudentRecordsData = {
+        summary: {
+            academics: academics.length,
+            publications: publications.length,
+            researchProjects: researchProjects.length,
+            awards: awards.length,
+            skills: skills.length,
+            sports: sports.length,
+            cultural: cultural.length,
+            events: events.length,
+            social: social.length,
+            internships: internships.length,
+            placements: placements.length,
+            total:
+                academics.length +
+                publications.length +
+                researchProjects.length +
+                awards.length +
+                skills.length +
+                sports.length +
+                cultural.length +
+                events.length +
+                social.length +
+                internships.length +
+                placements.length,
+        },
+        academics: academics.map((row) => {
+            const semesterRef = row.semesterId as { semesterNumber?: number } | undefined;
+            return {
+                id: row._id.toString(),
+                semester: semesterRef?.semesterNumber ? `Semester ${semesterRef.semesterNumber}` : "-",
+                sgpa: row.sgpa,
+                cgpa: row.cgpa,
+                percentage: row.percentage,
+                rank: row.rank,
+                resultStatus: row.resultStatus,
+            };
+        }),
+        publications: publications.map((row) => ({
+            id: row._id.toString(),
+            title: row.title,
+            publicationType: row.publicationType,
+            journalName: row.journalName,
+            publisher: row.publisher,
+            publicationDate: formatQueueDate(row.publicationDate),
+            doi: row.doi,
+            indexedIn: row.indexedIn,
+            document: mapDocumentRef(row.documentId),
+        })),
+        researchProjects: researchProjects.map((row) => ({
+            id: row._id.toString(),
+            title: row.title,
+            guideName: row.guideName,
+            status: row.status,
+            startDate: formatQueueDate(row.startDate),
+            endDate: formatQueueDate(row.endDate),
+            description: row.description,
+            document: mapDocumentRef(row.documentId),
+        })),
+        awards: awards.map((row) => {
+            const awardRef = row.awardId as {
+                title?: string;
+                category?: string;
+                level?: string;
+                organizingBody?: string;
+            } | undefined;
+            return {
+                id: row._id.toString(),
+                title: awardRef?.title ?? "Award",
+                category: awardRef?.category,
+                level: awardRef?.level,
+                organizingBody: awardRef?.organizingBody,
+                awardDate: formatQueueDate(row.awardDate),
+                document: mapDocumentRef(row.documentId),
+            };
+        }),
+        skills: skills.map((row) => {
+            const skillRef = row.skillId as { name?: string; category?: string } | undefined;
+            return {
+                id: row._id.toString(),
+                name: skillRef?.name ?? "Skill",
+                category: skillRef?.category,
+                provider: row.provider,
+                startDate: formatQueueDate(row.startDate),
+                endDate: formatQueueDate(row.endDate),
+                document: mapDocumentRef(row.documentId),
+            };
+        }),
+        sports: sports.map((row) => {
+            const sportRef = row.sportId as { sportName?: string } | undefined;
+            return {
+                id: row._id.toString(),
+                sportName: sportRef?.sportName ?? "Sport",
+                eventName: row.eventName,
+                level: row.level,
+                position: row.position,
+                eventDate: formatQueueDate(row.eventDate),
+                document: mapDocumentRef(row.documentId),
+            };
+        }),
+        cultural: cultural.map((row) => {
+            const activityRef = row.activityId as { name?: string; category?: string } | undefined;
+            return {
+                id: row._id.toString(),
+                activityName: activityRef?.name ?? "Activity",
+                category: activityRef?.category,
+                eventName: row.eventName,
+                level: row.level,
+                position: row.position,
+                date: formatQueueDate(row.date),
+                document: mapDocumentRef(row.documentId),
+            };
+        }),
+        events: events.map((row) => {
+            const eventRef = row.eventId as {
+                title?: string;
+                eventType?: string;
+                organizedBy?: string;
+                startDate?: Date;
+            } | undefined;
+            return {
+                id: row._id.toString(),
+                title: eventRef?.title ?? "Event",
+                eventType: eventRef?.eventType,
+                organizedBy: eventRef?.organizedBy,
+                role: row.role,
+                paperTitle: row.paperTitle,
+                eventDate: formatQueueDate(eventRef?.startDate),
+                document: mapDocumentRef(row.documentId),
+            };
+        }),
+        social: social.map((row) => {
+            const programRef = row.programId as { name?: string; type?: string } | undefined;
+            return {
+                id: row._id.toString(),
+                programName: programRef?.name ?? "Program",
+                programType: programRef?.type,
+                activityName: row.activityName,
+                hoursContributed: row.hoursContributed,
+                date: formatQueueDate(row.date),
+                document: mapDocumentRef(row.documentId),
+            };
+        }),
+        internships: internships.map((row) => ({
+            id: row._id.toString(),
+            companyName: row.companyName,
+            role: row.role,
+            startDate: formatQueueDate(row.startDate),
+            endDate: formatQueueDate(row.endDate),
+            stipend: row.stipend,
+            document: mapDocumentRef(row.documentId),
+        })),
+        placements: placements.map((row) => ({
+            id: row._id.toString(),
+            companyName: row.companyName,
+            jobRole: row.jobRole,
+            package: row.package,
+            offerDate: formatQueueDate(row.offerDate),
+            joiningDate: formatQueueDate(row.joiningDate),
+        })),
+    };
+
+    return payload;
+}
+
+export async function getLeadershipFacultyRecords(
+    actor: LeadershipDashboardActor,
+    facultyId: string
+): Promise<LeadershipFacultyRecordsData> {
+    await dbConnect();
+
+    if (!Types.ObjectId.isValid(facultyId)) {
+        throw new AuthError("Invalid faculty identifier.", 400);
+    }
+
+    const profile = await resolveAuthorizationProfile(actor);
+    const departmentIds = await resolveAuthorizedEvidenceDepartmentIds(profile);
+
+    if (!departmentIds.length) {
+        throw new AuthError("You do not have department scope access.", 403);
+    }
+
+    const faculty = await Faculty.findById(facultyId).select("departmentId").lean();
+
+    if (!faculty) {
+        throw new AuthError("Faculty not found.", 404);
+    }
+
+    const facultyDepartmentId = faculty.departmentId?.toString();
+    if (!facultyDepartmentId || !departmentIds.includes(facultyDepartmentId)) {
+        throw new AuthError("You are not authorized to view this faculty record.", 403);
+    }
+
+    const [pbas, cas, aqar] = await Promise.all([
+        FacultyPbasForm.find({ facultyId: faculty._id })
+            .select("academicYear status submissionStatus submittedAt reviewCommittee updatedAt")
+            .sort({ updatedAt: -1 })
+            .lean(),
+        CasApplication.find({ facultyId: faculty._id })
+            .select(
+                "applicationYear currentDesignation applyingForDesignation status apiScore.totalScore experienceYears submittedAt updatedAt"
+            )
+            .sort({ updatedAt: -1 })
+            .lean(),
+        AqarApplication.find({ facultyId: faculty._id })
+            .select(
+                "academicYear status metrics.totalContributionIndex metrics.researchPaperCount metrics.patentCount submittedAt updatedAt"
+            )
+            .sort({ updatedAt: -1 })
+            .lean(),
+    ]);
+
+    const allStatuses = [
+        ...pbas.map((row) => row.status),
+        ...cas.map((row) => row.status),
+        ...aqar.map((row) => row.status),
+    ];
+
+    const pending = allStatuses.filter((status) => isPendingStatus(status)).length;
+    const approved = allStatuses.filter((status) => status === "Approved").length;
+    const rejected = allStatuses.filter((status) => status === "Rejected").length;
+
+    return {
+        summary: {
+            pbas: pbas.length,
+            cas: cas.length,
+            aqar: aqar.length,
+            pending,
+            approved,
+            rejected,
+            total: pbas.length + cas.length + aqar.length,
+        },
+        pbas: pbas.map((row) => ({
+            id: row._id.toString(),
+            academicYear: row.academicYear,
+            status: row.status,
+            submissionStatus: row.submissionStatus,
+            submittedAt: formatQueueDate(row.submittedAt),
+            updatedAt: formatQueueDate(row.updatedAt),
+            reviewCount: row.reviewCommittee?.length ?? 0,
+        })),
+        cas: cas.map((row) => ({
+            id: row._id.toString(),
+            applicationYear: row.applicationYear,
+            currentDesignation: row.currentDesignation,
+            applyingForDesignation: row.applyingForDesignation,
+            status: row.status,
+            apiScore: row.apiScore?.totalScore,
+            experienceYears: row.experienceYears,
+            submittedAt: formatQueueDate(row.submittedAt),
+            updatedAt: formatQueueDate(row.updatedAt),
+        })),
+        aqar: aqar.map((row) => ({
+            id: row._id.toString(),
+            academicYear: row.academicYear,
+            status: row.status,
+            contributionIndex: row.metrics?.totalContributionIndex,
+            researchPaperCount: row.metrics?.researchPaperCount,
+            patentCount: row.metrics?.patentCount,
+            submittedAt: formatQueueDate(row.submittedAt),
+            updatedAt: formatQueueDate(row.updatedAt),
+        })),
     };
 }

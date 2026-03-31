@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { StudentProfileForm } from "@/components/student/student-profile-form";
 import { StudentRecordOverview } from "@/components/student/student-record-overview";
 import { requireStudentProfileAccess } from "@/lib/auth/user";
 import { getStudentProfile } from "@/lib/student/service";
@@ -16,9 +17,33 @@ export default async function StudentProfilePage() {
                     Academic identity and institutional mapping
                 </h2>
                 <p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 sm:text-base">
-                    This page shows the centrally provisioned student identity used across accreditation, AQAR, and reporting workflows. It is optimized for quick review on both large and small screens.
+                    This page now includes the self-service area for profile photo and basic information, while institutional mapping and academic placement remain centrally managed.
                 </p>
             </section>
+
+            <StudentProfileForm
+                user={{
+                    id: workspace.user._id.toString(),
+                    name: workspace.user.name,
+                    email: workspace.user.email,
+                    photoURL: workspace.user.photoURL,
+                    accountStatus: workspace.user.accountStatus,
+                }}
+                student={{
+                    enrollmentNo: workspace.student.enrollmentNo,
+                    firstName: workspace.student.firstName,
+                    lastName: workspace.student.lastName,
+                    gender: workspace.student.gender,
+                    dob: workspace.student.dob?.toString(),
+                    mobile: workspace.student.mobile,
+                    address: workspace.student.address,
+                    status: workspace.student.status,
+                    admissionYear: workspace.student.admissionYear,
+                }}
+                institutionName={(workspace.institution as { name?: string } | undefined)?.name}
+                departmentName={(workspace.department as { name?: string } | undefined)?.name}
+                programName={(workspace.program as { name?: string } | undefined)?.name}
+            />
 
             <div className="w-full">
                 <StudentRecordOverview workspace={safeWorkspace} />

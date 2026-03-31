@@ -7,15 +7,21 @@ type StudentWorkspace = {
     user: {
         name: string;
         email: string;
+        photoURL?: string;
         phone?: string;
         accountStatus: string;
         lastLoginAt?: string;
     };
     student: {
         enrollmentNo: string;
+        firstName?: string;
+        lastName?: string;
         admissionYear: number;
         status: string;
+        gender?: string;
+        dob?: string;
         mobile?: string;
+        address?: string;
     };
     institution?: {
         name?: string;
@@ -75,7 +81,7 @@ export function StudentRecordOverview({ workspace }: { workspace: StudentWorkspa
                 </CardContent>
             </Card>
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6 xl:grid-cols-3">
                 <Card>
                     <CardHeader>
                         <CardTitle>Academic Mapping</CardTitle>
@@ -90,6 +96,24 @@ export function StudentRecordOverview({ workspace }: { workspace: StudentWorkspa
                         <InfoItem label="Degree Type" value={program?.degreeType ?? "-"} />
                         <InfoItem label="Program Duration" value={program?.durationYears ? `${program.durationYears} years` : "-"} />
                         <InfoItem label="Admission Year" value={String(student.admissionYear)} />
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Personal Details</CardTitle>
+                        <CardDescription>
+                            Student-managed profile details that support the institutional record.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-4 sm:grid-cols-2">
+                        <InfoItem label="First Name" value={student.firstName ?? "-"} />
+                        <InfoItem label="Last Name" value={student.lastName ?? "-"} />
+                        <InfoItem label="Gender" value={student.gender ?? "-"} />
+                        <InfoItem label="Date of Birth" value={formatDate(student.dob)} />
+                        <div className="sm:col-span-2">
+                            <InfoItem label="Address" value={student.address ?? "-"} />
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -112,6 +136,23 @@ export function StudentRecordOverview({ workspace }: { workspace: StudentWorkspa
             </div>
         </div>
     );
+}
+
+function formatDate(value?: string) {
+    if (!value) {
+        return "-";
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return "-";
+    }
+
+    return new Intl.DateTimeFormat("en-IN", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+    }).format(date);
 }
 
 function InfoItem({ label, value }: { label: string; value: string }) {
