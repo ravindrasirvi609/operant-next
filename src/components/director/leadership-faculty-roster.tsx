@@ -183,8 +183,9 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
     const routeTab = searchParams.get("facultyTab");
 
     useEffect(() => {
-        if (routeTab && dialogTabValues.has(routeTab as FacultyDialogTab) && routeTab !== activeTab) {
-            setActiveTab(routeTab as FacultyDialogTab);
+        if (routeTab && dialogTabValues.has(routeTab as FacultyDialogTab)) {
+            const nextTab = routeTab as FacultyDialogTab;
+            setActiveTab((current) => (current === nextTab ? current : nextTab));
         }
 
         if (!routeFacultyId) {
@@ -200,7 +201,7 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
         setSelectedFaculty((current) =>
             current?.facultyId === matchedFaculty.facultyId ? current : matchedFaculty
         );
-    }, [routeFacultyId, routeTab, rows, activeTab]);
+    }, [routeFacultyId, routeTab, rows]);
 
     useEffect(() => {
         const params = new URLSearchParams(queryString);
@@ -530,6 +531,8 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
                                         <TabsTrigger value="aqar">AQAR</TabsTrigger>
                                     </TabsList>
                                 </div>
+
+                           
 
                                 <TabsContent value="overview" className="space-y-4">
                                     {renderRecordsTab((records) => (

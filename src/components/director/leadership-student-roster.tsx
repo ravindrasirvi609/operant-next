@@ -210,8 +210,9 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
     const routeTab = searchParams.get("tab");
 
     useEffect(() => {
-        if (routeTab && dialogTabValues.has(routeTab as StudentDialogTab) && routeTab !== activeTab) {
-            setActiveTab(routeTab as StudentDialogTab);
+        if (routeTab && dialogTabValues.has(routeTab as StudentDialogTab)) {
+            const nextTab = routeTab as StudentDialogTab;
+            setActiveTab((current) => (current === nextTab ? current : nextTab));
         }
 
         if (!routeStudentId) {
@@ -227,7 +228,7 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
         setSelectedStudent((current) =>
             current?.studentId === matchedStudent.studentId ? current : matchedStudent
         );
-    }, [routeStudentId, routeTab, rows, activeTab]);
+    }, [routeStudentId, routeTab, rows]);
 
     useEffect(() => {
         const params = new URLSearchParams(queryString);
@@ -523,6 +524,8 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
                                         <TabsTrigger value="career">Career</TabsTrigger>
                                     </TabsList>
                                 </div>
+
+
                                 <TabsContent value="overview" className="space-y-4">
                                     {renderRecordsTab((records) => (
                                         <>
