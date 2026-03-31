@@ -38,8 +38,8 @@ function getSignedInLinks(role: string, hasLeadershipPortalAccess: boolean): Por
   if (role === "Student") {
     links.push({
       label: "Open Student Workspace",
-      href: "/student/records",
-      description: "View records, profile, and student services.",
+      href: "/student",
+      description: "Open the student dashboard, profile, and records workspace.",
     });
   }
 

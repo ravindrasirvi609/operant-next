@@ -23,10 +23,6 @@ export default async function StudentRecordsPage() {
     };
 
     return (
-        <main className="min-h-screen bg-zinc-50">
-            <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-10">
-                <StudentRecordsDashboard initialRecords={safeRecords} studentMeta={studentMeta} />
-            </div>
-        </main>
+        <StudentRecordsDashboard initialRecords={safeRecords} studentMeta={studentMeta} />
     );
 }

@@ -122,7 +122,7 @@ export function NotificationCenter() {
                     ) : null}
                 </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-[24rem] p-0">
+            <PopoverContent align="end" className="w-[min(24rem,calc(100vw-1.5rem))] p-0">
                 <PopoverHeader className="border-b border-zinc-200 px-4 py-3">
                     <div className="flex items-start justify-between gap-3">
                         <div>

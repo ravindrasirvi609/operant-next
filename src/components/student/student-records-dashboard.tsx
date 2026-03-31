@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useId, useState, useTransition } from "react";
 
 import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
@@ -137,6 +138,33 @@ function refName(ref: any, field: string = "name") {
 const selectBaseClass =
     "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40";
 
+const recordsTabs = [
+    { value: "academics", label: "Academics" },
+    { value: "publications", label: "Publications" },
+    { value: "research", label: "Research" },
+    { value: "awards", label: "Awards" },
+    { value: "skills", label: "Skills" },
+    { value: "sports", label: "Sports" },
+    { value: "cultural", label: "Cultural" },
+    { value: "events", label: "Events" },
+    { value: "social", label: "Social" },
+    { value: "placements", label: "Placements" },
+    { value: "internships", label: "Internships" },
+] as const;
+
+type RecordsTabValue = (typeof recordsTabs)[number]["value"];
+
+const defaultRecordsTab = recordsTabs[0].value;
+
+function resolveRecordsTab(value: string | null): RecordsTabValue {
+    const match = recordsTabs.find((tab) => tab.value === value);
+    return match?.value ?? defaultRecordsTab;
+}
+
+function buildRecordsTabHref(tab: RecordsTabValue) {
+    return tab === defaultRecordsTab ? "/student/records" : `/student/records?tab=${tab}`;
+}
+
 // ── Main Component ───────────────────────────────────────────────
 
 export function StudentRecordsDashboard({
@@ -146,7 +174,9 @@ export function StudentRecordsDashboard({
     initialRecords: StudentRecords;
     studentMeta: StudentMeta;
 }) {
+    const pathname = usePathname();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [records, setRecords] = useState<StudentRecords>(initialRecords);
     const [isPending, startTransition] = useTransition();
     const [message, setMessage] = useState<{
@@ -167,6 +197,7 @@ export function StudentRecordsDashboard({
         socialPrograms: [],
     });
     const [masterError, setMasterError] = useState<string | null>(null);
+    const activeTab = resolveRecordsTab(searchParams.get("tab"));
 
     const refreshRecords = useCallback(() => {
         startTransition(async () => {
@@ -225,6 +256,26 @@ export function StudentRecordsDashboard({
     }, []);
 
     const evidenceKey = useCallback((type: RecordType, id: string) => `${type}:${id}`, []);
+
+    function handleTabChange(nextTabValue: string) {
+        const nextTab = resolveRecordsTab(nextTabValue);
+
+        if (nextTab === activeTab) {
+            return;
+        }
+
+        setActiveForm(null);
+
+        const params = new URLSearchParams(searchParams.toString());
+        if (nextTab === defaultRecordsTab) {
+            params.delete("tab");
+        } else {
+            params.set("tab", nextTab);
+        }
+
+        const nextUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+        router.replace(nextUrl, { scroll: false });
+    }
 
     async function handleEvidenceUpload(type: RecordType, recordId: string, file: File) {
         const key = evidenceKey(type, recordId);
@@ -400,7 +451,7 @@ export function StudentRecordsDashboard({
             ) : null}
 
             <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
-                <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+                <aside className="space-y-6 lg:sticky lg:top-32 lg:self-start">
                     <Card className="border-zinc-200 bg-white">
                         <CardHeader>
                             <CardTitle className="text-lg">Student Mapping</CardTitle>
@@ -419,29 +470,53 @@ export function StudentRecordsDashboard({
                     <Card className="border-zinc-200 bg-white">
                         <CardHeader>
                             <CardTitle className="text-lg">Navigation</CardTitle>
-                            <CardDescription>Switch between profile and records workspaces.</CardDescription>
+                            <CardDescription>Use route-based tabs to move across the student workspace.</CardDescription>
                         </CardHeader>
                         <CardContent className="grid gap-3">
-                            <Button asChild variant="secondary" className="w-full">
-                                <a href="/student/profile">Open Student Overview</a>
+                            <Button asChild variant="secondary" className="w-full justify-between">
+                                <Link href="/student">
+                                    Open workspace home
+                                </Link>
                             </Button>
+                            <Button asChild variant="outline" className="w-full justify-between">
+                                <Link href="/student/profile">
+                                    Open student overview
+                                </Link>
+                            </Button>
+
+                            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                                {recordsTabs
+                                    .filter((tab) =>
+                                        ["academics", "skills", "publications", "placements"].includes(tab.value)
+                                    )
+                                    .map((tab) => (
+                                        <Button
+                                            key={tab.value}
+                                            asChild
+                                            variant={activeTab === tab.value ? "default" : "outline"}
+                                            className="w-full justify-between"
+                                        >
+                                            <Link href={buildRecordsTabHref(tab.value)}>
+                                                {tab.label}
+                                            </Link>
+                                        </Button>
+                                    ))}
+                            </div>
                         </CardContent>
                     </Card>
                 </aside>
 
-                <Tabs defaultValue="academics" className="w-full">
-                <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 bg-zinc-100 p-1">
-                    <TabsTrigger value="academics">Academics</TabsTrigger>
-                    <TabsTrigger value="publications">Publications</TabsTrigger>
-                    <TabsTrigger value="research">Research</TabsTrigger>
-                    <TabsTrigger value="awards">Awards</TabsTrigger>
-                    <TabsTrigger value="skills">Skills</TabsTrigger>
-                    <TabsTrigger value="sports">Sports</TabsTrigger>
-                    <TabsTrigger value="cultural">Cultural</TabsTrigger>
-                    <TabsTrigger value="events">Events</TabsTrigger>
-                    <TabsTrigger value="social">Social</TabsTrigger>
-                    <TabsTrigger value="placements">Placements</TabsTrigger>
-                    <TabsTrigger value="internships">Internships</TabsTrigger>
+                <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+                <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-2 overflow-x-auto rounded-2xl border border-zinc-200 bg-white p-2 shadow-sm">
+                    {recordsTabs.map((tab) => (
+                        <TabsTrigger
+                            key={tab.value}
+                            value={tab.value}
+                            className="shrink-0 rounded-xl px-3 py-2"
+                        >
+                            {tab.label}
+                        </TabsTrigger>
+                    ))}
                 </TabsList>
 
                 {/* ── Academic Records ── */}

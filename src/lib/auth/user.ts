@@ -47,7 +47,7 @@ function getPostLoginPath(user: SafeUser) {
             return "/activate-student";
         }
 
-        return "/student/records";
+        return "/student";
     }
 
     if (user.role === "Faculty") {
