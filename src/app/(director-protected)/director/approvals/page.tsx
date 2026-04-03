@@ -36,7 +36,7 @@ export default async function DirectorApprovalsPage() {
                 <MetricCard label="Final approvals" value={dashboard.queue.finalCount} />
             </section>
 
-            <section className="grid gap-4 xl:grid-cols-5">
+            <section className="grid gap-4 xl:grid-cols-8">
                 <ModuleQueueCard
                     label="PBAS"
                     href="/director/pbas"
@@ -71,6 +71,34 @@ export default async function DirectorApprovalsPage() {
                     actionable={dashboard.modules.CURRICULUM.actionable}
                     finalApprovals={dashboard.modules.CURRICULUM.finalApprovals}
                     total={dashboard.modules.CURRICULUM.total}
+                />
+                <ModuleQueueCard
+                    label="Teaching Learning"
+                    href="/director/teaching-learning"
+                    actionable={dashboard.modules.TEACHING_LEARNING.actionable}
+                    finalApprovals={dashboard.modules.TEACHING_LEARNING.finalApprovals}
+                    total={dashboard.modules.TEACHING_LEARNING.total}
+                />
+                <ModuleQueueCard
+                    label="Infrastructure"
+                    href="/director/infrastructure-library"
+                    actionable={dashboard.modules.INFRASTRUCTURE_LIBRARY.actionable}
+                    finalApprovals={dashboard.modules.INFRASTRUCTURE_LIBRARY.finalApprovals}
+                    total={dashboard.modules.INFRASTRUCTURE_LIBRARY.total}
+                />
+                <ModuleQueueCard
+                    label="Student Support"
+                    href="/director/student-support-governance"
+                    actionable={dashboard.modules.STUDENT_SUPPORT_GOVERNANCE.actionable}
+                    finalApprovals={dashboard.modules.STUDENT_SUPPORT_GOVERNANCE.finalApprovals}
+                    total={dashboard.modules.STUDENT_SUPPORT_GOVERNANCE.total}
+                />
+                <ModuleQueueCard
+                    label="Research"
+                    href="/director/research-innovation"
+                    actionable={dashboard.modules.RESEARCH_INNOVATION.actionable}
+                    finalApprovals={dashboard.modules.RESEARCH_INNOVATION.finalApprovals}
+                    total={dashboard.modules.RESEARCH_INNOVATION.total}
                 />
             </section>
 

@@ -1,6 +1,15 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
 
-export type WorkflowModuleName = "PBAS" | "CAS" | "AQAR" | "SSR" | "CURRICULUM";
+export type WorkflowModuleName =
+    | "PBAS"
+    | "CAS"
+    | "AQAR"
+    | "SSR"
+    | "CURRICULUM"
+    | "TEACHING_LEARNING"
+    | "RESEARCH_INNOVATION"
+    | "INFRASTRUCTURE_LIBRARY"
+    | "STUDENT_SUPPORT_GOVERNANCE";
 export type WorkflowStageKind = "review" | "final";
 export type WorkflowStageScope = "global" | "department";
 export type WorkflowApproverRole =
@@ -14,6 +23,10 @@ export type WorkflowApproverRole =
     | "CAS_COMMITTEE"
     | "AQAR_COMMITTEE"
     | "SSR_COMMITTEE"
+    | "TEACHING_LEARNING_COMMITTEE"
+    | "RESEARCH_COMMITTEE"
+    | "INFRASTRUCTURE_LIBRARY_COMMITTEE"
+    | "STUDENT_SUPPORT_GOVERNANCE_COMMITTEE"
     | "PRINCIPAL"
     | "ADMIN";
 
@@ -70,6 +83,10 @@ const WorkflowDefinitionStageSchema = new Schema<IWorkflowDefinitionStage>(
                         "CAS_COMMITTEE",
                         "AQAR_COMMITTEE",
                         "SSR_COMMITTEE",
+                        "TEACHING_LEARNING_COMMITTEE",
+                        "RESEARCH_COMMITTEE",
+                        "INFRASTRUCTURE_LIBRARY_COMMITTEE",
+                        "STUDENT_SUPPORT_GOVERNANCE_COMMITTEE",
                         "PRINCIPAL",
                         "ADMIN",
                     ],
@@ -86,7 +103,17 @@ const WorkflowDefinitionSchema = new Schema<IWorkflowDefinition>(
     {
         moduleName: {
             type: String,
-            enum: ["PBAS", "CAS", "AQAR", "SSR", "CURRICULUM"],
+            enum: [
+                "PBAS",
+                "CAS",
+                "AQAR",
+                "SSR",
+                "CURRICULUM",
+                "TEACHING_LEARNING",
+                "RESEARCH_INNOVATION",
+                "INFRASTRUCTURE_LIBRARY",
+                "STUDENT_SUPPORT_GOVERNANCE",
+            ],
             required: true,
             index: true,
         },

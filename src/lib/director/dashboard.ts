@@ -22,9 +22,17 @@ import SsrMetric from "@/models/reporting/ssr-metric";
 import CurriculumAssignment from "@/models/academic/curriculum-assignment";
 import CurriculumCourse from "@/models/academic/curriculum-course";
 import CurriculumPlan from "@/models/academic/curriculum-plan";
+import TeachingLearningAssignment from "@/models/academic/teaching-learning-assignment";
+import TeachingLearningPlan from "@/models/academic/teaching-learning-plan";
 import Program from "@/models/academic/program";
 import Department from "@/models/reference/department";
 import Faculty from "@/models/faculty/faculty";
+import InfrastructureLibraryAssignment from "@/models/operations/infrastructure-library-assignment";
+import InfrastructureLibraryPlan from "@/models/operations/infrastructure-library-plan";
+import ResearchInnovationAssignment from "@/models/research/research-innovation-assignment";
+import ResearchInnovationPlan from "@/models/research/research-innovation-plan";
+import StudentSupportGovernanceAssignment from "@/models/student/student-support-governance-assignment";
+import StudentSupportGovernancePlan from "@/models/student/student-support-governance-plan";
 import Internship from "@/models/student/internship";
 import Placement from "@/models/student/placement";
 import StudentAcademicRecord from "@/models/student/student-academic-record";
@@ -51,7 +59,16 @@ type LeadershipDashboardActor = AuthorizationActor;
 
 type LeadershipQueueItem = {
     id: string;
-    moduleName: "PBAS" | "CAS" | "AQAR" | "SSR" | "CURRICULUM";
+    moduleName:
+        | "PBAS"
+        | "CAS"
+        | "AQAR"
+        | "SSR"
+        | "CURRICULUM"
+        | "TEACHING_LEARNING"
+        | "RESEARCH_INNOVATION"
+        | "INFRASTRUCTURE_LIBRARY"
+        | "STUDENT_SUPPORT_GOVERNANCE";
     title: string;
     subtitle: string;
     status: string;
@@ -328,7 +345,18 @@ export type LeadershipDashboardData = {
         scopeType: string;
         organizationName?: string;
     }>;
-    modules: Record<"PBAS" | "CAS" | "AQAR" | "SSR" | "CURRICULUM", LeadershipModuleSummary>;
+    modules: Record<
+        | "PBAS"
+        | "CAS"
+        | "AQAR"
+        | "SSR"
+        | "CURRICULUM"
+        | "TEACHING_LEARNING"
+        | "RESEARCH_INNOVATION"
+        | "INFRASTRUCTURE_LIBRARY"
+        | "STUDENT_SUPPORT_GOVERNANCE",
+        LeadershipModuleSummary
+    >;
     queue: {
         totalActionable: number;
         reviewCount: number;
@@ -756,6 +784,10 @@ export async function getLeadershipDashboardData(
         aqarRecords,
         ssrRecords,
         curriculumRecords,
+        teachingLearningRecords,
+        infrastructureLibraryRecords,
+        studentSupportGovernanceRecords,
+        researchInnovationRecords,
         pbasReviewIds,
         pbasFinalIds,
         casReviewIds,
@@ -766,6 +798,14 @@ export async function getLeadershipDashboardData(
         ssrFinalIds,
         curriculumReviewIds,
         curriculumFinalIds,
+        teachingLearningReviewIds,
+        teachingLearningFinalIds,
+        infrastructureLibraryReviewIds,
+        infrastructureLibraryFinalIds,
+        studentSupportGovernanceReviewIds,
+        studentSupportGovernanceFinalIds,
+        researchInnovationReviewIds,
+        researchInnovationFinalIds,
     ] =
         await Promise.all([
             resolveAuthorizedEvidenceDepartmentIds(profile),
@@ -789,6 +829,22 @@ export async function getLeadershipDashboardData(
                 .select("_id curriculumId curriculumCourseId status updatedAt")
                 .sort({ updatedAt: -1 })
                 .lean(),
+            TeachingLearningAssignment.find(buildAuthorizedScopeQuery(profile))
+                .select("_id planId status updatedAt")
+                .sort({ updatedAt: -1 })
+                .lean(),
+            InfrastructureLibraryAssignment.find(buildAuthorizedScopeQuery(profile))
+                .select("_id planId status updatedAt")
+                .sort({ updatedAt: -1 })
+                .lean(),
+            StudentSupportGovernanceAssignment.find(buildAuthorizedScopeQuery(profile))
+                .select("_id planId status updatedAt")
+                .sort({ updatedAt: -1 })
+                .lean(),
+            ResearchInnovationAssignment.find(buildAuthorizedScopeQuery(profile))
+                .select("_id planId status updatedAt")
+                .sort({ updatedAt: -1 })
+                .lean(),
             listPendingWorkflowRecordIds({ actor, moduleName: "PBAS", stageKinds: ["review"] }),
             listPendingWorkflowRecordIds({ actor, moduleName: "PBAS", stageKinds: ["final"] }),
             listPendingWorkflowRecordIds({ actor, moduleName: "CAS", stageKinds: ["review"] }),
@@ -799,6 +855,14 @@ export async function getLeadershipDashboardData(
             listPendingWorkflowRecordIds({ actor, moduleName: "SSR", stageKinds: ["final"] }),
             listPendingWorkflowRecordIds({ actor, moduleName: "CURRICULUM", stageKinds: ["review"] }),
             listPendingWorkflowRecordIds({ actor, moduleName: "CURRICULUM", stageKinds: ["final"] }),
+            listPendingWorkflowRecordIds({ actor, moduleName: "TEACHING_LEARNING", stageKinds: ["review"] }),
+            listPendingWorkflowRecordIds({ actor, moduleName: "TEACHING_LEARNING", stageKinds: ["final"] }),
+            listPendingWorkflowRecordIds({ actor, moduleName: "INFRASTRUCTURE_LIBRARY", stageKinds: ["review"] }),
+            listPendingWorkflowRecordIds({ actor, moduleName: "INFRASTRUCTURE_LIBRARY", stageKinds: ["final"] }),
+            listPendingWorkflowRecordIds({ actor, moduleName: "STUDENT_SUPPORT_GOVERNANCE", stageKinds: ["review"] }),
+            listPendingWorkflowRecordIds({ actor, moduleName: "STUDENT_SUPPORT_GOVERNANCE", stageKinds: ["final"] }),
+            listPendingWorkflowRecordIds({ actor, moduleName: "RESEARCH_INNOVATION", stageKinds: ["review"] }),
+            listPendingWorkflowRecordIds({ actor, moduleName: "RESEARCH_INNOVATION", stageKinds: ["final"] }),
         ]);
 
     const departments = await Department.find({ _id: { $in: toObjectIdArray(departmentIds) } })
@@ -823,7 +887,16 @@ export async function getLeadershipDashboardData(
     );
 
     const facultyNameById = new Map(facultyRoster.map((row) => [row.facultyId, row.facultyName]));
-    const [ssrMetrics, ssrContributors, curriculumPlans, curriculumCourses] = await Promise.all([
+    const [
+        ssrMetrics,
+        ssrContributors,
+        curriculumPlans,
+        curriculumCourses,
+        teachingLearningPlans,
+        infrastructureLibraryPlans,
+        studentSupportGovernancePlans,
+        researchInnovationPlans,
+    ] = await Promise.all([
         SsrMetric.find({
             _id: {
                 $in: uniqueStrings(ssrRecords.map((row) => row.metricId?.toString())).map(
@@ -860,6 +933,52 @@ export async function getLeadershipDashboardData(
         })
             .select("courseCode courseTitle")
             .lean(),
+        TeachingLearningPlan.find({
+            _id: {
+                $in: uniqueStrings(teachingLearningRecords.map((row) => row.planId?.toString())).map(
+                    (value) => new Types.ObjectId(value)
+                ),
+            },
+        })
+            .populate("courseId", "name subjectCode")
+            .select("title courseId")
+            .lean(),
+        InfrastructureLibraryPlan.find({
+            _id: {
+                $in: uniqueStrings(infrastructureLibraryRecords.map((row) => row.planId?.toString())).map(
+                    (value) => new Types.ObjectId(value)
+                ),
+            },
+        })
+            .populate("academicYearId", "yearStart yearEnd")
+            .populate("institutionId", "name")
+            .populate("departmentId", "name")
+            .select("title focusArea scopeType academicYearId institutionId departmentId")
+            .lean(),
+        StudentSupportGovernancePlan.find({
+            _id: {
+                $in: uniqueStrings(
+                    studentSupportGovernanceRecords.map((row) => row.planId?.toString())
+                ).map((value) => new Types.ObjectId(value)),
+            },
+        })
+            .populate("academicYearId", "yearStart yearEnd")
+            .populate("institutionId", "name")
+            .populate("departmentId", "name")
+            .select("title focusArea scopeType academicYearId institutionId departmentId")
+            .lean(),
+        ResearchInnovationPlan.find({
+            _id: {
+                $in: uniqueStrings(researchInnovationRecords.map((row) => row.planId?.toString())).map(
+                    (value) => new Types.ObjectId(value)
+                ),
+            },
+        })
+            .populate("academicYearId", "yearStart yearEnd")
+            .populate("institutionId", "name")
+            .populate("departmentId", "name")
+            .select("title focusArea scopeType academicYearId institutionId departmentId")
+            .lean(),
     ]);
 
     const pbasFinalIdSet = new Set(pbasFinalIds);
@@ -867,6 +986,10 @@ export async function getLeadershipDashboardData(
     const aqarFinalIdSet = new Set(aqarFinalIds);
     const ssrFinalIdSet = new Set(ssrFinalIds);
     const curriculumFinalIdSet = new Set(curriculumFinalIds);
+    const teachingLearningFinalIdSet = new Set(teachingLearningFinalIds);
+    const infrastructureLibraryFinalIdSet = new Set(infrastructureLibraryFinalIds);
+    const studentSupportGovernanceFinalIdSet = new Set(studentSupportGovernanceFinalIds);
+    const researchInnovationFinalIdSet = new Set(researchInnovationFinalIds);
     const ssrMetricById = new Map(ssrMetrics.map((row) => [row._id.toString(), row]));
     const ssrContributorNameById = new Map(
         ssrContributors.map((row) => [row._id.toString(), row.name])
@@ -876,6 +999,18 @@ export async function getLeadershipDashboardData(
     );
     const curriculumCourseById = new Map(
         curriculumCourses.map((row) => [row._id.toString(), row])
+    );
+    const teachingLearningPlanById = new Map(
+        teachingLearningPlans.map((row) => [row._id.toString(), row])
+    );
+    const infrastructureLibraryPlanById = new Map(
+        infrastructureLibraryPlans.map((row) => [row._id.toString(), row])
+    );
+    const studentSupportGovernancePlanById = new Map(
+        studentSupportGovernancePlans.map((row) => [row._id.toString(), row])
+    );
+    const researchInnovationPlanById = new Map(
+        researchInnovationPlans.map((row) => [row._id.toString(), row])
     );
 
     const queueItems: LeadershipQueueItem[] = [
@@ -960,6 +1095,162 @@ export async function getLeadershipDashboardData(
                     updatedAt: formatQueueDate(row.updatedAt),
                 };
             }),
+        ...teachingLearningRecords
+            .filter(
+                (row) =>
+                    teachingLearningReviewIds.includes(row._id.toString()) ||
+                    teachingLearningFinalIdSet.has(row._id.toString())
+            )
+            .slice(0, 6)
+            .map((row) => {
+                const plan = teachingLearningPlanById.get(row.planId.toString());
+                const course =
+                    plan?.courseId && typeof plan.courseId === "object" && "name" in plan.courseId
+                        ? (plan.courseId as { name?: string; subjectCode?: string })
+                        : null;
+
+                return {
+                    id: row._id.toString(),
+                    moduleName: "TEACHING_LEARNING" as const,
+                    title: plan?.title ?? "Teaching learning record",
+                    subtitle: `${course?.subjectCode ?? "Course"} · ${course?.name ?? "Delivery plan"}`,
+                    status: row.status,
+                    actionLabel: teachingLearningFinalIdSet.has(row._id.toString())
+                        ? "Final approval"
+                        : "Review required",
+                    href: "/director/teaching-learning",
+                    updatedAt: formatQueueDate(row.updatedAt),
+                };
+            }),
+        ...infrastructureLibraryRecords
+            .filter(
+                (row) =>
+                    infrastructureLibraryReviewIds.includes(row._id.toString()) ||
+                    infrastructureLibraryFinalIdSet.has(row._id.toString())
+            )
+            .slice(0, 6)
+            .map((row) => {
+                const plan = infrastructureLibraryPlanById.get(row.planId.toString());
+                const academicYearRef =
+                    plan?.academicYearId &&
+                    typeof plan.academicYearId === "object" &&
+                    "yearStart" in plan.academicYearId
+                        ? (plan.academicYearId as { yearStart?: number; yearEnd?: number })
+                        : undefined;
+                const academicYear =
+                    academicYearRef?.yearStart && academicYearRef?.yearEnd
+                        ? `${academicYearRef.yearStart}-${academicYearRef.yearEnd}`
+                        : "Academic year";
+                const unit =
+                    plan?.scopeType === "Department"
+                        ? typeof plan.departmentId === "object" && plan.departmentId && "name" in plan.departmentId
+                            ? String(plan.departmentId.name)
+                            : "Department"
+                        : typeof plan?.institutionId === "object" &&
+                            plan.institutionId &&
+                            "name" in plan.institutionId
+                          ? String(plan.institutionId.name)
+                          : "Institution";
+
+                return {
+                    id: row._id.toString(),
+                    moduleName: "INFRASTRUCTURE_LIBRARY" as const,
+                    title: plan?.title ?? "Infrastructure & library record",
+                    subtitle: `${plan?.focusArea ?? "Integrated"} · ${unit} · ${academicYear}`,
+                    status: row.status,
+                    actionLabel: infrastructureLibraryFinalIdSet.has(row._id.toString())
+                        ? "Final approval"
+                        : "Review required",
+                    href: "/director/infrastructure-library",
+                    updatedAt: formatQueueDate(row.updatedAt),
+                };
+            }),
+        ...studentSupportGovernanceRecords
+            .filter(
+                (row) =>
+                    studentSupportGovernanceReviewIds.includes(row._id.toString()) ||
+                    studentSupportGovernanceFinalIdSet.has(row._id.toString())
+            )
+            .slice(0, 6)
+            .map((row) => {
+                const plan = studentSupportGovernancePlanById.get(row.planId.toString());
+                const academicYearRef =
+                    plan?.academicYearId &&
+                    typeof plan.academicYearId === "object" &&
+                    "yearStart" in plan.academicYearId
+                        ? (plan.academicYearId as { yearStart?: number; yearEnd?: number })
+                        : undefined;
+                const academicYear =
+                    academicYearRef?.yearStart && academicYearRef?.yearEnd
+                        ? `${academicYearRef.yearStart}-${academicYearRef.yearEnd}`
+                        : "Academic year";
+                const unit =
+                    plan?.scopeType === "Department"
+                        ? typeof plan.departmentId === "object" && plan.departmentId && "name" in plan.departmentId
+                            ? String(plan.departmentId.name)
+                            : "Department"
+                        : typeof plan?.institutionId === "object" &&
+                            plan.institutionId &&
+                            "name" in plan.institutionId
+                          ? String(plan.institutionId.name)
+                          : "Institution";
+
+                return {
+                    id: row._id.toString(),
+                    moduleName: "STUDENT_SUPPORT_GOVERNANCE" as const,
+                    title: plan?.title ?? "Student support record",
+                    subtitle: `${plan?.focusArea ?? "Integrated"} · ${unit} · ${academicYear}`,
+                    status: row.status,
+                    actionLabel: studentSupportGovernanceFinalIdSet.has(row._id.toString())
+                        ? "Final approval"
+                        : "Review required",
+                    href: "/director/student-support-governance",
+                    updatedAt: formatQueueDate(row.updatedAt),
+                };
+            }),
+        ...researchInnovationRecords
+            .filter(
+                (row) =>
+                    researchInnovationReviewIds.includes(row._id.toString()) ||
+                    researchInnovationFinalIdSet.has(row._id.toString())
+            )
+            .slice(0, 6)
+            .map((row) => {
+                const plan = researchInnovationPlanById.get(row.planId.toString());
+                const academicYearRef =
+                    plan?.academicYearId &&
+                    typeof plan.academicYearId === "object" &&
+                    "yearStart" in plan.academicYearId
+                        ? (plan.academicYearId as { yearStart?: number; yearEnd?: number })
+                        : undefined;
+                const academicYear =
+                    academicYearRef?.yearStart && academicYearRef?.yearEnd
+                        ? `${academicYearRef.yearStart}-${academicYearRef.yearEnd}`
+                        : "Academic year";
+                const unit =
+                    plan?.scopeType === "Department"
+                        ? typeof plan.departmentId === "object" && plan.departmentId && "name" in plan.departmentId
+                            ? String(plan.departmentId.name)
+                            : "Department"
+                        : typeof plan?.institutionId === "object" &&
+                            plan.institutionId &&
+                            "name" in plan.institutionId
+                          ? String(plan.institutionId.name)
+                          : "Institution";
+
+                return {
+                    id: row._id.toString(),
+                    moduleName: "RESEARCH_INNOVATION" as const,
+                    title: plan?.title ?? "Research portfolio record",
+                    subtitle: `${plan?.focusArea ?? "Integrated"} · ${unit} · ${academicYear}`,
+                    status: row.status,
+                    actionLabel: researchInnovationFinalIdSet.has(row._id.toString())
+                        ? "Final approval"
+                        : "Review required",
+                    href: "/director/research-innovation",
+                    updatedAt: formatQueueDate(row.updatedAt),
+                };
+            }),
     ]
         .sort((left, right) => String(right.updatedAt ?? "").localeCompare(String(left.updatedAt ?? "")))
         .slice(0, 12);
@@ -993,7 +1284,13 @@ export async function getLeadershipDashboardData(
                 ssrReviewIds.length +
                 ssrFinalIds.length +
                 curriculumReviewIds.length +
-                curriculumFinalIds.length,
+                curriculumFinalIds.length +
+                teachingLearningReviewIds.length +
+                teachingLearningFinalIds.length +
+                studentSupportGovernanceReviewIds.length +
+                studentSupportGovernanceFinalIds.length +
+                researchInnovationReviewIds.length +
+                researchInnovationFinalIds.length,
             evidencePending: evidenceSummary.pendingCount,
             staleEvidence: evidenceSummary.stalePendingCount,
         },
@@ -1041,6 +1338,42 @@ export async function getLeadershipDashboardData(
                 rejected: curriculumRecords.filter((row) => row.status === "Rejected").length,
                 draft: curriculumRecords.filter((row) => row.status === "Draft").length,
             },
+            TEACHING_LEARNING: {
+                total: teachingLearningRecords.length,
+                actionable: teachingLearningReviewIds.length + teachingLearningFinalIds.length,
+                finalApprovals: teachingLearningFinalIds.length,
+                approved: teachingLearningRecords.filter((row) => row.status === "Approved").length,
+                rejected: teachingLearningRecords.filter((row) => row.status === "Rejected").length,
+                draft: teachingLearningRecords.filter((row) => row.status === "Draft").length,
+            },
+            INFRASTRUCTURE_LIBRARY: {
+                total: infrastructureLibraryRecords.length,
+                actionable:
+                    infrastructureLibraryReviewIds.length + infrastructureLibraryFinalIds.length,
+                finalApprovals: infrastructureLibraryFinalIds.length,
+                approved: infrastructureLibraryRecords.filter((row) => row.status === "Approved").length,
+                rejected: infrastructureLibraryRecords.filter((row) => row.status === "Rejected").length,
+                draft: infrastructureLibraryRecords.filter((row) => row.status === "Draft").length,
+            },
+            STUDENT_SUPPORT_GOVERNANCE: {
+                total: studentSupportGovernanceRecords.length,
+                actionable:
+                    studentSupportGovernanceReviewIds.length +
+                    studentSupportGovernanceFinalIds.length,
+                finalApprovals: studentSupportGovernanceFinalIds.length,
+                approved: studentSupportGovernanceRecords.filter((row) => row.status === "Approved").length,
+                rejected: studentSupportGovernanceRecords.filter((row) => row.status === "Rejected").length,
+                draft: studentSupportGovernanceRecords.filter((row) => row.status === "Draft").length,
+            },
+            RESEARCH_INNOVATION: {
+                total: researchInnovationRecords.length,
+                actionable:
+                    researchInnovationReviewIds.length + researchInnovationFinalIds.length,
+                finalApprovals: researchInnovationFinalIds.length,
+                approved: researchInnovationRecords.filter((row) => row.status === "Approved").length,
+                rejected: researchInnovationRecords.filter((row) => row.status === "Rejected").length,
+                draft: researchInnovationRecords.filter((row) => row.status === "Draft").length,
+            },
         },
         queue: {
             totalActionable:
@@ -1053,19 +1386,35 @@ export async function getLeadershipDashboardData(
                 ssrReviewIds.length +
                 ssrFinalIds.length +
                 curriculumReviewIds.length +
-                curriculumFinalIds.length,
+                curriculumFinalIds.length +
+                teachingLearningReviewIds.length +
+                teachingLearningFinalIds.length +
+                infrastructureLibraryReviewIds.length +
+                infrastructureLibraryFinalIds.length +
+                studentSupportGovernanceReviewIds.length +
+                studentSupportGovernanceFinalIds.length +
+                researchInnovationReviewIds.length +
+                researchInnovationFinalIds.length,
             reviewCount:
                 pbasReviewIds.length +
                 casReviewIds.length +
                 aqarReviewIds.length +
                 ssrReviewIds.length +
-                curriculumReviewIds.length,
+                curriculumReviewIds.length +
+                teachingLearningReviewIds.length +
+                infrastructureLibraryReviewIds.length +
+                studentSupportGovernanceReviewIds.length +
+                researchInnovationReviewIds.length,
             finalCount:
                 pbasFinalIds.length +
                 casFinalIds.length +
                 aqarFinalIds.length +
                 ssrFinalIds.length +
-                curriculumFinalIds.length,
+                curriculumFinalIds.length +
+                teachingLearningFinalIds.length +
+                infrastructureLibraryFinalIds.length +
+                studentSupportGovernanceFinalIds.length +
+                researchInnovationFinalIds.length,
             items: queueItems,
         },
         facultyRoster,

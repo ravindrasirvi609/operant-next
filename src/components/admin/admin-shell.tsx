@@ -14,6 +14,10 @@ const navigation = [
     { href: "/admin/governance", label: "Governance", icon: Users2 },
     { href: "/admin/academics", label: "Academics", icon: BookOpen },
     { href: "/admin/curriculum", label: "Curriculum", icon: FileStack },
+    { href: "/admin/teaching-learning", label: "Teaching Learning", icon: FileStack },
+    { href: "/admin/research-innovation", label: "Research & Innovation", icon: FileStack },
+    { href: "/admin/infrastructure-library", label: "Infrastructure & Library", icon: FileStack },
+    { href: "/admin/student-support-governance", label: "Student Support", icon: FileStack },
     { href: "/admin/reference-masters", label: "Reference Masters", icon: ListTree },
     { href: "/admin/cas", label: "CAS", icon: FileStack },
     { href: "/admin/pbas", label: "PBAS", icon: FileStack },
@@ -35,6 +39,14 @@ export function AdminShell({
     adminName: string;
 }) {
     const pathname = usePathname();
+
+    function isActiveRoute(href: string) {
+        if (href === "/admin") {
+            return pathname === href;
+        }
+
+        return pathname === href || pathname.startsWith(`${href}/`);
+    }
 
     return (
         <div className="min-h-screen bg-zinc-50">
@@ -61,17 +73,33 @@ export function AdminShell({
                         <nav className="grid gap-2">
                             {navigation.map((item) => {
                                 const Icon = item.icon;
-                                const isActive = pathname === item.href;
+                                const isActive = isActiveRoute(item.href);
+
+                                const itemClassName = `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                                    isActive
+                                        ? "bg-zinc-100 text-zinc-950"
+                                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"
+                                }`;
+
+                                if (isActive) {
+                                    return (
+                                        <span
+                                            aria-current="page"
+                                            className={itemClassName}
+                                            key={item.href}
+                                        >
+                                            <Icon className="size-4" />
+                                            {item.label}
+                                        </span>
+                                    );
+                                }
 
                                 return (
                                     <Link
-                                        className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                                            isActive
-                                                ? "bg-zinc-100 text-zinc-950"
-                                                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"
-                                        }`}
+                                        className={itemClassName}
                                         href={item.href}
                                         key={item.href}
+                                        prefetch={false}
                                     >
                                         <Icon className="size-4" />
                                         {item.label}

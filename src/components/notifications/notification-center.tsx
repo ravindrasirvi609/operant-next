@@ -182,6 +182,7 @@ export function NotificationCenter() {
                                                 <Button asChild size="sm" variant="outline">
                                                     <Link
                                                         href={notification.href}
+                                                        prefetch={false}
                                                         onClick={() => {
                                                             void markOneRead(notification.id);
                                                             setOpen(false);

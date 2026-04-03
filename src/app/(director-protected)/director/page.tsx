@@ -70,7 +70,7 @@ export default async function DirectorDashboardPage() {
                     <CardHeader>
                         <CardTitle>Action queue</CardTitle>
                         <CardDescription>
-                            The most recent PBAS, CAS, AQAR, SSR, and curriculum items currently waiting for your review or final approval.
+                            The most recent PBAS, CAS, AQAR, SSR, curriculum, teaching-learning, infrastructure, and research-innovation items currently waiting for your review or final approval.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -137,7 +137,7 @@ export default async function DirectorDashboardPage() {
                 </Card>
             </section>
 
-            <section className="grid gap-6 xl:grid-cols-5">
+            <section className="grid gap-6 xl:grid-cols-8">
                 <ModuleCard
                     href="/director/pbas"
                     label="PBAS"
@@ -167,6 +167,30 @@ export default async function DirectorDashboardPage() {
                     label="Curriculum"
                     summary={dashboard.modules.CURRICULUM}
                     description="Versioned curriculum drafts, BoS governance review, and syllabus approvals in your scope."
+                />
+                <ModuleCard
+                    href="/director/teaching-learning"
+                    label="Teaching Learning"
+                    summary={dashboard.modules.TEACHING_LEARNING}
+                    description="Course-delivery files, learner support actions, and evidence-backed teaching process reviews in your scope."
+                />
+                <ModuleCard
+                    href="/director/infrastructure-library"
+                    label="Infrastructure"
+                    summary={dashboard.modules.INFRASTRUCTURE_LIBRARY}
+                    description="Facilities, library resources, usage analytics, and maintenance-backed infrastructure reviews in your scope."
+                />
+                <ModuleCard
+                    href="/director/student-support-governance"
+                    label="Student Support"
+                    summary={dashboard.modules.STUDENT_SUPPORT_GOVERNANCE}
+                    description="Mentoring, grievance redressal, progression, and student-representation reviews in your governance scope."
+                />
+                <ModuleCard
+                    href="/director/research-innovation"
+                    label="Research"
+                    summary={dashboard.modules.RESEARCH_INNOVATION}
+                    description="Research portfolio files, innovation ecosystem evidence, and committee-led scrutiny within your scope."
                 />
             </section>
 

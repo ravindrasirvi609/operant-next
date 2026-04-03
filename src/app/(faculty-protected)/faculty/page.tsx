@@ -87,6 +87,16 @@ export default async function FacultyHomePage() {
             detail: "Respond to the SSR metrics and narrative sections assigned to your faculty account.",
             href: "/faculty/ssr",
         },
+        {
+            title: "Teaching learning file",
+            detail: "Maintain governed course-delivery plans, lesson execution, assessment, and learner-support evidence.",
+            href: "/faculty/teaching-learning",
+        },
+        {
+            title: "Research and innovation desk",
+            detail: "Respond to governed research portfolio assignments with linked publications, projects, patents, and innovation activity evidence.",
+            href: "/faculty/research-innovation",
+        },
     ];
 
     const alertItems = [
@@ -124,6 +134,12 @@ export default async function FacultyHomePage() {
                         </Button>
                         <Button asChild variant="outline">
                             <Link href="/faculty/ssr">Open SSR</Link>
+                        </Button>
+                        <Button asChild variant="outline">
+                            <Link href="/faculty/teaching-learning">Open Teaching Learning</Link>
+                        </Button>
+                        <Button asChild variant="outline">
+                            <Link href="/faculty/research-innovation">Open Research</Link>
                         </Button>
                     </div>
                 </section>

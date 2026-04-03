@@ -19,6 +19,10 @@ const navigation = [
     { href: "/director/aqar", label: "AQAR Reviews", icon: FileStack },
     { href: "/director/ssr", label: "SSR Reviews", icon: FileStack },
     { href: "/director/curriculum", label: "Curriculum Reviews", icon: FileStack },
+    { href: "/director/teaching-learning", label: "Teaching Learning Reviews", icon: FileStack },
+    { href: "/director/research-innovation", label: "Research Reviews", icon: FileStack },
+    { href: "/director/infrastructure-library", label: "Infrastructure Reviews", icon: FileStack },
+    { href: "/director/student-support-governance", label: "Student Support Reviews", icon: FileStack },
     { href: "/director/reports", label: "Reports", icon: BarChart3 },
 ];
 

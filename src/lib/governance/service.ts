@@ -46,6 +46,10 @@ const workflowCommitteeTypeByRole = {
     CAS_COMMITTEE: ["CAS_SCREENING"] as GovernanceCommitteeType[],
     AQAR_COMMITTEE: ["AQAR_REVIEW"] as GovernanceCommitteeType[],
     SSR_COMMITTEE: ["SSR_REVIEW"] as GovernanceCommitteeType[],
+    TEACHING_LEARNING_COMMITTEE: ["TEACHING_LEARNING_REVIEW"] as GovernanceCommitteeType[],
+    RESEARCH_COMMITTEE: ["RESEARCH_COMMITTEE"] as GovernanceCommitteeType[],
+    INFRASTRUCTURE_LIBRARY_COMMITTEE: ["INFRASTRUCTURE_LIBRARY_REVIEW"] as GovernanceCommitteeType[],
+    STUDENT_SUPPORT_GOVERNANCE_COMMITTEE: ["STUDENT_SUPPORT_GOVERNANCE_REVIEW"] as GovernanceCommitteeType[],
     BOARD_OF_STUDIES: ["BOARD_OF_STUDIES"] as GovernanceCommitteeType[],
 } as const;
 

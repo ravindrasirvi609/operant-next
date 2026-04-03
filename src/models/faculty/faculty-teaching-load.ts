@@ -13,6 +13,7 @@ export interface IFacultyTeachingLoad extends Document {
     tutorialHours: number;
     practicalHours: number;
     totalHours: number;
+    innovativePedagogy?: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -31,6 +32,7 @@ const FacultyTeachingLoadSchema = new Schema<IFacultyTeachingLoad>(
         tutorialHours: { type: Number, min: 0, default: 0 },
         practicalHours: { type: Number, min: 0, default: 0 },
         totalHours: { type: Number, min: 0, default: 0 },
+        innovativePedagogy: { type: String, trim: true },
     },
     { timestamps: true, collection: "faculty_teaching_load" }
 );

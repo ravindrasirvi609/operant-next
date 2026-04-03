@@ -12,6 +12,10 @@ const navLinks = [
   { label: "AQAR", href: "/faculty/aqar" },
   { label: "SSR", href: "/faculty/ssr" },
   { label: "Curriculum", href: "/faculty/curriculum" },
+  { label: "Teaching Learning", href: "/faculty/teaching-learning" },
+  { label: "Research", href: "/faculty/research-innovation" },
+  { label: "Infrastructure", href: "/faculty/infrastructure-library" },
+  { label: "Student Support", href: "/faculty/student-support-governance" },
   { label: "CAS", href: "/faculty/cas" },
 ];
 
@@ -88,6 +92,18 @@ export default async function FacultyLayout({
             </Link>
             <Link className="text-sm text-zinc-500 hover:text-zinc-900" href="/faculty/curriculum">
               Curriculum
+            </Link>
+            <Link className="text-sm text-zinc-500 hover:text-zinc-900" href="/faculty/teaching-learning">
+              Teaching Learning
+            </Link>
+            <Link className="text-sm text-zinc-500 hover:text-zinc-900" href="/faculty/research-innovation">
+              Research
+            </Link>
+            <Link className="text-sm text-zinc-500 hover:text-zinc-900" href="/faculty/infrastructure-library">
+              Infrastructure
+            </Link>
+            <Link className="text-sm text-zinc-500 hover:text-zinc-900" href="/faculty/student-support-governance">
+              Student Support
             </Link>
           </div>
         </div>
