@@ -143,6 +143,11 @@ export function StudentWorkspaceHome({
             href: "/student/records?tab=placements",
         },
         {
+            title: "Respond to SSR asks",
+            description: "Complete the SSR sections and metrics assigned to your student account.",
+            href: "/student/ssr",
+        },
+        {
             title: "Review profile mapping",
             description: "Check program, department, and institutional identity details.",
             href: "/student/profile",

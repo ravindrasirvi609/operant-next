@@ -90,6 +90,7 @@ export default async function AdminDashboardPage() {
                         <QuickAction href="/admin/master-data" text="Create supporting enums such as academic years, report categories, and offices." />
                         <QuickAction href="/admin/reference-masters" text="Govern awards, skills, sports, cultural activities, social programmes, and events before users submit records." />
                         <QuickAction href="/admin/governance" text="Create HOD, principal, IQAC, director, office-head, and committee assignments through governance mapping." />
+                        <QuickAction href="/admin/ssr" text="Define SSR cycles, metric ownership, narrative sections, and contributor assignments before data collection begins." />
                         <QuickAction href="/admin/system" text="Publish onboarding notices, reporting deadlines, and dashboard messages." />
                         <QuickAction href="/admin/audit-logs" text="Review production audit logs for admin, AQAR, faculty, student, and evidence changes." />
                         <QuickAction href="/register" text="Validate faculty and student onboarding after master data is populated." />

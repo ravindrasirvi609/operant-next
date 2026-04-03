@@ -17,6 +17,8 @@ const navigation = [
     { href: "/director/cas", label: "CAS Reviews", icon: FileStack },
     { href: "/director/pbas", label: "PBAS Reviews", icon: FileStack },
     { href: "/director/aqar", label: "AQAR Reviews", icon: FileStack },
+    { href: "/director/ssr", label: "SSR Reviews", icon: FileStack },
+    { href: "/director/curriculum", label: "Curriculum Reviews", icon: FileStack },
     { href: "/director/reports", label: "Reports", icon: BarChart3 },
 ];
 

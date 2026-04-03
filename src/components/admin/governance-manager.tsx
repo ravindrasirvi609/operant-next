@@ -93,6 +93,7 @@ const committeeTypeOptions = [
     "PBAS_REVIEW",
     "CAS_SCREENING",
     "AQAR_REVIEW",
+    "SSR_REVIEW",
     "BOARD_OF_STUDIES",
     "NAAC_CELL",
     "RESEARCH_COMMITTEE",

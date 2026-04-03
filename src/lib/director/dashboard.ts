@@ -17,6 +17,11 @@ import GovernanceCommitteeMembership from "@/models/core/governance-committee-me
 import LeadershipAssignment, { type LeadershipAssignmentType } from "@/models/core/leadership-assignment";
 import CasApplication from "@/models/core/cas-application";
 import FacultyPbasForm from "@/models/core/faculty-pbas-form";
+import SsrMetricResponse from "@/models/reporting/ssr-metric-response";
+import SsrMetric from "@/models/reporting/ssr-metric";
+import CurriculumAssignment from "@/models/academic/curriculum-assignment";
+import CurriculumCourse from "@/models/academic/curriculum-course";
+import CurriculumPlan from "@/models/academic/curriculum-plan";
 import Program from "@/models/academic/program";
 import Department from "@/models/reference/department";
 import Faculty from "@/models/faculty/faculty";
@@ -46,7 +51,7 @@ type LeadershipDashboardActor = AuthorizationActor;
 
 type LeadershipQueueItem = {
     id: string;
-    moduleName: "PBAS" | "CAS" | "AQAR";
+    moduleName: "PBAS" | "CAS" | "AQAR" | "SSR" | "CURRICULUM";
     title: string;
     subtitle: string;
     status: string;
@@ -323,7 +328,7 @@ export type LeadershipDashboardData = {
         scopeType: string;
         organizationName?: string;
     }>;
-    modules: Record<"PBAS" | "CAS" | "AQAR", LeadershipModuleSummary>;
+    modules: Record<"PBAS" | "CAS" | "AQAR" | "SSR" | "CURRICULUM", LeadershipModuleSummary>;
     queue: {
         totalActionable: number;
         reviewCount: number;
@@ -744,7 +749,24 @@ export async function getLeadershipDashboardData(
         })),
     ]);
 
-    const [departmentIds, pbasRecords, casRecords, aqarRecords, pbasReviewIds, pbasFinalIds, casReviewIds, casFinalIds, aqarReviewIds, aqarFinalIds] =
+    const [
+        departmentIds,
+        pbasRecords,
+        casRecords,
+        aqarRecords,
+        ssrRecords,
+        curriculumRecords,
+        pbasReviewIds,
+        pbasFinalIds,
+        casReviewIds,
+        casFinalIds,
+        aqarReviewIds,
+        aqarFinalIds,
+        ssrReviewIds,
+        ssrFinalIds,
+        curriculumReviewIds,
+        curriculumFinalIds,
+    ] =
         await Promise.all([
             resolveAuthorizedEvidenceDepartmentIds(profile),
             FacultyPbasForm.find(buildAuthorizedScopeQuery(profile))
@@ -759,12 +781,24 @@ export async function getLeadershipDashboardData(
                 .select("_id facultyId academicYear status updatedAt")
                 .sort({ updatedAt: -1 })
                 .lean(),
+            SsrMetricResponse.find(buildAuthorizedScopeQuery(profile))
+                .select("_id contributorUserId metricId status updatedAt")
+                .sort({ updatedAt: -1 })
+                .lean(),
+            CurriculumAssignment.find(buildAuthorizedScopeQuery(profile))
+                .select("_id curriculumId curriculumCourseId status updatedAt")
+                .sort({ updatedAt: -1 })
+                .lean(),
             listPendingWorkflowRecordIds({ actor, moduleName: "PBAS", stageKinds: ["review"] }),
             listPendingWorkflowRecordIds({ actor, moduleName: "PBAS", stageKinds: ["final"] }),
             listPendingWorkflowRecordIds({ actor, moduleName: "CAS", stageKinds: ["review"] }),
             listPendingWorkflowRecordIds({ actor, moduleName: "CAS", stageKinds: ["final"] }),
             listPendingWorkflowRecordIds({ actor, moduleName: "AQAR", stageKinds: ["review"] }),
             listPendingWorkflowRecordIds({ actor, moduleName: "AQAR", stageKinds: ["final"] }),
+            listPendingWorkflowRecordIds({ actor, moduleName: "SSR", stageKinds: ["review"] }),
+            listPendingWorkflowRecordIds({ actor, moduleName: "SSR", stageKinds: ["final"] }),
+            listPendingWorkflowRecordIds({ actor, moduleName: "CURRICULUM", stageKinds: ["review"] }),
+            listPendingWorkflowRecordIds({ actor, moduleName: "CURRICULUM", stageKinds: ["final"] }),
         ]);
 
     const departments = await Department.find({ _id: { $in: toObjectIdArray(departmentIds) } })
@@ -789,10 +823,60 @@ export async function getLeadershipDashboardData(
     );
 
     const facultyNameById = new Map(facultyRoster.map((row) => [row.facultyId, row.facultyName]));
+    const [ssrMetrics, ssrContributors, curriculumPlans, curriculumCourses] = await Promise.all([
+        SsrMetric.find({
+            _id: {
+                $in: uniqueStrings(ssrRecords.map((row) => row.metricId?.toString())).map(
+                    (value) => new Types.ObjectId(value)
+                ),
+            },
+        })
+            .select("metricCode title")
+            .lean(),
+        User.find({
+            _id: {
+                $in: uniqueStrings(ssrRecords.map((row) => row.contributorUserId?.toString())).map(
+                    (value) => new Types.ObjectId(value)
+                ),
+            },
+        })
+            .select("name")
+            .lean(),
+        CurriculumPlan.find({
+            _id: {
+                $in: uniqueStrings(curriculumRecords.map((row) => row.curriculumId?.toString())).map(
+                    (value) => new Types.ObjectId(value)
+                ),
+            },
+        })
+            .select("title regulationYear")
+            .lean(),
+        CurriculumCourse.find({
+            _id: {
+                $in: uniqueStrings(curriculumRecords.map((row) => row.curriculumCourseId?.toString())).map(
+                    (value) => new Types.ObjectId(value)
+                ),
+            },
+        })
+            .select("courseCode courseTitle")
+            .lean(),
+    ]);
 
     const pbasFinalIdSet = new Set(pbasFinalIds);
     const casFinalIdSet = new Set(casFinalIds);
     const aqarFinalIdSet = new Set(aqarFinalIds);
+    const ssrFinalIdSet = new Set(ssrFinalIds);
+    const curriculumFinalIdSet = new Set(curriculumFinalIds);
+    const ssrMetricById = new Map(ssrMetrics.map((row) => [row._id.toString(), row]));
+    const ssrContributorNameById = new Map(
+        ssrContributors.map((row) => [row._id.toString(), row.name])
+    );
+    const curriculumPlanById = new Map(
+        curriculumPlans.map((row) => [row._id.toString(), row])
+    );
+    const curriculumCourseById = new Map(
+        curriculumCourses.map((row) => [row._id.toString(), row])
+    );
 
     const queueItems: LeadershipQueueItem[] = [
         ...pbasRecords
@@ -834,6 +918,48 @@ export async function getLeadershipDashboardData(
                 href: "/director/aqar",
                 updatedAt: formatQueueDate(row.updatedAt),
             })),
+        ...ssrRecords
+            .filter((row) => ssrReviewIds.includes(row._id.toString()) || ssrFinalIdSet.has(row._id.toString()))
+            .slice(0, 6)
+            .map((row) => {
+                const metric = ssrMetricById.get(row.metricId.toString());
+                return {
+                    id: row._id.toString(),
+                    moduleName: "SSR" as const,
+                    title: metric?.title ?? "SSR metric response",
+                    subtitle: `${metric?.metricCode ?? "Metric"} • ${
+                        ssrContributorNameById.get(row.contributorUserId.toString()) ?? "Contributor"
+                    }`,
+                    status: row.status,
+                    actionLabel: ssrFinalIdSet.has(row._id.toString()) ? "Final approval" : "Review required",
+                    href: "/director/ssr",
+                    updatedAt: formatQueueDate(row.updatedAt),
+                };
+            }),
+        ...curriculumRecords
+            .filter(
+                (row) =>
+                    curriculumReviewIds.includes(row._id.toString()) ||
+                    curriculumFinalIdSet.has(row._id.toString())
+            )
+            .slice(0, 6)
+            .map((row) => {
+                const plan = curriculumPlanById.get(row.curriculumId.toString());
+                const course = curriculumCourseById.get(row.curriculumCourseId.toString());
+
+                return {
+                    id: row._id.toString(),
+                    moduleName: "CURRICULUM" as const,
+                    title: course?.courseTitle ?? "Curriculum course draft",
+                    subtitle: `${course?.courseCode ?? "Course"} · ${plan?.title ?? "Curriculum"}`,
+                    status: row.status,
+                    actionLabel: curriculumFinalIdSet.has(row._id.toString())
+                        ? "Final approval"
+                        : "Review required",
+                    href: "/director/curriculum",
+                    updatedAt: formatQueueDate(row.updatedAt),
+                };
+            }),
     ]
         .sort((left, right) => String(right.updatedAt ?? "").localeCompare(String(left.updatedAt ?? "")))
         .slice(0, 12);
@@ -863,7 +989,11 @@ export async function getLeadershipDashboardData(
                 casReviewIds.length +
                 casFinalIds.length +
                 aqarReviewIds.length +
-                aqarFinalIds.length,
+                aqarFinalIds.length +
+                ssrReviewIds.length +
+                ssrFinalIds.length +
+                curriculumReviewIds.length +
+                curriculumFinalIds.length,
             evidencePending: evidenceSummary.pendingCount,
             staleEvidence: evidenceSummary.stalePendingCount,
         },
@@ -895,6 +1025,22 @@ export async function getLeadershipDashboardData(
                 rejected: aqarRecords.filter((row) => row.status === "Rejected").length,
                 draft: aqarRecords.filter((row) => row.status === "Draft").length,
             },
+            SSR: {
+                total: ssrRecords.length,
+                actionable: ssrReviewIds.length + ssrFinalIds.length,
+                finalApprovals: ssrFinalIds.length,
+                approved: ssrRecords.filter((row) => row.status === "Approved").length,
+                rejected: ssrRecords.filter((row) => row.status === "Rejected").length,
+                draft: ssrRecords.filter((row) => row.status === "Draft").length,
+            },
+            CURRICULUM: {
+                total: curriculumRecords.length,
+                actionable: curriculumReviewIds.length + curriculumFinalIds.length,
+                finalApprovals: curriculumFinalIds.length,
+                approved: curriculumRecords.filter((row) => row.status === "Approved").length,
+                rejected: curriculumRecords.filter((row) => row.status === "Rejected").length,
+                draft: curriculumRecords.filter((row) => row.status === "Draft").length,
+            },
         },
         queue: {
             totalActionable:
@@ -903,9 +1049,23 @@ export async function getLeadershipDashboardData(
                 casReviewIds.length +
                 casFinalIds.length +
                 aqarReviewIds.length +
-                aqarFinalIds.length,
-            reviewCount: pbasReviewIds.length + casReviewIds.length + aqarReviewIds.length,
-            finalCount: pbasFinalIds.length + casFinalIds.length + aqarFinalIds.length,
+                aqarFinalIds.length +
+                ssrReviewIds.length +
+                ssrFinalIds.length +
+                curriculumReviewIds.length +
+                curriculumFinalIds.length,
+            reviewCount:
+                pbasReviewIds.length +
+                casReviewIds.length +
+                aqarReviewIds.length +
+                ssrReviewIds.length +
+                curriculumReviewIds.length,
+            finalCount:
+                pbasFinalIds.length +
+                casFinalIds.length +
+                aqarFinalIds.length +
+                ssrFinalIds.length +
+                curriculumFinalIds.length,
             items: queueItems,
         },
         facultyRoster,

@@ -6,6 +6,7 @@ import {
     Controls,
     MarkerType,
     MiniMap,
+    Position,
     ReactFlow,
     type Edge,
     type Node,
@@ -376,8 +377,8 @@ export function HierarchyManager({
                         type: item.type,
                         isActive: item.isActive,
                     },
-                    sourcePosition: "bottom",
-                    targetPosition: "top",
+                    sourcePosition: Position.Bottom,
+                    targetPosition: Position.Top,
                 });
 
                 const parentName = item.parentOrganizationName;

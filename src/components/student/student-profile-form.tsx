@@ -29,7 +29,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { studentProfileSchema } from "@/lib/student/validators";
 
-type StudentProfileFormValues = z.infer<typeof studentProfileSchema>;
+type StudentProfileFormValues = z.input<typeof studentProfileSchema>;
+type StudentProfileResolvedValues = z.output<typeof studentProfileSchema>;
 
 type StudentProfileEditorUser = {
     id: string;
@@ -71,7 +72,7 @@ export function StudentProfileForm({
         text: string;
     } | null>(null);
 
-    const form = useForm<StudentProfileFormValues>({
+    const form = useForm<StudentProfileFormValues, unknown, StudentProfileResolvedValues>({
         resolver: zodResolver(studentProfileSchema),
         defaultValues: {
             firstName: student.firstName ?? "",
@@ -83,7 +84,7 @@ export function StudentProfileForm({
         },
     });
 
-    function onSubmit(values: StudentProfileFormValues) {
+    function onSubmit(values: StudentProfileResolvedValues) {
         setMessage(null);
 
         startTransition(async () => {
@@ -96,7 +97,7 @@ export function StudentProfileForm({
 
                 const data = (await response.json()) as {
                     message?: string;
-                    profile?: StudentProfileFormValues;
+                    profile?: StudentProfileResolvedValues;
                 };
 
                 if (!response.ok) {

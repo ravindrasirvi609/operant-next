@@ -36,7 +36,7 @@ export default async function DirectorApprovalsPage() {
                 <MetricCard label="Final approvals" value={dashboard.queue.finalCount} />
             </section>
 
-            <section className="grid gap-4 xl:grid-cols-3">
+            <section className="grid gap-4 xl:grid-cols-5">
                 <ModuleQueueCard
                     label="PBAS"
                     href="/director/pbas"
@@ -57,6 +57,20 @@ export default async function DirectorApprovalsPage() {
                     actionable={dashboard.modules.AQAR.actionable}
                     finalApprovals={dashboard.modules.AQAR.finalApprovals}
                     total={dashboard.modules.AQAR.total}
+                />
+                <ModuleQueueCard
+                    label="SSR"
+                    href="/director/ssr"
+                    actionable={dashboard.modules.SSR.actionable}
+                    finalApprovals={dashboard.modules.SSR.finalApprovals}
+                    total={dashboard.modules.SSR.total}
+                />
+                <ModuleQueueCard
+                    label="Curriculum"
+                    href="/director/curriculum"
+                    actionable={dashboard.modules.CURRICULUM.actionable}
+                    finalApprovals={dashboard.modules.CURRICULUM.finalApprovals}
+                    total={dashboard.modules.CURRICULUM.total}
                 />
             </section>
 

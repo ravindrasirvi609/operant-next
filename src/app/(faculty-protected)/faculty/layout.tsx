@@ -10,6 +10,8 @@ const navLinks = [
   { label: "Profile", href: "/faculty/profile" },
   { label: "PBAS", href: "/faculty/pbas" },
   { label: "AQAR", href: "/faculty/aqar" },
+  { label: "SSR", href: "/faculty/ssr" },
+  { label: "Curriculum", href: "/faculty/curriculum" },
   { label: "CAS", href: "/faculty/cas" },
 ];
 
@@ -80,6 +82,12 @@ export default async function FacultyLayout({
             </Link>
             <Link className="text-sm text-zinc-500 hover:text-zinc-900" href="/faculty/pbas">
               PBAS
+            </Link>
+            <Link className="text-sm text-zinc-500 hover:text-zinc-900" href="/faculty/ssr">
+              SSR
+            </Link>
+            <Link className="text-sm text-zinc-500 hover:text-zinc-900" href="/faculty/curriculum">
+              Curriculum
             </Link>
           </div>
         </div>

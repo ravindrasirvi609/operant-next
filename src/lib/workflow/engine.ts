@@ -150,6 +150,82 @@ const DEFAULT_WORKFLOW_DEFINITIONS: WorkflowDefinitionSeed[] = [
             },
         ],
     },
+    {
+        moduleName: "SSR",
+        name: "SSR Default Review Chain",
+        version: 1,
+        draftStatus: "Draft",
+        approvedStatus: "Approved",
+        rejectedStatus: "Rejected",
+        stages: [
+            {
+                key: "department_head_review",
+                label: "Department Head Review",
+                status: "Submitted",
+                kind: "review",
+                scope: "department",
+                approverRoles: ["DEPARTMENT_HEAD", "DIRECTOR"],
+            },
+            {
+                key: "committee_review",
+                label: "IQAC Review",
+                status: "Under Review",
+                kind: "review",
+                scope: "global",
+                approverRoles: ["SSR_COMMITTEE", "IQAC", "DIRECTOR", "ADMIN"],
+            },
+            {
+                key: "final_approval",
+                label: "Principal Approval",
+                status: "Committee Review",
+                kind: "final",
+                scope: "global",
+                approverRoles: ["PRINCIPAL", "ADMIN"],
+            },
+        ],
+    },
+    {
+        moduleName: "CURRICULUM",
+        name: "Curriculum Default Review Chain",
+        version: 1,
+        draftStatus: "Draft",
+        approvedStatus: "Approved",
+        rejectedStatus: "Rejected",
+        stages: [
+            {
+                key: "department_head_review",
+                label: "Department Head Review",
+                status: "Submitted",
+                kind: "review",
+                scope: "department",
+                approverRoles: ["DEPARTMENT_HEAD", "DIRECTOR"],
+            },
+            {
+                key: "board_of_studies_review",
+                label: "Board of Studies Review",
+                status: "Board Review",
+                kind: "review",
+                scope: "department",
+                approverRoles: ["BOARD_OF_STUDIES", "DIRECTOR", "ADMIN"],
+            },
+            {
+                key: "iqac_review",
+                label: "IQAC Review",
+                status: "Under Review",
+                kind: "review",
+                scope: "global",
+                approverRoles: ["IQAC", "DIRECTOR", "ADMIN"],
+            },
+            {
+                key: "final_approval",
+                label: "Principal Approval",
+                status: "Committee Review",
+                kind: "final",
+                scope: "global",
+                approverRoles: ["PRINCIPAL", "ADMIN"],
+            },
+        ],
+    },
 ];
 
 function findStageByStatus(definition: Pick<IWorkflowDefinition, "stages">, status: string) {
@@ -442,14 +518,18 @@ export async function listPendingWorkflowRecordIds(options: {
 }) {
     const actorContext = await resolveWorkflowActorContext(options.actor);
 
-    if (!actorContext.workflowRoles.length) {
+    const actorWorkflowRoles = actorContext.isAdmin
+        ? Array.from(new Set<WorkflowApproverRole>([...actorContext.workflowRoles, "ADMIN"]))
+        : actorContext.workflowRoles;
+
+    if (!actorWorkflowRoles.length) {
         return [];
     }
 
     const instances = await WorkflowInstance.find({
         moduleName: options.moduleName,
         isActive: true,
-        currentApproverRoles: { $in: actorContext.workflowRoles },
+        currentApproverRoles: { $in: actorWorkflowRoles },
     })
         .select(
             "recordId currentApproverRoles currentStageKind scopeDepartmentName scopeCollegeName scopeUniversityName scopeDepartmentId scopeInstitutionId scopeDepartmentOrganizationId scopeCollegeOrganizationId scopeUniversityOrganizationId scopeOrganizationIds"

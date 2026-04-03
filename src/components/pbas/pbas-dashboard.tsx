@@ -394,16 +394,32 @@ export function PbasDashboard({
     );
     const selectedSnapshot = selectedDetail?.snapshot ?? selected?.snapshot ?? summary.snapshot;
     const canEdit = !selected || ["Draft", "Rejected"].includes(selected.status);
-    const academicYearOptions = useMemo(() => {
+    const academicYearOptions = useMemo<Array<{ id: string; label: string; isActive: boolean }>>(() => {
         if (summary.academicYearOptions?.length) {
             return summary.academicYearOptions;
         }
 
         if (summary.activeYear?.label) {
-            return [{ id: summary.activeYear.id, label: summary.activeYear.label, isActive: true }];
+            return [
+                {
+                    id: summary.activeYear.id ?? summary.activeYear.label,
+                    label: summary.activeYear.label,
+                    isActive: true,
+                },
+            ];
         }
 
-        return [{ id: summary.meta.academicYear, label: summary.meta.academicYear, isActive: true }];
+        if (summary.meta.academicYear) {
+            return [
+                {
+                    id: summary.meta.academicYear,
+                    label: summary.meta.academicYear,
+                    isActive: true,
+                },
+            ];
+        }
+
+        return [];
     }, [summary]);
     const submitDisabledReason = !selectedId
         ? "Create and select a PBAS draft to submit."

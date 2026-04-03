@@ -67,6 +67,8 @@ const workflowRoleByCommitteeType: Partial<Record<GovernanceCommitteeType, Workf
     PBAS_REVIEW: "PBAS_COMMITTEE",
     CAS_SCREENING: "CAS_COMMITTEE",
     AQAR_REVIEW: "AQAR_COMMITTEE",
+    SSR_REVIEW: "SSR_COMMITTEE",
+    BOARD_OF_STUDIES: "BOARD_OF_STUDIES",
 };
 
 function uniqueStrings(values: Array<string | undefined | null>) {
@@ -621,6 +623,10 @@ export function canReviewWorkflowStage(
     subjectScope: AuthorizationSubjectScope,
     approverRoles: WorkflowApproverRole[]
 ) {
+    if (profile.isAdmin && approverRoles.includes("ADMIN")) {
+        return true;
+    }
+
     return approverRoles.some((role) => {
         if (!profile.workflowRoles.includes(role)) {
             return false;

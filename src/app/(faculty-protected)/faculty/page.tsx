@@ -82,6 +82,11 @@ export default async function FacultyHomePage() {
             detail: `${profile.publications.length + profile.researchProjects.length + profile.eventParticipations.length} academic record(s) available`,
             href: "/faculty/profile",
         },
+        {
+            title: "SSR contribution desk",
+            detail: "Respond to the SSR metrics and narrative sections assigned to your faculty account.",
+            href: "/faculty/ssr",
+        },
     ];
 
     const alertItems = [
@@ -116,6 +121,9 @@ export default async function FacultyHomePage() {
                         </Button>
                         <Button asChild variant="outline">
                             <Link href="/faculty/pbas">Open PBAS</Link>
+                        </Button>
+                        <Button asChild variant="outline">
+                            <Link href="/faculty/ssr">Open SSR</Link>
                         </Button>
                     </div>
                 </section>

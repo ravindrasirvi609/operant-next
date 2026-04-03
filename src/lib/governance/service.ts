@@ -45,6 +45,8 @@ const workflowCommitteeTypeByRole = {
     PBAS_COMMITTEE: ["PBAS_REVIEW"] as GovernanceCommitteeType[],
     CAS_COMMITTEE: ["CAS_SCREENING"] as GovernanceCommitteeType[],
     AQAR_COMMITTEE: ["AQAR_REVIEW"] as GovernanceCommitteeType[],
+    SSR_COMMITTEE: ["SSR_REVIEW"] as GovernanceCommitteeType[],
+    BOARD_OF_STUDIES: ["BOARD_OF_STUDIES"] as GovernanceCommitteeType[],
 } as const;
 
 function normalizeTrimmed(value?: string | null) {

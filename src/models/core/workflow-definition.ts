@@ -1,17 +1,19 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
 
-export type WorkflowModuleName = "PBAS" | "CAS" | "AQAR";
+export type WorkflowModuleName = "PBAS" | "CAS" | "AQAR" | "SSR" | "CURRICULUM";
 export type WorkflowStageKind = "review" | "final";
 export type WorkflowStageScope = "global" | "department";
 export type WorkflowApproverRole =
     | "FACULTY"
     | "DEPARTMENT_HEAD"
+    | "BOARD_OF_STUDIES"
     | "DIRECTOR"
     | "OFFICE_HEAD"
     | "IQAC"
     | "PBAS_COMMITTEE"
     | "CAS_COMMITTEE"
     | "AQAR_COMMITTEE"
+    | "SSR_COMMITTEE"
     | "PRINCIPAL"
     | "ADMIN";
 
@@ -60,12 +62,14 @@ const WorkflowDefinitionStageSchema = new Schema<IWorkflowDefinitionStage>(
                     enum: [
                         "FACULTY",
                         "DEPARTMENT_HEAD",
+                        "BOARD_OF_STUDIES",
                         "DIRECTOR",
                         "OFFICE_HEAD",
                         "IQAC",
                         "PBAS_COMMITTEE",
                         "CAS_COMMITTEE",
                         "AQAR_COMMITTEE",
+                        "SSR_COMMITTEE",
                         "PRINCIPAL",
                         "ADMIN",
                     ],
@@ -82,7 +86,7 @@ const WorkflowDefinitionSchema = new Schema<IWorkflowDefinition>(
     {
         moduleName: {
             type: String,
-            enum: ["PBAS", "CAS", "AQAR"],
+            enum: ["PBAS", "CAS", "AQAR", "SSR", "CURRICULUM"],
             required: true,
             index: true,
         },

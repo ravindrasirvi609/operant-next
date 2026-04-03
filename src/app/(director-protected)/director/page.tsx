@@ -70,7 +70,7 @@ export default async function DirectorDashboardPage() {
                     <CardHeader>
                         <CardTitle>Action queue</CardTitle>
                         <CardDescription>
-                            The most recent PBAS, CAS, and AQAR items currently waiting for your review or final approval.
+                            The most recent PBAS, CAS, AQAR, SSR, and curriculum items currently waiting for your review or final approval.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -137,7 +137,7 @@ export default async function DirectorDashboardPage() {
                 </Card>
             </section>
 
-            <section className="grid gap-6 xl:grid-cols-3">
+            <section className="grid gap-6 xl:grid-cols-5">
                 <ModuleCard
                     href="/director/pbas"
                     label="PBAS"
@@ -155,6 +155,18 @@ export default async function DirectorDashboardPage() {
                     label="AQAR"
                     summary={dashboard.modules.AQAR}
                     description="AQAR faculty contributions and quality review checkpoints."
+                />
+                <ModuleCard
+                    href="/director/ssr"
+                    label="SSR"
+                    summary={dashboard.modules.SSR}
+                    description="Self-study report submissions, evidence, and committee workflows in your scope."
+                />
+                <ModuleCard
+                    href="/director/curriculum"
+                    label="Curriculum"
+                    summary={dashboard.modules.CURRICULUM}
+                    description="Versioned curriculum drafts, BoS governance review, and syllabus approvals in your scope."
                 />
             </section>
 

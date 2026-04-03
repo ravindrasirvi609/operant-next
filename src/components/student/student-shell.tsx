@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileStack, LayoutDashboard, UserRound } from "lucide-react";
+import { FileStack, LayoutDashboard, ScrollText, UserRound } from "lucide-react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
 import { NotificationCenter } from "@/components/notifications/notification-center";
@@ -30,6 +30,13 @@ const navigation = [
         mobileLabel: "Records",
         description: "Activities, achievements, evidence, and outcomes.",
         icon: FileStack,
+    },
+    {
+        href: "/student/ssr",
+        label: "SSR",
+        mobileLabel: "SSR",
+        description: "Assigned self-study report responses and evidence.",
+        icon: ScrollText,
     },
 ] as const;
 
@@ -229,7 +236,7 @@ export function StudentShell({
             </div>
 
             <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-zinc-200/80 bg-white/95 px-3 py-3 backdrop-blur-xl sm:hidden">
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-4 gap-2">
                     {navigation.map((item) => {
                         const Icon = item.icon;
                         const active = isActiveRoute(pathname, item.href);

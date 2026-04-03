@@ -42,7 +42,7 @@ const WorkflowInstanceSchema = new Schema<IWorkflowInstance>(
     {
         moduleName: {
             type: String,
-            enum: ["PBAS", "CAS", "AQAR"],
+            enum: ["PBAS", "CAS", "AQAR", "SSR", "CURRICULUM"],
             required: true,
             index: true,
         },
@@ -68,12 +68,14 @@ const WorkflowInstanceSchema = new Schema<IWorkflowInstance>(
                     enum: [
                         "FACULTY",
                         "DEPARTMENT_HEAD",
+                        "BOARD_OF_STUDIES",
                         "DIRECTOR",
                         "OFFICE_HEAD",
                         "IQAC",
                         "PBAS_COMMITTEE",
                         "CAS_COMMITTEE",
                         "AQAR_COMMITTEE",
+                        "SSR_COMMITTEE",
                         "PRINCIPAL",
                         "ADMIN",
                     ],
