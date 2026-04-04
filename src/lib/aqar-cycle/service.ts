@@ -45,6 +45,7 @@ import {
 import {
     getNaacCriterionMeta,
     getNaacMetricMeta,
+    naacCriterionCatalog,
 } from "@/lib/naac-criteria-mapping/catalog";
 import {
     ensureNaacCriteriaMappingsSeeded,
@@ -642,23 +643,26 @@ async function buildCriteriaSections(
         groupedCriteria.set(mapping.criteriaCode, current);
     }
 
-    const criteriaSections: IAqarCycleCriterion[] = Array.from(groupedCriteria.entries())
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([criteriaCode, criterion]) => {
-            const completionPercent = criterion.totalWeight
+    const criteriaSections: IAqarCycleCriterion[] = naacCriterionCatalog.map((criterionMeta) => {
+        const criterion = groupedCriteria.get(criterionMeta.criteriaCode);
+        const completionPercent = criterion
+            ? criterion.totalWeight
                 ? Math.round((criterion.completionWeight / criterion.totalWeight) * 100)
-                : metricCompletion(criterion.metrics);
+                : metricCompletion(criterion.metrics)
+            : 0;
 
-            return {
-                criterionCode: criteriaCode as IAqarCycleCriterion["criterionCode"],
-                title: criterion.title,
-                summary: criterion.summary,
-                metrics: criterion.metrics,
-                completionPercent,
-                status: criterionStatus(completionPercent),
-                sourceSnapshots: criterion.sourceSnapshots,
-            };
-        });
+        return {
+            criterionCode: criterionMeta.criteriaCode as IAqarCycleCriterion["criterionCode"],
+            title: criterion?.title ?? criterionMeta.criteriaName,
+            summary:
+                criterion?.summary ??
+                `${criterionMeta.criteriaName} is configured in the AQAR cycle template and awaits mapped module evidence for this reporting period.`,
+            metrics: criterion?.metrics ?? {},
+            completionPercent,
+            status: criterion ? criterionStatus(completionPercent) : "Pending",
+            sourceSnapshots: criterion?.sourceSnapshots ?? [],
+        };
+    });
 
     return {
         institutionProfile: {

@@ -2532,6 +2532,11 @@ export async function reviewResearchInnovationAssignment(
 
     const input = researchInnovationReviewSchema.parse(rawInput);
     const { assignment } = await loadAssignmentCore(assignmentId);
+
+    if (assignment.assigneeUserId.toString() === actor.id && actor.role !== "Admin") {
+        throw new AuthError("Contributors cannot review their own research & innovation assignment.", 403);
+    }
+
     const workflowDefinition = await getActiveWorkflowDefinition("RESEARCH_INNOVATION");
     const currentStage = getWorkflowStageByStatus(workflowDefinition, assignment.status);
 

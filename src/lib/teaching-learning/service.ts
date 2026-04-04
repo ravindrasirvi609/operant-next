@@ -1885,6 +1885,11 @@ export async function reviewTeachingLearningAssignment(
 
     const input = teachingLearningReviewSchema.parse(rawInput);
     const { assignment } = await loadAssignmentCore(assignmentId);
+
+    if (assignment.assigneeUserId.toString() === actor.id && actor.role !== "Admin") {
+        throw new AuthError("Contributors cannot review their own teaching-learning assignment.", 403);
+    }
+
     const workflowDefinition = await getActiveWorkflowDefinition("TEACHING_LEARNING");
     const currentStage = getWorkflowStageByStatus(workflowDefinition, assignment.status);
 

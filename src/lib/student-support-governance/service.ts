@@ -1815,6 +1815,11 @@ export async function reviewStudentSupportGovernanceAssignment(
 
     const input = studentSupportGovernanceReviewSchema.parse(rawInput);
     const { assignment } = await loadAssignmentCore(assignmentId);
+
+    if (assignment.assigneeUserId.toString() === actor.id && actor.role !== "Admin") {
+        throw new AuthError("Contributors cannot review their own student support & governance assignment.", 403);
+    }
+
     const workflowDefinition = await getActiveWorkflowDefinition("STUDENT_SUPPORT_GOVERNANCE");
     const currentStage = getWorkflowStageByStatus(workflowDefinition, assignment.status);
 

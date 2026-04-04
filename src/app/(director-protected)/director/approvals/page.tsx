@@ -94,6 +94,20 @@ export default async function DirectorApprovalsPage() {
                     total={dashboard.modules.STUDENT_SUPPORT_GOVERNANCE.total}
                 />
                 <ModuleQueueCard
+                    label="Leadership & IQAC"
+                    href="/director/governance-leadership-iqac"
+                    actionable={dashboard.modules.GOVERNANCE_LEADERSHIP_IQAC.actionable}
+                    finalApprovals={dashboard.modules.GOVERNANCE_LEADERSHIP_IQAC.finalApprovals}
+                    total={dashboard.modules.GOVERNANCE_LEADERSHIP_IQAC.total}
+                />
+                <ModuleQueueCard
+                    label="Institutional Values"
+                    href="/director/institutional-values-best-practices"
+                    actionable={dashboard.modules.INSTITUTIONAL_VALUES_BEST_PRACTICES.actionable}
+                    finalApprovals={dashboard.modules.INSTITUTIONAL_VALUES_BEST_PRACTICES.finalApprovals}
+                    total={dashboard.modules.INSTITUTIONAL_VALUES_BEST_PRACTICES.total}
+                />
+                <ModuleQueueCard
                     label="Research"
                     href="/director/research-innovation"
                     actionable={dashboard.modules.RESEARCH_INNOVATION.actionable}

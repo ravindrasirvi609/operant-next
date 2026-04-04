@@ -9,7 +9,9 @@ export type WorkflowModuleName =
     | "TEACHING_LEARNING"
     | "RESEARCH_INNOVATION"
     | "INFRASTRUCTURE_LIBRARY"
-    | "STUDENT_SUPPORT_GOVERNANCE";
+    | "STUDENT_SUPPORT_GOVERNANCE"
+    | "GOVERNANCE_LEADERSHIP_IQAC"
+    | "INSTITUTIONAL_VALUES_BEST_PRACTICES";
 export type WorkflowStageKind = "review" | "final";
 export type WorkflowStageScope = "global" | "department";
 export type WorkflowApproverRole =
@@ -113,6 +115,8 @@ const WorkflowDefinitionSchema = new Schema<IWorkflowDefinition>(
                 "RESEARCH_INNOVATION",
                 "INFRASTRUCTURE_LIBRARY",
                 "STUDENT_SUPPORT_GOVERNANCE",
+                "GOVERNANCE_LEADERSHIP_IQAC",
+                "INSTITUTIONAL_VALUES_BEST_PRACTICES",
             ],
             required: true,
             index: true,

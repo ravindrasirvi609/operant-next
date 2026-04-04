@@ -194,6 +194,27 @@ async function buildSamplePreviewPdf(reportType: ReportTemplateType) {
             placements: 384,
             publications: 212,
             projects: 46,
+            module_C1_heading: "C1 Curriculum Management",
+            module_C1_body:
+                "Module alignment: NAAC Criterion 1 - Curricular Aspects.\nModule summary: Curriculum review cycles aligned with OBE targets across all schools.\nWorkflow readiness: 84% complete | Current state: Ready.\nKey metrics: curriculumRevisions: 12 | newCourses: 6.\nSource evidence feeds: curriculum plans, syllabus versions, outcome mappings, and BoS decisions.",
+            module_C2_heading: "C2 Teaching Learning Process",
+            module_C2_body:
+                "Module alignment: NAAC Criterion 2 - Teaching, Learning and Evaluation.\nModule summary: Evaluation reforms and mentoring coverage improved across departments.\nWorkflow readiness: 88% complete | Current state: Ready.\nKey metrics: mentorCoverage: 91 | feedbackCycles: 2.\nSource evidence feeds: teaching plans, sessions, assessments, and learner-support records.",
+            module_C3_heading: "C3 Research & Innovation Ecosystem",
+            module_C3_body:
+                "Module alignment: NAAC Criterion 3 - Research, Innovations and Extension.\nModule summary: Strong publication and funded project pipeline with growing extension activity.\nWorkflow readiness: 81% complete | Current state: Ready.\nKey metrics: publications: 212 | projects: 46.\nSource evidence feeds: research portfolios, projects, grants, innovation records, and extension evidence.",
+            module_C4_heading: "C4 Infrastructure & Library",
+            module_C4_body:
+                "Module alignment: NAAC Criterion 4 - Infrastructure and Learning Resources.\nModule summary: Digital learning resources expanded with new LMS-backed repositories.\nWorkflow readiness: 76% complete | Current state: Ready.\nKey metrics: smartClassrooms: 38 | digitalCollections: 14.\nSource evidence feeds: facility inventories, library resources, usage analytics, and maintenance records.",
+            module_C5_heading: "C5 Student Support & Governance",
+            module_C5_body:
+                "Module alignment: NAAC Criterion 5 - Student Support and Progression.\nModule summary: Placement and progression indicators remain stable with stronger support interventions.\nWorkflow readiness: 79% complete | Current state: Ready.\nKey metrics: placements: 384 | progressionRate: 72.\nSource evidence feeds: mentoring groups, grievance records, progression tracking, and student representation data.",
+            module_C6_heading: "C6 Governance Leadership & IQAC",
+            module_C6_body:
+                "Module alignment: NAAC Criterion 6 - Governance, Leadership and Management.\nModule summary: Institutional planning and administrative benchmarking were updated for the cycle.\nWorkflow readiness: 82% complete | Current state: Ready.\nKey metrics: auditsClosed: 11 | trainingSessions: 19.\nSource evidence feeds: strategic plans, IQAC meetings, policies, quality initiatives, and compliance reviews.",
+            module_C7_heading: "C7 Institutional Values & Best Practices",
+            module_C7_body:
+                "Module alignment: NAAC Criterion 7 - Institutional Values and Best Practices.\nModule summary: Green campus and inclusion practices documented with cross-department evidence.\nWorkflow readiness: 78% complete | Current state: Ready.\nKey metrics: bestPractices: 4 | outreachInitiatives: 17.\nSource evidence feeds: sustainability records, inclusiveness facilities, ethics documentation, outreach, and best-practice narratives.",
             criterion_C1_heading: "C1 Curricular Aspects",
             criterion_C1_body:
                 "Criterion summary: Curriculum review cycles aligned with OBE targets across all schools.\nCompletion status: 84% complete.\nCurrent state: Ready.\nMetrics captured: curriculumRevisions: 12 | newCourses: 6.",

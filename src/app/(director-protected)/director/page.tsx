@@ -70,7 +70,7 @@ export default async function DirectorDashboardPage() {
                     <CardHeader>
                         <CardTitle>Action queue</CardTitle>
                         <CardDescription>
-                            The most recent PBAS, CAS, AQAR, SSR, curriculum, teaching-learning, infrastructure, and research-innovation items currently waiting for your review or final approval.
+                            The most recent PBAS, CAS, AQAR, SSR, curriculum, teaching-learning, infrastructure, student-support, leadership/IQAC, institutional-values, and research items currently waiting for your review or final approval.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -185,6 +185,18 @@ export default async function DirectorDashboardPage() {
                     label="Student Support"
                     summary={dashboard.modules.STUDENT_SUPPORT_GOVERNANCE}
                     description="Mentoring, grievance redressal, progression, and student-representation reviews in your governance scope."
+                />
+                <ModuleCard
+                    href="/director/governance-leadership-iqac"
+                    label="Leadership & IQAC"
+                    summary={dashboard.modules.GOVERNANCE_LEADERSHIP_IQAC}
+                    description="Governance structure, IQAC meetings, policy deployment, and compliance-review portfolios in your scope."
+                />
+                <ModuleCard
+                    href="/director/institutional-values-best-practices"
+                    label="Institutional Values"
+                    summary={dashboard.modules.INSTITUTIONAL_VALUES_BEST_PRACTICES}
+                    description="Criteria 7 portfolios covering sustainability, inclusiveness, ethics, outreach, best practices, and institutional distinctiveness."
                 />
                 <ModuleCard
                     href="/director/research-innovation"

@@ -2062,6 +2062,11 @@ export async function reviewCurriculumAssignment(
 
     const input = curriculumReviewSchema.parse(rawInput);
     const { assignment, syllabusVersion } = await loadAssignmentCore(assignmentId);
+
+    if (assignment.assigneeUserId.toString() === actor.id && actor.role !== "Admin") {
+        throw new AuthError("Contributors cannot review their own curriculum assignment.", 403);
+    }
+
     const workflowDefinition = await getActiveWorkflowDefinition("CURRICULUM");
     const stage = getWorkflowStageByStatus(workflowDefinition, assignment.status);
 

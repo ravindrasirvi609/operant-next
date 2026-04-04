@@ -1815,6 +1815,11 @@ export async function reviewInfrastructureLibraryAssignment(
 
     const input = infrastructureLibraryReviewSchema.parse(rawInput);
     const { assignment } = await loadAssignmentCore(assignmentId);
+
+    if (assignment.assigneeUserId.toString() === actor.id && actor.role !== "Admin") {
+        throw new AuthError("Contributors cannot review their own infrastructure/library assignment.", 403);
+    }
+
     const workflowDefinition = await getActiveWorkflowDefinition("INFRASTRUCTURE_LIBRARY");
     const currentStage = getWorkflowStageByStatus(workflowDefinition, assignment.status);
 

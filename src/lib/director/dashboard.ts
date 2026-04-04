@@ -33,6 +33,10 @@ import ResearchInnovationAssignment from "@/models/research/research-innovation-
 import ResearchInnovationPlan from "@/models/research/research-innovation-plan";
 import StudentSupportGovernanceAssignment from "@/models/student/student-support-governance-assignment";
 import StudentSupportGovernancePlan from "@/models/student/student-support-governance-plan";
+import GovernanceLeadershipIqacAssignment from "@/models/core/governance-leadership-iqac-assignment";
+import GovernanceLeadershipIqacPlan from "@/models/core/governance-leadership-iqac-plan";
+import InstitutionalValuesBestPracticesAssignment from "@/models/quality/institutional-values-best-practices-assignment";
+import InstitutionalValuesBestPracticesPlan from "@/models/quality/institutional-values-best-practices-plan";
 import Internship from "@/models/student/internship";
 import Placement from "@/models/student/placement";
 import StudentAcademicRecord from "@/models/student/student-academic-record";
@@ -68,7 +72,9 @@ type LeadershipQueueItem = {
         | "TEACHING_LEARNING"
         | "RESEARCH_INNOVATION"
         | "INFRASTRUCTURE_LIBRARY"
-        | "STUDENT_SUPPORT_GOVERNANCE";
+        | "STUDENT_SUPPORT_GOVERNANCE"
+        | "GOVERNANCE_LEADERSHIP_IQAC"
+        | "INSTITUTIONAL_VALUES_BEST_PRACTICES";
     title: string;
     subtitle: string;
     status: string;
@@ -354,7 +360,9 @@ export type LeadershipDashboardData = {
         | "TEACHING_LEARNING"
         | "RESEARCH_INNOVATION"
         | "INFRASTRUCTURE_LIBRARY"
-        | "STUDENT_SUPPORT_GOVERNANCE",
+        | "STUDENT_SUPPORT_GOVERNANCE"
+        | "GOVERNANCE_LEADERSHIP_IQAC"
+        | "INSTITUTIONAL_VALUES_BEST_PRACTICES",
         LeadershipModuleSummary
     >;
     queue: {
@@ -787,6 +795,8 @@ export async function getLeadershipDashboardData(
         teachingLearningRecords,
         infrastructureLibraryRecords,
         studentSupportGovernanceRecords,
+        governanceLeadershipIqacRecords,
+        institutionalValuesBestPracticesRecords,
         researchInnovationRecords,
         pbasReviewIds,
         pbasFinalIds,
@@ -804,6 +814,10 @@ export async function getLeadershipDashboardData(
         infrastructureLibraryFinalIds,
         studentSupportGovernanceReviewIds,
         studentSupportGovernanceFinalIds,
+        governanceLeadershipIqacReviewIds,
+        governanceLeadershipIqacFinalIds,
+        institutionalValuesBestPracticesReviewIds,
+        institutionalValuesBestPracticesFinalIds,
         researchInnovationReviewIds,
         researchInnovationFinalIds,
     ] =
@@ -841,6 +855,14 @@ export async function getLeadershipDashboardData(
                 .select("_id planId status updatedAt")
                 .sort({ updatedAt: -1 })
                 .lean(),
+            GovernanceLeadershipIqacAssignment.find(buildAuthorizedScopeQuery(profile))
+                .select("_id planId status updatedAt")
+                .sort({ updatedAt: -1 })
+                .lean(),
+            InstitutionalValuesBestPracticesAssignment.find(buildAuthorizedScopeQuery(profile))
+                .select("_id planId status updatedAt")
+                .sort({ updatedAt: -1 })
+                .lean(),
             ResearchInnovationAssignment.find(buildAuthorizedScopeQuery(profile))
                 .select("_id planId status updatedAt")
                 .sort({ updatedAt: -1 })
@@ -861,6 +883,10 @@ export async function getLeadershipDashboardData(
             listPendingWorkflowRecordIds({ actor, moduleName: "INFRASTRUCTURE_LIBRARY", stageKinds: ["final"] }),
             listPendingWorkflowRecordIds({ actor, moduleName: "STUDENT_SUPPORT_GOVERNANCE", stageKinds: ["review"] }),
             listPendingWorkflowRecordIds({ actor, moduleName: "STUDENT_SUPPORT_GOVERNANCE", stageKinds: ["final"] }),
+            listPendingWorkflowRecordIds({ actor, moduleName: "GOVERNANCE_LEADERSHIP_IQAC", stageKinds: ["review"] }),
+            listPendingWorkflowRecordIds({ actor, moduleName: "GOVERNANCE_LEADERSHIP_IQAC", stageKinds: ["final"] }),
+            listPendingWorkflowRecordIds({ actor, moduleName: "INSTITUTIONAL_VALUES_BEST_PRACTICES", stageKinds: ["review"] }),
+            listPendingWorkflowRecordIds({ actor, moduleName: "INSTITUTIONAL_VALUES_BEST_PRACTICES", stageKinds: ["final"] }),
             listPendingWorkflowRecordIds({ actor, moduleName: "RESEARCH_INNOVATION", stageKinds: ["review"] }),
             listPendingWorkflowRecordIds({ actor, moduleName: "RESEARCH_INNOVATION", stageKinds: ["final"] }),
         ]);
@@ -895,6 +921,8 @@ export async function getLeadershipDashboardData(
         teachingLearningPlans,
         infrastructureLibraryPlans,
         studentSupportGovernancePlans,
+        governanceLeadershipIqacPlans,
+        institutionalValuesBestPracticesPlans,
         researchInnovationPlans,
     ] = await Promise.all([
         SsrMetric.find({
@@ -967,6 +995,30 @@ export async function getLeadershipDashboardData(
             .populate("departmentId", "name")
             .select("title focusArea scopeType academicYearId institutionId departmentId")
             .lean(),
+        GovernanceLeadershipIqacPlan.find({
+            _id: {
+                $in: uniqueStrings(
+                    governanceLeadershipIqacRecords.map((row) => row.planId?.toString())
+                ).map((value) => new Types.ObjectId(value)),
+            },
+        })
+            .populate("academicYearId", "yearStart yearEnd")
+            .populate("institutionId", "name")
+            .populate("departmentId", "name")
+            .select("title focusArea scopeType academicYearId institutionId departmentId")
+            .lean(),
+        InstitutionalValuesBestPracticesPlan.find({
+            _id: {
+                $in: uniqueStrings(
+                    institutionalValuesBestPracticesRecords.map((row) => row.planId?.toString())
+                ).map((value) => new Types.ObjectId(value)),
+            },
+        })
+            .populate("academicYearId", "yearStart yearEnd")
+            .populate("institutionId", "name")
+            .populate("departmentId", "name")
+            .select("title theme scopeType academicYearId institutionId departmentId")
+            .lean(),
         ResearchInnovationPlan.find({
             _id: {
                 $in: uniqueStrings(researchInnovationRecords.map((row) => row.planId?.toString())).map(
@@ -989,6 +1041,8 @@ export async function getLeadershipDashboardData(
     const teachingLearningFinalIdSet = new Set(teachingLearningFinalIds);
     const infrastructureLibraryFinalIdSet = new Set(infrastructureLibraryFinalIds);
     const studentSupportGovernanceFinalIdSet = new Set(studentSupportGovernanceFinalIds);
+    const governanceLeadershipIqacFinalIdSet = new Set(governanceLeadershipIqacFinalIds);
+    const institutionalValuesBestPracticesFinalIdSet = new Set(institutionalValuesBestPracticesFinalIds);
     const researchInnovationFinalIdSet = new Set(researchInnovationFinalIds);
     const ssrMetricById = new Map(ssrMetrics.map((row) => [row._id.toString(), row]));
     const ssrContributorNameById = new Map(
@@ -1008,6 +1062,12 @@ export async function getLeadershipDashboardData(
     );
     const studentSupportGovernancePlanById = new Map(
         studentSupportGovernancePlans.map((row) => [row._id.toString(), row])
+    );
+    const governanceLeadershipIqacPlanById = new Map(
+        governanceLeadershipIqacPlans.map((row) => [row._id.toString(), row])
+    );
+    const institutionalValuesBestPracticesPlanById = new Map(
+        institutionalValuesBestPracticesPlans.map((row) => [row._id.toString(), row])
     );
     const researchInnovationPlanById = new Map(
         researchInnovationPlans.map((row) => [row._id.toString(), row])
@@ -1208,6 +1268,92 @@ export async function getLeadershipDashboardData(
                     updatedAt: formatQueueDate(row.updatedAt),
                 };
             }),
+        ...governanceLeadershipIqacRecords
+            .filter(
+                (row) =>
+                    governanceLeadershipIqacReviewIds.includes(row._id.toString()) ||
+                    governanceLeadershipIqacFinalIdSet.has(row._id.toString())
+            )
+            .slice(0, 6)
+            .map((row) => {
+                const plan = governanceLeadershipIqacPlanById.get(row.planId.toString());
+                const academicYearRef =
+                    plan?.academicYearId &&
+                    typeof plan.academicYearId === "object" &&
+                    "yearStart" in plan.academicYearId
+                        ? (plan.academicYearId as { yearStart?: number; yearEnd?: number })
+                        : undefined;
+                const academicYear =
+                    academicYearRef?.yearStart && academicYearRef?.yearEnd
+                        ? `${academicYearRef.yearStart}-${academicYearRef.yearEnd}`
+                        : "Academic year";
+                const unit =
+                    plan?.scopeType === "Department"
+                        ? typeof plan.departmentId === "object" && plan.departmentId && "name" in plan.departmentId
+                            ? String(plan.departmentId.name)
+                            : "Department"
+                        : typeof plan?.institutionId === "object" &&
+                            plan.institutionId &&
+                            "name" in plan.institutionId
+                          ? String(plan.institutionId.name)
+                          : "Institution";
+
+                return {
+                    id: row._id.toString(),
+                    moduleName: "GOVERNANCE_LEADERSHIP_IQAC" as const,
+                    title: plan?.title ?? "Governance leadership & IQAC record",
+                    subtitle: `${plan?.focusArea ?? "Integrated"} · ${unit} · ${academicYear}`,
+                    status: row.status,
+                    actionLabel: governanceLeadershipIqacFinalIdSet.has(row._id.toString())
+                        ? "Final approval"
+                        : "Review required",
+                    href: "/director/governance-leadership-iqac",
+                    updatedAt: formatQueueDate(row.updatedAt),
+                };
+            }),
+        ...institutionalValuesBestPracticesRecords
+            .filter(
+                (row) =>
+                    institutionalValuesBestPracticesReviewIds.includes(row._id.toString()) ||
+                    institutionalValuesBestPracticesFinalIdSet.has(row._id.toString())
+            )
+            .slice(0, 6)
+            .map((row) => {
+                const plan = institutionalValuesBestPracticesPlanById.get(row.planId.toString());
+                const academicYearRef =
+                    plan?.academicYearId &&
+                    typeof plan.academicYearId === "object" &&
+                    "yearStart" in plan.academicYearId
+                        ? (plan.academicYearId as { yearStart?: number; yearEnd?: number })
+                        : undefined;
+                const academicYear =
+                    academicYearRef?.yearStart && academicYearRef?.yearEnd
+                        ? `${academicYearRef.yearStart}-${academicYearRef.yearEnd}`
+                        : "Academic year";
+                const unit =
+                    plan?.scopeType === "Department"
+                        ? typeof plan.departmentId === "object" && plan.departmentId && "name" in plan.departmentId
+                            ? String(plan.departmentId.name)
+                            : "Department"
+                        : typeof plan?.institutionId === "object" &&
+                            plan.institutionId &&
+                            "name" in plan.institutionId
+                          ? String(plan.institutionId.name)
+                          : "Institution";
+
+                return {
+                    id: row._id.toString(),
+                    moduleName: "INSTITUTIONAL_VALUES_BEST_PRACTICES" as const,
+                    title: plan?.title ?? "Institutional values record",
+                    subtitle: `${plan?.theme ?? "Integrated"} · ${unit} · ${academicYear}`,
+                    status: row.status,
+                    actionLabel: institutionalValuesBestPracticesFinalIdSet.has(row._id.toString())
+                        ? "Final approval"
+                        : "Review required",
+                    href: "/director/institutional-values-best-practices",
+                    updatedAt: formatQueueDate(row.updatedAt),
+                };
+            }),
         ...researchInnovationRecords
             .filter(
                 (row) =>
@@ -1287,8 +1433,14 @@ export async function getLeadershipDashboardData(
                 curriculumFinalIds.length +
                 teachingLearningReviewIds.length +
                 teachingLearningFinalIds.length +
+                infrastructureLibraryReviewIds.length +
+                infrastructureLibraryFinalIds.length +
                 studentSupportGovernanceReviewIds.length +
                 studentSupportGovernanceFinalIds.length +
+                governanceLeadershipIqacReviewIds.length +
+                governanceLeadershipIqacFinalIds.length +
+                institutionalValuesBestPracticesReviewIds.length +
+                institutionalValuesBestPracticesFinalIds.length +
                 researchInnovationReviewIds.length +
                 researchInnovationFinalIds.length,
             evidencePending: evidenceSummary.pendingCount,
@@ -1365,6 +1517,26 @@ export async function getLeadershipDashboardData(
                 rejected: studentSupportGovernanceRecords.filter((row) => row.status === "Rejected").length,
                 draft: studentSupportGovernanceRecords.filter((row) => row.status === "Draft").length,
             },
+            GOVERNANCE_LEADERSHIP_IQAC: {
+                total: governanceLeadershipIqacRecords.length,
+                actionable:
+                    governanceLeadershipIqacReviewIds.length +
+                    governanceLeadershipIqacFinalIds.length,
+                finalApprovals: governanceLeadershipIqacFinalIds.length,
+                approved: governanceLeadershipIqacRecords.filter((row) => row.status === "Approved").length,
+                rejected: governanceLeadershipIqacRecords.filter((row) => row.status === "Rejected").length,
+                draft: governanceLeadershipIqacRecords.filter((row) => row.status === "Draft").length,
+            },
+            INSTITUTIONAL_VALUES_BEST_PRACTICES: {
+                total: institutionalValuesBestPracticesRecords.length,
+                actionable:
+                    institutionalValuesBestPracticesReviewIds.length +
+                    institutionalValuesBestPracticesFinalIds.length,
+                finalApprovals: institutionalValuesBestPracticesFinalIds.length,
+                approved: institutionalValuesBestPracticesRecords.filter((row) => row.status === "Approved").length,
+                rejected: institutionalValuesBestPracticesRecords.filter((row) => row.status === "Rejected").length,
+                draft: institutionalValuesBestPracticesRecords.filter((row) => row.status === "Draft").length,
+            },
             RESEARCH_INNOVATION: {
                 total: researchInnovationRecords.length,
                 actionable:
@@ -1393,6 +1565,10 @@ export async function getLeadershipDashboardData(
                 infrastructureLibraryFinalIds.length +
                 studentSupportGovernanceReviewIds.length +
                 studentSupportGovernanceFinalIds.length +
+                governanceLeadershipIqacReviewIds.length +
+                governanceLeadershipIqacFinalIds.length +
+                institutionalValuesBestPracticesReviewIds.length +
+                institutionalValuesBestPracticesFinalIds.length +
                 researchInnovationReviewIds.length +
                 researchInnovationFinalIds.length,
             reviewCount:
@@ -1404,6 +1580,8 @@ export async function getLeadershipDashboardData(
                 teachingLearningReviewIds.length +
                 infrastructureLibraryReviewIds.length +
                 studentSupportGovernanceReviewIds.length +
+                governanceLeadershipIqacReviewIds.length +
+                institutionalValuesBestPracticesReviewIds.length +
                 researchInnovationReviewIds.length,
             finalCount:
                 pbasFinalIds.length +
@@ -1414,6 +1592,8 @@ export async function getLeadershipDashboardData(
                 teachingLearningFinalIds.length +
                 infrastructureLibraryFinalIds.length +
                 studentSupportGovernanceFinalIds.length +
+                governanceLeadershipIqacFinalIds.length +
+                institutionalValuesBestPracticesFinalIds.length +
                 researchInnovationFinalIds.length,
             items: queueItems,
         },

@@ -52,6 +52,8 @@ const WorkflowInstanceSchema = new Schema<IWorkflowInstance>(
                 "RESEARCH_INNOVATION",
                 "INFRASTRUCTURE_LIBRARY",
                 "STUDENT_SUPPORT_GOVERNANCE",
+                "GOVERNANCE_LEADERSHIP_IQAC",
+                "INSTITUTIONAL_VALUES_BEST_PRACTICES",
             ],
             required: true,
             index: true,

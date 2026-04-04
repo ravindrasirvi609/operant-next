@@ -41,6 +41,252 @@ export type RenderedReportTemplate = {
     }>;
 };
 
+const AQAR_CYCLE_LEGACY_TEMPLATE_DEFAULT: TemplateDefaults = {
+    reportType: "AQAR_CYCLE",
+    name: "Institutional AQAR Cycle Report",
+    description: "Template used for institutional AQAR cycle PDF exports.",
+    titleTemplate: "Annual Quality Assurance Report",
+    subtitleTemplate: "Academic Year {{academicYear}}",
+    metaTemplate: "Status: {{cycleStatus}}",
+    introTemplate: "Reporting period: {{reportingFromDate}} to {{reportingToDate}}",
+    footerTemplate: "Generated from institutional AQAR cycle data and NAAC criteria mappings.",
+    sections: [
+        {
+            key: "institution_profile",
+            title: "Institution Profile",
+            body: "Faculty: {{totalFaculty}} | Students: {{totalStudents}} | Departments: {{totalDepartments}} | Programs: {{totalPrograms}}",
+            order: 1,
+            isActive: true,
+        },
+        {
+            key: "summary_metrics",
+            title: "Summary Metrics",
+            body: "PBAS reports: {{approvedPbasReports}} | CAS applications: {{casApplications}} | Faculty AQAR contributions: {{facultyAqarContributions}} | Placements: {{placements}} | Publications: {{publications}} | Projects: {{projects}}",
+            order: 2,
+            isActive: true,
+        },
+        {
+            key: "criterion_c1",
+            title: "{{criterion_C1_heading}}",
+            body: "{{criterion_C1_body}}",
+            order: 3,
+            isActive: true,
+        },
+        {
+            key: "criterion_c2",
+            title: "{{criterion_C2_heading}}",
+            body: "{{criterion_C2_body}}",
+            order: 4,
+            isActive: true,
+        },
+        {
+            key: "criterion_c3",
+            title: "{{criterion_C3_heading}}",
+            body: "{{criterion_C3_body}}",
+            order: 5,
+            isActive: true,
+        },
+        {
+            key: "criterion_c4",
+            title: "{{criterion_C4_heading}}",
+            body: "{{criterion_C4_body}}",
+            order: 6,
+            isActive: true,
+        },
+        {
+            key: "criterion_c5",
+            title: "{{criterion_C5_heading}}",
+            body: "{{criterion_C5_body}}",
+            order: 7,
+            isActive: true,
+        },
+        {
+            key: "criterion_c6",
+            title: "{{criterion_C6_heading}}",
+            body: "{{criterion_C6_body}}",
+            order: 8,
+            isActive: true,
+        },
+        {
+            key: "criterion_c7",
+            title: "{{criterion_C7_heading}}",
+            body: "{{criterion_C7_body}}",
+            order: 9,
+            isActive: true,
+        },
+    ],
+};
+
+const AQAR_CYCLE_PRODUCTION_TEMPLATE_V1: TemplateDefaults = {
+    reportType: "AQAR_CYCLE",
+    name: "Institutional AQAR Cycle Report",
+    description: "Production-ready template used for institutional AQAR cycle PDF exports.",
+    titleTemplate: "Annual Quality Assurance Report",
+    subtitleTemplate: "Institutional Cycle Dossier | Academic Year {{academicYear}}",
+    metaTemplate: "Cycle Status: {{cycleStatus}}",
+    introTemplate:
+        "Reporting Period: {{reportingFromDate}} to {{reportingToDate}} | Document Purpose: This institutional dossier consolidates AQAR evidence, operational metrics, and criterion-wise narratives for quality assurance review, leadership reporting, and accreditation preparation.",
+    footerTemplate:
+        "Institutional AQAR reports should be released only after criterion owners confirm narrative accuracy, metric reconciliation, and documentary completeness for every referenced claim.",
+    sections: [
+        {
+            key: "institution_profile",
+            title: "Institution Profile and Baseline Snapshot",
+            body: "This section establishes the institutional baseline for the reporting cycle.\nTotal faculty strength: {{totalFaculty}}.\nTotal student strength: {{totalStudents}}.\nAcademic departments covered: {{totalDepartments}}.\nProgrammes offered during the cycle: {{totalPrograms}}.\n\nReview expectation: confirm that all baseline counts match the approved institutional data submitted for the same academic year.",
+            order: 1,
+            isActive: true,
+        },
+        {
+            key: "summary_metrics",
+            title: "Operational Summary Metrics",
+            body: "This section provides a consolidated view of major academic quality indicators captured for the cycle.\nApproved PBAS reports: {{approvedPbasReports}}.\nCAS applications processed: {{casApplications}}.\nFaculty AQAR contribution files received: {{facultyAqarContributions}}.\nPlacement records captured: {{placements}}.\nPublications counted for the cycle: {{publications}}.\nProjects counted for the cycle: {{projects}}.\n\nReview expectation: use this section as a cross-check against institutional dashboards and annual consolidated statements.",
+            order: 2,
+            isActive: true,
+        },
+        {
+            key: "criterion_c1",
+            title: "{{criterion_C1_heading}}",
+            body: "{{criterion_C1_body}}\nReview focus: verify criterion ownership, evidence traceability, completion status, and closure of any flagged gaps before final AQAR submission.",
+            order: 3,
+            isActive: true,
+        },
+        {
+            key: "criterion_c2",
+            title: "{{criterion_C2_heading}}",
+            body: "{{criterion_C2_body}}\nReview focus: verify criterion ownership, evidence traceability, completion status, and closure of any flagged gaps before final AQAR submission.",
+            order: 4,
+            isActive: true,
+        },
+        {
+            key: "criterion_c3",
+            title: "{{criterion_C3_heading}}",
+            body: "{{criterion_C3_body}}\nReview focus: verify criterion ownership, evidence traceability, completion status, and closure of any flagged gaps before final AQAR submission.",
+            order: 5,
+            isActive: true,
+        },
+        {
+            key: "criterion_c4",
+            title: "{{criterion_C4_heading}}",
+            body: "{{criterion_C4_body}}\nReview focus: verify criterion ownership, evidence traceability, completion status, and closure of any flagged gaps before final AQAR submission.",
+            order: 6,
+            isActive: true,
+        },
+        {
+            key: "criterion_c5",
+            title: "{{criterion_C5_heading}}",
+            body: "{{criterion_C5_body}}\nReview focus: verify criterion ownership, evidence traceability, completion status, and closure of any flagged gaps before final AQAR submission.",
+            order: 7,
+            isActive: true,
+        },
+        {
+            key: "criterion_c6",
+            title: "{{criterion_C6_heading}}",
+            body: "{{criterion_C6_body}}\nReview focus: verify criterion ownership, evidence traceability, completion status, and closure of any flagged gaps before final AQAR submission.",
+            order: 8,
+            isActive: true,
+        },
+        {
+            key: "criterion_c7",
+            title: "{{criterion_C7_heading}}",
+            body: "{{criterion_C7_body}}\nReview focus: verify criterion ownership, evidence traceability, completion status, and closure of any flagged gaps before final AQAR submission.",
+            order: 9,
+            isActive: true,
+        },
+        {
+            key: "quality_assurance_note",
+            title: "Quality Assurance and Publication Readiness Note",
+            body: "This report is considered publication-ready only when all criterion narratives have been reviewed by owners, quantitative metrics have been reconciled, and supporting evidence is available for inspection or submission.",
+            order: 10,
+            isActive: true,
+        },
+    ],
+};
+
+const AQAR_CYCLE_PRODUCTION_TEMPLATE_V2: TemplateDefaults = {
+    reportType: "AQAR_CYCLE",
+    name: "Institutional AQAR Cycle Report",
+    description: "Production-ready template used for institutional AQAR cycle PDF exports.",
+    titleTemplate: "Annual Quality Assurance Report",
+    subtitleTemplate: "Institutional Cycle Dossier | Academic Year {{academicYear}}",
+    metaTemplate: "Cycle Status: {{cycleStatus}}",
+    introTemplate:
+        "Reporting Period: {{reportingFromDate}} to {{reportingToDate}} | Document Purpose: This institutional dossier consolidates AQAR evidence, operational metrics, and module-wise narratives for quality assurance review, leadership reporting, and accreditation preparation.",
+    footerTemplate:
+        "Institutional AQAR reports should be released only after all seven AQAR module owners confirm narrative accuracy, metric reconciliation, and documentary completeness for every referenced claim.",
+    sections: [
+        {
+            key: "institution_profile",
+            title: "Institution Profile and Baseline Snapshot",
+            body: "This section establishes the institutional baseline for the reporting cycle.\nTotal faculty strength: {{totalFaculty}}.\nTotal student strength: {{totalStudents}}.\nAcademic departments covered: {{totalDepartments}}.\nProgrammes offered during the cycle: {{totalPrograms}}.\n\nReview expectation: confirm that all baseline counts match the approved institutional data submitted for the same academic year.",
+            order: 1,
+            isActive: true,
+        },
+        {
+            key: "summary_metrics",
+            title: "Operational Summary Metrics",
+            body: "This section provides a consolidated view of major academic quality indicators captured for the cycle.\nApproved PBAS reports: {{approvedPbasReports}}.\nCAS applications processed: {{casApplications}}.\nFaculty AQAR contribution files received: {{facultyAqarContributions}}.\nPlacement records captured: {{placements}}.\nPublications counted for the cycle: {{publications}}.\nProjects counted for the cycle: {{projects}}.\n\nReview expectation: use this section as a cross-check against institutional dashboards and annual consolidated statements.",
+            order: 2,
+            isActive: true,
+        },
+        {
+            key: "curriculum_management",
+            title: "{{module_C1_heading}}",
+            body: "{{module_C1_body}}\nReview focus: verify curriculum governance, version control, outcome alignment, and traceable evidence before final AQAR submission.",
+            order: 3,
+            isActive: true,
+        },
+        {
+            key: "teaching_learning_process",
+            title: "{{module_C2_heading}}",
+            body: "{{module_C2_body}}\nReview focus: verify teaching plans, assessment integrity, learner-support evidence, and workflow closure before final AQAR submission.",
+            order: 4,
+            isActive: true,
+        },
+        {
+            key: "research_innovation_ecosystem",
+            title: "{{module_C3_heading}}",
+            body: "{{module_C3_body}}\nReview focus: verify publication, project, innovation, extension, and evidence traceability before final AQAR submission.",
+            order: 5,
+            isActive: true,
+        },
+        {
+            key: "infrastructure_library",
+            title: "{{module_C4_heading}}",
+            body: "{{module_C4_body}}\nReview focus: verify facilities, learning-resource readiness, usage evidence, and maintenance compliance before final AQAR submission.",
+            order: 6,
+            isActive: true,
+        },
+        {
+            key: "student_support_governance",
+            title: "{{module_C5_heading}}",
+            body: "{{module_C5_body}}\nReview focus: verify student-support delivery, progression indicators, grievance closure, and representation records before final AQAR submission.",
+            order: 7,
+            isActive: true,
+        },
+        {
+            key: "governance_leadership_iqac",
+            title: "{{module_C6_heading}}",
+            body: "{{module_C6_body}}\nReview focus: verify strategic planning, IQAC governance, compliance closure, and quality initiative evidence before final AQAR submission.",
+            order: 8,
+            isActive: true,
+        },
+        {
+            key: "institutional_values_best_practices",
+            title: "{{module_C7_heading}}",
+            body: "{{module_C7_body}}\nReview focus: verify sustainability records, inclusiveness evidence, best-practice narratives, and distinctiveness documentation before final AQAR submission.",
+            order: 9,
+            isActive: true,
+        },
+        {
+            key: "quality_assurance_note",
+            title: "Quality Assurance and Publication Readiness Note",
+            body: "This report is considered publication-ready only when all seven AQAR modules have been reviewed by their owners, quantitative metrics have been reconciled, and supporting evidence is available for inspection or submission.",
+            order: 10,
+            isActive: true,
+        },
+    ],
+};
+
 const LEGACY_REPORT_TEMPLATE_DEFAULTS: TemplateDefaults[] = [
     {
         reportType: "PBAS_APPRAISAL",
@@ -131,81 +377,7 @@ const LEGACY_REPORT_TEMPLATE_DEFAULTS: TemplateDefaults[] = [
             },
         ],
     },
-    {
-        reportType: "AQAR_CYCLE",
-        name: "Institutional AQAR Cycle Report",
-        description: "Template used for institutional AQAR cycle PDF exports.",
-        titleTemplate: "Annual Quality Assurance Report",
-        subtitleTemplate: "Academic Year {{academicYear}}",
-        metaTemplate: "Status: {{cycleStatus}}",
-        introTemplate: "Reporting period: {{reportingFromDate}} to {{reportingToDate}}",
-        footerTemplate: "Generated from institutional AQAR cycle data and NAAC criteria mappings.",
-        sections: [
-            {
-                key: "institution_profile",
-                title: "Institution Profile",
-                body: "Faculty: {{totalFaculty}} | Students: {{totalStudents}} | Departments: {{totalDepartments}} | Programs: {{totalPrograms}}",
-                order: 1,
-                isActive: true,
-            },
-            {
-                key: "summary_metrics",
-                title: "Summary Metrics",
-                body: "PBAS reports: {{approvedPbasReports}} | CAS applications: {{casApplications}} | Faculty AQAR contributions: {{facultyAqarContributions}} | Placements: {{placements}} | Publications: {{publications}} | Projects: {{projects}}",
-                order: 2,
-                isActive: true,
-            },
-            {
-                key: "criterion_c1",
-                title: "{{criterion_C1_heading}}",
-                body: "{{criterion_C1_body}}",
-                order: 3,
-                isActive: true,
-            },
-            {
-                key: "criterion_c2",
-                title: "{{criterion_C2_heading}}",
-                body: "{{criterion_C2_body}}",
-                order: 4,
-                isActive: true,
-            },
-            {
-                key: "criterion_c3",
-                title: "{{criterion_C3_heading}}",
-                body: "{{criterion_C3_body}}",
-                order: 5,
-                isActive: true,
-            },
-            {
-                key: "criterion_c4",
-                title: "{{criterion_C4_heading}}",
-                body: "{{criterion_C4_body}}",
-                order: 6,
-                isActive: true,
-            },
-            {
-                key: "criterion_c5",
-                title: "{{criterion_C5_heading}}",
-                body: "{{criterion_C5_body}}",
-                order: 7,
-                isActive: true,
-            },
-            {
-                key: "criterion_c6",
-                title: "{{criterion_C6_heading}}",
-                body: "{{criterion_C6_body}}",
-                order: 8,
-                isActive: true,
-            },
-            {
-                key: "criterion_c7",
-                title: "{{criterion_C7_heading}}",
-                body: "{{criterion_C7_body}}",
-                order: 9,
-                isActive: true,
-            },
-        ],
-    },
+    AQAR_CYCLE_LEGACY_TEMPLATE_DEFAULT,
     {
         reportType: "FACULTY_CAS",
         name: "Faculty CAS Summary Report",
@@ -388,90 +560,7 @@ const PRODUCTION_REPORT_TEMPLATE_DEFAULTS: TemplateDefaults[] = [
             },
         ],
     },
-    {
-        reportType: "AQAR_CYCLE",
-        name: "Institutional AQAR Cycle Report",
-        description: "Production-ready template used for institutional AQAR cycle PDF exports.",
-        titleTemplate: "Annual Quality Assurance Report",
-        subtitleTemplate: "Institutional Cycle Dossier | Academic Year {{academicYear}}",
-        metaTemplate: "Cycle Status: {{cycleStatus}}",
-        introTemplate:
-            "Reporting Period: {{reportingFromDate}} to {{reportingToDate}} | Document Purpose: This institutional dossier consolidates AQAR evidence, operational metrics, and criterion-wise narratives for quality assurance review, leadership reporting, and accreditation preparation.",
-        footerTemplate:
-            "Institutional AQAR reports should be released only after criterion owners confirm narrative accuracy, metric reconciliation, and documentary completeness for every referenced claim.",
-        sections: [
-            {
-                key: "institution_profile",
-                title: "Institution Profile and Baseline Snapshot",
-                body: "This section establishes the institutional baseline for the reporting cycle.\nTotal faculty strength: {{totalFaculty}}.\nTotal student strength: {{totalStudents}}.\nAcademic departments covered: {{totalDepartments}}.\nProgrammes offered during the cycle: {{totalPrograms}}.\n\nReview expectation: confirm that all baseline counts match the approved institutional data submitted for the same academic year.",
-                order: 1,
-                isActive: true,
-            },
-            {
-                key: "summary_metrics",
-                title: "Operational Summary Metrics",
-                body: "This section provides a consolidated view of major academic quality indicators captured for the cycle.\nApproved PBAS reports: {{approvedPbasReports}}.\nCAS applications processed: {{casApplications}}.\nFaculty AQAR contribution files received: {{facultyAqarContributions}}.\nPlacement records captured: {{placements}}.\nPublications counted for the cycle: {{publications}}.\nProjects counted for the cycle: {{projects}}.\n\nReview expectation: use this section as a cross-check against institutional dashboards and annual consolidated statements.",
-                order: 2,
-                isActive: true,
-            },
-            {
-                key: "criterion_c1",
-                title: "{{criterion_C1_heading}}",
-                body: "{{criterion_C1_body}}\nReview focus: verify criterion ownership, evidence traceability, completion status, and closure of any flagged gaps before final AQAR submission.",
-                order: 3,
-                isActive: true,
-            },
-            {
-                key: "criterion_c2",
-                title: "{{criterion_C2_heading}}",
-                body: "{{criterion_C2_body}}\nReview focus: verify criterion ownership, evidence traceability, completion status, and closure of any flagged gaps before final AQAR submission.",
-                order: 4,
-                isActive: true,
-            },
-            {
-                key: "criterion_c3",
-                title: "{{criterion_C3_heading}}",
-                body: "{{criterion_C3_body}}\nReview focus: verify criterion ownership, evidence traceability, completion status, and closure of any flagged gaps before final AQAR submission.",
-                order: 5,
-                isActive: true,
-            },
-            {
-                key: "criterion_c4",
-                title: "{{criterion_C4_heading}}",
-                body: "{{criterion_C4_body}}\nReview focus: verify criterion ownership, evidence traceability, completion status, and closure of any flagged gaps before final AQAR submission.",
-                order: 6,
-                isActive: true,
-            },
-            {
-                key: "criterion_c5",
-                title: "{{criterion_C5_heading}}",
-                body: "{{criterion_C5_body}}\nReview focus: verify criterion ownership, evidence traceability, completion status, and closure of any flagged gaps before final AQAR submission.",
-                order: 7,
-                isActive: true,
-            },
-            {
-                key: "criterion_c6",
-                title: "{{criterion_C6_heading}}",
-                body: "{{criterion_C6_body}}\nReview focus: verify criterion ownership, evidence traceability, completion status, and closure of any flagged gaps before final AQAR submission.",
-                order: 8,
-                isActive: true,
-            },
-            {
-                key: "criterion_c7",
-                title: "{{criterion_C7_heading}}",
-                body: "{{criterion_C7_body}}\nReview focus: verify criterion ownership, evidence traceability, completion status, and closure of any flagged gaps before final AQAR submission.",
-                order: 9,
-                isActive: true,
-            },
-            {
-                key: "quality_assurance_note",
-                title: "Quality Assurance and Publication Readiness Note",
-                body: "This report is considered publication-ready only when all criterion narratives have been reviewed by owners, quantitative metrics have been reconciled, and supporting evidence is available for inspection or submission.",
-                order: 10,
-                isActive: true,
-            },
-        ],
-    },
+    AQAR_CYCLE_PRODUCTION_TEMPLATE_V2,
     {
         reportType: "FACULTY_CAS",
         name: "Faculty CAS Summary Report",
@@ -659,6 +748,18 @@ function materializeTemplateDefaults(template: TemplateDefaults, version: number
     };
 }
 
+function getTemplateUpgradeCandidates(reportType: ReportTemplateType) {
+    const candidates = LEGACY_REPORT_TEMPLATE_DEFAULTS.filter(
+        (template) => template.reportType === reportType
+    );
+
+    if (reportType === "AQAR_CYCLE") {
+        candidates.push(AQAR_CYCLE_PRODUCTION_TEMPLATE_V1);
+    }
+
+    return candidates;
+}
+
 function interpolateTemplate(text: string | undefined, context: ReportTemplateContext) {
     if (!text) {
         return undefined;
@@ -688,15 +789,12 @@ export async function ensureDefaultReportTemplates() {
             continue;
         }
 
-        const legacyTemplate = LEGACY_REPORT_TEMPLATE_DEFAULTS.find(
-            (entry) => entry.reportType === template.reportType
-        );
-        const shouldUpgradeFromLegacy =
-            legacyTemplate &&
-            templatesAreEquivalent(active, legacyTemplate) &&
+        const upgradeCandidates = getTemplateUpgradeCandidates(template.reportType);
+        const shouldUpgradeDefault =
+            upgradeCandidates.some((candidate) => templatesAreEquivalent(active, candidate)) &&
             !templatesAreEquivalent(active, template);
 
-        if (!shouldUpgradeFromLegacy) {
+        if (!shouldUpgradeDefault) {
             continue;
         }
 
