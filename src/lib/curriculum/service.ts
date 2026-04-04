@@ -852,6 +852,8 @@ export async function getCurriculumAdminConsole() {
         courseMasterOptions: courseMasters.map((item: Record<string, any>) => ({
             id: item._id.toString(),
             label: item.subjectCode ? `${item.subjectCode} · ${item.name}` : item.name,
+            courseCode: item.subjectCode ?? "",
+            courseTitle: item.name ?? "",
             programId:
                 typeof item.programId === "object" && item.programId?._id
                     ? item.programId._id.toString()
@@ -1396,9 +1398,10 @@ export async function createCurriculumCourse(actor: CurriculumActor, rawInput: u
 
     const input = curriculumCourseSchema.parse(rawInput);
     const planContext = await resolveCurriculumPlanContext(input.curriculumId);
+    let linkedCourseSnapshot: { courseCode?: string; courseTitle?: string } | undefined;
 
     if (input.courseId) {
-        const courseMaster = await Course.findById(input.courseId).select("programId");
+        const courseMaster = await Course.findById(input.courseId).select("programId subjectCode name");
         if (!courseMaster) {
             throw new AuthError("Selected master course was not found.", 404);
         }
@@ -1409,6 +1412,11 @@ export async function createCurriculumCourse(actor: CurriculumActor, rawInput: u
                 400
             );
         }
+
+        linkedCourseSnapshot = {
+            courseCode: courseMaster.subjectCode?.trim(),
+            courseTitle: courseMaster.name?.trim(),
+        };
     }
 
     if (input.facultyOwnerUserId) {
@@ -1418,8 +1426,8 @@ export async function createCurriculumCourse(actor: CurriculumActor, rawInput: u
     const course = await CurriculumCourse.create({
         curriculumId: planContext.plan._id,
         courseId: toOptionalObjectId(input.courseId),
-        courseCode: input.courseCode,
-        courseTitle: input.courseTitle,
+        courseCode: linkedCourseSnapshot?.courseCode || input.courseCode,
+        courseTitle: linkedCourseSnapshot?.courseTitle || input.courseTitle,
         courseType: input.courseType,
         credits: input.credits,
         lectureHours: input.lectureHours,
@@ -1449,6 +1457,28 @@ export async function updateCurriculumCourse(actor: CurriculumActor, id: string,
     const planContext = await resolveCurriculumPlanContext(
         (input.curriculumId ?? course.curriculumId.toString()) as string
     );
+    const linkedCourseId =
+        input.courseId !== undefined ? input.courseId : course.courseId?.toString();
+    let linkedCourseSnapshot: { courseCode?: string; courseTitle?: string } | undefined;
+
+    if (linkedCourseId) {
+        const courseMaster = await Course.findById(linkedCourseId).select("programId subjectCode name");
+        if (!courseMaster) {
+            throw new AuthError("Selected master course was not found.", 404);
+        }
+
+        if (courseMaster.programId.toString() !== planContext.program._id.toString()) {
+            throw new AuthError(
+                "Selected master course does not belong to the curriculum program.",
+                400
+            );
+        }
+
+        linkedCourseSnapshot = {
+            courseCode: courseMaster.subjectCode?.trim(),
+            courseTitle: courseMaster.name?.trim(),
+        };
+    }
 
     if (input.curriculumId) {
         course.curriculumId = ensureObjectId(input.curriculumId, "Invalid curriculum plan.");
@@ -1456,8 +1486,13 @@ export async function updateCurriculumCourse(actor: CurriculumActor, id: string,
     if (input.courseId !== undefined) {
         course.courseId = toOptionalObjectId(input.courseId);
     }
-    if (input.courseCode !== undefined) course.courseCode = input.courseCode;
-    if (input.courseTitle !== undefined) course.courseTitle = input.courseTitle;
+    if (linkedCourseSnapshot) {
+        course.courseCode = linkedCourseSnapshot.courseCode || input.courseCode || course.courseCode;
+        course.courseTitle = linkedCourseSnapshot.courseTitle || input.courseTitle || course.courseTitle;
+    } else {
+        if (input.courseCode !== undefined) course.courseCode = input.courseCode;
+        if (input.courseTitle !== undefined) course.courseTitle = input.courseTitle;
+    }
     if (input.courseType !== undefined) course.courseType = input.courseType;
     if (input.credits !== undefined) course.credits = input.credits;
     if (input.lectureHours !== undefined) course.lectureHours = input.lectureHours;

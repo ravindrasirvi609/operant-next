@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,13 @@ type Option = {
     id: string;
     label: string;
     [key: string]: unknown;
+};
+
+type CourseMasterOption = Option & {
+    courseCode?: string;
+    courseTitle?: string;
+    programId?: string;
+    semesterNumber?: number;
 };
 
 async function requestJson<T>(url: string, options?: RequestInit) {
@@ -74,7 +81,7 @@ export function CurriculumManager({
     institutionOptions: Option[];
     academicYearOptions: Option[];
     programOptions: Option[];
-    courseMasterOptions: Option[];
+    courseMasterOptions: CourseMasterOption[];
     userOptions: Option[];
     departmentOptions: Option[];
 }) {
@@ -227,6 +234,60 @@ export function CurriculumManager({
                 return accumulator;
             }, {}),
         [syllabusVersions]
+    );
+    const courseMasterOptionById = useMemo(
+        () => new Map(courseMasterOptions.map((item) => [item.id, item])),
+        [courseMasterOptions]
+    );
+
+    useEffect(() => {
+        if (!courseForm.courseId) {
+            return;
+        }
+
+        const selectedMasterCourse = courseMasterOptionById.get(courseForm.courseId);
+        if (!selectedMasterCourse) {
+            return;
+        }
+
+        setCourseForm((current) => {
+            if (current.courseId !== courseForm.courseId) {
+                return current;
+            }
+
+            const nextCourseCode = selectedMasterCourse.courseCode?.trim() || current.courseCode;
+            const nextCourseTitle = selectedMasterCourse.courseTitle?.trim() || current.courseTitle;
+            const nextSemesterNumber =
+                typeof selectedMasterCourse.semesterNumber === "number" &&
+                selectedMasterCourse.semesterNumber > 0
+                    ? String(selectedMasterCourse.semesterNumber)
+                    : current.semesterNumber;
+
+            if (
+                nextCourseCode === current.courseCode &&
+                nextCourseTitle === current.courseTitle &&
+                nextSemesterNumber === current.semesterNumber
+            ) {
+                return current;
+            }
+
+            return {
+                ...current,
+                courseCode: nextCourseCode,
+                courseTitle: nextCourseTitle,
+                semesterNumber: nextSemesterNumber,
+            };
+        });
+    }, [courseForm.courseId, courseMasterOptionById]);
+
+    const selectedCourseMaster = courseForm.courseId
+        ? courseMasterOptionById.get(courseForm.courseId)
+        : undefined;
+    const isCourseCodeLocked = Boolean(
+        courseForm.courseId && selectedCourseMaster?.courseCode?.trim()
+    );
+    const isCourseTitleLocked = Boolean(
+        courseForm.courseId && selectedCourseMaster?.courseTitle?.trim()
     );
 
     const currentPlanForOutcome = planById.get(outcomeForm.curriculumId);
@@ -698,14 +759,41 @@ export function CurriculumManager({
                                         value={noValue(courseForm.courseId)}
                                         options={[{ id: "none", label: "Snapshot only" }, ...courseMasterOptions]}
                                         onValueChange={(value) =>
-                                            setCourseForm((current) => ({ ...current, courseId: value === "none" ? "" : value }))
+                                            setCourseForm((current) => {
+                                                if (value === "none") {
+                                                    return { ...current, courseId: "" };
+                                                }
+
+                                                const selectedMasterCourse = courseMasterOptionById.get(value);
+                                                return {
+                                                    ...current,
+                                                    courseId: value,
+                                                    courseCode:
+                                                        selectedMasterCourse?.courseCode?.trim() ||
+                                                        current.courseCode,
+                                                    courseTitle:
+                                                        selectedMasterCourse?.courseTitle?.trim() ||
+                                                        current.courseTitle,
+                                                    semesterNumber:
+                                                        typeof selectedMasterCourse?.semesterNumber ===
+                                                            "number" &&
+                                                        selectedMasterCourse.semesterNumber > 0
+                                                            ? String(selectedMasterCourse.semesterNumber)
+                                                            : current.semesterNumber,
+                                                };
+                                            })
                                         }
                                     />
                                 </div>
                                 <div className="grid gap-4 md:grid-cols-2">
-                                    <TextField label="Course Code" value={courseForm.courseCode} onChange={(value) => setCourseForm((current) => ({ ...current, courseCode: value }))} />
-                                    <TextField label="Course Title" value={courseForm.courseTitle} onChange={(value) => setCourseForm((current) => ({ ...current, courseTitle: value }))} />
+                                    <TextField label="Course Code" value={courseForm.courseCode} disabled={isCourseCodeLocked} onChange={(value) => setCourseForm((current) => ({ ...current, courseCode: value }))} />
+                                    <TextField label="Course Title" value={courseForm.courseTitle} disabled={isCourseTitleLocked} onChange={(value) => setCourseForm((current) => ({ ...current, courseTitle: value }))} />
                                 </div>
+                                {courseForm.courseId ? (
+                                    <p className="text-xs text-zinc-500">
+                                        Course code and title are synced from Academics for linked master courses.
+                                    </p>
+                                ) : null}
                                 <div className="grid gap-4 md:grid-cols-3">
                                     <SelectField
                                         label="Course Type"
@@ -1265,16 +1353,18 @@ export function CurriculumManager({
 function TextField({
     label,
     value,
+    disabled = false,
     onChange,
 }: {
     label: string;
     value: string;
+    disabled?: boolean;
     onChange: (value: string) => void;
 }) {
     return (
         <div className="space-y-2">
             <Label>{label}</Label>
-            <Input value={value} onChange={(event) => onChange(event.target.value)} />
+            <Input disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)} />
         </div>
     );
 }
