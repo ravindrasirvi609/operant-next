@@ -26,6 +26,8 @@ const navigation = [
     { href: "/admin/evidence", label: "Evidence Review", icon: FileStack },
     { href: "/admin/pbas/catalog", label: "PBAS Catalog", icon: ListTree },
     { href: "/admin/aqar", label: "AQAR", icon: FileStack },
+    { href: "/admin/naac-metric-warehouse", label: "NAAC Warehouse", icon: FileStack },
+    { href: "/admin/accreditation", label: "Accreditation Ops", icon: FileStack },
     { href: "/admin/ssr", label: "SSR", icon: FileStack },
     { href: "/admin/report-templates", label: "Report Templates", icon: FileStack },
     { href: "/admin/master-data", label: "Master Data", icon: ListTree },

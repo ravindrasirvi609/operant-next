@@ -25,6 +25,8 @@ const navigation = [
     { href: "/director/institutional-values-best-practices", label: "Values & Best Practices Reviews", icon: FileStack },
     { href: "/director/student-support-governance", label: "Student Support Reviews", icon: FileStack },
     { href: "/director/governance-leadership-iqac", label: "Leadership & IQAC Reviews", icon: FileStack },
+    { href: "/director/naac-metric-warehouse", label: "NAAC Warehouse", icon: FileStack },
+    { href: "/director/accreditation", label: "Accreditation Ops", icon: FileStack },
     { href: "/director/reports", label: "Reports", icon: BarChart3 },
 ];
 

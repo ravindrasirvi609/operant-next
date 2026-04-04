@@ -32,16 +32,16 @@ export default async function AdminDashboardPage() {
                     </div>
                     <div className="flex flex-wrap gap-3">
                         <Button asChild>
-                            <Link href="/admin/master-data">Manage Master Data</Link>
+                            <Link href="/admin/master-data" prefetch={false}>Manage Master Data</Link>
                         </Button>
                         <Button asChild variant="secondary">
-                            <Link href="/admin/reference-masters">Govern Reference Masters</Link>
+                            <Link href="/admin/reference-masters" prefetch={false}>Govern Reference Masters</Link>
                         </Button>
                         <Button asChild variant="secondary">
-                            <Link href="/admin/users">Review Users</Link>
+                            <Link href="/admin/users" prefetch={false}>Review Users</Link>
                         </Button>
                         <Button asChild variant="secondary">
-                            <Link href="/admin/hierarchy">Manage Hierarchy</Link>
+                            <Link href="/admin/hierarchy" prefetch={false}>Manage Hierarchy</Link>
                         </Button>
                     </div>
                 </div>
@@ -217,6 +217,7 @@ function QuickAction({ href, text }: { href: string; text: string }) {
         <Link
             className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950"
             href={href}
+            prefetch={false}
         >
             {text}
         </Link>

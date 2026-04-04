@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { AuthError } from "@/lib/auth/errors";
 import { assertLeadershipApiAccess } from "@/lib/auth/user";
+import { getAccreditationLeadershipCsvExport } from "@/lib/accreditation/service";
 import { getLeadershipCsvExport } from "@/lib/director/dashboard";
 
 function toCsv(rows: string[][]) {
@@ -20,24 +21,32 @@ export async function GET(request: Request) {
         const url = new URL(request.url);
         const type = url.searchParams.get("type");
 
-        if (type !== "faculty-roster" && type !== "department-summary") {
+        if (
+            type !== "faculty-roster" &&
+            type !== "department-summary" &&
+            type !== "accreditation-sss" &&
+            type !== "accreditation-aishe" &&
+            type !== "accreditation-nirf" &&
+            type !== "accreditation-compliance"
+        ) {
             return NextResponse.json(
                 { message: "Unknown report type." },
                 { status: 400 }
             );
         }
 
-        const exportData = await getLeadershipCsvExport(
-            {
-                id: actor.id,
-                name: actor.name,
-                role: actor.role,
-                department: actor.department,
-                collegeName: actor.collegeName,
-                universityName: actor.universityName,
-            },
-            type
-        );
+        const exportActor = {
+            id: actor.id,
+            name: actor.name,
+            role: actor.role,
+            department: actor.department,
+            collegeName: actor.collegeName,
+            universityName: actor.universityName,
+        };
+        const exportData =
+            type === "faculty-roster" || type === "department-summary"
+                ? await getLeadershipCsvExport(exportActor, type)
+                : await getAccreditationLeadershipCsvExport(exportActor, type);
 
         return new NextResponse(toCsv(exportData.rows), {
             status: 200,

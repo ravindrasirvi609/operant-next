@@ -38,6 +38,13 @@ const navigation = [
         description: "Assigned self-study report responses and evidence.",
         icon: ScrollText,
     },
+    {
+        href: "/student/sss",
+        label: "SSS",
+        mobileLabel: "SSS",
+        description: "Student Satisfaction Survey response workspace.",
+        icon: ScrollText,
+    },
 ] as const;
 
 function isActiveRoute(pathname: string, href: string) {

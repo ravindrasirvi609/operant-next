@@ -148,6 +148,11 @@ export function StudentWorkspaceHome({
             href: "/student/ssr",
         },
         {
+            title: "Submit SSS survey",
+            description: "Respond to the active Student Satisfaction Survey anonymously.",
+            href: "/student/sss",
+        },
+        {
             title: "Review profile mapping",
             description: "Check program, department, and institutional identity details.",
             href: "/student/profile",

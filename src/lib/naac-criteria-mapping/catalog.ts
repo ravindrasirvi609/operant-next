@@ -45,6 +45,129 @@ export const naacCriterionCatalog = [
 
 export type NaacCriteriaCode = (typeof naacCriterionCatalog)[number]["criteriaCode"];
 
+export const naacManualMetricCatalog = [
+    {
+        criteriaCode: "C2",
+        criteriaName: "Teaching, Learning and Evaluation",
+        tableName: "ManualMetric",
+        fieldReference: "sssOverallSatisfactionIndex",
+        label: "SSS overall satisfaction index",
+        sourceType: "SSS",
+        sourceLabel: "Student Satisfaction Survey",
+        defaultWeightage: 25,
+        valueType: "number",
+        moduleKey: "SSS",
+        sourceMode: "AUTO",
+        guidance:
+            "Auto-generated from the latest Student Satisfaction Survey analytics for the selected academic year.",
+    },
+    {
+        criteriaCode: "C2",
+        criteriaName: "Teaching, Learning and Evaluation",
+        tableName: "ManualMetric",
+        fieldReference: "sssResponseRate",
+        label: "SSS response rate",
+        sourceType: "SSS",
+        sourceLabel: "Survey response rate",
+        defaultWeightage: 15,
+        valueType: "number",
+        moduleKey: "SSS",
+        sourceMode: "AUTO",
+        guidance:
+            "Auto-generated from submitted versus eligible SSS responses.",
+    },
+    {
+        criteriaCode: "C2",
+        criteriaName: "Teaching, Learning and Evaluation",
+        tableName: "ManualMetric",
+        fieldReference: "aisheStudentEnrollment",
+        label: "AISHE student enrollment snapshot",
+        sourceType: "AISHE",
+        sourceLabel: "AISHE student enrollment",
+        defaultWeightage: 20,
+        valueType: "number",
+        moduleKey: "AISHE",
+        sourceMode: "AUTO",
+        guidance:
+            "Auto-generated from AISHE student enrollment snapshots for the selected academic year.",
+    },
+    {
+        criteriaCode: "C2",
+        criteriaName: "Teaching, Learning and Evaluation",
+        tableName: "ManualMetric",
+        fieldReference: "aisheFacultyStrength",
+        label: "AISHE faculty strength snapshot",
+        sourceType: "AISHE",
+        sourceLabel: "AISHE faculty statistics",
+        defaultWeightage: 20,
+        valueType: "number",
+        moduleKey: "AISHE",
+        sourceMode: "AUTO",
+        guidance:
+            "Auto-generated from AISHE faculty statistics for the reporting year.",
+    },
+    {
+        criteriaCode: "C6",
+        criteriaName: "Governance, Leadership and Management",
+        tableName: "ManualMetric",
+        fieldReference: "nirfCompositeScore",
+        label: "NIRF composite score",
+        sourceType: "NIRF",
+        sourceLabel: "NIRF institutional ranking",
+        defaultWeightage: 20,
+        valueType: "number",
+        moduleKey: "NIRF",
+        sourceMode: "AUTO",
+        guidance:
+            "Auto-generated from the stored NIRF composite score for the aligned ranking cycle.",
+    },
+    {
+        criteriaCode: "C6",
+        criteriaName: "Governance, Leadership and Management",
+        tableName: "ManualMetric",
+        fieldReference: "nirfRankPosition",
+        label: "NIRF rank position",
+        sourceType: "NIRF",
+        sourceLabel: "NIRF published rank",
+        defaultWeightage: 15,
+        valueType: "number",
+        moduleKey: "NIRF",
+        sourceMode: "AUTO",
+        guidance:
+            "Auto-generated from the stored NIRF predicted or published rank position.",
+    },
+    {
+        criteriaCode: "C6",
+        criteriaName: "Governance, Leadership and Management",
+        tableName: "ManualMetric",
+        fieldReference: "activeRegulatoryApprovals",
+        label: "Active regulatory approvals",
+        sourceType: "COMPLIANCE",
+        sourceLabel: "Regulatory approvals and recognitions",
+        defaultWeightage: 25,
+        valueType: "number",
+        moduleKey: "COMPLIANCE",
+        sourceMode: "AUTO",
+        guidance:
+            "Auto-generated from active institutional approvals valid during the academic year.",
+    },
+    {
+        criteriaCode: "C6",
+        criteriaName: "Governance, Leadership and Management",
+        tableName: "ManualMetric",
+        fieldReference: "complianceClosureRate",
+        label: "Compliance action closure rate",
+        sourceType: "COMPLIANCE",
+        sourceLabel: "Compliance action tracking",
+        defaultWeightage: 20,
+        valueType: "number",
+        moduleKey: "COMPLIANCE",
+        sourceMode: "AUTO",
+        guidance:
+            "Auto-generated from compliance action closure performance for the academic year.",
+    },
+] as const;
+
 export const naacMetricCatalog = [
     {
         criteriaCode: "C1",
@@ -346,6 +469,7 @@ export const naacMetricCatalog = [
 ] as const;
 
 export type NaacMetricCatalogEntry = (typeof naacMetricCatalog)[number];
+export type NaacManualMetricCatalogEntry = (typeof naacManualMetricCatalog)[number];
 
 export function getNaacCriterionMeta(criteriaCode: string) {
     return (
