@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getDesignationProfile } from "@/lib/faculty/options";
 import { pbasApplicationSchema, type PbasSnapshot } from "@/lib/pbas/validators";
 import {
+    registerUploadedDocument,
     uploadFile,
     validateFile,
     UploadValidationError,
@@ -1053,23 +1054,9 @@ export function PbasDashboard({
             const result = await uploadFile(file, "evidence", facultyId, (progress) => {
                 setUploadProgress((current) => ({ ...current, [indicatorId]: progress }));
             });
+            const document = await registerUploadedDocument(result);
 
-            const docResponse = await fetch("/api/documents", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    fileName: file.name,
-                    fileUrl: result.downloadURL,
-                    fileType: file.type,
-                }),
-            });
-
-            const docData = (await docResponse.json()) as { document?: { _id?: string } };
-            if (!docResponse.ok || !docData.document?._id) {
-                throw new Error("Unable to save evidence document.");
-            }
-
-            await persistEntry(indicatorId, { evidenceDocumentId: docData.document._id });
+            await persistEntry(indicatorId, { evidenceDocumentId: document._id });
             setUploadProgress((current) => ({ ...current, [indicatorId]: null }));
         } catch (err) {
             setUploadProgress((current) => ({ ...current, [indicatorId]: null }));

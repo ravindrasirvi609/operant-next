@@ -1,11 +1,11 @@
+import { timingSafeEqual } from "node:crypto";
 import { redirect } from "next/navigation";
 
 import dbConnect from "@/lib/dbConnect";
 import { clearSessionCookie, createSessionToken, getSessionPayload, setSessionCookie } from "@/lib/auth/session";
 import { AuthError } from "@/lib/auth/errors";
-import { authConfig } from "@/lib/auth/config";
+import { authConfig, getAdminBootstrapSecret } from "@/lib/auth/config";
 import { resolveAuthorizationProfile } from "@/lib/authorization/service";
-import { hasGovernancePortalAccess } from "@/lib/governance/service";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/auth/email";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { addHours, addMinutes, createRandomToken, hashToken } from "@/lib/auth/tokens";
@@ -20,7 +20,6 @@ import {
     resetPasswordSchema,
     studentActivationSchema,
 } from "@/lib/auth/validators";
-import Organization from "@/models/core/organization";
 import Faculty from "@/models/faculty/faculty";
 import Student from "@/models/student/student";
 import User, { IUser } from "@/models/core/user";
@@ -99,6 +98,36 @@ type LoginOptions = {
 
 function normalizePhone(value?: string | null) {
     return String(value ?? "").replace(/\D+/g, "");
+}
+
+function secretsMatch(expected: string, provided: string) {
+    const expectedBuffer = Buffer.from(expected);
+    const providedBuffer = Buffer.from(provided);
+
+    if (expectedBuffer.length !== providedBuffer.length) {
+        return false;
+    }
+
+    return timingSafeEqual(expectedBuffer, providedBuffer);
+}
+
+function assertAdminBootstrapAuthorized(providedSecret?: string | null) {
+    const configuredSecret = getAdminBootstrapSecret();
+
+    if (!configuredSecret) {
+        if (process.env.NODE_ENV === "production") {
+            throw new AuthError(
+                "Initial admin bootstrap is disabled. Configure ADMIN_BOOTSTRAP_SECRET to enable first-run setup.",
+                403
+            );
+        }
+
+        return;
+    }
+
+    if (!providedSecret || !secretsMatch(configuredSecret, providedSecret)) {
+        throw new AuthError("A valid admin bootstrap secret is required.", 403);
+    }
 }
 
 async function findUserForLogin(identifier: string) {
@@ -514,7 +543,13 @@ export async function getAdminCount() {
     return User.countDocuments({ role: "Admin" });
 }
 
-export async function bootstrapAdmin(rawInput: unknown) {
+type BootstrapAdminOptions = {
+    bootstrapSecret?: string | null;
+};
+
+export async function bootstrapAdmin(rawInput: unknown, options: BootstrapAdminOptions = {}) {
+    assertAdminBootstrapAuthorized(options.bootstrapSecret?.trim());
+
     const input = adminBootstrapSchema.parse(rawInput);
 
     await dbConnect();

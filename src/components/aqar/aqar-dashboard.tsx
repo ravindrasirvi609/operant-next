@@ -44,7 +44,13 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getAcademicYearReportingPeriod } from "@/lib/academic-year";
 import { aqarApplicationSchema } from "@/lib/aqar/validators";
-import { uploadFile, UploadValidationError, validateFile, type UploadProgress } from "@/lib/upload/service";
+import {
+    registerUploadedDocument,
+    uploadFile,
+    UploadValidationError,
+    validateFile,
+    type UploadProgress,
+} from "@/lib/upload/service";
 import { cn } from "@/lib/utils";
 
 type AqarFormValues = z.input<typeof aqarApplicationSchema>;
@@ -2852,26 +2858,8 @@ function ProofUploadField({
                                             const result = await uploadFile(file, "evidence", facultyId, (next) => {
                                                 setProgress(next);
                                             });
-
-                                            const response = await fetch("/api/documents", {
-                                                method: "POST",
-                                                headers: { "Content-Type": "application/json" },
-                                                body: JSON.stringify({
-                                                    fileName: file.name,
-                                                    fileUrl: result.downloadURL,
-                                                    fileType: file.type,
-                                                }),
-                                            });
-                                            const data = (await response.json()) as {
-                                                document?: { fileUrl?: string };
-                                                message?: string;
-                                            };
-
-                                            if (!response.ok || !data.document?.fileUrl) {
-                                                throw new Error(data.message ?? "Unable to save proof document.");
-                                            }
-
-                                            field.onChange(data.document.fileUrl);
+                                            const document = await registerUploadedDocument(result);
+                                            field.onChange(document.fileUrl);
                                             setProgress(null);
                                         } catch (uploadError) {
                                             setProgress(null);

@@ -21,6 +21,19 @@ export function getAuthSecret() {
     return getRequiredEnv("AUTH_SECRET");
 }
 
+export function getAdminBootstrapSecret() {
+    const value = process.env.ADMIN_BOOTSTRAP_SECRET?.trim();
+    return value?.length ? value : null;
+}
+
+export function isAdminBootstrapSecretRequired() {
+    return process.env.NODE_ENV === "production" || Boolean(getAdminBootstrapSecret());
+}
+
+export function isAdminBootstrapEnabled() {
+    return process.env.NODE_ENV !== "production" || Boolean(getAdminBootstrapSecret());
+}
+
 export function getAppUrl() {
     return (
         process.env.APP_URL ??

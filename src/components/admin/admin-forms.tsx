@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import * as XLSX from "xlsx";
-import type { z } from "zod";
+import { z } from "zod";
 
 import { FieldError, FormMessage, Spinner } from "@/components/auth/auth-helpers";
 import { PasswordChecklist } from "@/components/auth/password-checklist";
@@ -55,9 +55,14 @@ import {
     adminBootstrapSchema,
     adminLoginSchema,
 } from "@/lib/auth/validators";
+import { ADMIN_BOOTSTRAP_SECRET_HEADER } from "@/lib/auth/constants";
 
 type AdminLoginValues = z.infer<typeof adminLoginSchema>;
-type AdminBootstrapValues = z.infer<typeof adminBootstrapSchema>;
+const adminBootstrapFormSchema = adminBootstrapSchema.extend({
+    setupSecret: z.string().trim().optional(),
+});
+
+type AdminBootstrapValues = z.infer<typeof adminBootstrapFormSchema>;
 type MasterDataValues = z.input<typeof masterDataSchema>;
 type MasterDataResolvedValues = z.output<typeof masterDataSchema>;
 type UserUpdateValues = z.infer<typeof adminUserUpdateSchema>;
@@ -556,17 +561,24 @@ export function AdminLoginForm({
     );
 }
 
-export function AdminBootstrapForm() {
+export function AdminBootstrapForm({
+    bootstrapEnabled,
+    requiresSetupSecret,
+}: {
+    bootstrapEnabled: boolean;
+    requiresSetupSecret: boolean;
+}) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [errorMessage, setErrorMessage] = useState("");
 
     const form = useForm<AdminBootstrapValues>({
-        resolver: zodResolver(adminBootstrapSchema),
+        resolver: zodResolver(adminBootstrapFormSchema),
         defaultValues: {
             name: "",
             email: "",
             password: "",
+            setupSecret: "",
         },
     });
 
@@ -578,12 +590,41 @@ export function AdminBootstrapForm() {
 
     function onSubmit(values: AdminBootstrapValues) {
         setErrorMessage("");
+        form.clearErrors("setupSecret");
 
         startTransition(async () => {
             try {
+                if (!bootstrapEnabled) {
+                    setErrorMessage(
+                        "Initial admin bootstrap is disabled. Configure ADMIN_BOOTSTRAP_SECRET on the server to enable first-run setup."
+                    );
+                    return;
+                }
+
+                const setupSecret = values.setupSecret?.trim();
+
+                if (requiresSetupSecret && !setupSecret) {
+                    form.setError("setupSecret", {
+                        type: "manual",
+                        message: "Enter the admin bootstrap secret.",
+                    });
+                    return;
+                }
+
+                const payload = {
+                    name: values.name,
+                    email: values.email,
+                    password: values.password,
+                };
+
                 await requestJson("/api/admin/bootstrap", {
                     method: "POST",
-                    body: JSON.stringify(values),
+                    headers: setupSecret
+                        ? {
+                              [ADMIN_BOOTSTRAP_SECRET_HEADER]: setupSecret,
+                          }
+                        : undefined,
+                    body: JSON.stringify(payload),
                 });
                 router.push("/admin");
                 router.refresh();
@@ -600,10 +641,26 @@ export function AdminBootstrapForm() {
             <CardHeader>
                 <CardTitle>Create the first admin</CardTitle>
                 <CardDescription>
-                    This bootstrap step is available only until the first Admin account is created.
+                    This bootstrap step is available only until the first Admin account is created,
+                    and protected environments require the one-time bootstrap secret.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
+                {!bootstrapEnabled ? (
+                    <FormMessage
+                        message="Initial admin bootstrap is disabled. Set ADMIN_BOOTSTRAP_SECRET on the server, redeploy, then return here to complete setup."
+                        type="error"
+                    />
+                ) : null}
+                {requiresSetupSecret ? (
+                    <p className="text-sm text-zinc-600">
+                        Enter the one-time bootstrap secret configured in
+                        {" "}
+                        <code>ADMIN_BOOTSTRAP_SECRET</code>
+                        {" "}
+                        to authorize first-run setup.
+                    </p>
+                ) : null}
                 {errorMessage ? <FormMessage message={errorMessage} type="error" /> : null}
 
                 <form className="grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
@@ -620,9 +677,24 @@ export function AdminBootstrapForm() {
                         <Input id="bootstrap-password" type="password" {...form.register("password")} />
                     </Field>
 
+                    {requiresSetupSecret ? (
+                        <Field
+                            label="Bootstrap secret"
+                            id="bootstrap-secret"
+                            error={form.formState.errors.setupSecret?.message}
+                        >
+                            <Input
+                                id="bootstrap-secret"
+                                type="password"
+                                autoComplete="one-time-code"
+                                {...form.register("setupSecret")}
+                            />
+                        </Field>
+                    ) : null}
+
                     <PasswordChecklist password={password} />
 
-                    <Button className="w-full" disabled={isPending} size="lg" type="submit">
+                    <Button className="w-full" disabled={isPending || !bootstrapEnabled} size="lg" type="submit">
                         {isPending ? <Spinner /> : <CheckCircle2 className="size-4" />}
                         Create Admin Account
                     </Button>

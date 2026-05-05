@@ -25,6 +25,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
+    registerUploadedDocument,
     uploadFile,
     validateFile,
     UploadValidationError,
@@ -4448,28 +4449,10 @@ function DocumentUploadField({
             const result = await uploadFile(file, "evidence", userId, (next) => {
                 setProgress(next);
             });
+            const document = await registerUploadedDocument(result);
 
-            const response = await fetch("/api/documents", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    fileName: file.name,
-                    fileUrl: result.downloadURL,
-                    fileType: file.type,
-                }),
-            });
-
-            const data = (await response.json()) as {
-                document?: { _id?: string; fileName?: string };
-                message?: string;
-            };
-
-            if (!response.ok || !data.document?._id) {
-                throw new Error(data.message ?? "Unable to save document.");
-            }
-
-            onChange(data.document._id);
-            setFileName(data.document.fileName ?? file.name);
+            onChange(document._id);
+            setFileName(document.fileName ?? file.name);
             setProgress(null);
         } catch (err) {
             setProgress(null);

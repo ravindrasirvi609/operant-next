@@ -36,6 +36,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import type { RecordType } from "@/lib/student/record-validators";
 import {
+    registerUploadedDocument,
     UploadValidationError,
     type UploadProgress,
     uploadFile,
@@ -296,21 +297,7 @@ export function StudentRecordsDashboard({
             const result = await uploadFile(file, "evidence", studentMeta.userId, (progress) => {
                 setEvidenceProgress((current) => ({ ...current, [key]: progress }));
             });
-
-            const docResponse = await fetch("/api/documents", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    fileName: file.name,
-                    fileUrl: result.downloadURL,
-                    fileType: file.type,
-                }),
-            });
-
-            const docData = (await docResponse.json()) as { document?: { _id?: string } };
-            if (!docResponse.ok || !docData.document?._id) {
-                throw new Error("Unable to save evidence document.");
-            }
+            const document = await registerUploadedDocument(result);
 
             const patchResponse = await fetch("/api/student/records", {
                 method: "PATCH",
@@ -318,7 +305,7 @@ export function StudentRecordsDashboard({
                 body: JSON.stringify({
                     type,
                     id: recordId,
-                    documentId: docData.document._id,
+                    documentId: document._id,
                 }),
             });
 
@@ -1471,23 +1458,9 @@ function EvidenceUploadField({
             const result = await uploadFile(file, "evidence", userId, (next) => {
                 setProgress(next);
             });
+            const document = await registerUploadedDocument(result);
 
-            const docResponse = await fetch("/api/documents", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    fileName: file.name,
-                    fileUrl: result.downloadURL,
-                    fileType: file.type,
-                }),
-            });
-
-            const docData = (await docResponse.json()) as { document?: EvidenceDocument };
-            if (!docResponse.ok || !docData.document || typeof docData.document === "string") {
-                throw new Error("Unable to save evidence document.");
-            }
-
-            setDocument(docData.document);
+            setDocument(document as EvidenceDocument);
             setProgress(null);
         } catch (err) {
             setProgress(null);

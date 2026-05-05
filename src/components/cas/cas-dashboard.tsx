@@ -21,6 +21,7 @@ import {
 } from "@/lib/faculty/options";
 import { casApplicationSchema } from "@/lib/cas/validators";
 import {
+    registerUploadedDocument,
     uploadFile,
     validateFile,
     UploadValidationError,
@@ -854,23 +855,9 @@ export function CasDashboard({
             const result = await uploadFile(file, "document", facultyId, (progress) => {
                 setDocProgress((current) => ({ ...current, [documentType]: progress }));
             });
+            const document = await registerUploadedDocument(result);
 
-            const docResponse = await fetch("/api/documents", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    fileName: file.name,
-                    fileUrl: result.downloadURL,
-                    fileType: file.type,
-                }),
-            });
-
-            const docData = (await docResponse.json()) as { document?: { _id?: string } };
-            if (!docResponse.ok || !docData.document?._id) {
-                throw new Error("Unable to save CAS document.");
-            }
-
-            await persistDocument(documentType, docData.document._id);
+            await persistDocument(documentType, document._id);
             setDocProgress((current) => ({ ...current, [documentType]: null }));
         } catch (err) {
             setDocProgress((current) => ({ ...current, [documentType]: null }));

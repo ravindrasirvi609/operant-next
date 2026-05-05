@@ -23,6 +23,7 @@ Create `.env.local` from `.env.example` and configure:
 
 - `MONGODB_URI`
 - `AUTH_SECRET`
+- `ADMIN_BOOTSTRAP_SECRET` (required in production to create the first admin)
 - `APP_URL`
 - `NEXT_PUBLIC_APP_URL`
 - `RESEND_API_KEY`
@@ -73,7 +74,7 @@ Open [http://localhost:3000](http://localhost:3000). Anonymous users are redirec
 - `POST /api/auth/forgot-password`
 - `POST /api/auth/reset-password`
 - `POST /api/auth/resend-verification`
-- `POST /api/admin/bootstrap`
+- `POST /api/admin/bootstrap` (requires `x-admin-bootstrap-secret` in production)
 - `GET/POST /api/admin/master-data`
 - `PATCH /api/admin/master-data/[id]`
 - `GET /api/admin/users`
