@@ -1,0 +1,16 @@
+%% UMIS mutation lifecycle (write + re-sync) — see 05/06/07/08
+sequenceDiagram
+    participant C as Client Component
+    participant API as /api/... route handler
+    participant S as lib service
+    participant DB as MongoDB
+    participant R as Next Router
+    C->>API: fetch(PATCH/POST, JSON) inside startTransition
+    API->>API: assertAdminApiAccess() / getCurrentUser()
+    API->>S: serviceFn(actor, id, body)
+    S->>DB: Zod-validated write + workflow sync + audit + notify
+    DB-->>S: updated doc
+    S-->>API: entity
+    API-->>C: { message, entity }
+    C->>R: router.refresh()
+    R->>C: re-runs the Server page -> fresh props

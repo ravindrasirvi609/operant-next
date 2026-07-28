@@ -1,0 +1,14 @@
+%% UMIS shared contributor workflow (Teaching-Learning shown; 11 modules use the engine) — see 06_API_Documentation.md
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Submitted: submit (contributor)
+    Submitted --> TeachingLearningReview: Forward/Recommend (Dept Head)
+    TeachingLearningReview --> UnderReview: Forward (T&L Committee)
+    UnderReview --> CommitteeReview: Forward (IQAC)
+    CommitteeReview --> Approved: Approve (Principal/Admin)
+    Submitted --> Rejected: Reject
+    TeachingLearningReview --> Rejected: Reject
+    UnderReview --> Rejected: Reject
+    CommitteeReview --> Rejected: Reject
+    Rejected --> Submitted: resubmit
+    Approved --> [*]

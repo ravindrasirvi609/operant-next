@@ -1,0 +1,30 @@
+%% UMIS feature roll-up to NAAC criteria — see 04_Module_Documentation.md
+flowchart TB
+    subgraph Contributors[Contributor modules - faculty submit, committees review]
+        CUR[Curriculum C1]
+        TL[Teaching-Learning C2]
+        RI[Research-Innovation C3]
+        IL[Infrastructure-Library C4]
+        SS[Student-Support-Governance C5]
+        GOV[Governance-Leadership-IQAC C6]
+        IV[Institutional-Values C7]
+    end
+    subgraph Faculty[Faculty processes]
+        PBAS[PBAS] --> CAS[CAS]
+        FAQAR[Faculty AQAR]
+    end
+    SSS[SSS survey]
+    FacRec[Faculty Records] --> PBAS
+    FacRec --> FAQAR
+    StuRec[Student Records + Evidence] --> SS
+    Contributors --> MAP[NAAC Criteria Mapping]
+    PBAS --> MAP
+    FAQAR --> MAP
+    SSS --> MAP
+    MAP --> WH[NAAC Metric Warehouse]
+    MAP --> CYCLE[Institutional AQAR Cycle]
+    WH --> SSR[SSR]
+    CYCLE --> SSR
+    WH --> AISHE[AISHE]
+    WH --> NIRF[NIRF]
+    SSR --> RPT[Report Templates - PDF]

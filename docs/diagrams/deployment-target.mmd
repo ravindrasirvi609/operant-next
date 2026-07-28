@@ -1,0 +1,24 @@
+%% UMIS target deployment + CI/CD — see 15_Deployment_Architecture.md
+flowchart LR
+    subgraph CI[CI/CD Pipeline]
+        PR[PR] --> Lint[lint + typecheck]
+        Lint --> Test[unit + integration + e2e]
+        Test --> Build[next build + docker image]
+        Build --> Scan[dependency + security scan]
+        Scan --> Deploy{deploy}
+    end
+    Deploy -->|staging| Stg[Staging env]
+    Deploy -->|prod, gated| Prod[Production env]
+    subgraph Runtime[Runtime - containerized]
+        App[UMIS Next.js container]
+        Worker[Background worker<br/>queue: reminders/PDF/metrics]
+    end
+    Stg --> App
+    Prod --> App
+    App --> Mongo[(MongoDB + backups)]
+    Worker --> Mongo
+    App --> FB[(Firebase Storage<br/>+ audited Security Rules)]
+    App --> Resend[Resend]
+    App --> Obs[Observability<br/>logs · metrics · traces · error tracking]
+    Worker --> Obs
+    Mig[Migration framework<br/>versioned, tracked] --> Mongo

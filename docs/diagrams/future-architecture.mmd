@@ -1,0 +1,39 @@
+%% UMIS target enterprise architecture — see 19_Future_Architecture.md
+flowchart TB
+    subgraph Presentation[Presentation layer]
+        DS[Design System + shared UI package]
+        Shells[Role shells + feature UIs]
+        APIClient[Typed API client + data hooks]
+        DS --> Shells
+        Shells --> APIClient
+    end
+    subgraph API[API layer - versioned]
+        Handlers[Thin route handlers /api/v1/**]
+        DTO[DTO + shared Zod validation]
+        Handlers --> DTO
+    end
+    subgraph Domain[Domain / application layer]
+        Kernel[Shared contributor-module KERNEL<br/>eliminates 6x duplication]
+        Modules[Feature modules - DDD bounded contexts]
+        Policy[Central authorization policy]
+        Events[Domain events]
+        Kernel --> Modules
+        Modules --> Policy
+        Modules --> Events
+    end
+    subgraph Infra[Infrastructure layer]
+        Repos[Repository pattern - abstracts Mongoose]
+        Queue[Job queue - reminders/PDF/metric gen]
+        Notify[Notification service]
+        Audit[Transactional audit]
+        Storage[Storage adapter - Firebase/S3]
+    end
+    Data[(MongoDB)]
+    APIClient -->|HTTPS| Handlers
+    DTO --> Modules
+    Modules --> Repos
+    Events --> Queue
+    Events --> Notify
+    Modules --> Audit
+    Repos --> Data
+    Modules --> Storage

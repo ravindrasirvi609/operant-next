@@ -1,0 +1,11 @@
+%% UMIS current deployment topology — see 15_Deployment_Architecture.md
+flowchart LR
+    Dev[Developer] -->|npm run build| Artifact[Next.js .next build]
+    Artifact --> Host[Node.js host<br/>Vercel / container / VM<br/>next start]
+    Host -->|MONGODB_URI| Mongo[(MongoDB Atlas / self-hosted)]
+    Host -->|RESEND_API_KEY| Resend[Resend]
+    Browser -->|HTTPS| Host
+    Browser -->|NEXT_PUBLIC_FIREBASE_*| FB[(Firebase Storage)]
+    Host -->|verify finalize| FB
+    Ops[Operator] -->|node scripts/*.cjs manual| Mongo
+    note1[No CI/CD · No Docker · No migration framework · console-only logs]

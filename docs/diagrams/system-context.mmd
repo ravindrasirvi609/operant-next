@@ -1,0 +1,23 @@
+%% UMIS system context — see 02_Current_Architecture.md
+flowchart TB
+    subgraph Client[Browser]
+        UI[React 19 UI<br/>Server + Client Components]
+    end
+    subgraph Next[Next.js 16 App - single deployment]
+        Pages[Server Component Pages & Layouts<br/>auth guards + data fetch]
+        API[API Route Handlers /api/** - 213]
+        Lib[Domain services src/lib/**<br/>workflow · authz · audit · notify]
+    end
+    subgraph Data[Data & external services]
+        Mongo[(MongoDB<br/>Mongoose · 188 models)]
+        FB[(Firebase Cloud Storage<br/>documents & photos)]
+        Resend[Resend Email API]
+    end
+    UI -->|fetch /api/*| API
+    UI -.->|initial render props| Pages
+    Pages --> Lib
+    API --> Lib
+    Lib --> Mongo
+    UI -->|direct upload w/ intent| FB
+    API -->|issue intent / finalize / verify| FB
+    Lib --> Resend

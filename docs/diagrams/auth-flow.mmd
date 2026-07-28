@@ -1,0 +1,25 @@
+%% UMIS authentication + authorization resolution — see 07_... wait see 16_Security_Audit.md and root documentation.md §7
+flowchart TD
+    Start([POST /api/auth/*login]) --> V[Zod validate credentials]
+    V --> F[findUserForLogin<br/>by email OR student enrollmentNo]
+    F --> Act{Faculty/Student<br/>PendingActivation<br/>or no password?}
+    Act -->|yes| A403[403 -> complete first-time setup]
+    Act -->|no| PW[verifyPassword bcrypt]
+    PW -->|fail| E401[401 invalid credentials]
+    PW -->|ok| St{isActive & not Suspended<br/>& emailVerified?}
+    St -->|no| S403[403 blocked / verify email]
+    St -->|yes| Role{portal?}
+    Role -->|admin-login: role == Admin| Issue
+    Role -->|director-login: hasLeadershipPortalAccess| Lead
+    Role -->|generic login| Issue
+    Lead -->|no access| Clear[clearSessionCookie -> 403]
+    Lead -->|ok| Issue
+    Issue[createSessionToken HS256 + setSessionCookie umis_session] --> Redirect[return redirectPath]
+
+    subgraph AZ[Authorization resolution per request]
+        U[User] --> RP[resolveAuthorizationProfile]
+        LA[LeadershipAssignment active] --> RP
+        CM[GovernanceCommitteeMembership active] --> RP
+        OH[Organization.headUserId compatibility] --> RP
+        RP --> Prof[AuthorizationProfile:<br/>workflowRoles + browseScopes + hasLeadershipPortalAccess]
+    end
