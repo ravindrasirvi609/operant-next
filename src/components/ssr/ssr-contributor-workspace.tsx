@@ -10,6 +10,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { MultiFileUpload } from "@/components/ui/file-upload";
+import type { UploadedDocument } from "@/lib/upload/service";
 
 type AssignmentRecord = {
     _id: string;
@@ -475,17 +477,13 @@ export function SsrContributorWorkspace({
                                 />
                             </FieldBlock>
 
-                            <FieldBlock label="Document IDs">
-                                <Input
+                            <FieldBlock label="Supporting Documents">
+                                <MultiFileUpload
+                                    category="document"
+                                    ownerId={selectedAssignment._id}
+                                    value={form.documentIds.split(",").map((id) => id.trim()).filter(Boolean).map((id) => ({ _id: id, fileName: "Existing document", fileUrl: "" } as UploadedDocument))}
+                                    onChange={(docs) => setForm((current) => ({ ...current, documentIds: docs.map((d) => d._id).join(", ") }))}
                                     disabled={!isEditable || isPending}
-                                    value={form.documentIds}
-                                    onChange={(event) =>
-                                        setForm((current) => ({
-                                            ...current,
-                                            documentIds: event.target.value,
-                                        }))
-                                    }
-                                    placeholder="Comma separated document ids"
                                 />
                             </FieldBlock>
 

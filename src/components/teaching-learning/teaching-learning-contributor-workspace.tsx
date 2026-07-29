@@ -7,10 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { InlineUpload, MultiFileUpload } from "@/components/ui/file-upload";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import type { UploadedDocument } from "@/lib/upload/service";
 
 type AssignmentRecord = {
     _id: string;
@@ -435,9 +437,11 @@ function buildInitialForm(record: AssignmentRecord): FormState {
 export function TeachingLearningContributorWorkspace({
     assignments,
     actorLabel,
+    userId,
 }: {
     assignments: AssignmentRecord[];
     actorLabel: string;
+    userId: string;
 }) {
     const router = useRouter();
     const [search, setSearch] = useState("");
@@ -1193,19 +1197,25 @@ export function TeachingLearningContributorWorkspace({
                                                     </div>
                                                     <div className="space-y-2">
                                                         <Label>Document ID</Label>
-                                                        <Input
+                                                        <InlineUpload
+                                                            category="document"
+                                                            ownerId={userId}
+                                                            mode="document"
+                                                            value={row.documentId ? { _id: row.documentId, fileName: "Linked document", fileUrl: "" } as UploadedDocument : null}
+                                                            onChange={(v) => {
+                                                                if (v && typeof v === "object") {
+                                                                    setForm((current) => ({
+                                                                        ...current,
+                                                                        sessions: current.sessions.map((item, itemIndex) =>
+                                                                            itemIndex === index
+                                                                                ? { ...item, documentId: (v as UploadedDocument)._id }
+                                                                                : item
+                                                                        ),
+                                                                    }));
+                                                                }
+                                                            }}
                                                             disabled={!canEdit}
-                                                            onChange={(event) =>
-                                                                setForm((current) => ({
-                                                                    ...current,
-                                                                    sessions: current.sessions.map((item, itemIndex) =>
-                                                                        itemIndex === index
-                                                                            ? { ...item, documentId: event.target.value }
-                                                                            : item
-                                                                    ),
-                                                                }))
-                                                            }
-                                                            value={row.documentId}
+                                                            placeholder="Upload document"
                                                         />
                                                     </div>
                                                 </div>
@@ -1493,19 +1503,25 @@ export function TeachingLearningContributorWorkspace({
                                                     </div>
                                                     <div className="space-y-2">
                                                         <Label>Document ID</Label>
-                                                        <Input
+                                                        <InlineUpload
+                                                            category="document"
+                                                            ownerId={userId}
+                                                            mode="document"
+                                                            value={row.documentId ? { _id: row.documentId, fileName: "Linked document", fileUrl: "" } as UploadedDocument : null}
+                                                            onChange={(v) => {
+                                                                if (v && typeof v === "object") {
+                                                                    setForm((current) => ({
+                                                                        ...current,
+                                                                        assessments: current.assessments.map((item, itemIndex) =>
+                                                                            itemIndex === index
+                                                                                ? { ...item, documentId: (v as UploadedDocument)._id }
+                                                                                : item
+                                                                        ),
+                                                                    }));
+                                                                }
+                                                            }}
                                                             disabled={!canEdit}
-                                                            onChange={(event) =>
-                                                                setForm((current) => ({
-                                                                    ...current,
-                                                                    assessments: current.assessments.map((item, itemIndex) =>
-                                                                        itemIndex === index
-                                                                            ? { ...item, documentId: event.target.value }
-                                                                            : item
-                                                                    ),
-                                                                }))
-                                                            }
-                                                            value={row.documentId}
+                                                            placeholder="Upload document"
                                                         />
                                                     </div>
                                                 </div>
@@ -1704,19 +1720,25 @@ export function TeachingLearningContributorWorkspace({
                                                     </div>
                                                     <div className="space-y-2">
                                                         <Label>Document ID</Label>
-                                                        <Input
+                                                        <InlineUpload
+                                                            category="document"
+                                                            ownerId={userId}
+                                                            mode="document"
+                                                            value={row.documentId ? { _id: row.documentId, fileName: "Linked document", fileUrl: "" } as UploadedDocument : null}
+                                                            onChange={(v) => {
+                                                                if (v && typeof v === "object") {
+                                                                    setForm((current) => ({
+                                                                        ...current,
+                                                                        supports: current.supports.map((item, itemIndex) =>
+                                                                            itemIndex === index
+                                                                                ? { ...item, documentId: (v as UploadedDocument)._id }
+                                                                                : item
+                                                                        ),
+                                                                    }));
+                                                                }
+                                                            }}
                                                             disabled={!canEdit}
-                                                            onChange={(event) =>
-                                                                setForm((current) => ({
-                                                                    ...current,
-                                                                    supports: current.supports.map((item, itemIndex) =>
-                                                                        itemIndex === index
-                                                                            ? { ...item, documentId: event.target.value }
-                                                                            : item
-                                                                    ),
-                                                                }))
-                                                            }
-                                                            value={row.documentId}
+                                                            placeholder="Upload document"
                                                         />
                                                     </div>
                                                 </div>
@@ -1771,44 +1793,59 @@ export function TeachingLearningContributorWorkspace({
                                     <CardContent className="grid gap-4 md:grid-cols-2">
                                         <div className="space-y-2">
                                             <Label>Lesson Plan Document ID</Label>
-                                            <Input
+                                            <InlineUpload
+                                                category="document"
+                                                ownerId={userId}
+                                                mode="document"
+                                                value={form.lessonPlanDocumentId ? { _id: form.lessonPlanDocumentId, fileName: "Linked document", fileUrl: "" } as UploadedDocument : null}
+                                                onChange={(v) => {
+                                                    if (v && typeof v === "object") {
+                                                        setForm((current) => ({
+                                                            ...current,
+                                                            lessonPlanDocumentId: (v as UploadedDocument)._id,
+                                                        }));
+                                                    }
+                                                }}
                                                 disabled={!canEdit}
-                                                onChange={(event) =>
-                                                    setForm((current) => ({
-                                                        ...current,
-                                                        lessonPlanDocumentId: event.target.value,
-                                                    }))
-                                                }
-                                                placeholder="ObjectId"
-                                                value={form.lessonPlanDocumentId}
+                                                placeholder="Upload lesson plan"
                                             />
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Question Paper / Assessment Instrument Document ID</Label>
-                                            <Input
+                                            <InlineUpload
+                                                category="document"
+                                                ownerId={userId}
+                                                mode="document"
+                                                value={form.questionPaperDocumentId ? { _id: form.questionPaperDocumentId, fileName: "Linked document", fileUrl: "" } as UploadedDocument : null}
+                                                onChange={(v) => {
+                                                    if (v && typeof v === "object") {
+                                                        setForm((current) => ({
+                                                            ...current,
+                                                            questionPaperDocumentId: (v as UploadedDocument)._id,
+                                                        }));
+                                                    }
+                                                }}
                                                 disabled={!canEdit}
-                                                onChange={(event) =>
-                                                    setForm((current) => ({
-                                                        ...current,
-                                                        questionPaperDocumentId: event.target.value,
-                                                    }))
-                                                }
-                                                placeholder="ObjectId"
-                                                value={form.questionPaperDocumentId}
+                                                placeholder="Upload question paper"
                                             />
                                         </div>
                                         <div className="space-y-2 md:col-span-2">
                                             <Label>Result Analysis Document ID</Label>
-                                            <Input
+                                            <InlineUpload
+                                                category="document"
+                                                ownerId={userId}
+                                                mode="document"
+                                                value={form.resultAnalysisDocumentId ? { _id: form.resultAnalysisDocumentId, fileName: "Linked document", fileUrl: "" } as UploadedDocument : null}
+                                                onChange={(v) => {
+                                                    if (v && typeof v === "object") {
+                                                        setForm((current) => ({
+                                                            ...current,
+                                                            resultAnalysisDocumentId: (v as UploadedDocument)._id,
+                                                        }));
+                                                    }
+                                                }}
                                                 disabled={!canEdit}
-                                                onChange={(event) =>
-                                                    setForm((current) => ({
-                                                        ...current,
-                                                        resultAnalysisDocumentId: event.target.value,
-                                                    }))
-                                                }
-                                                placeholder="ObjectId"
-                                                value={form.resultAnalysisDocumentId}
+                                                placeholder="Upload result analysis"
                                             />
                                             <p className="text-xs text-zinc-500">
                                                 Submission requires a lesson plan. Result analysis becomes mandatory once completed assessment evidence is recorded.
@@ -1828,20 +1865,19 @@ export function TeachingLearningContributorWorkspace({
                                                 value={form.supportingLinks}
                                             />
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label>Document IDs</Label>
-                                            <Textarea
-                                                disabled={!canEdit}
-                                                onChange={(event) =>
-                                                    setForm((current) => ({
-                                                        ...current,
-                                                        documentIds: event.target.value,
-                                                    }))
-                                                }
-                                                placeholder="ObjectId, ObjectId"
-                                                value={form.documentIds}
-                                            />
-                                        </div>
+                                        <MultiFileUpload
+                                            category="document"
+                                            ownerId={userId}
+                                            value={[]}
+                                            onChange={(docs) =>
+                                                setForm((current) => ({
+                                                    ...current,
+                                                    documentIds: docs.map((d) => d._id).join(", "),
+                                                }))
+                                            }
+                                            disabled={!canEdit}
+                                            label="Supporting documents"
+                                        />
                                         <div className="space-y-2 md:col-span-2">
                                             <Label>Contributor Remarks</Label>
                                             <Textarea

@@ -38,13 +38,9 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Profile photo removed.", photoURL: "" });
         }
 
-        // Only allow Firebase Storage URLs from the configured bucket.
-        const bucketHost = `${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}`;
-        const isFirebaseURL =
-            body.photoURL.startsWith("https://firebasestorage.googleapis.com/") &&
-            body.photoURL.includes(bucketHost);
-
-        if (!isFirebaseURL) {
+        // Only allow URLs from the configured R2 public bucket.
+        const r2Base = process.env.NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL;
+        if (!r2Base || !body.photoURL.startsWith(r2Base)) {
             return NextResponse.json(
                 { message: "Invalid photo URL." },
                 { status: 400 },

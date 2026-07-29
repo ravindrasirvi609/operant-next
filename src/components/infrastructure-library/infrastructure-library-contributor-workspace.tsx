@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { InlineUpload, MultiFileUpload } from "@/components/ui/file-upload";
+import type { UploadedDocument } from "@/lib/upload/service";
 
 type DocumentRecord = {
     id: string;
@@ -934,17 +936,18 @@ export function InfrastructureLibraryContributorWorkspace({
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label>Manual evidence document IDs</Label>
-                                            <Input
-                                                disabled={!canEdit}
-                                                onChange={(event) =>
+                                            <MultiFileUpload
+                                                category="document"
+                                                ownerId={selectedAssignment._id}
+                                                value={[]}
+                                                onChange={(docs) =>
                                                     setForm((current) => ({
                                                         ...current,
-                                                        documentIds: event.target.value,
+                                                        documentIds: docs.map((d) => d._id).join(","),
                                                     }))
                                                 }
-                                                placeholder="Comma separated document IDs"
-                                                value={form.documentIds}
+                                                label="Manual evidence documents"
+                                                disabled={!canEdit}
                                             />
                                         </div>
 
@@ -990,7 +993,22 @@ export function InfrastructureLibraryContributorWorkspace({
                                                 <SelectField disabled={!canEdit} label="Status" onValueChange={(value) => updateFacility(index, "status", value)} options={["Available","UnderMaintenance","Planned","Shared"]} value={row.status} />
                                                 <TextField disabled={!canEdit} label="Utilization %" onChange={(value) => updateFacility(index, "utilizationPercent", value)} type="number" value={row.utilizationPercent} />
                                                 <SelectField disabled={!canEdit} label="ICT enabled" onValueChange={(value) => updateFacility(index, "ictEnabled", value === "yes")} options={["yes","no"]} value={row.ictEnabled ? "yes" : "no"} />
-                                                <TextField disabled={!canEdit} label="Document ID" onChange={(value) => updateFacility(index, "documentId", value)} value={row.documentId} />
+                                                <div className="space-y-2">
+                                                    <Label>Document</Label>
+                                                    <InlineUpload
+                                                        category="document"
+                                                        ownerId={selectedAssignment._id}
+                                                        mode="document"
+                                                        value={null}
+                                                        onChange={(v) => {
+                                                            if (v && typeof v === "object") {
+                                                                updateFacility(index, "documentId", (v as UploadedDocument)._id);
+                                                            }
+                                                        }}
+                                                        placeholder="Upload document"
+                                                        disabled={!canEdit}
+                                                    />
+                                                </div>
                                             </div>
                                             <div className="space-y-2">
                                                 <Label>Remarks</Label>
@@ -1020,7 +1038,22 @@ export function InfrastructureLibraryContributorWorkspace({
                                                 <SelectField disabled={!canEdit} label="Access mode" onValueChange={(value) => updateLibraryResource(index, "accessMode", value)} options={["Print","Digital","Hybrid"]} value={row.accessMode} />
                                                 <SelectField disabled={!canEdit} label="Availability" onValueChange={(value) => updateLibraryResource(index, "availabilityStatus", value)} options={["Active","Expired","Archived","Planned"]} value={row.availabilityStatus} />
                                                 <TextField disabled={!canEdit} label="Usage count" onChange={(value) => updateLibraryResource(index, "usageCount", value)} type="number" value={row.usageCount} />
-                                                <TextField disabled={!canEdit} label="Document ID" onChange={(value) => updateLibraryResource(index, "documentId", value)} value={row.documentId} />
+                                                <div className="space-y-2">
+                                                    <Label>Document</Label>
+                                                    <InlineUpload
+                                                        category="document"
+                                                        ownerId={selectedAssignment._id}
+                                                        mode="document"
+                                                        value={null}
+                                                        onChange={(v) => {
+                                                            if (v && typeof v === "object") {
+                                                                updateLibraryResource(index, "documentId", (v as UploadedDocument)._id);
+                                                            }
+                                                        }}
+                                                        placeholder="Upload document"
+                                                        disabled={!canEdit}
+                                                    />
+                                                </div>
                                             </div>
                                             <div className="space-y-2">
                                                 <Label>Remarks</Label>
@@ -1044,7 +1077,22 @@ export function InfrastructureLibraryContributorWorkspace({
                                                 <TextField disabled={!canEdit} label="Usage count" onChange={(value) => updateUsage(index, "usageCount", value)} type="number" value={row.usageCount} />
                                                 <TextField disabled={!canEdit} label="Satisfaction score (0-5)" onChange={(value) => updateUsage(index, "satisfactionScore", value)} type="number" value={row.satisfactionScore} />
                                                 <TextField disabled={!canEdit} label="Target group" onChange={(value) => updateUsage(index, "targetGroup", value)} value={row.targetGroup} />
-                                                <TextField disabled={!canEdit} label="Document ID" onChange={(value) => updateUsage(index, "documentId", value)} value={row.documentId} />
+                                                <div className="space-y-2">
+                                                    <Label>Document</Label>
+                                                    <InlineUpload
+                                                        category="document"
+                                                        ownerId={selectedAssignment._id}
+                                                        mode="document"
+                                                        value={null}
+                                                        onChange={(v) => {
+                                                            if (v && typeof v === "object") {
+                                                                updateUsage(index, "documentId", (v as UploadedDocument)._id);
+                                                            }
+                                                        }}
+                                                        placeholder="Upload document"
+                                                        disabled={!canEdit}
+                                                    />
+                                                </div>
                                             </div>
                                             <div className="space-y-2">
                                                 <Label>Remarks</Label>
@@ -1070,7 +1118,22 @@ export function InfrastructureLibraryContributorWorkspace({
                                                 <TextField disabled={!canEdit} label="Next due date" onChange={(value) => updateMaintenance(index, "nextDueDate", value)} type="date" value={row.nextDueDate} />
                                                 <SelectField disabled={!canEdit} label="Status" onValueChange={(value) => updateMaintenance(index, "status", value)} options={["Scheduled","Ongoing","Completed","Deferred"]} value={row.status} />
                                                 <TextField disabled={!canEdit} label="Cost amount" onChange={(value) => updateMaintenance(index, "costAmount", value)} type="number" value={row.costAmount} />
-                                                <TextField disabled={!canEdit} label="Document ID" onChange={(value) => updateMaintenance(index, "documentId", value)} value={row.documentId} />
+                                                <div className="space-y-2">
+                                                    <Label>Document</Label>
+                                                    <InlineUpload
+                                                        category="document"
+                                                        ownerId={selectedAssignment._id}
+                                                        mode="document"
+                                                        value={null}
+                                                        onChange={(v) => {
+                                                            if (v && typeof v === "object") {
+                                                                updateMaintenance(index, "documentId", (v as UploadedDocument)._id);
+                                                            }
+                                                        }}
+                                                        placeholder="Upload document"
+                                                        disabled={!canEdit}
+                                                    />
+                                                </div>
                                             </div>
                                             <div className="space-y-2">
                                                 <Label>Remarks</Label>

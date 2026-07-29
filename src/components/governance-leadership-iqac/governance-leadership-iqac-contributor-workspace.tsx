@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { InlineUpload, MultiFileUpload } from "@/components/ui/file-upload";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import type { UploadedDocument } from "@/lib/upload/service";
 
 type DocumentRecord = {
     id: string;
@@ -441,9 +443,11 @@ function buildInitialForm(record: AssignmentRecord): FormState {
 export function GovernanceLeadershipIqacContributorWorkspace({
     assignments,
     actorLabel,
+    userId,
 }: {
     assignments: AssignmentRecord[];
     actorLabel: string;
+    userId: string;
 }) {
     const router = useRouter();
     const [search, setSearch] = useState("");
@@ -887,20 +891,19 @@ export function GovernanceLeadershipIqacContributorWorkspace({
                                             />
                                         </div>
 
-                                        <div className="space-y-2">
-                                            <Label>Manual evidence document IDs</Label>
-                                            <Input
-                                                disabled={!canEdit}
-                                                onChange={(event) =>
-                                                    setForm((current) => ({
-                                                        ...current,
-                                                        documentIds: event.target.value,
-                                                    }))
-                                                }
-                                                placeholder="Comma separated document IDs"
-                                                value={form.documentIds}
-                                            />
-                                        </div>
+                                        <MultiFileUpload
+                                            category="document"
+                                            ownerId={userId}
+                                            value={[]}
+                                            onChange={(docs) =>
+                                                setForm((current) => ({
+                                                    ...current,
+                                                    documentIds: docs.map((d) => d._id).join(", "),
+                                                }))
+                                            }
+                                            disabled={!canEdit}
+                                            label="Supporting documents"
+                                        />
 
                                         {selectedAssignment.documents.length ? (
                                             <div className="grid gap-3 md:grid-cols-2">
@@ -940,7 +943,22 @@ export function GovernanceLeadershipIqacContributorWorkspace({
                                                 <TextField disabled={!canEdit} label="Chaired by" onChange={(value) => updateFacility(index, "chairedBy", value)} value={row.chairedBy} />
                                                 <TextField disabled={!canEdit} label="Attendee count" onChange={(value) => updateFacility(index, "attendeeCount", value)} type="number" value={row.attendeeCount} />
                                                 <TextField disabled={!canEdit} label="Action taken summary" onChange={(value) => updateFacility(index, "actionTakenSummary", value)} value={row.actionTakenSummary} />
-                                                <TextField disabled={!canEdit} label="Document ID" onChange={(value) => updateFacility(index, "documentId", value)} value={row.documentId} />
+                                                <div className="space-y-2">
+                                                    <Label>Document ID</Label>
+                                                    <InlineUpload
+                                                        category="document"
+                                                        ownerId={userId}
+                                                        mode="document"
+                                                        value={row.documentId ? { _id: row.documentId, fileName: "Linked document", fileUrl: "" } as UploadedDocument : null}
+                                                        onChange={(v) => {
+                                                            if (v && typeof v === "object") {
+                                                                updateFacility(index, "documentId", (v as UploadedDocument)._id);
+                                                            }
+                                                        }}
+                                                        disabled={!canEdit}
+                                                        placeholder="Upload document"
+                                                    />
+                                                </div>
                                             </div>
                                             <div className="grid gap-3 md:grid-cols-2">
                                                 <div className="space-y-2">
@@ -974,7 +992,22 @@ export function GovernanceLeadershipIqacContributorWorkspace({
                                                 <TextField disabled={!canEdit} label="End date" onChange={(value) => updateLibraryResource(index, "endDate", value)} type="date" value={row.endDate} />
                                                 <SelectField disabled={!canEdit} label="Status" onValueChange={(value) => updateLibraryResource(index, "status", value)} options={["Planned","InProgress","Completed","OnHold","Continuous"]} value={row.status} />
                                                 <TextField disabled={!canEdit} label="Owner name" onChange={(value) => updateLibraryResource(index, "ownerName", value)} value={row.ownerName} />
-                                                <TextField disabled={!canEdit} label="Document ID" onChange={(value) => updateLibraryResource(index, "documentId", value)} value={row.documentId} />
+                                                <div className="space-y-2">
+                                                    <Label>Document ID</Label>
+                                                    <InlineUpload
+                                                        category="document"
+                                                        ownerId={userId}
+                                                        mode="document"
+                                                        value={row.documentId ? { _id: row.documentId, fileName: "Linked document", fileUrl: "" } as UploadedDocument : null}
+                                                        onChange={(v) => {
+                                                            if (v && typeof v === "object") {
+                                                                updateLibraryResource(index, "documentId", (v as UploadedDocument)._id);
+                                                            }
+                                                        }}
+                                                        disabled={!canEdit}
+                                                        placeholder="Upload document"
+                                                    />
+                                                </div>
                                             </div>
                                             <div className="space-y-2">
                                                 <Label>Impact summary</Label>
@@ -1002,7 +1035,22 @@ export function GovernanceLeadershipIqacContributorWorkspace({
                                                 <TextField disabled={!canEdit} label="Issuing authority" onChange={(value) => updateUsage(index, "issuingAuthority", value)} value={row.issuingAuthority} />
                                                 <TextField disabled={!canEdit} label="Applicability scope" onChange={(value) => updateUsage(index, "applicabilityScope", value)} value={row.applicabilityScope} />
                                                 <SelectField disabled={!canEdit} label="Revision status" onValueChange={(value) => updateUsage(index, "revisionStatus", value)} options={["New","Reviewed","Revised","Active","Archived"]} value={row.revisionStatus} />
-                                                <TextField disabled={!canEdit} label="Document ID" onChange={(value) => updateUsage(index, "documentId", value)} value={row.documentId} />
+                                                <div className="space-y-2">
+                                                    <Label>Document ID</Label>
+                                                    <InlineUpload
+                                                        category="document"
+                                                        ownerId={userId}
+                                                        mode="document"
+                                                        value={row.documentId ? { _id: row.documentId, fileName: "Linked document", fileUrl: "" } as UploadedDocument : null}
+                                                        onChange={(v) => {
+                                                            if (v && typeof v === "object") {
+                                                                updateUsage(index, "documentId", (v as UploadedDocument)._id);
+                                                            }
+                                                        }}
+                                                        disabled={!canEdit}
+                                                        placeholder="Upload document"
+                                                    />
+                                                </div>
                                             </div>
                                             <div className="space-y-2">
                                                 <Label>Summary</Label>
@@ -1029,7 +1077,22 @@ export function GovernanceLeadershipIqacContributorWorkspace({
                                                 <TextField disabled={!canEdit} label="Review date" onChange={(value) => updateMaintenance(index, "reviewDate", value)} type="date" value={row.reviewDate} />
                                                 <SelectField disabled={!canEdit} label="Status" onValueChange={(value) => updateMaintenance(index, "status", value)} options={["Scheduled","Completed","ActionTaken","Closed","Escalated"]} value={row.status} />
                                                 <SelectField disabled={!canEdit} label="Risk level" onValueChange={(value) => updateMaintenance(index, "riskLevel", value)} options={["Low","Moderate","High","Critical"]} value={row.riskLevel} />
-                                                <TextField disabled={!canEdit} label="Document ID" onChange={(value) => updateMaintenance(index, "documentId", value)} value={row.documentId} />
+                                                <div className="space-y-2">
+                                                    <Label>Document ID</Label>
+                                                    <InlineUpload
+                                                        category="document"
+                                                        ownerId={userId}
+                                                        mode="document"
+                                                        value={row.documentId ? { _id: row.documentId, fileName: "Linked document", fileUrl: "" } as UploadedDocument : null}
+                                                        onChange={(v) => {
+                                                            if (v && typeof v === "object") {
+                                                                updateMaintenance(index, "documentId", (v as UploadedDocument)._id);
+                                                            }
+                                                        }}
+                                                        disabled={!canEdit}
+                                                        placeholder="Upload document"
+                                                    />
+                                                </div>
                                             </div>
                                             <div className="grid gap-3 md:grid-cols-2">
                                                 <div className="space-y-2">

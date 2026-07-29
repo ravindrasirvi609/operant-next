@@ -17,6 +17,7 @@ export default async function FacultyTeachingLearningPage() {
         <TeachingLearningContributorWorkspace
             actorLabel="Faculty"
             assignments={JSON.parse(JSON.stringify(workspace.assignments)) as never}
+            userId={faculty.id}
         />
     );
 }

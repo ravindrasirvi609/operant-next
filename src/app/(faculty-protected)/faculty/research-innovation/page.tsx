@@ -17,6 +17,7 @@ export default async function FacultyResearchInnovationPage() {
         <ResearchInnovationContributorWorkspace
             actorLabel="Faculty"
             assignments={JSON.parse(JSON.stringify(workspace.assignments)) as never}
+            userId={faculty.id}
         />
     );
 }

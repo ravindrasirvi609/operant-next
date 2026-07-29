@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useId, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 
 import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
@@ -35,13 +35,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import type { RecordType } from "@/lib/student/record-validators";
-import {
-    registerUploadedDocument,
-    UploadValidationError,
-    type UploadProgress,
-    uploadFile,
-    validateFile,
-} from "@/lib/upload/service";
+import { FileUpload, InlineUpload } from "@/components/ui/file-upload";
+import type { UploadedDocument } from "@/lib/upload/service";
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -187,8 +182,6 @@ export function StudentRecordsDashboard({
     const [activeForm, setActiveForm] = useState<RecordType | null>(null);
     const [semesters, setSemesters] = useState<SemesterOption[]>([]);
     const [semesterError, setSemesterError] = useState<string | null>(null);
-    const [evidenceProgress, setEvidenceProgress] = useState<Record<string, UploadProgress | null>>({});
-    const [evidenceError, setEvidenceError] = useState<Record<string, string>>({});
     const [masterData, setMasterData] = useState<StudentMasterData>({
         awards: [],
         skills: [],
@@ -256,7 +249,6 @@ export function StudentRecordsDashboard({
         };
     }, []);
 
-    const evidenceKey = useCallback((type: RecordType, id: string) => `${type}:${id}`, []);
 
     function handleTabChange(nextTabValue: string) {
         const nextTab = resolveRecordsTab(nextTabValue);
@@ -278,51 +270,13 @@ export function StudentRecordsDashboard({
         router.replace(nextUrl, { scroll: false });
     }
 
-    async function handleEvidenceUpload(type: RecordType, recordId: string, file: File) {
-        const key = evidenceKey(type, recordId);
-        setEvidenceError((current) => ({ ...current, [key]: "" }));
-
-        try {
-            validateFile(file, "evidence");
-        } catch (err) {
-            if (err instanceof UploadValidationError) {
-                setEvidenceError((current) => ({ ...current, [key]: err.message }));
-            }
-            return;
-        }
-
-        setEvidenceProgress((current) => ({ ...current, [key]: null }));
-
-        try {
-            const result = await uploadFile(file, "evidence", studentMeta.userId, (progress) => {
-                setEvidenceProgress((current) => ({ ...current, [key]: progress }));
-            });
-            const document = await registerUploadedDocument(result);
-
-            const patchResponse = await fetch("/api/student/records", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    type,
-                    id: recordId,
-                    documentId: document._id,
-                }),
-            });
-
-            if (!patchResponse.ok) {
-                const patchData = (await patchResponse.json()) as { message?: string };
-                throw new Error(patchData?.message ?? "Unable to link evidence.");
-            }
-
-            setEvidenceProgress((current) => ({ ...current, [key]: null }));
-            refreshRecords();
-        } catch (err) {
-            setEvidenceProgress((current) => ({ ...current, [key]: null }));
-            setEvidenceError((current) => ({
-                ...current,
-                [key]: err instanceof Error ? err.message : "Evidence upload failed.",
-            }));
-        }
+    async function linkEvidenceDocument(type: RecordType, recordId: string, doc: UploadedDocument) {
+        const patchResponse = await fetch("/api/student/records", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type, id: recordId, documentId: doc._id }),
+        });
+        if (patchResponse.ok) refreshRecords();
     }
 
     async function handleCreate(type: RecordType, data: AnyRecord) {
@@ -626,9 +580,8 @@ export function StudentRecordsDashboard({
                                             recordType="publication"
                                             recordId={r._id}
                                             document={r.documentId as EvidenceDocument}
-                                            onUpload={handleEvidenceUpload}
-                                            progress={evidenceProgress[evidenceKey("publication", r._id)]}
-                                            error={evidenceError[evidenceKey("publication", r._id)]}
+                                            userId={studentMeta.userId}
+                                            onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
                                         />
                                     </TableCell>
                                 </>
@@ -692,9 +645,8 @@ export function StudentRecordsDashboard({
                                             recordType="research"
                                             recordId={r._id}
                                             document={r.documentId as EvidenceDocument}
-                                            onUpload={handleEvidenceUpload}
-                                            progress={evidenceProgress[evidenceKey("research", r._id)]}
-                                            error={evidenceError[evidenceKey("research", r._id)]}
+                                            userId={studentMeta.userId}
+                                            onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
                                         />
                                     </TableCell>
                                 </>
@@ -758,9 +710,8 @@ export function StudentRecordsDashboard({
                                             recordType="award"
                                             recordId={r._id}
                                             document={r.documentId as EvidenceDocument}
-                                            onUpload={handleEvidenceUpload}
-                                            progress={evidenceProgress[evidenceKey("award", r._id)]}
-                                            error={evidenceError[evidenceKey("award", r._id)]}
+                                            userId={studentMeta.userId}
+                                            onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
                                         />
                                     </TableCell>
                                 </>
@@ -828,9 +779,8 @@ export function StudentRecordsDashboard({
                                             recordType="skill"
                                             recordId={r._id}
                                             document={r.documentId as EvidenceDocument}
-                                            onUpload={handleEvidenceUpload}
-                                            progress={evidenceProgress[evidenceKey("skill", r._id)]}
-                                            error={evidenceError[evidenceKey("skill", r._id)]}
+                                            userId={studentMeta.userId}
+                                            onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
                                         />
                                     </TableCell>
                                 </>
@@ -894,9 +844,8 @@ export function StudentRecordsDashboard({
                                             recordType="sport"
                                             recordId={r._id}
                                             document={r.documentId as EvidenceDocument}
-                                            onUpload={handleEvidenceUpload}
-                                            progress={evidenceProgress[evidenceKey("sport", r._id)]}
-                                            error={evidenceError[evidenceKey("sport", r._id)]}
+                                            userId={studentMeta.userId}
+                                            onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
                                         />
                                     </TableCell>
                                 </>
@@ -954,9 +903,8 @@ export function StudentRecordsDashboard({
                                             recordType="cultural"
                                             recordId={r._id}
                                             document={r.documentId as EvidenceDocument}
-                                            onUpload={handleEvidenceUpload}
-                                            progress={evidenceProgress[evidenceKey("cultural", r._id)]}
-                                            error={evidenceError[evidenceKey("cultural", r._id)]}
+                                            userId={studentMeta.userId}
+                                            onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
                                         />
                                     </TableCell>
                                 </>
@@ -1029,9 +977,8 @@ export function StudentRecordsDashboard({
                                             recordType="event"
                                             recordId={r._id}
                                             document={r.documentId as EvidenceDocument}
-                                            onUpload={handleEvidenceUpload}
-                                            progress={evidenceProgress[evidenceKey("event", r._id)]}
-                                            error={evidenceError[evidenceKey("event", r._id)]}
+                                            userId={studentMeta.userId}
+                                            onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
                                         />
                                     </TableCell>
                                 </>
@@ -1097,9 +1044,8 @@ export function StudentRecordsDashboard({
                                             recordType="social"
                                             recordId={r._id}
                                             document={r.documentId as EvidenceDocument}
-                                            onUpload={handleEvidenceUpload}
-                                            progress={evidenceProgress[evidenceKey("social", r._id)]}
-                                            error={evidenceError[evidenceKey("social", r._id)]}
+                                            userId={studentMeta.userId}
+                                            onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
                                         />
                                     </TableCell>
                                 </>
@@ -1213,9 +1159,8 @@ export function StudentRecordsDashboard({
                                             recordType="internship"
                                             recordId={r._id}
                                             document={r.documentId as EvidenceDocument}
-                                            onUpload={handleEvidenceUpload}
-                                            progress={evidenceProgress[evidenceKey("internship", r._id)]}
-                                            error={evidenceError[evidenceKey("internship", r._id)]}
+                                            userId={studentMeta.userId}
+                                            onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
                                         />
                                     </TableCell>
                                 </>
@@ -1432,76 +1377,29 @@ function FormActions({
 function EvidenceUploadField({
     userId,
     label = "Evidence Document (optional)",
+    onChange,
 }: {
     userId: string;
     label?: string;
+    onChange?: (doc: UploadedDocument) => void;
 }) {
-    const inputId = useId();
-    const [document, setDocument] = useState<EvidenceDocument>(null);
-    const [progress, setProgress] = useState<UploadProgress | null>(null);
-    const [error, setError] = useState<string | null>(null);
-
-    async function handleUpload(file: File) {
-        setError(null);
-        try {
-            validateFile(file, "evidence");
-        } catch (err) {
-            if (err instanceof UploadValidationError) {
-                setError(err.message);
-            }
-            return;
-        }
-
-        setProgress({ percent: 0, bytesTransferred: 0, totalBytes: file.size });
-
-        try {
-            const result = await uploadFile(file, "evidence", userId, (next) => {
-                setProgress(next);
-            });
-            const document = await registerUploadedDocument(result);
-
-            setDocument(document as EvidenceDocument);
-            setProgress(null);
-        } catch (err) {
-            setProgress(null);
-            setError(err instanceof Error ? err.message : "Evidence upload failed.");
-        }
-    }
-
-    const fileLabel = typeof document === "object" && document?.fileName ? document.fileName : "No file uploaded";
-    const fileUrl = typeof document === "object" ? document?.fileUrl : undefined;
+    const [doc, setDoc] = useState<UploadedDocument | null>(null);
 
     return (
-        <div className="grid gap-2 rounded-md border border-dashed border-zinc-300 bg-white p-3">
-            <Label htmlFor={inputId}>{label}</Label>
-            <Input
-                id={inputId}
-                type="file"
-                accept="application/pdf,image/*"
-                onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) {
-                        void handleUpload(file);
-                    }
+        <div>
+            <input type="hidden" name="documentId" value={doc?._id ?? ""} readOnly />
+            <FileUpload
+                category="evidence"
+                ownerId={userId}
+                mode="document"
+                label={label}
+                value={doc}
+                onChange={(v) => {
+                    const next = v as UploadedDocument | null;
+                    setDoc(next);
+                    if (next) onChange?.(next);
                 }}
             />
-            <input type="hidden" name="documentId" value={typeof document === "object" ? document?._id ?? "" : ""} />
-            <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-600">
-                {fileUrl ? (
-                    <a
-                        className="font-medium text-emerald-700 underline"
-                        href={fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                    >
-                        {fileLabel}
-                    </a>
-                ) : (
-                    <span>{fileLabel}</span>
-                )}
-                {progress ? <span>Uploading {progress.percent}%</span> : null}
-            </div>
-            {error ? <p className="text-xs text-rose-600">{error}</p> : null}
         </div>
     );
 }
@@ -1510,72 +1408,34 @@ function EvidenceCell({
     recordType,
     recordId,
     document,
-    onUpload,
-    progress,
-    error,
+    userId,
+    onLinked,
 }: {
     recordType: RecordType;
     recordId: string;
     document: EvidenceDocument;
-    onUpload: (type: RecordType, id: string, file: File) => void;
-    progress?: UploadProgress | null;
-    error?: string;
+    userId: string;
+    onLinked?: (type: RecordType, id: string, doc: UploadedDocument) => void;
 }) {
-    const inputId = useId();
     const docObject = typeof document === "object" ? document : null;
-    const hasDoc = !!docObject?.fileUrl;
-    const status = docObject?.verificationStatus ?? (docObject?.verified ? "Verified" : "Pending");
-    const statusClass =
-        status === "Verified"
-            ? "bg-emerald-100 text-emerald-700"
-            : status === "Rejected"
-                ? "bg-red-100 text-red-700"
-                : "bg-amber-100 text-amber-700";
 
     return (
-        <div className="grid gap-1 text-xs">
-            {hasDoc ? (
-                <a
-                    className="font-medium text-sky-700 underline"
-                    href={docObject?.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                >
-                    {docObject?.fileName ?? "Evidence file"}
-                </a>
-            ) : (
-                <span className="text-zinc-500">No evidence</span>
-            )}
-            {docObject ? (
-                <Badge variant="secondary" className={statusClass}>
-                    {status}
-                </Badge>
-            ) : null}
-            {docObject?.verificationRemarks ? (
-                <span className="text-[11px] text-zinc-500">
-                    {docObject.verificationRemarks}
-                </span>
-            ) : null}
-            <label
-                htmlFor={inputId}
-                className="inline-flex w-fit cursor-pointer rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50"
-            >
-                {hasDoc ? "Replace" : "Upload"}
-            </label>
-            <input
-                id={inputId}
-                type="file"
-                accept="application/pdf,image/*"
-                className="hidden"
-                onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) {
-                        onUpload(recordType, recordId, file);
+        <div className="grid gap-1.5 text-xs">
+            <InlineUpload
+                category="evidence"
+                ownerId={userId}
+                mode="document"
+                value={docObject ? (docObject as unknown as UploadedDocument) : null}
+                onChange={(v) => {
+                    if (v && typeof v === "object") {
+                        onLinked?.(recordType, recordId, v as UploadedDocument);
                     }
                 }}
+                placeholder={docObject?.fileUrl ? "Replace" : "Upload evidence"}
             />
-            {progress ? <span className="text-zinc-500">Uploading {progress.percent}%</span> : null}
-            {error ? <span className="text-rose-600">{error}</span> : null}
+            {docObject?.verificationRemarks ? (
+                <span className="text-[11px] text-zinc-500">{docObject.verificationRemarks}</span>
+            ) : null}
         </div>
     );
 }

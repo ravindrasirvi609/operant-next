@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { InlineUpload, MultiFileUpload } from "@/components/ui/file-upload";
+import type { UploadedDocument } from "@/lib/upload/service";
 
 type AssignmentRecord = {
     _id: string;
@@ -535,14 +537,17 @@ export function CurriculumContributorWorkspace({
                                 rows={4}
                             />
                             <div className="grid gap-4 md:grid-cols-3">
-                                <Field
-                                    label="Official Syllabus Document ID"
-                                    value={form.officialDocumentId}
-                                    onChange={(value) =>
-                                        setForm((current) => ({ ...current, officialDocumentId: value }))
-                                    }
-                                    disabled={!isEditable || isPending}
-                                />
+                                <div className="space-y-2">
+                                    <Label>Official Syllabus Document</Label>
+                                    <InlineUpload
+                                        category="document"
+                                        ownerId={selectedAssignment._id}
+                                        value={form.officialDocumentId ? ({ _id: form.officialDocumentId, fileName: "Official document", fileUrl: "" } as UploadedDocument) : null}
+                                        onChange={(doc) => setForm((current) => ({ ...current, officialDocumentId: doc && typeof doc === "object" ? doc._id : "" }))}
+                                        mode="document"
+                                        disabled={!isEditable || isPending}
+                                    />
+                                </div>
                                 <div className="space-y-2">
                                     <Label>Effective Academic Year</Label>
                                     <Select
@@ -634,17 +639,16 @@ export function CurriculumContributorWorkspace({
                                     disabled={!isEditable || isPending}
                                     rows={4}
                                 />
-                                <Field
-                                    label="Supporting Document IDs"
-                                    hint="Comma-separated document ids from the evidence repository."
-                                    value={form.documentIds}
-                                    onChange={(value) =>
-                                        setForm((current) => ({ ...current, documentIds: value }))
-                                    }
-                                    multiline
-                                    disabled={!isEditable || isPending}
-                                    rows={4}
-                                />
+                                <div className="space-y-2">
+                                    <Label>Supporting Documents</Label>
+                                    <MultiFileUpload
+                                        category="document"
+                                        ownerId={selectedAssignment._id}
+                                        value={form.documentIds.split(",").map((id) => id.trim()).filter(Boolean).map((id) => ({ _id: id, fileName: "Existing document", fileUrl: "" } as UploadedDocument))}
+                                        onChange={(docs) => setForm((current) => ({ ...current, documentIds: docs.map((d) => d._id).join(", ") }))}
+                                        disabled={!isEditable || isPending}
+                                    />
+                                </div>
                             </div>
                             <Field
                                 label="Contributor Remarks"

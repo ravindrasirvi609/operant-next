@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { InlineUpload } from "@/components/ui/file-upload";
+import type { UploadedDocument } from "@/lib/upload/service";
 
 type Option = {
     id: string;
@@ -1819,7 +1821,16 @@ export function AccreditationOperationsManager({
                                 <div className="grid gap-2"><Label>Approval start</Label><Input type="date" value={approvalForm.approvalStartDate} onChange={(event) => setApprovalForm((current) => ({ ...current, approvalStartDate: event.target.value }))} /></div>
                                 <div className="grid gap-2"><Label>Approval end</Label><Input type="date" value={approvalForm.approvalEndDate} onChange={(event) => setApprovalForm((current) => ({ ...current, approvalEndDate: event.target.value }))} /></div>
                                 <div className="grid gap-2"><Label>Status</Label><Select value={approvalForm.status} onValueChange={(value) => setApprovalForm((current) => ({ ...current, status: value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Active">Active</SelectItem><SelectItem value="Expired">Expired</SelectItem><SelectItem value="UnderRenewal">UnderRenewal</SelectItem><SelectItem value="Suspended">Suspended</SelectItem></SelectContent></Select></div>
-                                <div className="grid gap-2"><Label>Evidence document</Label><Select value={approvalForm.documentId || "__none__"} onValueChange={(value) => setApprovalForm((current) => ({ ...current, documentId: value === "__none__" ? "" : value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="__none__">No document</SelectItem>{documentOptions.map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
+                                <div className="grid gap-2">
+                                    <Label>Evidence document</Label>
+                                    <InlineUpload
+                                        category="document"
+                                        ownerId="accreditation"
+                                        value={approvalForm.documentId ? ({ _id: approvalForm.documentId, fileName: "Approval document", fileUrl: "" } as UploadedDocument) : null}
+                                        onChange={(doc) => setApprovalForm((current) => ({ ...current, documentId: doc && typeof doc === "object" ? doc._id : "" }))}
+                                        mode="document"
+                                    />
+                                </div>
                                 <div className="flex flex-wrap gap-3">
                                     <Button disabled={isPending} type="submit" variant="outline">{isPending ? <Spinner className="mr-2 size-4" /> : null}{editingApprovalId ? "Update approval" : "Create approval"}</Button>
                                     <Button disabled={isPending} onClick={resetApprovalForm} type="button" variant="ghost">Reset</Button>
@@ -1835,7 +1846,16 @@ export function AccreditationOperationsManager({
                                 <div className="grid gap-2"><Label>Report year</Label><Input value={reportForm.reportYear} onChange={(event) => setReportForm((current) => ({ ...current, reportYear: event.target.value }))} /></div>
                                 <div className="grid gap-2"><Label>Submission date</Label><Input type="date" value={reportForm.submissionDate} onChange={(event) => setReportForm((current) => ({ ...current, submissionDate: event.target.value }))} /></div>
                                 <div className="grid gap-2"><Label>Status</Label><Select value={reportForm.complianceStatus} onValueChange={(value) => setReportForm((current) => ({ ...current, complianceStatus: value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Draft">Draft</SelectItem><SelectItem value="Submitted">Submitted</SelectItem><SelectItem value="Accepted">Accepted</SelectItem><SelectItem value="ActionRequired">ActionRequired</SelectItem></SelectContent></Select></div>
-                                <div className="grid gap-2"><Label>Evidence document</Label><Select value={reportForm.documentId || "__none__"} onValueChange={(value) => setReportForm((current) => ({ ...current, documentId: value === "__none__" ? "" : value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="__none__">No document</SelectItem>{documentOptions.map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
+                                <div className="grid gap-2">
+                                    <Label>Evidence document</Label>
+                                    <InlineUpload
+                                        category="document"
+                                        ownerId="accreditation"
+                                        value={reportForm.documentId ? ({ _id: reportForm.documentId, fileName: "Report document", fileUrl: "" } as UploadedDocument) : null}
+                                        onChange={(doc) => setReportForm((current) => ({ ...current, documentId: doc && typeof doc === "object" ? doc._id : "" }))}
+                                        mode="document"
+                                    />
+                                </div>
                                 <div className="flex flex-wrap gap-3">
                                     <Button disabled={isPending} type="submit" variant="outline">{isPending ? <Spinner className="mr-2 size-4" /> : null}{editingReportId ? "Update report" : "Create report"}</Button>
                                     <Button disabled={isPending} onClick={resetReportForm} type="button" variant="ghost">Reset</Button>
@@ -1851,7 +1871,16 @@ export function AccreditationOperationsManager({
                                 <div className="grid gap-2"><Label>Visit date</Label><Input type="date" value={inspectionForm.visitDate} onChange={(event) => setInspectionForm((current) => ({ ...current, visitDate: event.target.value }))} /></div>
                                 <div className="grid gap-2"><Label>Compliance deadline</Label><Input type="date" value={inspectionForm.complianceDeadline} onChange={(event) => setInspectionForm((current) => ({ ...current, complianceDeadline: event.target.value }))} /></div>
                                 <div className="grid gap-2"><Label>Status</Label><Select value={inspectionForm.status} onValueChange={(value) => setInspectionForm((current) => ({ ...current, status: value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Scheduled">Scheduled</SelectItem><SelectItem value="Completed">Completed</SelectItem><SelectItem value="ActionRequired">ActionRequired</SelectItem><SelectItem value="Closed">Closed</SelectItem></SelectContent></Select></div>
-                                <div className="grid gap-2"><Label>Inspection report document</Label><Select value={inspectionForm.inspectionReportDocumentId || "__none__"} onValueChange={(value) => setInspectionForm((current) => ({ ...current, inspectionReportDocumentId: value === "__none__" ? "" : value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="__none__">No document</SelectItem>{documentOptions.map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
+                                <div className="grid gap-2">
+                                    <Label>Inspection report document</Label>
+                                    <InlineUpload
+                                        category="document"
+                                        ownerId="accreditation"
+                                        value={inspectionForm.inspectionReportDocumentId ? ({ _id: inspectionForm.inspectionReportDocumentId, fileName: "Inspection report", fileUrl: "" } as UploadedDocument) : null}
+                                        onChange={(doc) => setInspectionForm((current) => ({ ...current, inspectionReportDocumentId: doc && typeof doc === "object" ? doc._id : "" }))}
+                                        mode="document"
+                                    />
+                                </div>
                                 <div className="grid gap-2"><Label>Action lines</Label><Textarea rows={5} value={inspectionForm.actionLines} onChange={(event) => setInspectionForm((current) => ({ ...current, actionLines: event.target.value }))} /><p className="text-xs text-zinc-500">Format: `title | assignedToUserId | targetDate | status | description | completionDocumentId`</p></div>
                                 <div className="flex flex-wrap gap-3">
                                     <Button disabled={isPending} type="submit" variant="outline">{isPending ? <Spinner className="mr-2 size-4" /> : null}{editingInspectionId ? "Update inspection" : "Create inspection"}</Button>
@@ -1867,7 +1896,16 @@ export function AccreditationOperationsManager({
                                 <div className="grid gap-2"><Label>Assigned to</Label><Select value={actionForm.assignedToUserId || "__none__"} onValueChange={(value) => setActionForm((current) => ({ ...current, assignedToUserId: value === "__none__" ? "" : value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="__none__">Unassigned</SelectItem>{userOptions.map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
                                 <div className="grid gap-2"><Label>Target completion date</Label><Input type="date" value={actionForm.targetCompletionDate} onChange={(event) => setActionForm((current) => ({ ...current, targetCompletionDate: event.target.value }))} /></div>
                                 <div className="grid gap-2"><Label>Status</Label><Select value={actionForm.completionStatus} onValueChange={(value) => setActionForm((current) => ({ ...current, completionStatus: value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Open">Open</SelectItem><SelectItem value="InProgress">InProgress</SelectItem><SelectItem value="Completed">Completed</SelectItem><SelectItem value="Escalated">Escalated</SelectItem></SelectContent></Select></div>
-                                <div className="grid gap-2"><Label>Completion document</Label><Select value={actionForm.completionDocumentId || "__none__"} onValueChange={(value) => setActionForm((current) => ({ ...current, completionDocumentId: value === "__none__" ? "" : value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="__none__">No document</SelectItem>{documentOptions.map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
+                                <div className="grid gap-2">
+                                    <Label>Completion document</Label>
+                                    <InlineUpload
+                                        category="document"
+                                        ownerId="accreditation"
+                                        value={actionForm.completionDocumentId ? ({ _id: actionForm.completionDocumentId, fileName: "Completion document", fileUrl: "" } as UploadedDocument) : null}
+                                        onChange={(doc) => setActionForm((current) => ({ ...current, completionDocumentId: doc && typeof doc === "object" ? doc._id : "" }))}
+                                        mode="document"
+                                    />
+                                </div>
                                 <div className="grid gap-2"><Label>Description</Label><Textarea rows={4} value={actionForm.actionDescription} onChange={(event) => setActionForm((current) => ({ ...current, actionDescription: event.target.value }))} /></div>
                                 <div className="flex flex-wrap gap-3">
                                     <Button disabled={isPending} type="submit" variant="outline">{isPending ? <Spinner className="mr-2 size-4" /> : null}{editingActionId ? "Update action" : "Create action"}</Button>

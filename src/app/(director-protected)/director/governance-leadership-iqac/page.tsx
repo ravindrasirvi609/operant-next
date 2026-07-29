@@ -35,6 +35,7 @@ export default async function DirectorGovernanceLeadershipIqacPage() {
                     <GovernanceLeadershipIqacContributorWorkspace
                         actorLabel="Leadership"
                         assignments={JSON.parse(JSON.stringify(contributorWorkspace.assignments)) as never}
+                        userId={director.id}
                     />
                 </CardContent>
             </Card>

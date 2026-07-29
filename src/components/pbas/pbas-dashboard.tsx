@@ -1,6 +1,6 @@
 "use client";
 
-import { ShieldCheck, Trash2, Upload } from "lucide-react";
+import { ShieldCheck, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,13 +18,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getDesignationProfile } from "@/lib/faculty/options";
 import { pbasApplicationSchema, type PbasSnapshot } from "@/lib/pbas/validators";
-import {
-    registerUploadedDocument,
-    uploadFile,
-    validateFile,
-    UploadValidationError,
-    type UploadProgress,
-} from "@/lib/upload/service";
+import { InlineUpload } from "@/components/ui/file-upload";
+import type { UploadedDocument } from "@/lib/upload/service";
 
 type PbasFormValues = z.input<typeof pbasApplicationSchema>;
 
@@ -375,8 +370,6 @@ export function PbasDashboard({
     const [entries, setEntries] = useState<IndicatorEntry[]>([]);
     const [entryLoading, setEntryLoading] = useState(false);
     const [entryError, setEntryError] = useState<string | null>(null);
-    const [uploadProgress, setUploadProgress] = useState<Record<string, UploadProgress | null>>({});
-    const [uploadError, setUploadError] = useState<Record<string, string>>({});
     const [activeSourceStep, setActiveSourceStep] = useState<PbasSourceStep>("teaching");
     const activeStatuses = useMemo(
         () => new Set(["Draft", "Rejected", "Submitted", "Under Review", "Committee Review"]),
@@ -1036,36 +1029,6 @@ export function PbasDashboard({
         }
     }
 
-    async function handleEvidenceUpload(indicatorId: string, file: File) {
-        setUploadError((current) => ({ ...current, [indicatorId]: "" }));
-
-        try {
-            validateFile(file, "evidence");
-        } catch (err) {
-            if (err instanceof UploadValidationError) {
-                setUploadError((current) => ({ ...current, [indicatorId]: err.message }));
-            }
-            return;
-        }
-
-        setUploadProgress((current) => ({ ...current, [indicatorId]: null }));
-
-        try {
-            const result = await uploadFile(file, "evidence", facultyId, (progress) => {
-                setUploadProgress((current) => ({ ...current, [indicatorId]: progress }));
-            });
-            const document = await registerUploadedDocument(result);
-
-            await persistEntry(indicatorId, { evidenceDocumentId: document._id });
-            setUploadProgress((current) => ({ ...current, [indicatorId]: null }));
-        } catch (err) {
-            setUploadProgress((current) => ({ ...current, [indicatorId]: null }));
-            setUploadError((current) => ({
-                ...current,
-                [indicatorId]: err instanceof Error ? err.message : "Evidence upload failed.",
-            }));
-        }
-    }
 
     return (
         <div className="grid gap-6">
@@ -1292,52 +1255,18 @@ export function PbasDashboard({
                                                         </span>
                                                     </TableCell>
                                                     <TableCell className="align-top">
-                                                        <div className="flex flex-wrap items-center gap-2">
-                                                            <input
-                                                                type="file"
-                                                                accept="application/pdf,image/jpeg,image/png,image/webp"
-                                                                className="hidden"
-                                                                id={`pbas-evidence-${entry.indicatorId}`}
-                                                                onChange={(event) => {
-                                                                    const file = event.target.files?.[0];
-                                                                    if (!file) return;
-                                                                    event.target.value = "";
-                                                                    void handleEvidenceUpload(entry.indicatorId, file);
-                                                                }}
-                                                            />
-                                                            <Button asChild size="sm" variant="secondary">
-                                                                <label
-                                                                    htmlFor={`pbas-evidence-${entry.indicatorId}`}
-                                                                    className="cursor-pointer"
-                                                                >
-                                                                    <Upload className="mr-2 size-4" />
-                                                                    Upload
-                                                                </label>
-                                                            </Button>
-                                                            {entry.evidenceDocument?.fileUrl ? (
-                                                                <a
-                                                                    href={entry.evidenceDocument.fileUrl}
-                                                                    target="_blank"
-                                                                    rel="noreferrer"
-                                                                    className="inline-flex items-center gap-2 text-xs font-medium text-emerald-700"
-                                                                >
-                                                                    <ShieldCheck className="size-4" />
-                                                                    {entry.evidenceDocument.fileName || "Evidence linked"}
-                                                                </a>
-                                                            ) : (
-                                                                <Badge variant="secondary">Missing</Badge>
-                                                            )}
-                                                            {uploadProgress[entry.indicatorId] ? (
-                                                                <span className="text-xs text-zinc-500">
-                                                                    Uploading {uploadProgress[entry.indicatorId]?.percent ?? 0}%
-                                                                </span>
-                                                            ) : null}
-                                                            {uploadError[entry.indicatorId] ? (
-                                                                <span className="text-xs text-rose-600">
-                                                                    {uploadError[entry.indicatorId]}
-                                                                </span>
-                                                            ) : null}
-                                                        </div>
+                                                        <InlineUpload
+                                                            category="evidence"
+                                                            ownerId={facultyId}
+                                                            mode="document"
+                                                            value={entry.evidenceDocument ? (entry.evidenceDocument as unknown as UploadedDocument) : null}
+                                                            onChange={(uploaded) => {
+                                                                if (uploaded && typeof uploaded === "object") {
+                                                                    void persistEntry(entry.indicatorId, { evidenceDocumentId: (uploaded as UploadedDocument)._id });
+                                                                }
+                                                            }}
+                                                            placeholder="Upload evidence"
+                                                        />
                                                     </TableCell>
                                                 </TableRow>
                                             ))}

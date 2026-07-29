@@ -17,10 +17,9 @@ import {
     Sparkles,
     Trash2,
     Trophy,
-    Upload,
     type LucideIcon,
 } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type FieldErrors, type UseFormReturn } from "react-hook-form";
 import type { z } from "zod";
 
@@ -44,13 +43,7 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getAcademicYearReportingPeriod } from "@/lib/academic-year";
 import { aqarApplicationSchema } from "@/lib/aqar/validators";
-import {
-    registerUploadedDocument,
-    uploadFile,
-    UploadValidationError,
-    validateFile,
-    type UploadProgress,
-} from "@/lib/upload/service";
+import { InlineUpload } from "@/components/ui/file-upload";
 import { cn } from "@/lib/utils";
 
 type AqarFormValues = z.input<typeof aqarApplicationSchema>;
@@ -2816,88 +2809,21 @@ function ProofUploadField({
     facultyId: string;
     disabled?: boolean;
 }) {
-    const inputId = useId();
-    const [progress, setProgress] = useState<UploadProgress | null>(null);
-    const [error, setError] = useState<string | null>(null);
-
     return (
-        <FieldShell label={label} error={getErrorMessage(form.formState.errors, name) ?? error ?? undefined}>
+        <FieldShell label={label} error={getErrorMessage(form.formState.errors, name) ?? undefined}>
             <Controller
                 control={form.control}
                 name={name as never}
                 render={({ field }) => (
-                    <div className="grid gap-2.5 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/80 p-3">
-                        <div className="flex flex-wrap items-center gap-3">
-                            <Input
-                                id={inputId}
-                                type="file"
-                                accept="application/pdf,image/*"
-                                className="sr-only"
-                                disabled={disabled}
-                                onChange={(event) => {
-                                    const file = event.target.files?.[0];
-                                    if (!file) {
-                                        return;
-                                    }
-
-                                    const handleUpload = async () => {
-                                        setError(null);
-
-                                        try {
-                                            validateFile(file, "evidence");
-                                        } catch (uploadError) {
-                                            if (uploadError instanceof UploadValidationError) {
-                                                setError(uploadError.message);
-                                            }
-                                            return;
-                                        }
-
-                                        setProgress({ percent: 0, bytesTransferred: 0, totalBytes: file.size });
-
-                                        try {
-                                            const result = await uploadFile(file, "evidence", facultyId, (next) => {
-                                                setProgress(next);
-                                            });
-                                            const document = await registerUploadedDocument(result);
-                                            field.onChange(document.fileUrl);
-                                            setProgress(null);
-                                        } catch (uploadError) {
-                                            setProgress(null);
-                                            setError(
-                                                uploadError instanceof Error
-                                                    ? uploadError.message
-                                                    : "Proof upload failed."
-                                            );
-                                        }
-                                    };
-
-                                    void handleUpload();
-                                    event.target.value = "";
-                                }}
-                            />
-                            <Label
-                                htmlFor={inputId}
-                                className={cn(
-                                    "inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-700 transition-colors hover:border-zinc-400 hover:bg-zinc-100",
-                                    disabled && "cursor-not-allowed opacity-60"
-                                )}
-                            >
-                                <Upload className="size-4" />
-                                Upload proof
-                            </Label>
-                            {typeof field.value === "string" && field.value ? (
-                                <Button asChild type="button" variant="ghost" className="h-10 px-3 text-sm text-sky-700 hover:text-sky-800">
-                                    <a href={field.value} target="_blank" rel="noreferrer">
-                                        Open linked proof
-                                    </a>
-                                </Button>
-                            ) : null}
-                        </div>
-                        <p className="text-xs text-zinc-600">
-                            {field.value ? "Proof linked for this row." : "No proof file linked yet."}
-                            {progress ? ` Uploading ${progress.percent}%...` : ""}
-                        </p>
-                    </div>
+                    <InlineUpload
+                        category="evidence"
+                        ownerId={facultyId}
+                        mode="url"
+                        value={typeof field.value === "string" && field.value ? field.value : null}
+                        onChange={(val) => field.onChange(typeof val === "string" ? val : (val as { fileUrl?: string } | null)?.fileUrl ?? "")}
+                        disabled={disabled}
+                        placeholder="Upload proof"
+                    />
                 )}
             />
         </FieldShell>

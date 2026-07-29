@@ -24,13 +24,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import {
-    registerUploadedDocument,
-    uploadFile,
-    validateFile,
-    UploadValidationError,
-    type UploadProgress,
-} from "@/lib/upload/service";
+import { InlineUpload } from "@/components/ui/file-upload";
+import type { UploadedDocument } from "@/lib/upload/service";
 import {
     awardLevels,
     bookTypes,
@@ -236,6 +231,7 @@ export function FacultyWorkspaceForm({
         mentoringCount: "0",
         labSupervisionCount: "0",
         feedbackSummary: "",
+        documentId: "",
     });
     const [editingTeachingSummaryIndex, setEditingTeachingSummaryIndex] = useState<number | null>(null);
     const [teachingSummaryDraftError, setTeachingSummaryDraftError] = useState<string | null>(null);
@@ -250,6 +246,7 @@ export function FacultyWorkspaceForm({
         tutorialHours: "0",
         practicalHours: "0",
         innovativePedagogy: "",
+        documentId: "",
     });
     const [editingTeachingLoadIndex, setEditingTeachingLoadIndex] = useState<number | null>(null);
     const [teachingLoadDraftError, setTeachingLoadDraftError] = useState<string | null>(null);
@@ -260,6 +257,7 @@ export function FacultyWorkspaceForm({
         appearedStudents: "0",
         passedStudents: "0",
         universityRankStudents: "0",
+        documentId: "",
     });
     const [editingResultSummaryIndex, setEditingResultSummaryIndex] = useState<number | null>(null);
     const [resultSummaryDraftError, setResultSummaryDraftError] = useState<string | null>(null);
@@ -514,6 +512,7 @@ export function FacultyWorkspaceForm({
             mentoringCount: "0",
             labSupervisionCount: "0",
             feedbackSummary: "",
+            documentId: "",
         });
         setEditingTeachingSummaryIndex(null);
         setTeachingSummaryDraftError(null);
@@ -526,7 +525,7 @@ export function FacultyWorkspaceForm({
         }
 
         const payload = {
-            documentId: "",
+            documentId: teachingSummaryDraft.documentId,
             academicYear: teachingSummaryDraft.academicYear.trim(),
             classesTaken: Number(teachingSummaryDraft.classesTaken || 0),
             coursePreparationHours: Number(teachingSummaryDraft.coursePreparationHours || 0),
@@ -562,6 +561,7 @@ export function FacultyWorkspaceForm({
             mentoringCount: String(selected.mentoringCount ?? 0),
             labSupervisionCount: String(selected.labSupervisionCount ?? 0),
             feedbackSummary: selected.feedbackSummary ?? "",
+            documentId: selected.documentId ?? "",
         });
         setEditingTeachingSummaryIndex(index);
         setTeachingSummaryDraftError(null);
@@ -579,6 +579,7 @@ export function FacultyWorkspaceForm({
             tutorialHours: "0",
             practicalHours: "0",
             innovativePedagogy: "",
+            documentId: "",
         });
         setEditingTeachingLoadIndex(null);
         setTeachingLoadDraftError(null);
@@ -591,7 +592,7 @@ export function FacultyWorkspaceForm({
         }
 
         const payload = {
-            documentId: "",
+            documentId: teachingLoadDraft.documentId,
             courseId: "",
             academicYear: teachingLoadDraft.academicYear.trim(),
             programName: teachingLoadDraft.programName.trim(),
@@ -632,6 +633,7 @@ export function FacultyWorkspaceForm({
             tutorialHours: String(selected.tutorialHours ?? 0),
             practicalHours: String(selected.practicalHours ?? 0),
             innovativePedagogy: selected.innovativePedagogy ?? "",
+            documentId: selected.documentId ?? "",
         });
         setEditingTeachingLoadIndex(index);
         setTeachingLoadDraftError(null);
@@ -645,6 +647,7 @@ export function FacultyWorkspaceForm({
             appearedStudents: "0",
             passedStudents: "0",
             universityRankStudents: "0",
+            documentId: "",
         });
         setEditingResultSummaryIndex(null);
         setResultSummaryDraftError(null);
@@ -657,7 +660,7 @@ export function FacultyWorkspaceForm({
         }
 
         const payload = {
-            documentId: "",
+            documentId: resultSummaryDraft.documentId,
             academicYear: resultSummaryDraft.academicYear.trim(),
             subjectName: resultSummaryDraft.subjectName.trim(),
             appearedStudents: Number(resultSummaryDraft.appearedStudents || 0),
@@ -689,6 +692,7 @@ export function FacultyWorkspaceForm({
             appearedStudents: String(selected.appearedStudents ?? 0),
             passedStudents: String(selected.passedStudents ?? 0),
             universityRankStudents: String(selected.universityRankStudents ?? 0),
+            documentId: selected.documentId ?? "",
         });
         setEditingResultSummaryIndex(index);
         setResultSummaryDraftError(null);
@@ -1657,6 +1661,11 @@ export function FacultyWorkspaceForm({
                                         />
                                     </Field>
                                 </div>
+                                <DocumentUploadField
+                                    userId={user.id}
+                                    value={teachingSummaryDraft.documentId}
+                                    onChange={(id) => setTeachingSummaryDraft((prev) => ({ ...prev, documentId: id }))}
+                                />
 
                                 {teachingSummaryDraftError ? <p className="text-sm text-destructive">{teachingSummaryDraftError}</p> : null}
 
@@ -1813,6 +1822,11 @@ export function FacultyWorkspaceForm({
                                         <Input type="number" min={0} value={teachingLoadDraft.practicalHours} onChange={(event) => setTeachingLoadDraft((prev) => ({ ...prev, practicalHours: event.target.value }))} />
                                     </Field>
                                 </div>
+                                <DocumentUploadField
+                                    userId={user.id}
+                                    value={teachingLoadDraft.documentId}
+                                    onChange={(id) => setTeachingLoadDraft((prev) => ({ ...prev, documentId: id }))}
+                                />
 
                                 {teachingLoadDraftError ? <p className="text-sm text-destructive">{teachingLoadDraftError}</p> : null}
 
@@ -1927,6 +1941,11 @@ export function FacultyWorkspaceForm({
                                         <Input type="number" min={0} value={resultSummaryDraft.universityRankStudents} onChange={(event) => setResultSummaryDraft((prev) => ({ ...prev, universityRankStudents: event.target.value }))} />
                                     </Field>
                                 </div>
+                                <DocumentUploadField
+                                    userId={user.id}
+                                    value={resultSummaryDraft.documentId}
+                                    onChange={(id) => setResultSummaryDraft((prev) => ({ ...prev, documentId: id }))}
+                                />
 
                                 {resultSummaryDraftError ? <p className="text-sm text-destructive">{resultSummaryDraftError}</p> : null}
 
@@ -4426,69 +4445,27 @@ function DocumentUploadField({
     value?: string;
     onChange: (next: string) => void;
 }) {
-    const inputId = useId();
-    const [progress, setProgress] = useState<UploadProgress | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [fileName, setFileName] = useState<string>("");
+    const [doc, setDoc] = useState<UploadedDocument | null>(null);
 
-    async function handleUpload(file: File) {
-        setError(null);
-
-        try {
-            validateFile(file, "evidence");
-        } catch (err) {
-            if (err instanceof UploadValidationError) {
-                setError(err.message);
-            }
-            return;
-        }
-
-        setProgress({ percent: 0, bytesTransferred: 0, totalBytes: file.size });
-
-        try {
-            const result = await uploadFile(file, "evidence", userId, (next) => {
-                setProgress(next);
-            });
-            const document = await registerUploadedDocument(result);
-
-            onChange(document._id);
-            setFileName(document.fileName ?? file.name);
-            setProgress(null);
-        } catch (err) {
-            setProgress(null);
-            setError(err instanceof Error ? err.message : "Document upload failed.");
+    function handleChange(next: UploadedDocument | string | null) {
+        if (!next) {
+            setDoc(null);
+            onChange("");
+        } else if (typeof next === "object") {
+            setDoc(next);
+            onChange(next._id);
         }
     }
 
     return (
-        <div className="grid gap-2.5 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/80 p-3">
-            <Label htmlFor={inputId}>
-                Upload PDF or image
-            </Label>
-            <Input
-                id={inputId}
-                type="file"
-                accept="application/pdf,image/*"
-                onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) {
-                        void handleUpload(file);
-                    }
-
-                    event.target.value = "";
-                }}
-            />
-            <input type="hidden" value={value ?? ""} onChange={() => undefined} />
-            <p className="text-xs text-zinc-600">
-                {fileName
-                    ? `Uploaded: ${fileName}`
-                    : value
-                      ? "Document linked"
-                      : "No document linked"}
-                {progress ? ` (Uploading ${progress.percent}%)` : ""}
-            </p>
-            {error ? <p className="text-xs text-rose-600">{error}</p> : null}
-        </div>
+        <InlineUpload
+            category="evidence"
+            ownerId={userId}
+            value={doc ?? (value ? ({ _id: value, fileName: "Linked document", fileUrl: "" } as UploadedDocument) : null)}
+            onChange={handleChange}
+            mode="document"
+            placeholder="Upload PDF or image"
+        />
     );
 }
 

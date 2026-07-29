@@ -7,10 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { InlineUpload, MultiFileUpload } from "@/components/ui/file-upload";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import type { UploadedDocument } from "@/lib/upload/service";
 
 type SourceCategory =
     | "facultyPublications"
@@ -489,9 +491,11 @@ function buildInitialForm(record: AssignmentRecord): FormState {
 export function ResearchInnovationContributorWorkspace({
     assignments,
     actorLabel,
+    userId,
 }: {
     assignments: AssignmentRecord[];
     actorLabel: string;
+    userId: string;
 }) {
     const router = useRouter();
     const [search, setSearch] = useState("");
@@ -974,20 +978,19 @@ export function ResearchInnovationContributorWorkspace({
                                             />
                                         </div>
 
-                                        <div className="space-y-2">
-                                            <Label>Manual evidence document IDs</Label>
-                                            <Input
-                                                disabled={!canEdit}
-                                                onChange={(event) =>
-                                                    setForm((current) => ({
-                                                        ...current,
-                                                        documentIds: event.target.value,
-                                                    }))
-                                                }
-                                                placeholder="Comma-separated document IDs"
-                                                value={form.documentIds}
-                                            />
-                                        </div>
+                                        <MultiFileUpload
+                                            category="document"
+                                            ownerId={userId}
+                                            value={[]}
+                                            onChange={(docs) =>
+                                                setForm((current) => ({
+                                                    ...current,
+                                                    documentIds: docs.map((d) => d._id).join(", "),
+                                                }))
+                                            }
+                                            disabled={!canEdit}
+                                            label="Supporting documents"
+                                        />
 
                                         <div className="space-y-2">
                                             <Label>Contributor remarks</Label>
@@ -1183,13 +1186,22 @@ export function ResearchInnovationContributorWorkspace({
                                                         placeholder="Startup, incubator, or industry partner"
                                                         value={row.partnerName}
                                                     />
-                                                    <FieldInput
-                                                        disabled={!canEdit}
-                                                        label="Document ID"
-                                                        onChange={(value) => updateActivityRow(index, "documentId", value)}
-                                                        placeholder="Evidence document ID"
-                                                        value={row.documentId}
-                                                    />
+                                                    <div className="space-y-2">
+                                                        <Label>Document ID</Label>
+                                                        <InlineUpload
+                                                            category="document"
+                                                            ownerId={userId}
+                                                            mode="document"
+                                                            value={row.documentId ? { _id: row.documentId, fileName: "Linked document", fileUrl: "" } as UploadedDocument : null}
+                                                            onChange={(v) => {
+                                                                if (v && typeof v === "object") {
+                                                                    updateActivityRow(index, "documentId", (v as UploadedDocument)._id);
+                                                                }
+                                                            }}
+                                                            disabled={!canEdit}
+                                                            placeholder="Upload document"
+                                                        />
+                                                    </div>
                                                     <FieldInput
                                                         disabled={!canEdit}
                                                         label="Start date"
@@ -1405,13 +1417,22 @@ export function ResearchInnovationContributorWorkspace({
                                                         type="date"
                                                         value={row.awardDate}
                                                     />
-                                                    <FieldInput
-                                                        disabled={!canEdit}
-                                                        label="Document ID"
-                                                        onChange={(value) => updateGrantRow(index, "documentId", value)}
-                                                        placeholder="Evidence document ID"
-                                                        value={row.documentId}
-                                                    />
+                                                    <div className="space-y-2">
+                                                        <Label>Document ID</Label>
+                                                        <InlineUpload
+                                                            category="document"
+                                                            ownerId={userId}
+                                                            mode="document"
+                                                            value={row.documentId ? { _id: row.documentId, fileName: "Linked document", fileUrl: "" } as UploadedDocument : null}
+                                                            onChange={(v) => {
+                                                                if (v && typeof v === "object") {
+                                                                    updateGrantRow(index, "documentId", (v as UploadedDocument)._id);
+                                                                }
+                                                            }}
+                                                            disabled={!canEdit}
+                                                            placeholder="Upload document"
+                                                        />
+                                                    </div>
                                                 </div>
                                                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                                                     <div className="space-y-2">
@@ -1589,13 +1610,22 @@ export function ResearchInnovationContributorWorkspace({
                                                         type="number"
                                                         value={row.fundingAmount}
                                                     />
-                                                    <FieldInput
-                                                        disabled={!canEdit}
-                                                        label="Document ID"
-                                                        onChange={(value) => updateStartupRow(index, "documentId", value)}
-                                                        placeholder="Evidence document ID"
-                                                        value={row.documentId}
-                                                    />
+                                                    <div className="space-y-2">
+                                                        <Label>Document ID</Label>
+                                                        <InlineUpload
+                                                            category="document"
+                                                            ownerId={userId}
+                                                            mode="document"
+                                                            value={row.documentId ? { _id: row.documentId, fileName: "Linked document", fileUrl: "" } as UploadedDocument : null}
+                                                            onChange={(v) => {
+                                                                if (v && typeof v === "object") {
+                                                                    updateStartupRow(index, "documentId", (v as UploadedDocument)._id);
+                                                                }
+                                                            }}
+                                                            disabled={!canEdit}
+                                                            placeholder="Upload document"
+                                                        />
+                                                    </div>
                                                 </div>
                                                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                                                     <div className="space-y-2">

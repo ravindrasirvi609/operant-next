@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { InlineUpload, MultiFileUpload } from "@/components/ui/file-upload";
+import type { UploadedDocument } from "@/lib/upload/service";
 
 type DocumentRecord = {
     id: string;
@@ -952,14 +954,14 @@ export function InstitutionalValuesBestPracticesContributorWorkspace({
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>Manual document IDs</Label>
-                                        <Textarea
-                                            className="min-h-24"
-                                            onChange={(event) =>
-                                                updateNarrative("documentIds", event.target.value)
+                                        <MultiFileUpload
+                                            category="document"
+                                            ownerId={selectedAssignment._id}
+                                            value={[]}
+                                            onChange={(docs) =>
+                                                updateNarrative("documentIds", docs.map((d) => d._id).join(","))
                                             }
-                                            placeholder="Comma-separated document IDs"
-                                            value={form.documentIds}
+                                            label="Manual evidence documents"
                                         />
                                     </div>
                                 </div>
@@ -1052,6 +1054,19 @@ export function InstitutionalValuesBestPracticesContributorWorkspace({
                                                                     ))}
                                                                 </SelectContent>
                                                             </Select>
+                                                        ) : field.key.endsWith("documentId") ? (
+                                                            <InlineUpload
+                                                                category="document"
+                                                                ownerId={selectedAssignment._id}
+                                                                mode="document"
+                                                                value={null}
+                                                                onChange={(v) => {
+                                                                    if (v && typeof v === "object") {
+                                                                        updateRow(section, index, field.key, (v as UploadedDocument)._id);
+                                                                    }
+                                                                }}
+                                                                placeholder="Upload document"
+                                                            />
                                                         ) : (
                                                             <Input
                                                                 onChange={(event) =>

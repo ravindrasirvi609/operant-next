@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { InlineUpload } from "@/components/ui/file-upload";
+import type { UploadedDocument } from "@/lib/upload/service";
 
 type Option = {
     id: string;
@@ -935,7 +937,16 @@ export function CurriculumManager({
                                     </div>
                                     <TextAreaField label="Reference Books" description="One entry per line." value={versionForm.referenceBooks} onChange={(value) => setVersionForm((current) => ({ ...current, referenceBooks: value }))} rows={3} />
                                     <div className="grid gap-4 md:grid-cols-2">
-                                        <TextField label="Official Document ID" value={versionForm.officialDocumentId} onChange={(value) => setVersionForm((current) => ({ ...current, officialDocumentId: value }))} />
+                                        <div className="space-y-2">
+                                            <Label>Official Document</Label>
+                                            <InlineUpload
+                                                category="document"
+                                                ownerId={editingVersionId ?? "curriculum"}
+                                                value={versionForm.officialDocumentId ? ({ _id: versionForm.officialDocumentId, fileName: "Official document", fileUrl: "" } as UploadedDocument) : null}
+                                                onChange={(doc) => setVersionForm((current) => ({ ...current, officialDocumentId: doc && typeof doc === "object" ? doc._id : "" }))}
+                                                mode="document"
+                                            />
+                                        </div>
                                         <SelectField
                                             label="Approved BoS Meeting"
                                             value={noValue(versionForm.approvedByBosMeetingId)}
@@ -1091,7 +1102,16 @@ export function CurriculumManager({
                                 </div>
                                 <TextField label="Title" value={meetingForm.title} onChange={(value) => setMeetingForm((current) => ({ ...current, title: value }))} />
                                 <TextAreaField label="Agenda" value={meetingForm.agenda} onChange={(value) => setMeetingForm((current) => ({ ...current, agenda: value }))} rows={3} />
-                                <TextField label="Minutes Document ID" value={meetingForm.minutesDocumentId} onChange={(value) => setMeetingForm((current) => ({ ...current, minutesDocumentId: value }))} />
+                                <div className="space-y-2">
+                                    <Label>Minutes Document</Label>
+                                    <InlineUpload
+                                        category="document"
+                                        ownerId={editingMeetingId ?? "curriculum"}
+                                        value={meetingForm.minutesDocumentId ? ({ _id: meetingForm.minutesDocumentId, fileName: "Meeting minutes", fileUrl: "" } as UploadedDocument) : null}
+                                        onChange={(doc) => setMeetingForm((current) => ({ ...current, minutesDocumentId: doc && typeof doc === "object" ? doc._id : "" }))}
+                                        mode="document"
+                                    />
+                                </div>
                                 <div className="flex gap-3">
                                     <Button
                                         disabled={isPending}
@@ -1223,7 +1243,16 @@ export function CurriculumManager({
                                     <DateField label="End Date" value={valueAddedForm.endDate} onChange={(value) => setValueAddedForm((current) => ({ ...current, endDate: value }))} />
                                 </div>
                                 <SelectField label="Status" value={valueAddedForm.status} options={[{ id: "Draft", label: "Draft" }, { id: "Active", label: "Active" }, { id: "Completed", label: "Completed" }, { id: "Archived", label: "Archived" }]} onValueChange={(value) => setValueAddedForm((current) => ({ ...current, status: value }))} />
-                                <TextField label="Document ID" value={valueAddedForm.documentId} onChange={(value) => setValueAddedForm((current) => ({ ...current, documentId: value }))} />
+                                <div className="space-y-2">
+                                    <Label>Supporting Document</Label>
+                                    <InlineUpload
+                                        category="document"
+                                        ownerId={editingValueAddedId ?? "curriculum"}
+                                        value={valueAddedForm.documentId ? ({ _id: valueAddedForm.documentId, fileName: "Course document", fileUrl: "" } as UploadedDocument) : null}
+                                        onChange={(doc) => setValueAddedForm((current) => ({ ...current, documentId: doc && typeof doc === "object" ? doc._id : "" }))}
+                                        mode="document"
+                                    />
+                                </div>
                                 <TextAreaField label="Description" value={valueAddedForm.description} onChange={(value) => setValueAddedForm((current) => ({ ...current, description: value }))} rows={3} />
                                 <div className="flex gap-3">
                                     <Button

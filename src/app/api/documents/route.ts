@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -12,6 +12,14 @@ import {
     type UploadCategory,
     validateUploadMetadata,
 } from "@/lib/upload/policy";
+import {
+    createPresignedUploadUrl,
+    deleteObject,
+    getBucketName,
+    headObject,
+    publicUrl,
+    sha256OfObject,
+} from "@/lib/r2/service";
 import UploadIntent from "@/models/core/upload-intent";
 import DocumentModel from "@/models/reference/document";
 
@@ -19,12 +27,17 @@ const issueUploadSchema = z.object({
     action: z.literal("issue-upload"),
     category: z.string().min(1),
     fileName: z.string().min(1).max(255),
+    contentType: z.string().min(1),
 });
 
 const finalizeUploadSchema = z.object({
     action: z.literal("finalize-upload"),
     uploadIntentId: z.string().min(1),
-    downloadURL: z.string().url(),
+});
+
+const deleteUploadSchema = z.object({
+    action: z.literal("delete"),
+    storagePath: z.string().min(1),
 });
 
 function sanitizeFileName(fileName: string) {
@@ -33,64 +46,6 @@ function sanitizeFileName(fileName: string) {
 
 function buildStoragePath(category: UploadCategory, userId: string, fileName: string) {
     return `uploads/${category}/${userId}/${randomUUID()}-${sanitizeFileName(fileName)}`;
-}
-
-function getRequiredBucketName() {
-    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-    if (!bucketName) {
-        throw new Error("Missing Firebase storage bucket configuration.");
-    }
-
-    return bucketName;
-}
-
-function parseFirebaseDownloadUrl(downloadURL: string) {
-    const url = new URL(downloadURL);
-    const bucketName = getRequiredBucketName();
-
-    if (url.hostname !== "firebasestorage.googleapis.com") {
-        throw new Error("Only Firebase Storage download URLs are allowed.");
-    }
-
-    const pathMatch = url.pathname.match(/^\/v0\/b\/([^/]+)\/o\/(.+)$/);
-    if (!pathMatch) {
-        throw new Error("Invalid Firebase Storage object URL.");
-    }
-
-    const parsedBucketName = decodeURIComponent(pathMatch[1] ?? "");
-    if (parsedBucketName !== bucketName) {
-        throw new Error("Upload bucket mismatch.");
-    }
-
-    const storagePath = decodeURIComponent(pathMatch[2] ?? "");
-    if (!storagePath) {
-        throw new Error("Uploaded object path is missing.");
-    }
-
-    return {
-        bucketName,
-        storagePath,
-    };
-}
-
-async function fetchUploadedFileMetadata(downloadURL: string) {
-    const response = await fetch(downloadURL, {
-        method: "GET",
-        cache: "no-store",
-    });
-
-    if (!response.ok) {
-        throw new Error("Unable to verify the uploaded file.");
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    return {
-        mimeType: response.headers.get("content-type")?.split(";")[0]?.trim() || "application/octet-stream",
-        sizeBytes: buffer.byteLength,
-        checksumSha256: createHash("sha256").update(buffer).digest("hex"),
-    };
 }
 
 export async function POST(request: Request) {
@@ -102,6 +57,7 @@ export async function POST(request: Request) {
 
         const body = await request.json();
 
+        // ── Issue Upload ──────────────────────────────────────────────────
         if (body?.action === "issue-upload") {
             const input = issueUploadSchema.parse(body);
 
@@ -111,75 +67,104 @@ export async function POST(request: Request) {
 
             await dbConnect();
 
+            const storagePath = buildStoragePath(input.category, user.id, input.fileName);
+
             const intent = await UploadIntent.create({
                 userId: user.id,
                 category: input.category,
                 originalFileName: input.fileName,
-                storagePath: buildStoragePath(input.category, user.id, input.fileName),
+                storagePath,
                 expiresAt: new Date(Date.now() + UPLOAD_INTENT_TTL_MINUTES * 60 * 1000),
             });
+
+            const uploadUrl = await createPresignedUploadUrl(
+                storagePath,
+                input.contentType,
+                UPLOAD_INTENT_TTL_MINUTES * 60
+            );
 
             return NextResponse.json(
                 {
                     uploadIntentId: intent._id.toString(),
                     storagePath: intent.storagePath,
+                    uploadUrl,
                     expiresAt: intent.expiresAt.toISOString(),
                 },
                 { status: 201 }
             );
         }
 
-        await dbConnect();
+        // ── Finalize Upload ───────────────────────────────────────────────
+        if (body?.action === "finalize-upload") {
+            await dbConnect();
 
-        const input = finalizeUploadSchema.parse(body);
-        const intent = await UploadIntent.findById(input.uploadIntentId);
+            const input = finalizeUploadSchema.parse(body);
+            const intent = await UploadIntent.findById(input.uploadIntentId);
 
-        if (!intent || intent.userId.toString() !== user.id) {
-            return NextResponse.json({ message: "Upload intent not found." }, { status: 404 });
+            if (!intent || intent.userId.toString() !== user.id) {
+                return NextResponse.json({ message: "Upload intent not found." }, { status: 404 });
+            }
+            if (intent.completedAt) {
+                return NextResponse.json({ message: "Upload intent has already been finalized." }, { status: 409 });
+            }
+            if (intent.expiresAt.getTime() <= Date.now()) {
+                return NextResponse.json({ message: "Upload intent has expired." }, { status: 410 });
+            }
+
+            // Verify the object actually landed in R2 and check metadata.
+            const meta = await headObject(intent.storagePath);
+            validateUploadMetadata(intent.category, meta.contentType, meta.sizeBytes);
+
+            // Compute SHA-256 server-side.
+            const checksumSha256 = await sha256OfObject(intent.storagePath);
+            const fileUrl = publicUrl(intent.storagePath);
+
+            const document = await DocumentModel.create({
+                fileName: intent.originalFileName,
+                fileUrl,
+                fileType: meta.contentType,
+                mimeType: meta.contentType,
+                sizeBytes: meta.sizeBytes,
+                storagePath: intent.storagePath,
+                bucketName: getBucketName(),
+                checksumSha256,
+                checksumAlgorithm: "SHA-256",
+                uploadCategory: intent.category,
+                uploadIntentId: intent._id,
+                uploadedBy: user.id,
+                uploadedAt: new Date(),
+                verificationStatus: "Pending",
+                verified: false,
+            });
+
+            intent.completedAt = new Date();
+            intent.documentId = document._id;
+            await intent.save();
+
+            return NextResponse.json({ document }, { status: 201 });
         }
 
-        if (intent.completedAt) {
-            return NextResponse.json({ message: "Upload intent has already been finalized." }, { status: 409 });
+        // ── Delete ────────────────────────────────────────────────────────
+        if (body?.action === "delete") {
+            const input = deleteUploadSchema.parse(body);
+
+            await dbConnect();
+
+            const document = await DocumentModel.findOne({ storagePath: input.storagePath });
+            if (!document) {
+                return NextResponse.json({ message: "Document not found." }, { status: 404 });
+            }
+            if (document.uploadedBy?.toString() !== user.id && user.role !== "Admin") {
+                return NextResponse.json({ message: "Not authorized to delete this document." }, { status: 403 });
+            }
+
+            await deleteObject(input.storagePath);
+            await DocumentModel.deleteOne({ _id: document._id });
+
+            return NextResponse.json({ message: "Document deleted." });
         }
 
-        if (intent.expiresAt.getTime() <= Date.now()) {
-            return NextResponse.json({ message: "Upload intent has expired." }, { status: 410 });
-        }
-
-        const parsedUpload = parseFirebaseDownloadUrl(input.downloadURL);
-        if (parsedUpload.storagePath !== intent.storagePath) {
-            return NextResponse.json(
-                { message: "Uploaded file path does not match the issued upload intent." },
-                { status: 400 }
-            );
-        }
-
-        const fileMetadata = await fetchUploadedFileMetadata(input.downloadURL);
-        validateUploadMetadata(intent.category, fileMetadata.mimeType, fileMetadata.sizeBytes);
-
-        const document = await DocumentModel.create({
-            fileName: intent.originalFileName,
-            fileUrl: input.downloadURL,
-            fileType: fileMetadata.mimeType,
-            mimeType: fileMetadata.mimeType,
-            sizeBytes: fileMetadata.sizeBytes,
-            storagePath: intent.storagePath,
-            bucketName: parsedUpload.bucketName,
-            checksumSha256: fileMetadata.checksumSha256,
-            checksumAlgorithm: "SHA-256",
-            uploadCategory: intent.category,
-            uploadIntentId: intent._id,
-            uploadedBy: user.id,
-            uploadedAt: new Date(),
-            verificationStatus: "Pending",
-            verified: false,
-        });
-
-        intent.completedAt = new Date();
-        intent.documentId = document._id;
-        await intent.save();
-
-        return NextResponse.json({ document }, { status: 201 });
+        return NextResponse.json({ message: "Unknown action." }, { status: 400 });
     } catch (error) {
         return createApiErrorResponse(error);
     }

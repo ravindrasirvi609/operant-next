@@ -1,6 +1,6 @@
 "use client";
 
-import { ShieldCheck, Trash2, Upload } from "lucide-react";
+import { ShieldCheck, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,13 +20,8 @@ import {
     getDesignationProfile,
 } from "@/lib/faculty/options";
 import { casApplicationSchema } from "@/lib/cas/validators";
-import {
-    registerUploadedDocument,
-    uploadFile,
-    validateFile,
-    UploadValidationError,
-    type UploadProgress,
-} from "@/lib/upload/service";
+import { FileUpload } from "@/components/ui/file-upload";
+import type { UploadedDocument } from "@/lib/upload/service";
 
 type CasFormValues = z.input<typeof casApplicationSchema>;
 type CasResolvedValues = z.output<typeof casApplicationSchema>;
@@ -551,8 +546,6 @@ export function CasDashboard({
     const [documents, setDocuments] = useState<CasDocumentItem[]>([]);
     const [docLoading, setDocLoading] = useState(false);
     const [docError, setDocError] = useState<string | null>(null);
-    const [docProgress, setDocProgress] = useState<Record<string, UploadProgress | null>>({});
-    const [docUploadError, setDocUploadError] = useState<Record<string, string>>({});
     const [workflow, setWorkflow] = useState<CasWorkflowStatus | null>(null);
     const [workflowLoading, setWorkflowLoading] = useState(false);
     const [workflowError, setWorkflowError] = useState<string | null>(null);
@@ -837,36 +830,6 @@ export function CasDashboard({
         }
     }
 
-    async function handleDocumentUpload(documentType: string, file: File) {
-        setDocUploadError((current) => ({ ...current, [documentType]: "" }));
-
-        try {
-            validateFile(file, "document");
-        } catch (err) {
-            if (err instanceof UploadValidationError) {
-                setDocUploadError((current) => ({ ...current, [documentType]: err.message }));
-            }
-            return;
-        }
-
-        setDocProgress((current) => ({ ...current, [documentType]: null }));
-
-        try {
-            const result = await uploadFile(file, "document", facultyId, (progress) => {
-                setDocProgress((current) => ({ ...current, [documentType]: progress }));
-            });
-            const document = await registerUploadedDocument(result);
-
-            await persistDocument(documentType, document._id);
-            setDocProgress((current) => ({ ...current, [documentType]: null }));
-        } catch (err) {
-            setDocProgress((current) => ({ ...current, [documentType]: null }));
-            setDocUploadError((current) => ({
-                ...current,
-                [documentType]: err instanceof Error ? err.message : "Document upload failed.",
-            }));
-        }
-    }
 
     return (
         <div className="grid gap-6">
@@ -1289,14 +1252,14 @@ export function CasDashboard({
                                         ) : documents.length ? (
                                             documents.map((doc) => (
                                                 <div key={doc.documentType} className="rounded-lg border border-zinc-200 p-4">
-                                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                                                         <div>
                                                             <p className="text-sm font-semibold text-zinc-950">{doc.label}</p>
                                                             <p className="text-xs text-zinc-500">
                                                                 {doc.isMandatory ? "Mandatory" : "Optional"}
                                                             </p>
                                                         </div>
-                                                        {doc.documentId?.fileUrl ? (
+                                                        {doc.documentId?.fileUrl && (
                                                             <a
                                                                 href={doc.documentId.fileUrl}
                                                                 target="_blank"
@@ -1306,39 +1269,19 @@ export function CasDashboard({
                                                                 <ShieldCheck className="size-4" />
                                                                 {doc.documentId.fileName || "Uploaded"}
                                                             </a>
-                                                        ) : (
-                                                            <span className="text-xs text-zinc-500">Not uploaded</span>
                                                         )}
                                                     </div>
-                                                    <div className="mt-3 flex flex-wrap items-center gap-3">
-                                                        <input
-                                                            type="file"
-                                                            accept="application/pdf"
-                                                            className="hidden"
-                                                            id={`cas-doc-${doc.documentType}`}
-                                                            onChange={(event) => {
-                                                                const file = event.target.files?.[0];
-                                                                if (!file) return;
-                                                                event.target.value = "";
-                                                                void handleDocumentUpload(doc.documentType, file);
-                                                            }}
-                                                        />
-                                                        <label
-                                                            htmlFor={`cas-doc-${doc.documentType}`}
-                                                            className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-                                                        >
-                                                            <Upload className="size-4" />
-                                                            Upload Document
-                                                        </label>
-                                                        {docProgress[doc.documentType] ? (
-                                                            <span className="text-xs text-zinc-500">
-                                                                Uploading {docProgress[doc.documentType]?.percent ?? 0}%
-                                                            </span>
-                                                        ) : null}
-                                                        {docUploadError[doc.documentType] ? (
-                                                            <span className="text-xs text-rose-600">{docUploadError[doc.documentType]}</span>
-                                                        ) : null}
-                                                    </div>
+                                                    <FileUpload
+                                                        category="document"
+                                                        ownerId={facultyId}
+                                                        mode="document"
+                                                        value={doc.documentId ? (doc.documentId as unknown as UploadedDocument) : null}
+                                                        onChange={(uploaded) => {
+                                                            if (uploaded && typeof uploaded === "object") {
+                                                                void persistDocument(doc.documentType, (uploaded as UploadedDocument)._id);
+                                                            }
+                                                        }}
+                                                    />
                                                 </div>
                                             ))
                                         ) : (
