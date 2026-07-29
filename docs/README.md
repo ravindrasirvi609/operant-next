@@ -105,6 +105,12 @@ See [`diagrams/README.md`](diagrams/README.md).
 - [`../documentation.md`](../documentation.md) — the condensed one-file reference this suite is built upon.
 - [`PBAS_SELF_APPRAISAL_SYSTEM.md`](PBAS_SELF_APPRAISAL_SYSTEM.md) and [`PBAS_UGC_PRODUCTION_IMPLEMENTATION_GUIDE.md`](PBAS_UGC_PRODUCTION_IMPLEMENTATION_GUIDE.md) — pre-existing PBAS design/implementation guides (preserved; referenced from [04](04_Module_Documentation.md)).
 
+### Focused Deep-Dive Plans
+
+Standalone, task-focused plans that complement the numbered suite:
+
+- [CONTRIBUTOR_WORKFLOW_IMPROVEMENT_PLAN.md](CONTRIBUTOR_WORKFLOW_IMPROVEMENT_PLAN.md) — detailed, phased plan to streamline the end-to-end **contributor workflow** (Plan → Assignment → Contribution → Submit → multi-stage Review → Approve) and eliminate the six-way criterion-module duplication via a shared **Contributor Module Kernel**. Complements [11_Refactoring_Strategy.md](11_Refactoring_Strategy.md) and [08_Backend_Architecture.md](08_Backend_Architecture.md).
+
 ## Documentation Standards
 
 Every document in this suite: is Markdown with a Table of Contents; cross-references related documents by relative link; includes Mermaid diagrams where they aid understanding; references **real** files/folders/models/APIs/components; is based on the current implementation without inventing features; and — where it proposes change — clearly separates **Current State**, **Problems Identified**, **Recommended Solution**, and **Implementation Plan**.

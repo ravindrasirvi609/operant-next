@@ -159,7 +159,7 @@ flowchart TB
 | P9 | **Adding a new criterion module = copy-paste an entire vertical** (~15–20 files) | observed structure | high cost, high error rate |
 | P10 | **Near-zero tests** around submit gates, transitions, and reviewer authorization | only 4 Vitest files; see [14_Testing_Strategy.md](14_Testing_Strategy.md) | refactoring is currently unsafe |
 
-Estimated duplicated code in scope: **~2,400+ lines** across the six module services alone, plus route and component duplication.
+Scale of the duplication (measured): the six criterion services total **~13,100 lines** — teaching-learning 1,983 · research-innovation 2,636 · infrastructure-library 1,981 · student-support-governance 1,981 · governance-leadership-iqac 1,946 · institutional-values-best-practices 2,561 — each ~2,000 lines of structurally near-identical orchestration. A kernel collapses the five redundant copies (**on the order of ~10,000 lines**) into one implementation, plus the parallel route files (~54) and the per-module component triplets.
 
 ---
 
@@ -360,7 +360,7 @@ flowchart LR
 | 4 | Fold Curriculum/SSR (+ PBAS/CAS/AQAR hooks) | L | 3 | Yes |
 | 5 | Streamline review (pagination, vocab, events, UI) | L | 2,3 | Yes |
 
-**Expected outcome:** the six module services (~2,400+ duplicated lines) collapse to **one kernel + six small descriptors**; ~54 route files become thin re-exports; new criterion modules cost a descriptor + models instead of a copied vertical (P9 solved); review is paginated, consistent, and event-driven.
+**Expected outcome:** the six criterion services (**~13,100 lines total**, ~2,000 each) collapse to **one kernel + six small descriptors** — eliminating on the order of **~10,000 lines** of redundant orchestration; ~54 route files become thin re-exports; new criterion modules cost a descriptor + models instead of a copied vertical (P9 solved); review is paginated, consistent, and event-driven.
 
 ## 10. Definition of Done
 
