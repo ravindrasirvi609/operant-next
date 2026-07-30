@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from "@/lib/auth/constants";
 import { edgeLogger } from "@/lib/logger.edge";
 
 /**
@@ -49,6 +50,16 @@ const ADMIN_ROLE = "Admin";
  */
 const ADMIN_API_ALLOWLIST = ["/api/admin/bootstrap"];
 
+/** HTTP methods that never mutate state and are therefore exempt from CSRF. */
+const CSRF_SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/**
+ * Paths exempt from CSRF: the session-establishing endpoints, which by
+ * definition run before a CSRF cookie exists (they are protected by
+ * `sameSite: "lax"` + rate limiting instead).
+ */
+const CSRF_EXEMPT_PREFIXES = ["/api/auth/", "/api/admin/bootstrap"];
+
 /** Build the HMAC key for verifying session JWTs, or null if unavailable. */
 function getSecretKey(): Uint8Array | null {
     const secret = process.env.AUTH_SECRET;
@@ -87,6 +98,32 @@ function isGuardedAdminApi(pathname: string): boolean {
     return !ADMIN_API_ALLOWLIST.some(
         (allowed) => pathname === allowed || pathname.startsWith(`${allowed}/`)
     );
+}
+
+/**
+ * Whether this request must pass a CSRF check: only when `CSRF_ENFORCE` is on,
+ * for unsafe methods against non-exempt `/api/*` routes.
+ */
+function requiresCsrfCheck(request: NextRequest): boolean {
+    if (process.env.CSRF_ENFORCE !== "true") {
+        return false;
+    }
+
+    const { pathname } = request.nextUrl;
+    if (!pathname.startsWith("/api/") || CSRF_SAFE_METHODS.has(request.method)) {
+        return false;
+    }
+
+    return !CSRF_EXEMPT_PREFIXES.some(
+        (prefix) => pathname === prefix || pathname.startsWith(prefix)
+    );
+}
+
+/** Double-submit check: the CSRF header must equal the CSRF cookie. */
+function csrfTokenMatches(request: NextRequest): boolean {
+    const header = request.headers.get(CSRF_HEADER_NAME);
+    const cookie = request.cookies.get(CSRF_COOKIE_NAME)?.value;
+    return Boolean(header && cookie && header === cookie);
 }
 
 /**
@@ -136,7 +173,13 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
         "connect-src 'self' https://*.r2.dev https://*.r2.cloudflarestorage.com",
     ].join("; ");
 
-    response.headers.set("Content-Security-Policy-Report-Only", csp);
+    // Report-Only by default (non-breaking); set CSP_MODE=enforce to promote to
+    // the enforcing header once the policy is validated in staging.
+    const cspHeader =
+        process.env.CSP_MODE === "enforce"
+            ? "Content-Security-Policy"
+            : "Content-Security-Policy-Report-Only";
+    response.headers.set(cspHeader, csp);
 
     return response;
 }
@@ -169,7 +212,18 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
         }
     }
 
-    // 2. Pass through, adding security headers to the response.
+    // 2. Enforce CSRF (double-submit) on state-changing API requests when enabled.
+    if (requiresCsrfCheck(request) && !csrfTokenMatches(request)) {
+        edgeLogger.warn("Blocked request failing CSRF check", {
+            pathname: request.nextUrl.pathname,
+            method: request.method,
+        });
+        return applySecurityHeaders(
+            NextResponse.json({ message: "Invalid or missing CSRF token." }, { status: 403 })
+        );
+    }
+
+    // 3. Pass through, adding security headers to the response.
     return applySecurityHeaders(NextResponse.next());
 }
 

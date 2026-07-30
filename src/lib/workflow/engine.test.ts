@@ -3,38 +3,12 @@ import {
     getWorkflowStageByStatus,
     resolveWorkflowTransition,
 } from "@/lib/workflow/engine";
+import { makeWorkflowDefinition, makeWorkflowStage } from "@/test/factories";
 
-const definition = {
-    draftStatus: "Draft",
-    approvedStatus: "Approved",
-    rejectedStatus: "Rejected",
-    stages: [
-        {
-            key: "department_head_review",
-            label: "Department Head Review",
-            status: "Submitted",
-            kind: "review" as const,
-            scope: "department" as const,
-            approverRoles: ["DEPARTMENT_HEAD", "DIRECTOR"] as const,
-        },
-        {
-            key: "committee_review",
-            label: "Committee Review",
-            status: "Under Review",
-            kind: "review" as const,
-            scope: "global" as const,
-            approverRoles: ["DIRECTOR"] as const,
-        },
-        {
-            key: "final_approval",
-            label: "Principal Approval",
-            status: "Committee Review",
-            kind: "final" as const,
-            scope: "global" as const,
-            approverRoles: ["ADMIN"] as const,
-        },
-    ],
-};
+// A fully-typed three-stage chain: Submitted -> Under Review -> Committee Review
+// (final) -> Approved. Built via the factory so the fixture stays correctly
+// typed against the model (no `as const` gymnastics) and lives in one place.
+const definition = makeWorkflowDefinition();
 
 describe("workflow engine transitions", () => {
     it("starts at the first configured stage on submit", () => {
@@ -81,10 +55,70 @@ describe("workflow engine transitions", () => {
             completed: false,
         });
     });
+
+    it("allows rejection at the very first stage", () => {
+        expect(resolveWorkflowTransition(definition, "Submitted", "reject")).toEqual({
+            action: "reject",
+            status: "Rejected",
+            stage: null,
+            completed: true,
+        });
+    });
+
+    it("walks every stage of a longer chain before completing", () => {
+        // A four-stage chain (Board of Studies inserted), mirroring CURRICULUM.
+        const longChain = makeWorkflowDefinition({
+            stages: [
+                makeWorkflowStage({ key: "hod", status: "Submitted" }),
+                makeWorkflowStage({ key: "bos", status: "Board Review" }),
+                makeWorkflowStage({ key: "iqac", status: "Under Review", scope: "global" }),
+                makeWorkflowStage({
+                    key: "final",
+                    status: "Committee Review",
+                    kind: "final",
+                    scope: "global",
+                }),
+            ],
+        });
+
+        expect(resolveWorkflowTransition(longChain, "Board Review", "approve").status).toBe(
+            "Under Review"
+        );
+        expect(resolveWorkflowTransition(longChain, "Under Review", "approve").status).toBe(
+            "Committee Review"
+        );
+        expect(resolveWorkflowTransition(longChain, "Committee Review", "approve")).toEqual({
+            action: "approve",
+            status: "Approved",
+            stage: null,
+            completed: true,
+        });
+    });
+});
+
+describe("workflow engine transition guards", () => {
+    it("throws when submitting from a non-draft, non-rejected status", () => {
+        expect(() => resolveWorkflowTransition(definition, "Under Review", "submit")).toThrow(
+            "Workflow submit is not allowed while status is Under Review."
+        );
+    });
+
+    it("throws when approving from a status that maps to no stage", () => {
+        expect(() => resolveWorkflowTransition(definition, "Approved", "approve")).toThrow(
+            "Workflow action approve is not allowed while status is Approved."
+        );
+    });
+
+    it("throws when a submittable definition has no stages", () => {
+        const emptyChain = makeWorkflowDefinition({ stages: [] });
+        expect(() => resolveWorkflowTransition(emptyChain, "Draft", "submit")).toThrow(
+            "Workflow definition must include at least one stage."
+        );
+    });
 });
 
 describe("workflow engine metadata", () => {
-    it("returns the pending statuses from definition order", () => {
+    it("returns the pending statuses in definition order", () => {
         expect(getWorkflowPendingStatuses(definition)).toEqual([
             "Submitted",
             "Under Review",
@@ -93,8 +127,10 @@ describe("workflow engine metadata", () => {
     });
 
     it("resolves the current stage by status", () => {
-        expect(getWorkflowStageByStatus(definition, "Under Review")).toEqual(
-            definition.stages[1]
-        );
+        expect(getWorkflowStageByStatus(definition, "Under Review")).toEqual(definition.stages[1]);
+    });
+
+    it("returns null for a status that matches no stage", () => {
+        expect(getWorkflowStageByStatus(definition, "Approved")).toBeNull();
     });
 });

@@ -71,6 +71,13 @@ export interface IUser extends Document {
     passwordResetTokenHash?: string;
     passwordResetExpiresAt?: Date;
     lastLoginAt?: Date;
+    /**
+     * Monotonic session generation counter. Embedded in the session JWT at
+     * issuance and compared on every authenticated request; bumping it (e.g. on
+     * password reset) invalidates all previously-issued tokens. See
+     * `src/lib/auth/session.ts` and `getCurrentUser()`.
+     */
+    sessionVersion: number;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -114,6 +121,9 @@ const UserSchema = new Schema<IUser>(
         passwordResetTokenHash: { type: String, select: false },
         passwordResetExpiresAt: { type: Date, select: false },
         lastLoginAt: { type: Date },
+        // Session generation counter for JWT revocation (default 0 keeps every
+        // pre-existing token valid until the counter is first bumped).
+        sessionVersion: { type: Number, default: 0 },
     },
     {
         timestamps: true,

@@ -4,6 +4,7 @@
 > **Stack:** Next.js 16 App Router · React 19 · MongoDB/Mongoose · Vitest 2
 > **Cross-references:** `02_Current_Architecture.md` · `08_Backend_Architecture.md` · `09_Code_Quality_Report.md` · `10_Technical_Debt_Report.md` · `11_Refactoring_Strategy.md` · `12_Development_Master_Plan.md` (Phase 5) · `16_Security_Audit.md` · `18_Coding_Standards.md`
 > **Authoritative source:** `documentation.md` §2 (tooling), §7 (auth/authz), §9.6 (workflow engine), §22 (error handling), §23 (code quality), §27 (known issues)
+> **Status:** The Phase 1 test **foundation is implemented** — in-memory MongoDB integration harness, typed factories, coverage reporting, and characterization tests for the workflow engine. See [§1.4](#14-implemented-foundation-phase-1) and [`src/test/README.md`](../src/test/README.md).
 
 ---
 
@@ -67,6 +68,30 @@ These scripts are **not integrated into `npm test`** and require a configured, r
 - **No security-specific tests** (CSRF guard, rate-limit behaviour, authz boundary enforcement).
 - **No regression tests** protecting the workflow engine's 11 module definitions from accidental mutation.
 - ESLint (`eslint-config-next`) runs but is not coupled to test outcomes.
+
+> **Update:** the Phase 1 foundation (§1.4) closes several of these gaps — an in-memory DB integration layer now exists, and the workflow engine's persistence path is covered.
+
+### 1.4 Implemented Foundation (Phase 1)
+
+The following building blocks are now in place. Full how-to lives in [`src/test/README.md`](../src/test/README.md).
+
+**Runner configuration** (`vitest.config.ts`): `globals: true`, node environment, `@/*` alias, plus a raised `hookTimeout` (120s) so integration tests can cold-start an in-memory `mongod`, and a v8 `coverage` config (`text` + `html` reporters, scaffolding excluded).
+
+**TypeScript**: `src/types/vitest.d.ts` references `vitest/globals`, so globals-style test files type-check cleanly. `tsc --noEmit` is now green across the whole project (the previously-failing test files were fixed — `user.test.ts` uses `vi.stubEnv` for `NODE_ENV`).
+
+**In-memory DB harness** (`src/test/db.ts`): `setupTestDatabase()` starts `mongodb-memory-server` and points the application's own `dbConnect()` at it, so integration tests exercise the real Mongoose models, queries, and indexes. `clearDatabase()` (in `afterEach`) removes documents while preserving indexes; `teardownTestDatabase()` stops the server.
+
+**Typed factories** (`src/test/factories.ts`): `makeWorkflowDefinition()` / `makeWorkflowStage()` build correctly-typed fixtures, keeping tests readable and schema-change-resilient.
+
+**Characterization tests** (workflow engine, the backbone of all 11 modules):
+- `src/lib/workflow/engine.test.ts` — 13 pure-logic cases (transitions, guards/throws, multi-stage chains, metadata). No DB.
+- `src/lib/workflow/engine.integration.test.ts` — 9 DB-backed cases (definition seeding + idempotency, instance upsert lifecycle, completion, status projection).
+
+These pin **current** behaviour so the planned repository-pattern and event-driven refactors (see `19_Future_Architecture.md`) can be proven behaviour-preserving.
+
+**Scripts**: `npm test` (run once), `npm run test:watch`, `npm run test:coverage`, `npm run typecheck`.
+
+**Result**: 37 passing tests (was 22); `engine.ts` at ~87% statement coverage. Still outstanding for later phases: authorization resolution (`resolveAuthorizationProfile`), route-handler tests, component/E2E tests, and CI wiring.
 
 ---
 

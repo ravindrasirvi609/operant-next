@@ -2,12 +2,19 @@ import { cookies } from "next/headers";
 import { jwtVerify, SignJWT, type JWTPayload } from "jose";
 
 import { authConfig, getAuthSecret } from "@/lib/auth/config";
+import { clearCsrfCookie, setCsrfCookie } from "@/lib/auth/csrf";
 
 export interface SessionPayload extends JWTPayload {
     sub: string;
     email: string;
     name: string;
     role: string;
+    /**
+     * Session generation the token was minted for. Optional for backward
+     * compatibility: tokens issued before this field existed decode as
+     * `undefined`, which is treated as generation 0 (see `getCurrentUser`).
+     */
+    sessionVersion?: number;
 }
 
 function getSecretKey() {
@@ -37,6 +44,9 @@ export async function setSessionCookie(token: string) {
         path: "/",
         maxAge: authConfig.sessionDurationSeconds,
     });
+
+    // Issue a matching CSRF token cookie for the double-submit pattern.
+    await setCsrfCookie();
 }
 
 export async function clearSessionCookie() {
@@ -48,6 +58,9 @@ export async function clearSessionCookie() {
         path: "/",
         maxAge: 0,
     });
+
+    // Clear the paired CSRF cookie on logout.
+    await clearCsrfCookie();
 }
 
 export async function getSessionPayload() {

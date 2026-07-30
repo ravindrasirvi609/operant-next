@@ -246,6 +246,7 @@ export async function loginUser(rawInput: unknown, options?: LoginOptions) {
         email: user.email,
         name: user.name,
         role: user.role,
+        sessionVersion: user.sessionVersion ?? 0,
     });
 
     await setSessionCookie(token);
@@ -338,6 +339,8 @@ export async function resetPassword(rawInput: unknown) {
     user.accountStatus = "Active";
     user.passwordResetTokenHash = undefined;
     user.passwordResetExpiresAt = undefined;
+    // Invalidate every session issued before this password reset.
+    user.sessionVersion = (user.sessionVersion ?? 0) + 1;
     user.lastLoginAt = new Date();
     await user.save();
 
@@ -346,6 +349,7 @@ export async function resetPassword(rawInput: unknown) {
         email: user.email,
         name: user.name,
         role: user.role,
+        sessionVersion: user.sessionVersion ?? 0,
     });
 
     await setSessionCookie(token);
@@ -463,6 +467,7 @@ export async function activateStudentAccount(rawInput: unknown) {
         email: user.email,
         name: user.name,
         role: user.role,
+        sessionVersion: user.sessionVersion ?? 0,
     });
 
     await setSessionCookie(token);
@@ -525,6 +530,7 @@ export async function activateFacultyAccount(rawInput: unknown) {
         email: user.email,
         name: user.name,
         role: user.role,
+        sessionVersion: user.sessionVersion ?? 0,
     });
 
     await setSessionCookie(token);
@@ -583,6 +589,7 @@ export async function bootstrapAdmin(rawInput: unknown, options: BootstrapAdminO
         email: user.email,
         name: user.name,
         role: user.role,
+        sessionVersion: user.sessionVersion ?? 0,
     });
 
     await setSessionCookie(token);
@@ -608,7 +615,33 @@ export async function getCurrentUser() {
         return null;
     }
 
+    // Reject suspended/deactivated accounts even if they still hold a valid
+    // cookie — access must end the moment an admin suspends the user, not at
+    // token expiry. (PendingActivation is allowed through so the activation
+    // redirect flow in requireAuth still works.)
+    if (!user.isActive || user.accountStatus === "Suspended") {
+        return null;
+    }
+
+    // Session revocation: a token minted before the user's current session
+    // generation (e.g. issued prior to a password reset) is no longer valid.
+    if ((session.sessionVersion ?? 0) !== (user.sessionVersion ?? 0)) {
+        return null;
+    }
+
     return toSafeUser(user);
+}
+
+/**
+ * Invalidate every session previously issued to a user by bumping their session
+ * generation. The next request carrying an older token fails the version check
+ * in {@link getCurrentUser}. Call after out-of-band password changes, role
+ * changes, or when force-signing-out a user. (Suspension is already handled by
+ * the account-status check above.)
+ */
+export async function invalidateUserSessions(userId: string): Promise<void> {
+    await dbConnect();
+    await User.updateOne({ _id: userId }, { $inc: { sessionVersion: 1 } });
 }
 
 export async function requireAuth() {

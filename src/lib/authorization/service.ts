@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 
 import dbConnect from "@/lib/dbConnect";
+import { isAuthzCompatibilityModeEnabled } from "@/lib/env";
 import Department from "@/models/reference/department";
 import Faculty from "@/models/faculty/faculty";
 import Institution from "@/models/reference/institution";
@@ -60,7 +61,11 @@ export type AuthorizationProfile = {
     workflowRoleScopes: Partial<Record<WorkflowApproverRole, AuthorizationScope[]>>;
 };
 
-const compatibilityMode = true;
+// Legacy `Organization.headUserId` authorization path. Controlled by the
+// AUTHZ_COMPATIBILITY_MODE env flag (default true to preserve behaviour); set it
+// to "false" once every organization has explicit LeadershipAssignment records.
+// See docs/21_Security_Hardening.md.
+const compatibilityMode = isAuthzCompatibilityModeEnabled();
 
 const workflowRoleByCommitteeType: Partial<Record<GovernanceCommitteeType, WorkflowApproverRole>> = {
     IQAC: "IQAC",

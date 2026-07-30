@@ -23,6 +23,8 @@ Related suite documents: [08_Backend_Architecture.md](08_Backend_Architecture.md
 
 ---
 
+> **Status (this repo):** Wave 0 safety net + **Wave 1 kernel are implemented** at [`src/lib/contributor-kernel/`](../src/lib/contributor-kernel/) — unit-tested (26 cases) and imported by no module yet (rollback = delete the folder). Wave 2 (pilot Teaching-Learning behind parity tests) is the next slice.
+
 ## 1. What This Plan Covers
 
 The contributor workflow is the single most important — and most **duplicated** — flow in UMIS. It is implemented (near-)identically across **six criterion modules**:
@@ -263,7 +265,10 @@ flowchart LR
 - **Acceptance:** tests cover Draft→Submitted→…→Approved and every Reject edge for all 6 modules, plus self-review-blocked and scope-denied cases.
 - **Effort:** M.
 
-### Wave 1 — Build the kernel (no behavior change)
+### Wave 1 — Build the kernel (no behavior change) ✅ Implemented
+
+> **Done:** `src/lib/contributor-kernel/{types,review,scope,service,index}.ts` + 26 unit tests. The `submit`/`review` orchestration, the shared review vocabulary/schema, scope mapping, and dependency injection are in place; imported by no module yet. `saveDraft`/`list` read-paths land with the Wave 2 pilot (they need each module's contribution schema + `applyDraft`/hydration).
+
 - **Goals:** implement `contributor-kernel` with descriptor + generic service + generic route handlers; **not yet wired** to any module.
 - **Tasks:**
   1. Create `src/lib/contributor-kernel/{types.ts, service.ts, routes.ts, registry.ts}`.

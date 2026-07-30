@@ -83,6 +83,15 @@ const serverEnvSchema = z.object({
         .url("NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL must be a valid URL.")
         .optional(),
 
+    // --- Security toggles ------------------------------------------------------
+    // All optional with safe defaults, so existing deployments are unaffected.
+    // CSRF_ENFORCE: "true" turns on double-submit CSRF checks in the proxy.
+    // CSP_MODE: "enforce" promotes the CSP from Report-Only to enforcing.
+    // AUTHZ_COMPATIBILITY_MODE: "false" disables the legacy Organization.headUserId path.
+    CSRF_ENFORCE: z.enum(["true", "false"]).optional(),
+    CSP_MODE: z.enum(["report-only", "enforce"]).optional(),
+    AUTHZ_COMPATIBILITY_MODE: z.enum(["true", "false"]).optional(),
+
     // --- Observability ---------------------------------------------------------
     LOG_LEVEL: logLevelSchema,
 });
@@ -236,4 +245,27 @@ export function isProduction(): boolean {
 /** True when running in local development. */
 export function isDevelopment(): boolean {
     return process.env.NODE_ENV === "development";
+}
+
+/**
+ * Whether double-submit CSRF checks are enforced by the proxy. Defaults to
+ * `false` so CSRF can be rolled out safely once clients send the token header.
+ * @see docs/21_Security_Hardening.md
+ */
+export function isCsrfEnforced(): boolean {
+    return process.env.CSRF_ENFORCE === "true";
+}
+
+/** Content-Security-Policy mode. Defaults to `report-only` (non-breaking). */
+export function getCspMode(): "report-only" | "enforce" {
+    return process.env.CSP_MODE === "enforce" ? "enforce" : "report-only";
+}
+
+/**
+ * Whether the legacy `Organization.headUserId` authorization path is honoured.
+ * Defaults to `true` to preserve current behaviour; set `AUTHZ_COMPATIBILITY_MODE=false`
+ * once every organization has explicit LeadershipAssignment records.
+ */
+export function isAuthzCompatibilityModeEnabled(): boolean {
+    return process.env.AUTHZ_COMPATIBILITY_MODE !== "false";
 }

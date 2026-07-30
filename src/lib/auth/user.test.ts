@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
     dbConnectMock,
@@ -78,9 +78,6 @@ vi.mock("@/models/core/user", () => ({
 import { bootstrapAdmin } from "@/lib/auth/user";
 
 describe("bootstrapAdmin", () => {
-    const originalNodeEnv = process.env.NODE_ENV;
-    const originalBootstrapSecret = process.env.ADMIN_BOOTSTRAP_SECRET;
-
     const validInput = {
         name: "System Admin",
         email: "admin@example.edu",
@@ -88,23 +85,23 @@ describe("bootstrapAdmin", () => {
     };
 
     beforeEach(() => {
-        process.env.NODE_ENV = originalNodeEnv;
-
-        if (originalBootstrapSecret === undefined) {
-            delete process.env.ADMIN_BOOTSTRAP_SECRET;
-        } else {
-            process.env.ADMIN_BOOTSTRAP_SECRET = originalBootstrapSecret;
-        }
-
         vi.clearAllMocks();
         hashPasswordMock.mockResolvedValue("hashed-password");
         createSessionTokenMock.mockResolvedValue("session-token");
         setSessionCookieMock.mockResolvedValue(undefined);
     });
 
+    // Restore any environment variables a test stubbed via vi.stubEnv. Using
+    // stubEnv (rather than assigning process.env.NODE_ENV directly) is both the
+    // type-safe approach — NODE_ENV is read-only in the TS types — and auto-reversible.
+    afterEach(() => {
+        vi.unstubAllEnvs();
+    });
+
     it("blocks first-admin bootstrap in production when no bootstrap secret is configured", async () => {
-        process.env.NODE_ENV = "production";
-        delete process.env.ADMIN_BOOTSTRAP_SECRET;
+        vi.stubEnv("NODE_ENV", "production");
+        // An empty string reads as "not configured" via getAdminBootstrapSecret().
+        vi.stubEnv("ADMIN_BOOTSTRAP_SECRET", "");
 
         await expect(bootstrapAdmin(validInput)).rejects.toMatchObject({
             message:
@@ -117,8 +114,8 @@ describe("bootstrapAdmin", () => {
     });
 
     it("rejects bootstrap requests that do not present the configured secret", async () => {
-        process.env.NODE_ENV = "production";
-        process.env.ADMIN_BOOTSTRAP_SECRET = "expected-secret";
+        vi.stubEnv("NODE_ENV", "production");
+        vi.stubEnv("ADMIN_BOOTSTRAP_SECRET", "expected-secret");
 
         await expect(
             bootstrapAdmin(validInput, { bootstrapSecret: "wrong-secret" })
@@ -132,8 +129,8 @@ describe("bootstrapAdmin", () => {
     });
 
     it("allows bootstrap to proceed when the configured secret is supplied", async () => {
-        process.env.NODE_ENV = "production";
-        process.env.ADMIN_BOOTSTRAP_SECRET = "expected-secret";
+        vi.stubEnv("NODE_ENV", "production");
+        vi.stubEnv("ADMIN_BOOTSTRAP_SECRET", "expected-secret");
 
         userModelMock.countDocuments.mockResolvedValue(0);
         userModelMock.findOne.mockResolvedValue(null);
