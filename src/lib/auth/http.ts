@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import { AuthError } from "@/lib/auth/errors";
+import { reportError } from "@/lib/observability";
 
 type MongooseLikeError = {
     name?: string;
@@ -75,7 +76,10 @@ export function createApiErrorResponse(error: unknown) {
         return NextResponse.json({ message: error.message }, { status: error.status });
     }
 
-    console.error(error);
+    // Unexpected/unclassified error: report it through the observability seam
+    // (structured log now; external tracker later) and return a generic 500 so
+    // no internal detail leaks to the client.
+    reportError(error, { message: "Unhandled API error" });
 
     return NextResponse.json(
         { message: "Request failed due to an unexpected server error." },

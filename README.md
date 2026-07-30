@@ -19,17 +19,24 @@ This project now includes a complete authentication foundation for the UMIS syst
 
 ## Environment variables
 
-Create `.env.local` from `.env.example` and configure:
+Create `.env.local` from `.env.example` and configure the variables documented
+there. On start-up the server validates them and **fails fast** with an
+aggregated report of anything missing or malformed (see
+[`docs/20_Foundational_Hardening.md`](docs/20_Foundational_Hardening.md) §3).
 
-- `MONGODB_URI`
-- `AUTH_SECRET`
-- `ADMIN_BOOTSTRAP_SECRET` (required in production to create the first admin)
-- `APP_URL`
-- `NEXT_PUBLIC_APP_URL`
-- `RESEND_API_KEY`
-- `RESEND_FROM_EMAIL`
+**Always required:** `MONGODB_URI`, `AUTH_SECRET` (≥32 chars).
 
-If `RESEND_API_KEY` is omitted during local development, auth emails are logged to the server console as preview links.
+**Required in production** (optional in development): `ADMIN_BOOTSTRAP_SECRET`,
+`RESEND_API_KEY`, and the Cloudflare R2 group — `CLOUDFLARE_ACCOUNT_ID`,
+`CLOUDFLARE_R2_ACCESS_KEY_ID`, `CLOUDFLARE_R2_SECRET_ACCESS_KEY`,
+`CLOUDFLARE_R2_BUCKET_NAME`, `CLOUDFLARE_R2_PUBLIC_URL`,
+`NEXT_PUBLIC_CLOUDFLARE_R2_PUBLIC_URL`.
+
+**Optional:** `APP_URL`, `NEXT_PUBLIC_APP_URL`, `RESEND_FROM_EMAIL`, `LOG_LEVEL`.
+
+If `RESEND_API_KEY` is omitted during local development, auth emails are logged
+to the server console as preview links. To bypass validation for a build/CI step
+without full secrets, set `SKIP_ENV_VALIDATION=1` (never in production).
 
 ## Migration
 

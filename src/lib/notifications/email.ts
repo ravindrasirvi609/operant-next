@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 
 import { getAppUrl, getResendApiKey, getResendFromEmail } from "@/lib/auth/config";
+import { logger } from "@/lib/logger";
 
 type NotificationEmailOptions = {
     to: string;
@@ -68,8 +69,12 @@ export async function sendNotificationEmail(
     const actionUrl = toAbsoluteUrl(options.actionUrl);
 
     if (!apiKey) {
-        const preview = actionUrl ? ` (${actionUrl})` : "";
-        console.info(`[UMIS notification email preview] ${options.subject}: ${options.to}${preview}`);
+        // Development fallback (see auth/email.ts): log a preview instead of
+        // sending. Never reached in production, where RESEND_API_KEY is required.
+        logger.info(
+            { subject: options.subject, to: options.to, actionUrl },
+            "Notification email preview (RESEND_API_KEY not set)"
+        );
         return { status: "skipped", reason: "RESEND_API_KEY is not configured." };
     }
 

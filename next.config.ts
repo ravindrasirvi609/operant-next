@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // `pino` and `pino-pretty` use worker-thread transports and native-ish module
+  // resolution that Next.js should not attempt to bundle. Marking them external
+  // keeps the structured logger (src/lib/logger.ts) working in both dev and
+  // production builds. See docs/18_Coding_Standards.md §9.
+  serverExternalPackages: ["pino", "pino-pretty"],
   images: {
     remotePatterns: [
       {

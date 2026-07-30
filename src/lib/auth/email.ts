@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 
 import { getAppUrl, getResendApiKey, getResendFromEmail } from "@/lib/auth/config";
+import { logger } from "@/lib/logger";
 
 interface AuthEmailOptions {
     to: string;
@@ -32,7 +33,13 @@ async function sendAuthEmail(options: AuthEmailOptions) {
     const apiKey = getResendApiKey();
 
     if (!apiKey) {
-        console.info(`[UMIS auth email preview] ${options.subject}: ${options.actionUrl}`);
+        // Development fallback: no Resend key configured, so log the action link
+        // (with its token) for local testing. This path never runs in production,
+        // where RESEND_API_KEY is required by env validation.
+        logger.info(
+            { subject: options.subject, actionUrl: options.actionUrl },
+            "Auth email preview (RESEND_API_KEY not set)"
+        );
         return;
     }
 

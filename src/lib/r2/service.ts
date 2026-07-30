@@ -8,18 +8,17 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 
+import { getR2BucketName, getR2PublicUrl } from "@/lib/env";
 import { getClient } from "@/lib/r2/client";
 
+/** The R2 bucket name for object operations (validated env accessor). */
 export function getBucketName(): string {
-    const name = process.env.CLOUDFLARE_R2_BUCKET_NAME;
-    if (!name) throw new Error("Missing CLOUDFLARE_R2_BUCKET_NAME environment variable.");
-    return name;
+    return getR2BucketName();
 }
 
+/** Build the public, browser-facing URL for a stored object key. */
 export function publicUrl(key: string): string {
-    const base = process.env.CLOUDFLARE_R2_PUBLIC_URL;
-    if (!base) throw new Error("Missing CLOUDFLARE_R2_PUBLIC_URL environment variable.");
-    return `${base.replace(/\/$/, "")}/${key}`;
+    return `${getR2PublicUrl().replace(/\/$/, "")}/${key}`;
 }
 
 export async function createPresignedUploadUrl(

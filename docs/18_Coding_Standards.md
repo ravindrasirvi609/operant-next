@@ -605,9 +605,16 @@ type PlanFormState = { title: string; academicYearId: string; … };  // ← div
 
 ## 9. Logging Standard
 
-### Current state (problem)
+> **Status: Implemented (Phase 0).** A structured logger now exists at
+> [`src/lib/logger.ts`](../src/lib/logger.ts) (Node) and
+> [`src/lib/logger.edge.ts`](../src/lib/logger.edge.ts) (edge), with an
+> error-reporting seam at [`src/lib/observability.ts`](../src/lib/observability.ts).
+> See [`20_Foundational_Hardening.md`](20_Foundational_Hardening.md) §4–5. The
+> sections below record the original problem and the standard to follow.
 
-The entire codebase uses `console.log` / `console.error` / `console.info` only:
+### Background (pre-Phase 0 problem)
+
+The entire codebase used `console.log` / `console.error` / `console.info` only:
 
 ```ts
 // src/lib/dbConnect.ts — only meaningful existing log
@@ -632,21 +639,29 @@ Until a structured logger is introduced, apply these rules:
 | Debug / trace | Not in production code | — |
 | Sensitive data (tokens, passwords, PII) | **Never log** | — |
 
-### Recommended structured logger (Phase 1 improvement)
+### Structured logger (implemented — Phase 0)
 
-Introduce `pino` (or a similar structured logger) behind an abstraction in `src/lib/logger.ts`:
+`pino` is wired behind an abstraction in [`src/lib/logger.ts`](../src/lib/logger.ts):
 
 ```ts
-// src/lib/logger.ts (proposed)
-import pino from "pino";
+import { logger, createLogger } from "@/lib/logger";
 
-export const logger = pino({
-    level: process.env.LOG_LEVEL ?? "info",
-    ...(process.env.NODE_ENV === "development" ? { transport: { target: "pino-pretty" } } : {}),
-});
+logger.info({ formId }, "PBAS form submitted");   // structured fields FIRST
+const log = createLogger({ module: "pbas" });      // child logger with bindings
 ```
 
-Replace `console.error(error)` in `createApiErrorResponse` with `logger.error({ err: error }, "API error")`.
+Rules:
+- **Always pass structured data as the first argument** so redaction works. The
+  logger auto-redacts cookies, authorization headers, passwords, tokens, secrets,
+  and API keys — but only when they are *fields*, not string-interpolated text.
+- **Level** comes from `LOG_LEVEL` (default `info`); pretty output in dev, JSON in prod.
+- **Never import `logger.ts` from `middleware.ts`** — the edge runtime cannot run
+  pino. Use [`src/lib/logger.edge.ts`](../src/lib/logger.edge.ts) there.
+- For unexpected errors, prefer the seam: `reportError(error, { message })` in
+  [`src/lib/observability.ts`](../src/lib/observability.ts) (server) or
+  `reportClientError(error, ctx)` in `observability.client.ts` (browser).
+
+`createApiErrorResponse` already routes unclassified errors through `reportError`.
 
 ---
 
