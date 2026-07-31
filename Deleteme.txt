@@ -1,0 +1,18 @@
+> Build error occurred
+Error: Turbopack build failed with 1 errors:
+./src/app/(admin-protected)/admin/hierarchy/page.tsx:4:26
+Ecmascript file had an error
+   2 | import { getHierarchyData } from "@/lib/admin/hierarchy";
+   3 |
+>  4 | const HierarchyManager = dynamic(
+     |                          ^^^^^^^^
+>  5 |     () => import("@/components/admin/hierarchy-manager").then((m) => m.HierarchyManager),
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  6 |     { ssr: false, loading: () => <div className="animate-pulse h-64 bg-muted rounded-md" /> }
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  7 | );
+     | ^^
+   8 |
+   9 | export default async function AdminHierarchyPage() {
+  10 |     const data = await getHierarchyData();
+`ssr: false` is not allowed with `next/dynamic` in Server Components. Please move it into a Client Component.
