@@ -1,10 +1,5 @@
-import dynamic from "next/dynamic";
+import { HierarchyManagerDynamic } from "@/components/admin/hierarchy-manager-dynamic";
 import { getHierarchyData } from "@/lib/admin/hierarchy";
-
-const HierarchyManager = dynamic(
-    () => import("@/components/admin/hierarchy-manager").then((m) => m.HierarchyManager),
-    { ssr: false, loading: () => <div className="animate-pulse h-64 bg-muted rounded-md" /> }
-);
 
 export default async function AdminHierarchyPage() {
     const data = await getHierarchyData();
@@ -18,7 +13,7 @@ export default async function AdminHierarchyPage() {
                 </p>
             </section>
 
-            <HierarchyManager
+            <HierarchyManagerDynamic
                 assignableUsers={JSON.parse(JSON.stringify(data.assignableUsers)) as never}
                 initialOrganizations={JSON.parse(JSON.stringify(data.organizations)) as never}
                 organizationTypes={data.organizationTypes}
