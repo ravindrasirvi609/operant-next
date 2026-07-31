@@ -103,12 +103,15 @@ function normalizePhone(value?: string | null) {
 function secretsMatch(expected: string, provided: string) {
     const expectedBuffer = Buffer.from(expected);
     const providedBuffer = Buffer.from(provided);
-
-    if (expectedBuffer.length !== providedBuffer.length) {
-        return false;
-    }
-
-    return timingSafeEqual(expectedBuffer, providedBuffer);
+    // Pad both buffers to the same length so timingSafeEqual runs in constant time
+    // regardless of input length. Without this, a length mismatch leaks information
+    // via early return before the timing-safe comparison even runs.
+    const maxLen = Math.max(expectedBuffer.length, providedBuffer.length);
+    const a = Buffer.alloc(maxLen);
+    const b = Buffer.alloc(maxLen);
+    expectedBuffer.copy(a);
+    providedBuffer.copy(b);
+    return timingSafeEqual(a, b);
 }
 
 function assertAdminBootstrapAuthorized(providedSecret?: string | null) {

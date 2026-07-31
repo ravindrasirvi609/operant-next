@@ -90,6 +90,7 @@ export async function createAuditLog({
     auditContext,
     session,
 }: AuditPayload) {
+    await dbConnect();
     await AuditLog.create(
         [
             {

@@ -343,14 +343,22 @@ Split into `src/lib/pbas/`:
 
 **Migration Strategy**
 
-1. Add unit tests covering all scoring paths in the existing monolith (prerequisite).
-2. Extract `scoring.ts` first (pure functions, no side effects, easiest to test in isolation).
+1. ~~Add unit tests covering all scoring paths in the existing monolith (prerequisite).~~ ✅ **Done (Phase 3)** — `src/lib/pbas/scoring.test.ts` covers all 30 indicator formula keys.
+2. ~~Extract `scoring.ts` first (pure functions, no side effects, easiest to test in isolation).~~ ✅ **Done (Phase 3)** — `src/lib/pbas/scoring.ts` created; dead `computePbasApiScore` removed; `DEFAULT_PBAS_SCORING_WEIGHTS` and `roundScore` consolidated here.
 3. Extract `catalog.ts` (already separate — verify it stays independent).
 4. Extract `entries.ts`.
 5. Extract `notifications.ts`.
 6. Extract `report.ts` and convert report endpoint to use `waitUntil` (Next.js 15+) or a simple async queue for large reports.
 7. Extract `lifecycle.ts` last (most complex; has cross-calls to scoring, notifications).
 8. Create `index.ts` barrel that re-exports all names from old import paths.
+
+**Phase 3 completion summary (2026-07-31)**
+
+- Created `src/lib/pbas/scoring.ts` — extracted `DEFAULT_PBAS_SCORING_WEIGHTS`, `roundScore`, `buildRawIndicatorScores`, `loadPbasIndicatorCatalog`, `computePbasDynamicScorecard`, `PbasIndicatorCatalogEntry`, `PbasDynamicScorecard` from the monolith.
+- Removed dead `computePbasApiScore` (was exported but never called at runtime; all scoring paths already used the dynamic pipeline).
+- Updated `src/lib/pbas/admin.ts` to import `DEFAULT_PBAS_SCORING_WEIGHTS` from `scoring.ts`.
+- Added 33 unit tests across 7 describe blocks in `src/lib/pbas/scoring.test.ts`; all pass.
+- Updated `docs/PBAS_SELF_APPRAISAL_SYSTEM.md` with a Scoring Architecture section (§12).
 
 **Files Affected**
 
@@ -465,6 +473,54 @@ Structured logger (Wave 0). Aggregation pipeline pattern established in director
 
 **Estimated Complexity:** Medium  
 **Priority:** P1 (performance)
+
+**Phase 5 completion summary (2026-07-31)**
+
+Two improvements shipped under Phase 5:
+
+**Part A — Import from Profile** (`src/lib/aqar/references.ts`, `src/lib/aqar/service.ts`,
+`src/app/api/aqar/[id]/import-candidates/route.ts`):
+
+- Created `src/lib/aqar/references.ts` with `loadAqarImportContext` (8 parallel workspace
+  queries scoped to the academic year window), 8 field-transform functions, and
+  `buildAqarImportPayload` — following the established PBAS references pattern.
+- Added `getAqarImportCandidates(actor, id)` to the AQAR service — faculty-owner-only;
+  reuses `getAqarApplicationById` for auth and `ensureFacultyContext` for ownership check.
+- Added `GET /api/aqar/[id]/import-candidates` route exposing the payload to the client.
+- Updated `docs/AQAR_SYSTEM.md §10` with full import feature documentation.
+
+**Part B — Cycle Performance** (`src/lib/aqar-cycle/service.ts`,
+`src/lib/naac-criteria-mapping/service.ts`):
+
+- Added module-scope `_criteriaCache` to `listNaacCriteriaMappings` — eliminates redundant
+  `countDocuments` seed checks and the repeated `find({})` on every snapshot call.
+  Cache is invalidated on any write (create / update / delete).
+- Removed duplicate `await ensureNaacCriteriaMappingsSeeded()` from `buildCriteriaSections`
+  (it was already called inside `listNaacCriteriaMappings`).
+- Replaced `Faculty.find().select("administrativeResponsibilities")` with a `$group`
+  aggregate that returns the sum of array lengths directly — eliminates a full-collection scan.
+- Replaced `FacultyTeachingLoad.find()` and `FacultyAdminRole.find()` with `countDocuments()`
+  — eliminates two more full-collection scans.
+- Merged 2 `User.countDocuments` into one `$facet` aggregate (saves 1 round-trip).
+- Merged 3 `Organization.countDocuments` into one `$facet` aggregate (saves 2 round-trips).
+- Merged 2 `Publication.countDocuments` into one `$facet` aggregate (saves 1 round-trip).
+- Merged 2 `Project.countDocuments` into one `$facet` aggregate (saves 1 round-trip).
+- Scoped `Semester.find({})` to `Semester.find({ academicYearId })` in
+  `syncStudentAqarEntries` — eliminates historical semesters from the downstream `$in` query.
+- Net: ~10 fewer DB round-trips per snapshot + 3 full-collection scans eliminated.
+
+**Phase 4 completion summary (2026-07-31)**
+
+Fixed five concrete correctness and documentation gaps in `src/lib/aqar/service.ts` and `src/models/core/aqar-application.ts`:
+
+- Added duplicate-prevention guard in `createAqarApplication` — rejects a second application for the same faculty + academic year with HTTP 409.
+- Removed spurious `pushStatusLog` call from `updateAqarApplication` — status logs now record only actual transitions, not autosaves.
+- Added explicit status guard in `approveAqarApplication` before the authorization check — produces a clear 409 message when the application is not in "Committee Review" status.
+- Changed `(facultyId, academicYear)` compound index to `unique: true` in `AqarApplicationSchema` — enforces the duplicate constraint at the DB layer.
+- Added one-line JSDoc to all 11 exported service functions.
+- Created `docs/AQAR_SYSTEM.md` — full system reference document covering the data model, status workflow, API surface, `facultyContribution` structure, metrics computation, role permissions, and compliance checklist.
+
+Architectural note: 8 of the 12 `facultyContribution` sub-arrays duplicate data from dedicated faculty module models. This is documented in `docs/AQAR_SYSTEM.md §8.1` and deferred to Phase 5 pending a design decision on whether to keep separate entry, add an import-from-profile helper, or switch to FK references.
 
 ---
 

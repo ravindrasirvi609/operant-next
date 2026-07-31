@@ -47,17 +47,8 @@ import {
     getNaacMetricMeta,
     naacCriterionCatalog,
 } from "@/lib/naac-criteria-mapping/catalog";
-import {
-    ensureNaacCriteriaMappingsSeeded,
-    listNaacCriteriaMappings,
-} from "@/lib/naac-criteria-mapping/service";
-
-type SafeActor = {
-    id: string;
-    name: string;
-    role: string;
-    auditContext?: AuditRequestContext;
-};
+import { listNaacCriteriaMappings } from "@/lib/naac-criteria-mapping/service";
+import { type SafeActor } from "@/lib/workflow/shared";
 
 function ensureAdmin(actor: SafeActor) {
     if (actor.role !== "Admin") {
@@ -206,7 +197,7 @@ async function syncStudentAqarEntries(
     }
 
     const semesterIds = (
-        await Semester.find({})
+        await Semester.find(academicYearId ? { academicYearId } : {})
             .select("_id")
             .lean()
     ).map((semester) => semester._id);
@@ -439,48 +430,49 @@ async function buildCriteriaSections(
     summaryMetrics: InstanceType<typeof AqarCycle>["summaryMetrics"];
     criteriaSections: IAqarCycleCriterion[];
 }> {
-    await ensureNaacCriteriaMappingsSeeded();
     const range = parseAcademicYearRange(academicYear);
     const [
-        facultyCount,
-        studentCount,
+        userFacets,
         activeStudentCount,
-        departmentCount,
-        collegeCount,
-        universityCount,
+        orgFacets,
         programCount,
-        facultyRecords,
+        adminRespAgg,
         qualifiedFacultyIds,
-        facultyTeachingLoads,
-        facultyAdminRoles,
+        teachingLoadCount,
+        facultyAdminRoleCount,
         approvedPbasCount,
         casCount,
         facultyAqarContributions,
         placements,
         internships,
-        publications,
-        books,
-        projects,
+        publicationFacets,
+        projectFacets,
         facultyPublications,
         facultyProjects,
-        collaborations,
         activeOfficeMasters,
         systemUpdates,
         leadershipAssignmentUserIds,
         committeeMemberUserIds,
         mappings,
     ] = await Promise.all([
-        User.countDocuments({ role: "Faculty", isActive: true }),
-        User.countDocuments({ role: "Student", isActive: true }),
+        User.aggregate([{ $facet: {
+            faculty: [{ $match: { role: "Faculty", isActive: true } }, { $count: "n" }],
+            student: [{ $match: { role: "Student", isActive: true } }, { $count: "n" }],
+        }}]),
         Student.countDocuments({ status: "Active" }),
-        Organization.countDocuments({ type: "Department", isActive: true }),
-        Organization.countDocuments({ type: "College", isActive: true }),
-        Organization.countDocuments({ type: "University", isActive: true }),
+        Organization.aggregate([{ $facet: {
+            departments:  [{ $match: { type: "Department", isActive: true } }, { $count: "n" }],
+            colleges:     [{ $match: { type: "College",    isActive: true } }, { $count: "n" }],
+            universities: [{ $match: { type: "University", isActive: true } }, { $count: "n" }],
+        }}]),
         Program.countDocuments(),
-        Faculty.find().select("administrativeResponsibilities"),
+        Faculty.aggregate([
+            { $project: { n: { $size: { $ifNull: ["$administrativeResponsibilities", []] } } } },
+            { $group: { _id: null, total: { $sum: "$n" } } },
+        ]),
         FacultyQualification.distinct("facultyId"),
-        FacultyTeachingLoad.find().select("facultyId courseName"),
-        FacultyAdminRole.find().select("facultyId"),
+        FacultyTeachingLoad.countDocuments(),
+        FacultyAdminRole.countDocuments(),
         FacultyPbasForm.countDocuments({
             ...(academicYearId
                 ? {
@@ -505,12 +497,16 @@ async function buildCriteriaSections(
         ),
         Placement.countDocuments(buildInRangeOrCreatedFilter("offerDate", range, "joiningDate")),
         Internship.countDocuments(buildInRangeOrCreatedFilter("startDate", range, "endDate")),
-        Publication.countDocuments({ year: academicYear }),
-        Publication.countDocuments({ year: academicYear, type: { $in: ["Book", "BookChapter"] } }),
-        Project.countDocuments(),
+        Publication.aggregate([{ $facet: {
+            all:   [{ $match: { year: academicYear } }, { $count: "n" }],
+            books: [{ $match: { year: academicYear, type: { $in: ["Book", "BookChapter"] } } }, { $count: "n" }],
+        }}]),
+        Project.aggregate([{ $facet: {
+            all:            [{ $count: "n" }],
+            collaborations: [{ $match: { type: "Collaboration" } }, { $count: "n" }],
+        }}]),
         FacultyPublication.countDocuments(),
         FacultyResearchProject.countDocuments(),
-        Project.countDocuments({ type: "Collaboration" }),
         MasterData.countDocuments({ category: "office", isActive: true }),
         SystemMisc.countDocuments({ isActive: true }),
         LeadershipAssignment.distinct("userId", { isActive: true }),
@@ -521,27 +517,30 @@ async function buildCriteriaSections(
         listNaacCriteriaMappings(),
     ]);
 
+    const facultyCount = (userFacets[0] as { faculty?: [{ n: number }] } | undefined)?.faculty?.[0]?.n ?? 0;
+    const studentCount = (userFacets[0] as { student?: [{ n: number }] } | undefined)?.student?.[0]?.n ?? 0;
+    const departmentCount = (orgFacets[0] as { departments?: [{ n: number }] } | undefined)?.departments?.[0]?.n ?? 0;
+    const collegeCount = (orgFacets[0] as { colleges?: [{ n: number }] } | undefined)?.colleges?.[0]?.n ?? 0;
+    const universityCount = (orgFacets[0] as { universities?: [{ n: number }] } | undefined)?.universities?.[0]?.n ?? 0;
+    const publications = (publicationFacets[0] as { all?: [{ n: number }] } | undefined)?.all?.[0]?.n ?? 0;
+    const books = (publicationFacets[0] as { books?: [{ n: number }] } | undefined)?.books?.[0]?.n ?? 0;
+    const projects = (projectFacets[0] as { all?: [{ n: number }] } | undefined)?.all?.[0]?.n ?? 0;
+    const collaborations = (projectFacets[0] as { collaborations?: [{ n: number }] } | undefined)?.collaborations?.[0]?.n ?? 0;
+
     const leadershipUsers = new Set([
         ...leadershipAssignmentUserIds.map((value) => value.toString()),
         ...committeeMemberUserIds.map((value) => value.toString()),
     ]).size;
 
     const averageCoursesTaught =
-        facultyTeachingLoads.length > 0 && facultyRecords.length > 0
-            ? Number(
-                  (
-                      facultyTeachingLoads.length /
-                      facultyRecords.length
-                  ).toFixed(1)
-              )
+        teachingLoadCount > 0 && facultyCount > 0
+            ? Number((teachingLoadCount / facultyCount).toFixed(1))
             : 0;
 
     const qualifiedFaculty = qualifiedFacultyIds.length;
 
-    const totalAdministrativeResponsibilities = facultyRecords.reduce(
-        (sum, record) => sum + (record.administrativeResponsibilities?.length ?? 0),
-        facultyAdminRoles.length
-    );
+    const totalAdministrativeResponsibilities =
+        ((adminRespAgg as Array<{ total?: number }>)[0]?.total ?? 0) + facultyAdminRoleCount;
 
     const metricRegistry = new Map<
         string,

@@ -507,7 +507,7 @@ const AqarApplicationSchema = new Schema<IAqarApplication>(
     }
 );
 
-AqarApplicationSchema.index({ facultyId: 1, academicYear: 1 });
+AqarApplicationSchema.index({ facultyId: 1, academicYear: 1 }, { unique: true });
 AqarApplicationSchema.index({ facultyId: 1, academicYearId: 1 }, { sparse: true });
 AqarApplicationSchema.index({ facultyId: 1, status: 1, updatedAt: -1 });
 

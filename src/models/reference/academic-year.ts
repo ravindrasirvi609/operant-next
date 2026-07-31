@@ -18,6 +18,8 @@ const AcademicYearSchema = new Schema<IAcademicYear>(
 );
 
 AcademicYearSchema.index({ yearStart: 1, yearEnd: 1 }, { unique: true });
+// Partial/sparse unique index: at most one document may have isActive = true.
+AcademicYearSchema.index({ isActive: 1 }, { unique: true, partialFilterExpression: { isActive: true } });
 
 const AcademicYear: Model<IAcademicYear> =
     mongoose.models.AcademicYear ||

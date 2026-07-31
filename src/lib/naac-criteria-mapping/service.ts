@@ -8,7 +8,25 @@ import {
     getNaacMetricMeta,
     naacCriterionCatalog,
 } from "@/lib/naac-criteria-mapping/catalog";
-import NaacCriteriaMapping from "@/models/reference/naac-criteria-mapping";
+import NaacCriteriaMapping, { type INaacCriteriaMapping } from "@/models/reference/naac-criteria-mapping";
+
+// In-process cache — invalidated on any write mutation in this process.
+// Safe for server components and API routes; not shared across serverless instances.
+type CriteriaMappingLean = {
+    _id: INaacCriteriaMapping["_id"];
+    criteriaCode: string;
+    criteriaName: string;
+    tableName: string;
+    fieldReference: string;
+    weightage: number;
+    createdAt: Date;
+    updatedAt: Date;
+};
+let _criteriaCache: CriteriaMappingLean[] | null = null;
+
+function invalidateCriteriaCache() {
+    _criteriaCache = null;
+}
 
 const criteriaCodeSchema = z.enum(
     naacCriterionCatalog.map((item) => item.criteriaCode) as [string, ...string[]]
@@ -67,9 +85,14 @@ export async function listNaacCriteriaMappings() {
     await dbConnect();
     await ensureNaacCriteriaMappingsSeeded();
 
-    return NaacCriteriaMapping.find({})
+    if (_criteriaCache) return _criteriaCache;
+
+    const result = await NaacCriteriaMapping.find({})
         .sort({ criteriaCode: 1, tableName: 1, fieldReference: 1 })
-        .lean();
+        .lean<CriteriaMappingLean[]>();
+
+    _criteriaCache = result;
+    return result;
 }
 
 export async function createNaacCriteriaMapping(
@@ -83,6 +106,7 @@ export async function createNaacCriteriaMapping(
     const normalized = normalizeCriteriaPayload(parsed);
 
     const mapping = await NaacCriteriaMapping.create(normalized);
+    invalidateCriteriaCache();
 
     if (options?.actor) {
         await createAuditLog({
@@ -134,6 +158,7 @@ export async function updateNaacCriteriaMapping(
     existing.fieldReference = normalized.fieldReference;
     existing.weightage = normalized.weightage;
     await existing.save();
+    invalidateCriteriaCache();
 
     if (options?.actor) {
         await createAuditLog({
@@ -161,6 +186,7 @@ export async function deleteNaacCriteriaMapping(
     if (!deleted) {
         throw new Error("NAAC criteria mapping not found.");
     }
+    invalidateCriteriaCache();
 
     if (options?.actor) {
         await createAuditLog({

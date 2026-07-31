@@ -8,17 +8,24 @@ import {
     canUseBreakGlassOverride,
     canViewModuleRecord,
     resolveAuthorizationProfile,
-    resolveFacultyAuthorizationScope,
 } from "@/lib/authorization/service";
 import { AuthError } from "@/lib/auth/errors";
 import { ensureFacultyContext } from "@/lib/faculty/migration";
-import Department from "@/models/reference/department";
-import Faculty from "@/models/faculty/faculty";
-import User from "@/models/core/user";
+import {
+    applyFacultyWorkflowScope,
+    getFacultyUserInfo,
+} from "@/lib/faculty/module-helpers";
+import {
+    buildStatusLogEntry,
+    parseDeadlineDate,
+    getReminderThreshold,
+    type SafeActor,
+} from "@/lib/workflow/shared";
 import AqarApplication, { type AqarStatus } from "@/models/core/aqar-application";
 import AcademicYear from "@/models/reference/academic-year";
 import AqarCycle from "@/models/core/aqar-cycle";
 import { aqarApplicationSchema, aqarApprovalSchema, aqarReviewSchema } from "@/lib/aqar/validators";
+import { loadAqarImportContext, buildAqarImportPayload } from "@/lib/aqar/references";
 import WorkflowInstance from "@/models/core/workflow-instance";
 import {
     canActorProcessWorkflowStage,
@@ -34,57 +41,8 @@ import {
     notifyWorkflowStageAssignees,
 } from "@/lib/notifications/service";
 
-type SafeActor = {
-    id: string;
-    name: string;
-    role: string;
-    department?: string;
-    auditContext?: AuditRequestContext;
-};
 
-function parseAqarReminderDate(value?: string | null) {
-    if (!value) {
-        return null;
-    }
-
-    const trimmed = value.trim();
-    if (!trimmed) {
-        return null;
-    }
-
-    const dateOnlyMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    const date = dateOnlyMatch
-        ? new Date(`${trimmed}T23:59:59.999Z`)
-        : new Date(trimmed);
-
-    return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function getAqarReminderThreshold(daysRemaining: number) {
-    if (daysRemaining < 0) {
-        return "overdue" as const;
-    }
-
-    if (daysRemaining <= 1) {
-        return 1 as const;
-    }
-
-    if (daysRemaining <= 3) {
-        return 3 as const;
-    }
-
-    if (daysRemaining <= 7) {
-        return 7 as const;
-    }
-
-    if (daysRemaining <= 14) {
-        return 14 as const;
-    }
-
-    return null;
-}
-
-export function computeAqarMetrics(input: ReturnType<typeof aqarApplicationSchema.parse>) {
+function computeAqarMetrics(input: ReturnType<typeof aqarApplicationSchema.parse>) {
     const researchPaperCount = input.facultyContribution.researchPapers.length;
     const seedMoneyProjectCount = input.facultyContribution.seedMoneyProjects.length;
     const awardRecognitionCount = input.facultyContribution.awardsRecognition.length;
@@ -176,83 +134,13 @@ async function resolveAcademicYearFromInput(input: {
     };
 }
 
-async function getAqarWorkflowDepartmentName(application: InstanceType<typeof AqarApplication>) {
-    const faculty = await getUserForApplication(application);
-    return faculty.department;
-}
-
-async function getAqarWorkflowScope(application: InstanceType<typeof AqarApplication>) {
-    const resolved = await resolveFacultyAuthorizationScope(application.facultyId.toString());
-
-    application.scopeDepartmentId =
-        resolved.departmentId && Types.ObjectId.isValid(resolved.departmentId)
-            ? new Types.ObjectId(resolved.departmentId)
-            : undefined;
-    application.scopeInstitutionId =
-        resolved.institutionId && Types.ObjectId.isValid(resolved.institutionId)
-            ? new Types.ObjectId(resolved.institutionId)
-            : undefined;
-    application.scopeDepartmentOrganizationId =
-        resolved.departmentOrganizationId && Types.ObjectId.isValid(resolved.departmentOrganizationId)
-            ? new Types.ObjectId(resolved.departmentOrganizationId)
-            : undefined;
-    application.scopeCollegeOrganizationId =
-        resolved.collegeOrganizationId && Types.ObjectId.isValid(resolved.collegeOrganizationId)
-            ? new Types.ObjectId(resolved.collegeOrganizationId)
-            : undefined;
-    application.scopeUniversityOrganizationId =
-        resolved.universityOrganizationId && Types.ObjectId.isValid(resolved.universityOrganizationId)
-            ? new Types.ObjectId(resolved.universityOrganizationId)
-            : undefined;
-    application.scopeOrganizationIds = (resolved.subjectOrganizationIds ?? [])
-        .filter((value) => Types.ObjectId.isValid(value))
-        .map((value) => new Types.ObjectId(value));
-
-    return resolved;
-}
-
 function pushStatusLog(
     application: InstanceType<typeof AqarApplication>,
     status: AqarStatus,
     actor?: SafeActor,
     remarks?: string
 ) {
-    application.statusLogs.push({
-        status,
-        actorId: actor ? new Types.ObjectId(actor.id) : undefined,
-        actorName: actor?.name,
-        actorRole: actor?.role,
-        remarks,
-        changedAt: new Date(),
-    });
-}
-
-async function getUserForApplication(application: InstanceType<typeof AqarApplication>) {
-    const faculty = await Faculty.findById(application.facultyId).select(
-        "userId departmentId designation"
-    );
-
-    if (!faculty?.userId) {
-        throw new AuthError("Faculty account not found.", 404);
-    }
-
-    const user = await User.findById(faculty.userId).select(
-        "name email role department designation universityName collegeName"
-    );
-
-    if (!user) {
-        throw new AuthError("Faculty account not found.", 404);
-    }
-
-    const department = faculty.departmentId
-        ? await Department.findById(faculty.departmentId).select("name")
-        : null;
-
-    return {
-        ...user,
-        department: department?.name ?? user.department,
-        designation: faculty.designation || user.designation,
-    };
+    application.statusLogs.push(buildStatusLogEntry(status, actor, remarks));
 }
 
 async function notifyAqarStageAssignment(
@@ -264,7 +152,7 @@ async function notifyAqarStageAssignment(
         return;
     }
 
-    const subjectScope = await getAqarWorkflowScope(application);
+    const subjectScope = await applyFacultyWorkflowScope(application, application.facultyId);
 
     await notifyWorkflowStageAssignees({
         stage: {
@@ -289,7 +177,7 @@ async function notifyAqarFacultyOutcome(
     actor: SafeActor,
     decision: "Approve" | "Reject"
 ) {
-    const facultyUser = await getUserForApplication(application);
+    const facultyUser = await getFacultyUserInfo(application.facultyId);
 
     await notifyUser({
         userId: facultyUser._id?.toString(),
@@ -305,6 +193,7 @@ async function notifyAqarFacultyOutcome(
     });
 }
 
+/** Create a new AQAR contribution draft for the authenticated faculty. */
 export async function createAqarApplication(actor: SafeActor, rawInput: unknown) {
     const input = aqarApplicationSchema.parse(rawInput);
     await dbConnect();
@@ -316,6 +205,17 @@ export async function createAqarApplication(actor: SafeActor, rawInput: unknown)
     const { faculty } = await ensureFacultyContext(actor.id);
     const resolvedAcademicYear = await resolveAcademicYearFromInput(input);
     const metrics = computeAqarMetrics(input);
+
+    const duplicate = await AqarApplication.findOne({
+        facultyId: faculty._id,
+        academicYear: resolvedAcademicYear.label,
+    }).lean();
+    if (duplicate) {
+        throw new AuthError(
+            `An AQAR application for academic year ${resolvedAcademicYear.label} already exists.`,
+            409
+        );
+    }
 
     const application = await AqarApplication.create({
         facultyId: faculty._id,
@@ -355,6 +255,7 @@ export async function createAqarApplication(actor: SafeActor, rawInput: unknown)
     return application;
 }
 
+/** Return all AQAR applications owned by the authenticated faculty, newest first. */
 export async function getFacultyAqarApplications(actor: SafeActor) {
     await dbConnect();
 
@@ -367,6 +268,7 @@ export async function getFacultyAqarApplications(actor: SafeActor) {
     return AqarApplication.find({ facultyId: faculty._id }).sort({ updatedAt: -1 });
 }
 
+/** Fire a deadline reminder when the active AQAR cycle deadline is approaching and the faculty has no submitted application. */
 export async function ensureAqarReminderForFaculty(
     actor: Pick<SafeActor, "id" | "name" | "role" | "department">
 ) {
@@ -387,7 +289,7 @@ export async function ensureAqarReminderForFaculty(
         return;
     }
 
-    const deadline = parseAqarReminderDate(cycle.reportingPeriod?.toDate);
+    const deadline = parseDeadlineDate(cycle.reportingPeriod?.toDate);
 
     if (!deadline) {
         return;
@@ -419,7 +321,7 @@ export async function ensureAqarReminderForFaculty(
         return;
     }
 
-    const threshold = getAqarReminderThreshold(
+    const threshold = getReminderThreshold(
         Math.ceil((deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     );
 
@@ -463,6 +365,7 @@ export async function ensureAqarReminderForFaculty(
     });
 }
 
+/** Fetch a single AQAR application with role-based access control (Admin bypass, owner check, scoped view). */
 export async function getAqarApplicationById(actor: SafeActor, id: string) {
     await dbConnect();
     const application = await AqarApplication.findById(id);
@@ -482,7 +385,7 @@ export async function getAqarApplicationById(actor: SafeActor, id: string) {
         }
     }
 
-    const subjectScope = await getAqarWorkflowScope(application);
+    const subjectScope = await applyFacultyWorkflowScope(application, application.facultyId);
     const profile = await resolveAuthorizationProfile(actor);
 
     if (canViewModuleRecord(profile, "AQAR", subjectScope)) {
@@ -492,6 +395,7 @@ export async function getAqarApplicationById(actor: SafeActor, id: string) {
     throw new AuthError("You do not have access to this AQAR application.", 403);
 }
 
+/** Replace contribution data of a Draft or Rejected AQAR application; only the owner faculty may update. */
 export async function updateAqarApplication(actor: SafeActor, id: string, rawInput: unknown) {
     const input = aqarApplicationSchema.parse(rawInput);
     const application = await getAqarApplicationById(actor, id);
@@ -517,7 +421,6 @@ export async function updateAqarApplication(actor: SafeActor, id: string, rawInp
     application.facultyContribution = input.facultyContribution;
     application.metrics = computeAqarMetrics(input);
 
-    pushStatusLog(application, application.status, actor, "AQAR application draft auto-saved.");
     await application.save();
 
     await createAuditLog({
@@ -533,6 +436,7 @@ export async function updateAqarApplication(actor: SafeActor, id: string, rawInp
     return application;
 }
 
+/** Transition a Draft or Rejected application to Submitted; triggers workflow sync and stage-assignment notification. */
 export async function submitAqarApplication(actor: SafeActor, id: string) {
     const application = await getAqarApplicationById(actor, id);
     const facultyContext = actor.role === "Faculty" ? await ensureFacultyContext(actor.id) : null;
@@ -554,7 +458,7 @@ export async function submitAqarApplication(actor: SafeActor, id: string) {
     }
 
     const oldState = application.toObject();
-    const subjectScope = await getAqarWorkflowScope(application);
+    const subjectScope = await applyFacultyWorkflowScope(application, application.facultyId);
 
     application.status = resolveWorkflowTransition(
         workflowDefinition,
@@ -591,6 +495,7 @@ export async function submitAqarApplication(actor: SafeActor, id: string) {
     return application;
 }
 
+/** Permanently delete a Draft or Rejected AQAR application; only the owner faculty may delete. */
 export async function deleteAqarApplication(actor: SafeActor, id: string) {
     await dbConnect();
 
@@ -627,11 +532,12 @@ export async function deleteAqarApplication(actor: SafeActor, id: string) {
     return application;
 }
 
+/** Forward, recommend, or reject a Submitted/Under-Review application; roles enforced by the workflow engine. */
 export async function reviewAqarApplication(actor: SafeActor, id: string, rawInput: unknown) {
     const input = aqarReviewSchema.parse(rawInput);
     const application = await getAqarApplicationById(actor, id);
     const workflowDefinition = await getActiveWorkflowDefinition("AQAR");
-    const subjectScope = await getAqarWorkflowScope(application);
+    const subjectScope = await applyFacultyWorkflowScope(application, application.facultyId);
     const isOverride = canUseBreakGlassOverride(actor, "AQAR") && Boolean(input.overrideReason?.trim());
     const canReview = await canActorProcessWorkflowStage({
         actor,
@@ -774,12 +680,13 @@ export async function reviewAqarApplication(actor: SafeActor, id: string, rawInp
     return application;
 }
 
+/** Final approve or reject a Committee-Review application; restricted to Principal and Admin. */
 export async function approveAqarApplication(actor: SafeActor, id: string, rawInput: unknown) {
     const input = aqarApprovalSchema.parse(rawInput);
     const workflowDefinition = await getActiveWorkflowDefinition("AQAR");
 
     const application = await getAqarApplicationById(actor, id);
-    const subjectScope = await getAqarWorkflowScope(application);
+    const subjectScope = await applyFacultyWorkflowScope(application, application.facultyId);
     const isOverride = canUseBreakGlassOverride(actor, "AQAR") && Boolean(input.overrideReason?.trim());
     const canFinalize = await canActorProcessWorkflowStage({
         actor,
@@ -799,8 +706,15 @@ export async function approveAqarApplication(actor: SafeActor, id: string, rawIn
     });
     const oldState = application.toObject();
 
+    if (application.status !== "Committee Review") {
+        throw new AuthError(
+            `AQAR application cannot be finalized in status "${application.status}". Expected "Committee Review".`,
+            409
+        );
+    }
+
     if (!canFinalize && !isOverride) {
-        throw new AuthError("Only final-stage AQAR applications can be finalized.", 409);
+        throw new AuthError("You are not authorized to finalize this AQAR application.", 403);
     }
 
     application.status = resolveWorkflowTransition(
@@ -860,6 +774,32 @@ export async function approveAqarApplication(actor: SafeActor, id: string, rawIn
     return application;
 }
 
+/** Return faculty workspace records pre-mapped to AQAR contribution shape for pre-filling the contribution form. */
+export async function getAqarImportCandidates(actor: SafeActor, id: string) {
+    const application = await getAqarApplicationById(actor, id);
+    const facultyContext = actor.role === "Faculty" ? await ensureFacultyContext(actor.id) : null;
+
+    if (
+        actor.role !== "Faculty" ||
+        application.facultyId.toString() !== facultyContext?.faculty._id.toString()
+    ) {
+        throw new AuthError(
+            "Only the faculty owner can access import candidates for this AQAR application.",
+            403
+        );
+    }
+
+    const facultyUserInfo = await getFacultyUserInfo(application.facultyId);
+    const resolvedYear = await resolveAcademicYearFromInput({
+        academicYearId: application.academicYearId?.toString(),
+        academicYear: application.academicYear,
+    });
+
+    const context = await loadAqarImportContext(application.facultyId, resolvedYear.id);
+    return buildAqarImportPayload(context, facultyUserInfo.name ?? "", application.academicYear);
+}
+
+/** Return pending AQAR applications visible to the actor in their workflow review queue. */
 export async function getAqarReviewQueue(
     actor: SafeActor,
     options?: { stageKinds?: Array<"review" | "final"> }
@@ -872,7 +812,7 @@ export async function getAqarReviewQueue(
 
     await Promise.all(
         applications.map(async (application) => {
-            const subjectScope = await getAqarWorkflowScope(application);
+            const subjectScope = await applyFacultyWorkflowScope(application, application.facultyId);
             await syncWorkflowInstanceState({
                 moduleName: "AQAR",
                 recordId: application._id.toString(),
@@ -900,6 +840,7 @@ export async function getAqarReviewQueue(
     return applications.filter((application) => recordIdSet.has(application._id.toString()));
 }
 
+/** Return all AQAR applications within the actor's organizational scope, annotated with per-record review/approve permissions. */
 export async function getAqarScopedApplications(actor: SafeActor) {
     await dbConnect();
     const profile = await resolveAuthorizationProfile(actor);
@@ -912,7 +853,7 @@ export async function getAqarScopedApplications(actor: SafeActor) {
 
     await Promise.all(
         applications.map(async (application) => {
-            const subjectScope = await getAqarWorkflowScope(application);
+            const subjectScope = await applyFacultyWorkflowScope(application, application.facultyId);
             await syncWorkflowInstanceState({
                 moduleName: "AQAR",
                 recordId: application._id.toString(),

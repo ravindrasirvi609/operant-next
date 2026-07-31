@@ -2,7 +2,7 @@ import { Types } from "mongoose";
 import { z } from "zod";
 
 import dbConnect from "@/lib/dbConnect";
-import { DEFAULT_PBAS_SCORING_WEIGHTS } from "@/lib/pbas/service";
+import { DEFAULT_PBAS_SCORING_WEIGHTS } from "@/lib/pbas/scoring";
 import { pbasScoringSettingsSchema, pbasScoringWeightsSchema } from "@/lib/pbas/validators";
 import MasterData from "@/models/core/master-data";
 import PbasCategoryMaster from "@/models/core/pbas-category-master";

@@ -260,7 +260,62 @@ Run this checklist each release:
 - PDF generation works
 - AQAR integration consumes approved PBAS counts correctly
 
-## 12. Conclusion
+## 12. Scoring Architecture
+
+All `apiScore` writes in this system go through a single, consolidated pipeline:
+
+```
+buildRawIndicatorScores()          — pure function, no DB
+        ↓
+computePbasDynamicScorecard()      — loads catalog from DB, clamps per-indicator and per-category
+        ↓
+IPbasApiScore { teachingActivities, researchAcademicContribution,
+                institutionalResponsibilities, totalScore }
+```
+
+**Source file:** `src/lib/pbas/scoring.ts`
+
+### 12.1 buildRawIndicatorScores
+
+Pure synchronous function. Computes a raw (uncapped) score for each of the 30 PBAS formula keys:
+
+| Key range | Category | DB required? |
+|---|---|---|
+| A1–A4 | Teaching activities (classesTaken, coursePrep, mentoring, lab) | No |
+| A5–A9 | Teaching phase-2 (pedagogy, curriculum, e-content, feedback, assessment) | Needs `PbasReferenceContext` |
+| B1–B5 | Research base (papers, books, patents, conferences, projects) | No |
+| B6–B12 | Research phase-2 (guidance, consultancy, MOOCs, awards, impact, editorial) | Needs `PbasReferenceContext` |
+| C1–C4 | Institutional base (admin roles, exam duties, student guidance, extension) | No |
+| C5–C10 | Institutional phase-2 (FDP, professional body, community, outreach, governance) | Needs `PbasReferenceContext` |
+
+Phase-2 indicators return 0 when `PbasReferenceContext` is absent (no error thrown).
+
+### 12.2 computePbasDynamicScorecard
+
+Async function that loads `PbasIndicatorMaster` and `PbasCategoryMaster` from MongoDB, clamps each indicator's raw score to its `maxScore`, accumulates per-category totals, then applies category caps (falling back to `DEFAULT_PBAS_SCORING_WEIGHTS.caps` when the master data has no entry).
+
+Returns `PbasDynamicScorecard`:
+- `apiScore` — the final `IPbasApiScore` stored on the form
+- `claimedScores` — the full flat map (A1…C10 + rollup keys A_TOTAL, B_TOTAL, C_TOTAL, API_TOTAL)
+- `indicators` — the catalog entries used for clamping
+
+### 12.3 DEFAULT_PBAS_SCORING_WEIGHTS
+
+Defined in `src/lib/pbas/scoring.ts`. Used as the fallback when no `pbas_settings` master data entry exists. Runtime overrides come from `MasterData` (category `pbas_settings`, key `scoring_weights`).
+
+### 12.4 Where apiScore is written
+
+- **On submit** — `submitPbasApplication` calls `resolveDraftState`, which calls `computePbasDynamicScorecard`. The returned `apiScore` is written to both the `FacultyPbasForm` document and the `FacultyPbasRevision` created at submit time.
+- **On update** — `updatePbasApplication` and `updatePbasDraftReferences` also call `resolveDraftState` so the score preview stays current.
+- **On review/approve** — score is **not** recomputed. The value frozen at submit time is the final recorded score.
+
+### 12.5 Legacy note
+
+A simpler `computePbasApiScore` function (base categories only, no phase-2, no DB) existed previously. It was removed in Phase 3 of the code refactor because it was never called at runtime — all scoring paths already used the dynamic pipeline exclusively.
+
+---
+
+## 13. Conclusion
 
 The PBAS Self Appraisal System is implemented and operational with a dynamic, schema-aligned architecture.
 For your Notion PBAS core requirement, this application is correctly implemented.
