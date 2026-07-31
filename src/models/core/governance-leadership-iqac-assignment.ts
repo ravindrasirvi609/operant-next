@@ -107,10 +107,10 @@ const StatusLogSchema = new Schema<IGovernanceLeadershipIqacAssignmentStatusLog>
     { _id: false }
 );
 
-const objectIdArrayField = {
-    type: [{ type: Schema.Types.ObjectId }],
+const objectIdArrayField = (ref: string) => ({
+    type: [{ type: Schema.Types.ObjectId, ref }],
     default: [],
-};
+});
 
 const GovernanceLeadershipIqacAssignmentSchema =
     new Schema<IGovernanceLeadershipIqacAssignment>(
@@ -143,10 +143,10 @@ const GovernanceLeadershipIqacAssignmentSchema =
             institutionalBestPracticesNarrative: { type: String, trim: true },
             feedbackLoopNarrative: { type: String, trim: true },
             actionPlan: { type: String, trim: true },
-            iqacMeetingIds: objectIdArrayField,
-            qualityInitiativeIds: objectIdArrayField,
-            policyCircularIds: objectIdArrayField,
-            complianceReviewIds: objectIdArrayField,
+            iqacMeetingIds: objectIdArrayField("GovernanceIqacMeeting"),
+            qualityInitiativeIds: objectIdArrayField("GovernanceQualityInitiative"),
+            policyCircularIds: objectIdArrayField("GovernancePolicyCircular"),
+            complianceReviewIds: objectIdArrayField("GovernanceComplianceReview"),
             supportingLinks: { type: [String], default: [] },
             documentIds: { type: [{ type: Schema.Types.ObjectId, ref: "Document" }], default: [] },
             contributorRemarks: { type: String, trim: true },

@@ -8,27 +8,6 @@ export interface IFacultyDegree {
     year?: string;
 }
 
-export interface ICasEntry {
-    _id?: Types.ObjectId;
-    assessmentPeriodStart: string;
-    assessmentPeriodEnd: string;
-    promotionFrom: string;
-    promotionTo: string;
-    currentStage?: string;
-    teachingExperienceYears?: number;
-    researchSummary?: string;
-    publicationCount?: number;
-    bookCount?: number;
-    conferenceCount?: number;
-    workshopCount?: number;
-    projectCount?: number;
-    phdSupervisionCount?: number;
-    adminResponsibilitySummary?: string;
-    apiScoreClaimed?: number;
-    status?: "Draft" | "Submitted";
-    submittedAt?: Date;
-}
-
 export interface IPbasEntry {
     _id?: Types.ObjectId;
     academicYear: string;
@@ -81,7 +60,6 @@ export interface IFacultyRecord extends Document {
     coursesTaught: string[];
     administrativeResponsibilities: string[];
     degrees: IFacultyDegree[];
-    casEntries: ICasEntry[];
     pbasEntries: IPbasEntry[];
     aqarEntries: IAqarEntry[];
     createdAt: Date;
@@ -97,29 +75,6 @@ const DegreeSchema = new Schema<IFacultyDegree>(
         year: { type: String, trim: true },
     },
     { _id: false }
-);
-
-const CasEntrySchema = new Schema<ICasEntry>(
-    {
-        assessmentPeriodStart: { type: String, required: true, trim: true },
-        assessmentPeriodEnd: { type: String, required: true, trim: true },
-        promotionFrom: { type: String, required: true, trim: true },
-        promotionTo: { type: String, required: true, trim: true },
-        currentStage: { type: String, trim: true },
-        teachingExperienceYears: { type: Number, default: 0 },
-        researchSummary: { type: String, trim: true },
-        publicationCount: { type: Number, default: 0 },
-        bookCount: { type: Number, default: 0 },
-        conferenceCount: { type: Number, default: 0 },
-        workshopCount: { type: Number, default: 0 },
-        projectCount: { type: Number, default: 0 },
-        phdSupervisionCount: { type: Number, default: 0 },
-        adminResponsibilitySummary: { type: String, trim: true },
-        apiScoreClaimed: { type: Number, default: 0 },
-        status: { type: String, enum: ["Draft", "Submitted"], default: "Submitted" },
-        submittedAt: { type: Date, default: Date.now },
-    },
-    { _id: true }
 );
 
 const PbasEntrySchema = new Schema<IPbasEntry>(
@@ -179,7 +134,6 @@ const FacultyRecordSchema = new Schema<IFacultyRecord>(
         coursesTaught: { type: [String], default: [] },
         administrativeResponsibilities: { type: [String], default: [] },
         degrees: { type: [DegreeSchema], default: [] },
-        casEntries: { type: [CasEntrySchema], default: [] },
         pbasEntries: { type: [PbasEntrySchema], default: [] },
         aqarEntries: { type: [AqarEntrySchema], default: [] },
     },

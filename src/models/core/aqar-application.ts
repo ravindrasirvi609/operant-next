@@ -177,7 +177,7 @@ export interface IAqarStatusLog {
 
 export interface IAqarApplication extends Document {
     facultyId: Types.ObjectId;
-    academicYearId?: Types.ObjectId;
+    academicYearId: Types.ObjectId;
     academicYear: string;
     scopeDepartmentId?: Types.ObjectId;
     scopeInstitutionId?: Types.ObjectId;
@@ -450,7 +450,7 @@ const StatusLogSchema = new Schema<IAqarStatusLog>(
 const AqarApplicationSchema = new Schema<IAqarApplication>(
     {
         facultyId: { type: Schema.Types.ObjectId, ref: "Faculty", required: true, index: true },
-        academicYearId: { type: Schema.Types.ObjectId, ref: "AcademicYear", index: true },
+        academicYearId: { type: Schema.Types.ObjectId, ref: "AcademicYear", required: true, index: true },
         academicYear: { type: String, required: true, trim: true, index: true },
         scopeDepartmentId: { type: Schema.Types.ObjectId, ref: "Department", index: true },
         scopeInstitutionId: { type: Schema.Types.ObjectId, ref: "Institution", index: true },
@@ -507,8 +507,7 @@ const AqarApplicationSchema = new Schema<IAqarApplication>(
     }
 );
 
-AqarApplicationSchema.index({ facultyId: 1, academicYear: 1 }, { unique: true });
-AqarApplicationSchema.index({ facultyId: 1, academicYearId: 1 }, { sparse: true });
+AqarApplicationSchema.index({ facultyId: 1, academicYearId: 1 }, { unique: true });
 AqarApplicationSchema.index({ facultyId: 1, status: 1, updatedAt: -1 });
 
 const AqarApplication: Model<IAqarApplication> =

@@ -55,6 +55,14 @@ GovernanceCommitteeMembershipSchema.index(
         partialFilterExpression: { isActive: true, userId: { $exists: true } },
     }
 );
+// External members (no user account) are unique per committee by name while active.
+GovernanceCommitteeMembershipSchema.index(
+    { committeeId: 1, memberName: 1 },
+    {
+        unique: true,
+        partialFilterExpression: { isActive: true, userId: { $exists: false } },
+    }
+);
 GovernanceCommitteeMembershipSchema.index({ committeeId: 1, isActive: 1, memberRole: 1 });
 
 const GovernanceCommitteeMembership: Model<IGovernanceCommitteeMembership> =

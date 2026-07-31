@@ -55,7 +55,8 @@ export interface IFacultyEvidenceCollaboration {
 }
 
 export interface IFacultyEvidence extends Document {
-    facultyId: Types.ObjectId;
+    /** References User._id (one evidence document per user). Named userId for clarity. */
+    userId: Types.ObjectId;
     publications: IFacultyEvidencePublication[];
     books: IFacultyEvidenceBook[];
     projects: IFacultyEvidenceProject[];
@@ -148,7 +149,7 @@ const CollaborationSchema = new Schema<IFacultyEvidenceCollaboration>(
 
 const FacultyEvidenceSchema = new Schema<IFacultyEvidence>(
     {
-        facultyId: { type: Schema.Types.ObjectId, ref: "User", unique: true, required: true, index: true },
+        userId: { type: Schema.Types.ObjectId, ref: "User", unique: true, required: true, index: true },
         publications: { type: [PublicationSchema], default: [] },
         books: { type: [BookSchema], default: [] },
         projects: { type: [ProjectSchema], default: [] },

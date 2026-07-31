@@ -107,10 +107,10 @@ const StatusLogSchema = new Schema<IInfrastructureLibraryAssignmentStatusLog>(
     { _id: false }
 );
 
-const objectIdArrayField = {
-    type: [{ type: Schema.Types.ObjectId }],
+const objectIdArrayField = (ref: string) => ({
+    type: [{ type: Schema.Types.ObjectId, ref }],
     default: [],
-};
+});
 
 const InfrastructureLibraryAssignmentSchema =
     new Schema<IInfrastructureLibraryAssignment>(
@@ -143,10 +143,10 @@ const InfrastructureLibraryAssignmentSchema =
             safetyCompliance: { type: String, trim: true },
             studentSupportServices: { type: String, trim: true },
             resourceGapActionPlan: { type: String, trim: true },
-            facilityIds: objectIdArrayField,
-            libraryResourceIds: objectIdArrayField,
-            usageIds: objectIdArrayField,
-            maintenanceIds: objectIdArrayField,
+            facilityIds: objectIdArrayField("InfrastructureLibraryFacility"),
+            libraryResourceIds: objectIdArrayField("InfrastructureLibraryResource"),
+            usageIds: objectIdArrayField("InfrastructureLibraryUsage"),
+            maintenanceIds: objectIdArrayField("InfrastructureLibraryMaintenance"),
             supportingLinks: { type: [String], default: [] },
             documentIds: { type: [{ type: Schema.Types.ObjectId, ref: "Document" }], default: [] },
             contributorRemarks: { type: String, trim: true },

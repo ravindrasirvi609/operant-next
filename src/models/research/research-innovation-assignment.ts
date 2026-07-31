@@ -116,10 +116,10 @@ const StatusLogSchema = new Schema<IResearchInnovationAssignmentStatusLog>(
     { _id: false }
 );
 
-const objectIdArrayField = {
-    type: [{ type: Schema.Types.ObjectId }],
+const objectIdArrayField = (ref: string) => ({
+    type: [{ type: Schema.Types.ObjectId, ref }],
     default: [],
-};
+});
 
 const ResearchInnovationAssignmentSchema =
     new Schema<IResearchInnovationAssignment>(
@@ -152,19 +152,19 @@ const ResearchInnovationAssignmentSchema =
             studentResearchEngagement: { type: String, trim: true },
             collaborationHighlights: { type: String, trim: true },
             ethicsAndCompliance: { type: String, trim: true },
-            facultyPublicationIds: objectIdArrayField,
-            facultyPatentIds: objectIdArrayField,
-            facultyResearchProjectIds: objectIdArrayField,
-            facultyConsultancyIds: objectIdArrayField,
-            researchPublicationIds: objectIdArrayField,
-            researchProjectIds: objectIdArrayField,
-            intellectualPropertyIds: objectIdArrayField,
-            researchActivityIds: objectIdArrayField,
-            studentPublicationIds: objectIdArrayField,
-            studentResearchProjectIds: objectIdArrayField,
-            activityIds: objectIdArrayField,
-            grantIds: objectIdArrayField,
-            startupIds: objectIdArrayField,
+            facultyPublicationIds: objectIdArrayField("FacultyPublication"),
+            facultyPatentIds: objectIdArrayField("FacultyPatent"),
+            facultyResearchProjectIds: objectIdArrayField("FacultyResearchProject"),
+            facultyConsultancyIds: objectIdArrayField("FacultyConsultancy"),
+            researchPublicationIds: objectIdArrayField("Publication"),
+            researchProjectIds: objectIdArrayField("Project"),
+            intellectualPropertyIds: objectIdArrayField("IntellectualProperty"),
+            researchActivityIds: objectIdArrayField("ResearchActivity"),
+            studentPublicationIds: objectIdArrayField("StudentPublication"),
+            studentResearchProjectIds: objectIdArrayField("StudentResearchProject"),
+            activityIds: objectIdArrayField("ResearchInnovationActivity"),
+            grantIds: objectIdArrayField("ResearchInnovationGrant"),
+            startupIds: objectIdArrayField("ResearchInnovationStartup"),
             supportingLinks: { type: [String], default: [] },
             documentIds: { type: [{ type: Schema.Types.ObjectId, ref: "Document" }], default: [] },
             contributorRemarks: { type: String, trim: true },

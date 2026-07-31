@@ -7,6 +7,8 @@
  * six times today. This is the single source of truth for that mapping.
  */
 
+import { Types } from "mongoose";
+
 /** Anything with a `.toString()` (e.g. a Mongoose `ObjectId`). */
 type Stringable = { toString(): string };
 
@@ -60,4 +62,57 @@ export function toWorkflowSubjectScope(source: ContributorScopeSource): Workflow
         subjectUniversityOrganizationId: idToString(source.scopeUniversityOrganizationId),
         subjectOrganizationIds: (source.scopeOrganizationIds ?? []).map((value) => value.toString()),
     };
+}
+
+/**
+ * The resolved-scope shape produced by module scope resolvers (string-based ids).
+ * Structurally identical across every contributor module's local `<Module>Scope` type.
+ */
+export interface ResolvedScopeInput {
+    departmentName?: string;
+    collegeName?: string;
+    universityName?: string;
+    departmentId?: string;
+    institutionId?: string;
+    departmentOrganizationId?: string;
+    collegeOrganizationId?: string;
+    universityOrganizationId?: string;
+    subjectOrganizationIds?: string[];
+}
+
+/** A document (plan or assignment) that carries the writable 9-field scope block. */
+export interface WritableScopeTarget {
+    scopeDepartmentName?: string;
+    scopeCollegeName?: string;
+    scopeUniversityName?: string;
+    scopeDepartmentId?: Types.ObjectId;
+    scopeInstitutionId?: Types.ObjectId;
+    scopeDepartmentOrganizationId?: Types.ObjectId;
+    scopeCollegeOrganizationId?: Types.ObjectId;
+    scopeUniversityOrganizationId?: Types.ObjectId;
+    scopeOrganizationIds: Types.ObjectId[];
+}
+
+function toObjectId(value?: string): Types.ObjectId | undefined {
+    return value && Types.ObjectId.isValid(value) ? new Types.ObjectId(value) : undefined;
+}
+
+/**
+ * Write the full 9-field scope snapshot (denormalised names + ObjectId refs) onto a
+ * plan/assignment document. The single write-side counterpart to `toWorkflowSubjectScope`:
+ * centralising this ensures a module can never persist ObjectIds while forgetting the
+ * denormalised names (or vice-versa), which is what kept the two out of sync before.
+ */
+export function writeScopeSnapshot(target: WritableScopeTarget, scope: ResolvedScopeInput): void {
+    target.scopeDepartmentName = scope.departmentName;
+    target.scopeCollegeName = scope.collegeName;
+    target.scopeUniversityName = scope.universityName;
+    target.scopeDepartmentId = toObjectId(scope.departmentId);
+    target.scopeInstitutionId = toObjectId(scope.institutionId);
+    target.scopeDepartmentOrganizationId = toObjectId(scope.departmentOrganizationId);
+    target.scopeCollegeOrganizationId = toObjectId(scope.collegeOrganizationId);
+    target.scopeUniversityOrganizationId = toObjectId(scope.universityOrganizationId);
+    target.scopeOrganizationIds = (scope.subjectOrganizationIds ?? [])
+        .filter((value) => Types.ObjectId.isValid(value))
+        .map((value) => new Types.ObjectId(value));
 }

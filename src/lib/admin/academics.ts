@@ -11,6 +11,12 @@ import Program from "@/models/academic/program";
 import Course from "@/models/academic/course";
 import Semester from "@/models/reference/semester";
 import FacultyTeachingLoad from "@/models/faculty/faculty-teaching-load";
+import AqarApplication from "@/models/core/aqar-application";
+import AqarCycle from "@/models/core/aqar-cycle";
+import CasApplication from "@/models/core/cas-application";
+import FacultyPbasForm from "@/models/core/faculty-pbas-form";
+import Student from "@/models/student/student";
+import { assertNoActiveDependents } from "@/lib/admin/integrity";
 import {
     academicYearSchema,
     academicYearUpdateSchema,
@@ -169,14 +175,13 @@ export async function deleteAcademicYear(
         throw new AuthError("Academic year not found.", 404);
     }
 
-    const usedByPrograms = await Program.exists({ startAcademicYearId: id });
-
-    if (usedByPrograms) {
-        throw new AuthError(
-            "Academic year is mapped to programs and cannot be deleted.",
-            409
-        );
-    }
+    await assertNoActiveDependents("Academic year", [
+        { label: "programs", exists: () => Program.exists({ startAcademicYearId: id }) },
+        { label: "AQAR applications", exists: () => AqarApplication.exists({ academicYearId: id }) },
+        { label: "AQAR cycles", exists: () => AqarCycle.exists({ academicYearId: id }) },
+        { label: "PBAS forms", exists: () => FacultyPbasForm.exists({ academicYearId: id }) },
+        { label: "CAS applications", exists: () => CasApplication.exists({ applicationYearId: id }) },
+    ]);
 
     const deletedState = existing.toObject();
     await AcademicYear.findByIdAndDelete(id);
@@ -501,17 +506,11 @@ export async function deleteProgram(
         throw new AuthError("Program not found.", 404);
     }
 
-    const [hasCourses, hasTeachingLoads] = await Promise.all([
-        Course.exists({ programId: id }),
-        FacultyTeachingLoad.exists({ programId: id }),
+    await assertNoActiveDependents("Program", [
+        { label: "courses", exists: () => Course.exists({ programId: id }) },
+        { label: "faculty teaching loads", exists: () => FacultyTeachingLoad.exists({ programId: id }) },
+        { label: "enrolled students", exists: () => Student.exists({ programId: id }) },
     ]);
-
-    if (hasCourses || hasTeachingLoads) {
-        throw new AuthError(
-            "Program is linked to courses or faculty teaching loads and cannot be deleted.",
-            409
-        );
-    }
 
     const deletedState = existing.toObject();
     await Program.findByIdAndDelete(id);
@@ -652,13 +651,9 @@ export async function deleteSemester(
         throw new AuthError("Semester not found.", 404);
     }
 
-    const hasCourses = await Course.exists({ semesterId: id });
-    if (hasCourses) {
-        throw new AuthError(
-            "Semester is linked to one or more courses and cannot be deleted.",
-            409
-        );
-    }
+    await assertNoActiveDependents("Semester", [
+        { label: "courses", exists: () => Course.exists({ semesterId: id }) },
+    ]);
 
     const deletedState = existing.toObject();
     await Semester.findByIdAndDelete(id);
@@ -821,13 +816,9 @@ export async function deleteCourse(
 
     const deletedState = existing.toObject();
 
-    const hasTeachingLoads = await FacultyTeachingLoad.exists({ courseId: id });
-    if (hasTeachingLoads) {
-        throw new AuthError(
-            "Course is linked to faculty teaching loads and cannot be deleted.",
-            409
-        );
-    }
+    await assertNoActiveDependents("Course", [
+        { label: "faculty teaching loads", exists: () => FacultyTeachingLoad.exists({ courseId: id }) },
+    ]);
 
     await Course.findByIdAndDelete(id);
 

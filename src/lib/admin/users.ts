@@ -18,6 +18,36 @@ import Student from "@/models/student/student";
 
 type ProvisionedUser = Awaited<ReturnType<typeof createProvisionedStudent>>;
 
+/**
+ * Translate a MongoDB duplicate-key error (E11000) into a friendly 409. The pre-flight
+ * findOne checks give nice messages for the common case, but a concurrent insert can slip
+ * past them; the unique indexes are the real guard, and this maps their rejection to a 409
+ * instead of a generic 500.
+ */
+function translateDuplicateKeyError(error: unknown): never {
+    const duplicate = error as { code?: number; keyPattern?: Record<string, unknown> };
+
+    if (duplicate?.code === 11000) {
+        const key = duplicate.keyPattern ? Object.keys(duplicate.keyPattern)[0] : undefined;
+
+        if (key === "email") {
+            throw new AuthError("An account already exists for that email.", 409);
+        }
+
+        if (key === "enrollmentNo") {
+            throw new AuthError("That enrollment number is already provisioned.", 409);
+        }
+
+        if (key === "employeeCode") {
+            throw new AuthError("That faculty employee code is already provisioned.", 409);
+        }
+
+        throw new AuthError("A record with those unique details already exists.", 409);
+    }
+
+    throw error;
+}
+
 export async function getAdminUsers() {
     await dbConnect();
 
@@ -311,6 +341,8 @@ export async function createProvisionedStudent(
         }
 
         return provisionedStudentUser;
+    } catch (error) {
+        translateDuplicateKeyError(error);
     } finally {
         await session.endSession();
     }
@@ -428,6 +460,8 @@ export async function createProvisionedFaculty(
         }
 
         return provisionedFacultyUser;
+    } catch (error) {
+        translateDuplicateKeyError(error);
     } finally {
         await session.endSession();
     }

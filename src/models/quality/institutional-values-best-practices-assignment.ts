@@ -115,10 +115,10 @@ const StatusLogSchema = new Schema<IInstitutionalValuesBestPracticesAssignmentSt
     { _id: false }
 );
 
-const objectIdArrayField = {
-    type: [{ type: Schema.Types.ObjectId }],
+const objectIdArrayField = (ref: string) => ({
+    type: [{ type: Schema.Types.ObjectId, ref }],
     default: [],
-};
+});
 
 const InstitutionalValuesBestPracticesAssignmentSchema =
     new Schema<IInstitutionalValuesBestPracticesAssignment>(
@@ -149,20 +149,20 @@ const InstitutionalValuesBestPracticesAssignmentSchema =
             institutionalDistinctivenessNarrative: { type: String, trim: true },
             sustainabilityAuditNarrative: { type: String, trim: true },
             actionPlan: { type: String, trim: true },
-            greenCampusInitiativeIds: objectIdArrayField,
-            environmentalResourceRecordIds: objectIdArrayField,
-            energyConsumptionRecordIds: objectIdArrayField,
-            waterManagementSystemIds: objectIdArrayField,
-            wasteManagementPracticeIds: objectIdArrayField,
-            genderEquityProgramIds: objectIdArrayField,
-            inclusivenessFacilityIds: objectIdArrayField,
-            ethicsProgramIds: objectIdArrayField,
-            codeOfConductRecordIds: objectIdArrayField,
-            communityOutreachProgramIds: objectIdArrayField,
-            outreachParticipantIds: objectIdArrayField,
-            institutionalBestPracticeIds: objectIdArrayField,
-            institutionalDistinctivenessIds: objectIdArrayField,
-            sustainabilityAuditIds: objectIdArrayField,
+            greenCampusInitiativeIds: objectIdArrayField("GreenCampusInitiative"),
+            environmentalResourceRecordIds: objectIdArrayField("EnvironmentalResourceRecord"),
+            energyConsumptionRecordIds: objectIdArrayField("EnergyConsumptionRecord"),
+            waterManagementSystemIds: objectIdArrayField("WaterManagementSystem"),
+            wasteManagementPracticeIds: objectIdArrayField("WasteManagementPractice"),
+            genderEquityProgramIds: objectIdArrayField("GenderEquityProgram"),
+            inclusivenessFacilityIds: objectIdArrayField("InclusivenessFacility"),
+            ethicsProgramIds: objectIdArrayField("EthicsProgram"),
+            codeOfConductRecordIds: objectIdArrayField("CodeOfConductRecord"),
+            communityOutreachProgramIds: objectIdArrayField("CommunityOutreachProgram"),
+            outreachParticipantIds: objectIdArrayField("OutreachParticipant"),
+            institutionalBestPracticeIds: objectIdArrayField("InstitutionalBestPractice"),
+            institutionalDistinctivenessIds: objectIdArrayField("InstitutionalDistinctiveness"),
+            sustainabilityAuditIds: objectIdArrayField("SustainabilityAudit"),
             supportingLinks: { type: [String], default: [] },
             documentIds: { type: [{ type: Schema.Types.ObjectId, ref: "Document" }], default: [] },
             contributorRemarks: { type: String, trim: true },

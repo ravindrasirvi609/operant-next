@@ -47,6 +47,12 @@ const StudentSchema = new Schema<IStudent>(
 
 StudentSchema.index({ enrollmentNo: 1 }, { unique: true });
 StudentSchema.index({ userId: 1 }, { unique: true, sparse: true });
+// Partial unique on email: guards against duplicate student accounts while allowing
+// records with no email (empty string or missing) to coexist.
+StudentSchema.index(
+    { email: 1 },
+    { unique: true, partialFilterExpression: { email: { $type: "string", $gt: "" } } }
+);
 StudentSchema.index({ departmentId: 1, programId: 1, status: 1 });
 
 const Student: Model<IStudent> =

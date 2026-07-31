@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 
 import { formatAcademicYearLabel, getAcademicYearReportingPeriod } from "@/lib/academic-year";
+import { writeScopeSnapshot } from "@/lib/contributor-kernel/scope";
 import { createAuditLog, type AuditRequestContext } from "@/lib/audit/service";
 import { AuthError } from "@/lib/auth/errors";
 import {
@@ -374,60 +375,14 @@ function copyScopeToPlan(
     plan: InstanceType<typeof ResearchInnovationPlan>,
     scope: ResearchInnovationScope
 ) {
-    plan.scopeDepartmentName = scope.departmentName;
-    plan.scopeCollegeName = scope.collegeName;
-    plan.scopeUniversityName = scope.universityName;
-    plan.scopeDepartmentId =
-        scope.departmentId && Types.ObjectId.isValid(scope.departmentId)
-            ? new Types.ObjectId(scope.departmentId)
-            : undefined;
-    plan.scopeInstitutionId =
-        scope.institutionId && Types.ObjectId.isValid(scope.institutionId)
-            ? new Types.ObjectId(scope.institutionId)
-            : undefined;
-    plan.scopeDepartmentOrganizationId =
-        scope.departmentOrganizationId && Types.ObjectId.isValid(scope.departmentOrganizationId)
-            ? new Types.ObjectId(scope.departmentOrganizationId)
-            : undefined;
-    plan.scopeCollegeOrganizationId =
-        scope.collegeOrganizationId && Types.ObjectId.isValid(scope.collegeOrganizationId)
-            ? new Types.ObjectId(scope.collegeOrganizationId)
-            : undefined;
-    plan.scopeUniversityOrganizationId =
-        scope.universityOrganizationId && Types.ObjectId.isValid(scope.universityOrganizationId)
-            ? new Types.ObjectId(scope.universityOrganizationId)
-            : undefined;
-    plan.scopeOrganizationIds = toObjectIdList(scope.subjectOrganizationIds);
+    writeScopeSnapshot(plan, scope);
 }
 
 function copyScopeToAssignment(
     assignment: InstanceType<typeof ResearchInnovationAssignment>,
     scope: ResearchInnovationScope
 ) {
-    assignment.scopeDepartmentName = scope.departmentName;
-    assignment.scopeCollegeName = scope.collegeName;
-    assignment.scopeUniversityName = scope.universityName;
-    assignment.scopeDepartmentId =
-        scope.departmentId && Types.ObjectId.isValid(scope.departmentId)
-            ? new Types.ObjectId(scope.departmentId)
-            : undefined;
-    assignment.scopeInstitutionId =
-        scope.institutionId && Types.ObjectId.isValid(scope.institutionId)
-            ? new Types.ObjectId(scope.institutionId)
-            : undefined;
-    assignment.scopeDepartmentOrganizationId =
-        scope.departmentOrganizationId && Types.ObjectId.isValid(scope.departmentOrganizationId)
-            ? new Types.ObjectId(scope.departmentOrganizationId)
-            : undefined;
-    assignment.scopeCollegeOrganizationId =
-        scope.collegeOrganizationId && Types.ObjectId.isValid(scope.collegeOrganizationId)
-            ? new Types.ObjectId(scope.collegeOrganizationId)
-            : undefined;
-    assignment.scopeUniversityOrganizationId =
-        scope.universityOrganizationId && Types.ObjectId.isValid(scope.universityOrganizationId)
-            ? new Types.ObjectId(scope.universityOrganizationId)
-            : undefined;
-    assignment.scopeOrganizationIds = toObjectIdList(scope.subjectOrganizationIds);
+    writeScopeSnapshot(assignment, scope);
 }
 
 function mapDocumentRecord(record: Record<string, any>): SourceDocumentSummary {

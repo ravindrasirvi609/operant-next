@@ -107,10 +107,10 @@ const StatusLogSchema = new Schema<IStudentSupportGovernanceAssignmentStatusLog>
     { _id: false }
 );
 
-const objectIdArrayField = {
-    type: [{ type: Schema.Types.ObjectId }],
+const objectIdArrayField = (ref: string) => ({
+    type: [{ type: Schema.Types.ObjectId, ref }],
     default: [],
-};
+});
 
 const StudentSupportGovernanceAssignmentSchema =
     new Schema<IStudentSupportGovernanceAssignment>(
@@ -143,10 +143,10 @@ const StudentSupportGovernanceAssignmentSchema =
             inclusionSupport: { type: String, trim: true },
             feedbackMechanism: { type: String, trim: true },
             actionPlan: { type: String, trim: true },
-            mentorGroupIds: objectIdArrayField,
-            grievanceIds: objectIdArrayField,
-            progressionIds: objectIdArrayField,
-            representationIds: objectIdArrayField,
+            mentorGroupIds: objectIdArrayField("StudentSupportMentorGroup"),
+            grievanceIds: objectIdArrayField("StudentSupportGrievance"),
+            progressionIds: objectIdArrayField("StudentSupportProgression"),
+            representationIds: objectIdArrayField("StudentSupportRepresentation"),
             supportingLinks: { type: [String], default: [] },
             documentIds: { type: [{ type: Schema.Types.ObjectId, ref: "Document" }], default: [] },
             contributorRemarks: { type: String, trim: true },

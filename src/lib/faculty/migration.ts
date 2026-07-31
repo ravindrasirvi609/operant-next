@@ -381,7 +381,7 @@ export async function ensureFacultyContext(userId: string) {
         }
     }
 
-    const legacyEvidence = await FacultyEvidence.findOne({ facultyId: user._id });
+    const legacyEvidence = await FacultyEvidence.findOne({ userId: user._id });
 
     if (legacyEvidence) {
         for (const item of legacyEvidence.publications) {

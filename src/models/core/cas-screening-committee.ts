@@ -61,7 +61,16 @@ const CasScreeningCommitteeMemberSchema = new Schema<ICasScreeningCommitteeMembe
     { timestamps: true, collection: "cas_screening_committee" }
 );
 
-CasScreeningCommitteeMemberSchema.index({ casApplicationId: 1, stage: 1, committeeMemberName: 1 });
+// Internal reviewers (with a user account) are unique per application+stage.
+CasScreeningCommitteeMemberSchema.index(
+    { casApplicationId: 1, reviewerUserId: 1, stage: 1 },
+    { unique: true, partialFilterExpression: { reviewerUserId: { $exists: true } } }
+);
+// External members (no user account) are unique per application+stage by name.
+CasScreeningCommitteeMemberSchema.index(
+    { casApplicationId: 1, stage: 1, committeeMemberName: 1 },
+    { unique: true, partialFilterExpression: { reviewerUserId: { $exists: false } } }
+);
 
 const CasScreeningCommitteeMember: Model<ICasScreeningCommitteeMember> =
     mongoose.models.CasScreeningCommitteeMember ||
