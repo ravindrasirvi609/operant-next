@@ -384,10 +384,10 @@ export async function getCasEligibilityForFaculty(actor: SafeActor): Promise<Cas
         }
     }
 
-    const approvedPbas = await FacultyPbasForm.find({
-        facultyId: faculty._id,
-        status: "Approved",
-    }).sort({ updatedAt: -1 });
+    const [approvedPbas, rule] = await Promise.all([
+        FacultyPbasForm.find({ facultyId: faculty._id, status: "Approved" }).sort({ updatedAt: -1 }),
+        faculty.designation ? getCasPromotionRule(faculty.designation) : Promise.resolve(null),
+    ]);
 
     const approvedPbasCount = approvedPbas.length;
     const lastApproved = approvedPbas[0];
@@ -421,7 +421,6 @@ export async function getCasEligibilityForFaculty(actor: SafeActor): Promise<Cas
         };
     }
 
-    const rule = await getCasPromotionRule(faculty.designation);
     if (!rule) {
         return {
             eligible: false,

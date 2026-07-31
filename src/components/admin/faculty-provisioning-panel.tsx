@@ -5,7 +5,7 @@ import { useState, useTransition, type ChangeEvent, type FormEvent } from "react
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Download, FileSpreadsheet, UploadCloud } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
-import * as XLSX from "xlsx";
+import { useXlsx } from "@/lib/hooks/use-xlsx";
 import type { z } from "zod";
 
 import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
@@ -104,7 +104,7 @@ function parseNumberCell(value: unknown) {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
-function parseBulkFacultyWorkbook(file: File) {
+function parseBulkFacultyWorkbook(file: File, XLSX: typeof import("xlsx")) {
     return file.arrayBuffer().then((arrayBuffer) => {
         const workbook = XLSX.read(arrayBuffer, { type: "array" });
         const firstSheetName = workbook.SheetNames[0];
@@ -196,7 +196,7 @@ function parseBulkFacultyWorkbook(file: File) {
     });
 }
 
-function downloadFacultyProvisionTemplate() {
+function downloadFacultyProvisionTemplate(XLSX: typeof import("xlsx")) {
     const workbook = XLSX.utils.book_new();
     const templateSheet = XLSX.utils.json_to_sheet(templateRows, {
         header: [...templateHeaders],
@@ -259,6 +259,7 @@ export function FacultyProvisioningPanel({
     departmentOptions: Option[];
 }) {
     const router = useRouter();
+    const { getXlsx } = useXlsx();
     const [isPending, startTransition] = useTransition();
     const [isBulkPending, startBulkTransition] = useTransition();
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(
@@ -357,7 +358,7 @@ export function FacultyProvisioningPanel({
 
         startBulkTransition(async () => {
             try {
-                const parsedRows = await parseBulkFacultyWorkbook(bulkFile);
+                const parsedRows = await parseBulkFacultyWorkbook(bulkFile, await getXlsx());
                 const result = (await requestJson("/api/admin/users/bulk-faculty", {
                     method: "POST",
                     body: JSON.stringify({ entries: parsedRows }),
@@ -487,7 +488,7 @@ export function FacultyProvisioningPanel({
                         <p className="mt-1 text-sm text-zinc-700">{templateHeaders.join(", ")}</p>
                     </div>
 
-                    <Button className="w-full" onClick={downloadFacultyProvisionTemplate} type="button" variant="outline">
+                    <Button className="w-full" onClick={() => { void getXlsx().then(downloadFacultyProvisionTemplate); }} type="button" variant="outline">
                         <Download className="size-4" />
                         Download Sample Excel
                     </Button>

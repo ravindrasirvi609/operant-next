@@ -46,3 +46,25 @@ describe("PBAS review transition derivation", () => {
         );
     });
 });
+
+describe("PBAS workflow — gap cases", () => {
+    it("Rejected → Submitted is valid (faculty can resubmit)", () => {
+        expect(canTransitionPbasStatus("Rejected", "Submitted")).toBe(true);
+    });
+
+    it("Under Review → Rejected is valid (reviewer can reject)", () => {
+        expect(deriveReviewTransition("Under Review", "Reject")).toBe("Rejected");
+    });
+
+    it("Approved is a terminal state — no outgoing transition", () => {
+        expect(canTransitionPbasStatus("Approved", "Submitted")).toBe(false);
+        expect(canTransitionPbasStatus("Approved", "Under Review")).toBe(false);
+        expect(canTransitionPbasStatus("Approved", "Draft")).toBe(false);
+    });
+
+    it("assertPbasTransition throws for invalid skip (Under Review → Approved)", () => {
+        expect(() =>
+            assertPbasTransition("Under Review", "Approved", { actionLabel: "approve" })
+        ).toThrow("Invalid PBAS status transition");
+    });
+});

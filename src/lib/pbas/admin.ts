@@ -7,6 +7,7 @@ import { pbasScoringSettingsSchema, pbasScoringWeightsSchema } from "@/lib/pbas/
 import MasterData from "@/models/core/master-data";
 import PbasCategoryMaster from "@/models/core/pbas-category-master";
 import PbasIndicatorMaster from "@/models/core/pbas-indicator-master";
+import { parseDeadlineDate } from "@/lib/workflow/shared";
 
 const categoryCodeSchema = z
     .string()
@@ -239,4 +240,42 @@ export async function updatePbasScoringSettings(input: unknown, actorId?: string
     ]);
 
     return getPbasScoringSettings();
+}
+
+async function getPbasSettingsMaster() {
+    return MasterData.findOne({
+        category: "pbas_settings",
+        key: "scoring_weights",
+        isActive: true,
+    }).lean();
+}
+
+export async function getPbasScoringWeightsFromMasterData() {
+    const setting = await getPbasSettingsMaster();
+    const raw = (setting?.metadata as { value?: unknown } | undefined)?.value ?? setting?.metadata;
+    const parsed = pbasScoringWeightsSchema.safeParse(raw);
+
+    if (!parsed.success) {
+        return DEFAULT_PBAS_SCORING_WEIGHTS;
+    }
+
+    return parsed.data;
+}
+
+export async function getPbasSubmissionDeadline() {
+    const deadlineEntry = await MasterData.findOne({
+        category: "pbas_settings",
+        key: "submission_deadline",
+        isActive: true,
+    }).lean();
+
+    const rawDeadline =
+        (deadlineEntry?.metadata as { value?: string } | undefined)?.value ||
+        deadlineEntry?.label ||
+        "";
+
+    return {
+        rawDeadline,
+        parsedDeadline: parseDeadlineDate(rawDeadline),
+    };
 }

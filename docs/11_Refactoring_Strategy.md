@@ -474,6 +474,77 @@ Structured logger (Wave 0). Aggregation pipeline pattern established in director
 **Estimated Complexity:** Medium  
 **Priority:** P1 (performance)
 
+**Phase 7 completion summary (2026-07-31)**
+
+Four work streams shipped under Phase 7:
+
+**Part A — Wave 1 Test Infrastructure:**
+- New `src/lib/authorization/service.test.ts` (18 tests): covers all four pure-sync helpers —
+  `canViewModuleRecord`, `canReviewWorkflowStage`, `buildAuthorizedScopeQuery`,
+  `canUseBreakGlassOverride`. No DB, no mocks — all pure profile fixture tests.
+- `src/lib/pbas/workflow.test.ts`: added 4 gap cases — Rejected→Submitted resubmit path,
+  Under Review→Rejected, Approved terminal state (3 checks), Under Review→Approved skip guard.
+- `src/lib/pbas/scoring.test.ts`: added 21 gap tests covering A4, A7–A9 (phase-2 teaching
+  indicators) and B7–B12, C6–C9 (phase-2 research/institutional indicators with context fixtures).
+- Total test count: 110 → 146 (+36 tests across 12 test files; all pass).
+
+**Part B — CAS Eligibility Parallelization (`src/lib/cas/service.ts`):**
+- `getCasEligibilityForFaculty`: merged the sequential `FacultyPbasForm.find` and
+  `getCasPromotionRule` calls into a single `Promise.all` — saves 1 DB round-trip on
+  every eligibility check. The null guard for missing designation is preserved via
+  conditional `Promise.resolve(null)`.
+
+**Part C — Frontend Bundle:**
+- `src/app/(admin-protected)/admin/hierarchy/page.tsx`: HierarchyManager converted from
+  static import to `next/dynamic({ ssr: false })` — moves the React Flow / DND kit bundle
+  out of the initial page chunk.
+- New `src/lib/hooks/use-xlsx.ts`: `useXlsx()` hook — caches the xlsx module on first call
+  via a `useRef`; subsequent calls return synchronously.
+- `src/components/admin/faculty-provisioning-panel.tsx`: converted from top-level
+  `import * as XLSX from "xlsx"` to lazy loading via `useXlsx()` —
+  both `parseBulkFacultyWorkbook` and `downloadFacultyProvisionTemplate` now receive XLSX
+  as a parameter; the download button calls `getXlsx().then(...)`.
+
+**Part D — Pagination Helper:**
+- New `src/lib/pagination.ts`: `parsePaginationParams` (page/pageSize clamping) and
+  `buildPaginatedResult` (constructs `PaginatedResult<T>` with totalPages).
+- `src/lib/audit/service.ts`: `listAuditLogs` now uses both helpers; the inline arithmetic
+  is removed. Behavior and output shape are identical.
+
+**Phase 8 completion summary (2026-07-31)**
+
+Wave 3 service decomposition of `src/lib/pbas/service.ts` (1,966 lines, 22 exports) into
+focused sub-modules. Strangler-fig approach: new files created first, `service.ts` replaced
+last with a 4-line re-export shim so all 15+ API routes needed zero import changes.
+
+**Pre-work — helpers relocated:**
+- `getPbasScoringWeightsFromMasterData` + `getPbasSubmissionDeadline` appended to `admin.ts`
+  (alongside the existing write-side `updatePbasScoringSettings`; eliminates circular-dep risk).
+- `buildPbasSnapshot` appended to `references.ts` (thin wrapper over `loadPbasReferenceContext`
+  + `resolvePbasSnapshotFromReferences`, which already lived there).
+
+**New sub-modules:**
+- `src/lib/pbas/notifications.ts` (~140 lines): `ensurePbasDeadlineReminderForFaculty`,
+  `notifyPbasStageAssignment`, `notifyPbasFacultyOutcome`. Imports nothing from `lifecycle.ts`
+  — no circular dependency.
+- `src/lib/pbas/lifecycle.ts` (~750 lines, 18 exports): full form CRUD + review workflow
+  (`createPbasApplication`, `submitPbasApplication`, `reviewPbasApplication`,
+  `approvePbasApplication`, `getPbasApplicationById`, `canReviewPbasApplication`, etc.) plus
+  all private helpers. Imports notifications and admin sub-modules.
+- `src/lib/pbas/entries.ts` (~280 lines, 3 exports): `getPbasEntriesForForm`,
+  `upsertPbasEntryForForm`, `moderatePbasEntriesForForm`. Imports `getPbasApplicationById` and
+  `canReviewPbasApplication` from `lifecycle.ts`; no reverse dependency.
+- `src/lib/pbas/index.ts` (11 lines): barrel re-exporting all 10 sub-modules — new callers
+  can import from `"@/lib/pbas"` for the full surface.
+
+**`service.ts` replaced** with 4-line shim re-exporting `lifecycle`, `entries`, `notifications`.
+
+**Verification:**
+- `npx tsc --noEmit`: zero errors across the full project.
+- `npx vitest run`: 146/146 tests pass (12 test files).
+- All 15 API route files continue to import from `"@/lib/pbas/service"` unchanged; every
+  function resolves correctly through the shim.
+
 **Phase 5 completion summary (2026-07-31)**
 
 Two improvements shipped under Phase 5:

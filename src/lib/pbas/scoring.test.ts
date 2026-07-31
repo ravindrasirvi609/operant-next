@@ -133,6 +133,13 @@ describe("buildRawIndicatorScores — Category A", () => {
         expect(scores.A5_INNOVATIVE_PEDAGOGY).toBe(0);
     });
 
+    it("A4: labSupervisionCount × labSupervisionCount weight", () => {
+        const snap = emptySnapshot();
+        (snap as any).category1.labSupervisionCount = 4;
+        const scores = buildRawIndicatorScores(snap, W);
+        expect(scores.A4_LAB_SUPERVISION).toBe(roundScore(4 * W.category1.labSupervisionCount));
+    });
+
     it("A6: coursesTaught length × curriculumDevPerCourse", () => {
         const snap = emptySnapshot();
         (snap as any).category1.coursesTaught = ["Math", "Physics"];
@@ -352,5 +359,122 @@ describe("buildRawIndicatorScores — phase-2 with context", () => {
         } as unknown as PbasReferenceContext;
         const scores = buildRawIndicatorScores(emptySnapshot(), W, context);
         expect(scores.C10_GOVERNANCE_ROLE).toBe(0);
+    });
+
+    it("B7: consultancy items × consultancyPerProject", () => {
+        const context = {
+            consultancies: [{}, {}],
+        } as unknown as PbasReferenceContext;
+        const scores = buildRawIndicatorScores(emptySnapshot(), W, context);
+        expect(scores.B7_CONSULTANCY).toBe(roundScore(2 * W.phase2.consultancyPerProject));
+    });
+
+    it("B8: econtent items × researchEcontentPerItem", () => {
+        const context = {
+            econtentItems: [{}, {}, {}],
+        } as unknown as PbasReferenceContext;
+        const scores = buildRawIndicatorScores(emptySnapshot(), W, context);
+        expect(scores.B8_ECONTENT).toBe(roundScore(3 * W.phase2.researchEcontentPerItem));
+    });
+
+    it("B9: MOOC courses × moocCompletionPerCourse", () => {
+        const context = {
+            moocCourses: [{}],
+        } as unknown as PbasReferenceContext;
+        const scores = buildRawIndicatorScores(emptySnapshot(), W, context);
+        expect(scores.B9_MOOC_COMPLETION).toBe(W.phase2.moocCompletionPerCourse);
+    });
+
+    it("B10: national award scores awardsNational", () => {
+        const context = {
+            awards: [{ awardLevel: "National" }],
+        } as unknown as PbasReferenceContext;
+        const scores = buildRawIndicatorScores(emptySnapshot(), W, context);
+        expect(scores.B10_AWARDS).toBe(W.phase2.awardsNational);
+    });
+
+    it("B10: college-level award scores awardsCollege", () => {
+        const context = {
+            awards: [{ awardLevel: "College" }],
+        } as unknown as PbasReferenceContext;
+        const scores = buildRawIndicatorScores(emptySnapshot(), W, context);
+        expect(scores.B10_AWARDS).toBe(W.phase2.awardsCollege);
+    });
+
+    it("B12: Chair and ResourcePerson roles both count for editorial review", () => {
+        const context = {
+            eventParticipations: [
+                { role: "Chair" },
+                { role: "ResourcePerson" },
+                { role: "Attendee" },
+            ],
+        } as unknown as PbasReferenceContext;
+        const scores = buildRawIndicatorScores(emptySnapshot(), W, context);
+        expect(scores.B12_EDITORIAL_REVIEW).toBe(roundScore(2 * W.phase2.editorialReviewPerRole));
+    });
+
+    it("C6: membership role counts as professional body", () => {
+        const context = {
+            institutionalContributions: [{ role: "Membership" }, { role: "Teacher" }],
+        } as unknown as PbasReferenceContext;
+        const scores = buildRawIndicatorScores(emptySnapshot(), W, context);
+        expect(scores.C6_PROFESSIONAL_BODY).toBe(W.phase2.professionalBodyPerMembership);
+    });
+
+    it("C7: social extension activities × communityServicePerActivity", () => {
+        const context = {
+            socialExtensions: [{}, {}, {}],
+        } as unknown as PbasReferenceContext;
+        const scores = buildRawIndicatorScores(emptySnapshot(), W, context);
+        expect(scores.C7_COMMUNITY_SERVICE).toBe(roundScore(3 * W.phase2.communityServicePerActivity));
+    });
+
+    it("C8: outreach uses same socialExtensions count × outreachPerActivity", () => {
+        const context = {
+            socialExtensions: [{}, {}],
+        } as unknown as PbasReferenceContext;
+        const scores = buildRawIndicatorScores(emptySnapshot(), W, context);
+        expect(scores.C8_OUTREACH_PROGRAMS).toBe(roundScore(2 * W.phase2.outreachPerActivity));
+    });
+
+    it("C9: ResourcePerson event participations × resourcePersonPerEvent", () => {
+        const context = {
+            eventParticipations: [
+                { role: "ResourcePerson" },
+                { role: "ResourcePerson" },
+                { role: "Chair" },
+            ],
+        } as unknown as PbasReferenceContext;
+        const scores = buildRawIndicatorScores(emptySnapshot(), W, context);
+        expect(scores.C9_RESOURCE_PERSON).toBe(roundScore(2 * W.phase2.resourcePersonPerEvent));
+    });
+
+    it("A7: econtent items × econtentDevelopmentPerItem", () => {
+        const context = {
+            econtentItems: [{}, {}],
+        } as unknown as PbasReferenceContext;
+        const scores = buildRawIndicatorScores(emptySnapshot(), W, context);
+        expect(scores.A7_ECONTENT_DEVELOPMENT).toBe(roundScore(2 * W.phase2.econtentDevelopmentPerItem));
+    });
+
+    it("A8: result summaries avg / studentFeedbackDivisor", () => {
+        const context = {
+            resultSummaries: [{ passPercentage: 80 }, { passPercentage: 60 }],
+        } as unknown as PbasReferenceContext;
+        const scores = buildRawIndicatorScores(emptySnapshot(), W, context);
+        expect(scores.A8_STUDENT_FEEDBACK).toBe(
+            roundScore(70 / W.phase2.studentFeedbackDivisor)
+        );
+    });
+
+    it("A9: high outcome students trigger assessmentInnovation points", () => {
+        const context = {
+            resultSummaries: [
+                { universityRankStudents: 2 },
+                { universityRankStudents: 0 },
+            ],
+        } as unknown as PbasReferenceContext;
+        const scores = buildRawIndicatorScores(emptySnapshot(), W, context);
+        expect(scores.A9_ASSESSMENT_INNOVATION).toBe(W.phase2.assessmentInnovationPerHighOutcome);
     });
 });

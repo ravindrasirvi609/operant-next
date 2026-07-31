@@ -772,6 +772,46 @@ export function resolvePbasSnapshotFromReferences(
     });
 }
 
+export async function buildPbasSnapshot(
+    facultyId: Types.ObjectId,
+    academicYearId?: Types.ObjectId | null
+): Promise<PbasSnapshot> {
+    if (!academicYearId) {
+        return resolvePbasSnapshotFromReferences(
+            {
+                academicYearId: new Types.ObjectId(),
+                academicYear: {
+                    yearStart: new Date().getFullYear(),
+                    yearEnd: new Date().getFullYear() + 1,
+                },
+                teachingSummary: null,
+                teachingLoads: [],
+                resultSummaries: [],
+                publications: [],
+                books: [],
+                patents: [],
+                projects: [],
+                eventParticipations: [],
+                adminRoles: [],
+                institutionalContributions: [],
+                socialExtensions: [],
+                fdps: [],
+                moocCourses: [],
+                econtentItems: [],
+                phdGuidance: [],
+                awards: [],
+                consultancies: [],
+            },
+            emptyPbasDraftReferences()
+        );
+    }
+
+    const context = await loadPbasReferenceContext(facultyId, academicYearId);
+    const draftReferences = deriveAutoDraftReferences(context);
+
+    return resolvePbasSnapshotFromReferences(context, draftReferences);
+}
+
 export function serializePbasCandidatePools(context: PbasReferenceContext): PbasCandidatePools {
     const adminRoles = context.adminRoles;
 

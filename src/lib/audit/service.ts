@@ -1,6 +1,7 @@
 import { Types, type ClientSession } from "mongoose";
 
 import dbConnect from "@/lib/dbConnect";
+import { buildPaginatedResult, parsePaginationParams } from "@/lib/pagination";
 import AuditLog from "@/models/core/audit-log";
 
 export type AuditActor = {
@@ -110,8 +111,7 @@ export async function createAuditLog({
 export async function listAuditLogs(filters: AuditLogFilters = {}) {
     await dbConnect();
 
-    const page = Math.max(1, Number(filters.page ?? 1));
-    const pageSize = Math.min(100, Math.max(10, Number(filters.pageSize ?? 25)));
+    const { page, pageSize, skip } = parsePaginationParams(filters);
     const query: Record<string, unknown> = {};
 
     if (filters.action?.trim()) {
@@ -156,7 +156,7 @@ export async function listAuditLogs(filters: AuditLogFilters = {}) {
         AuditLog.find(query)
             .populate("userId", "name email role")
             .sort({ createdAt: -1 })
-            .skip((page - 1) * pageSize)
+            .skip(skip)
             .limit(pageSize)
             .lean(),
         AuditLog.countDocuments(query),
@@ -165,13 +165,7 @@ export async function listAuditLogs(filters: AuditLogFilters = {}) {
     ]);
 
     return {
-        items,
-        pagination: {
-            page,
-            pageSize,
-            total,
-            totalPages: Math.max(1, Math.ceil(total / pageSize)),
-        },
+        ...buildPaginatedResult(items, total, page, pageSize),
         filterOptions: {
             actions: actions.sort(),
             tableNames: tables.sort(),
