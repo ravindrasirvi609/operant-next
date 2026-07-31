@@ -1,5 +1,16 @@
 export const facultyEmploymentTypes = ["Permanent", "AdHoc", "Guest"] as const;
 
+export const qualificationLevels = [
+    "Diploma",
+    "Certificate",
+    "UG",
+    "PG",
+    "M.Phil",
+    "Ph.D",
+    "Post-Doc",
+    "Other",
+] as const;
+
 export const publicationTypes = ["Scopus", "UGC", "WebOfScience", "Book"] as const;
 export const publicationAuthorPositions = [
     "First",

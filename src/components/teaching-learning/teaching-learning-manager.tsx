@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -719,9 +720,10 @@ export function TeachingLearningManager({
                                     </button>
                                 ))
                             ) : (
-                                <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                                    No plans matched the current filters.
-                                </div>
+                                <EmptyState
+                                    title="No plans found"
+                                    description="No plans matched the current filters."
+                                />
                             )}
                         </CardContent>
                     </Card>
@@ -883,9 +885,10 @@ export function TeachingLearningManager({
                                     </button>
                                 ))
                             ) : (
-                                <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                                    No assignments matched the current filters.
-                                </div>
+                                <EmptyState
+                                    title="No assignments found"
+                                    description="No assignments matched the current filters."
+                                />
                             )}
                         </CardContent>
                     </Card>

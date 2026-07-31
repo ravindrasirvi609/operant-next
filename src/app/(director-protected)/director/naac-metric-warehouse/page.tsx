@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireDirector } from "@/lib/auth/user";
 import { getNaacMetricWarehouseLeadershipWorkspace } from "@/lib/naac-metric-warehouse/service";
@@ -65,9 +66,10 @@ export default async function DirectorNaacMetricWarehousePage() {
                     </div>
 
                     {!safeDashboard.workspace ? (
-                        <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                            No generated NAAC warehouse cycle is available yet. Ask an admin to create and generate a warehouse cycle first.
-                        </div>
+                        <EmptyState
+                            title="No warehouse cycle"
+                            description="No generated NAAC warehouse cycle is available yet. Ask an admin to create and generate a warehouse cycle first."
+                        />
                     ) : (
                         <>
                             <div className="grid gap-4 md:grid-cols-4">

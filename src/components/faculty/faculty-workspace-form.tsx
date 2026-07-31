@@ -25,6 +25,8 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { InlineUpload } from "@/components/ui/file-upload";
+import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { UploadedDocument } from "@/lib/upload/service";
 import {
     awardLevels,
@@ -41,6 +43,7 @@ import {
     phdGuidanceStatuses,
     publicationAuthorPositions,
     publicationTypes,
+    qualificationLevels,
     researchProjectStatuses,
     researchProjectTypes,
 } from "@/lib/faculty/options";
@@ -1325,9 +1328,13 @@ export function FacultyWorkspaceForm({
                 <Card>
                     <CardContent className="flex flex-col items-center gap-4 p-5">
                         <ProfilePhotoUpload userId={user.id} currentPhotoURL={user.photoURL} />
-                        <div className="space-y-1 text-center">
+                        <div className="w-full space-y-1 text-center">
                             <p className="text-lg font-semibold text-slate-900">{user.name}</p>
-                            <p className="text-sm text-slate-500">Profile completion: {completion.profileScore}%</p>
+                            <p className="text-xs text-slate-500">
+                                Profile completion: {completion.completedProfileFields}/{completion.totalProfileFields} fields
+                            </p>
+                            <Progress value={completion.profileScore} className="mt-2 h-1.5" />
+                            <p className="text-xs font-medium text-slate-700">{completion.profileScore}%</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -1441,13 +1448,21 @@ export function FacultyWorkspaceForm({
                             <div className="grid gap-4">
                                 <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 md:grid-cols-2 xl:grid-cols-5">
                                     <Field label="Level" id="qualificationLevel">
-                                        <Input
-                                            id="qualificationLevel"
-                                            value={qualificationDraft.level}
-                                            onChange={(event) =>
-                                                setQualificationDraft((prev) => ({ ...prev, level: event.target.value }))
+                                        <Select
+                                            value={qualificationDraft.level || undefined}
+                                            onValueChange={(value) =>
+                                                setQualificationDraft((prev) => ({ ...prev, level: value }))
                                             }
-                                        />
+                                        >
+                                            <SelectTrigger id="qualificationLevel" className="w-full">
+                                                <SelectValue placeholder="Select level" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {qualificationLevels.map((level) => (
+                                                    <SelectItem key={level} value={level}>{level}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </Field>
                                     <Field label="Degree" id="qualificationDegree">
                                         <Input
@@ -1724,12 +1739,22 @@ export function FacultyWorkspaceForm({
                                                     <TableCell>{(field.coursesTaught ?? []).join(", ") || "-"}</TableCell>
                                                     <TableCell className="text-right">
                                                         <div className="flex justify-end gap-1">
-                                                            <Button type="button" variant="outline" size="icon-sm" onClick={() => editTeachingSummaryFromTable(index)}>
-                                                                <LucideIcons.Pencil className="size-4" />
-                                                            </Button>
-                                                            <Button type="button" variant="ghost" size="icon-sm" onClick={() => teachingSummaries.remove(index)}>
-                                                                <LucideIcons.Trash2 className="size-4" />
-                                                            </Button>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button type="button" variant="outline" size="icon-sm" onClick={() => editTeachingSummaryFromTable(index)}>
+                                                                        <LucideIcons.Pencil className="size-4" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>Edit</TooltipContent>
+                                                            </Tooltip>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => teachingSummaries.remove(index)}>
+                                                                        <LucideIcons.Trash2 className="size-4" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>Remove</TooltipContent>
+                                                            </Tooltip>
                                                         </div>
                                                     </TableCell>
                                                 </TableRow>

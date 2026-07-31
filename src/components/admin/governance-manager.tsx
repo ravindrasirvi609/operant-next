@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition, type ReactNode } from "react";
 
 import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -586,7 +587,7 @@ export function GovernanceManager({
                                     </div>
                                 ))
                             ) : (
-                                <EmptyState text="No governance assignments have been created yet." />
+                                <EmptyState title="No assignments found" description="No governance assignments have been created yet." />
                             )}
                         </CardContent>
                     </Card>
@@ -877,7 +878,7 @@ export function GovernanceManager({
                                     </div>
                                 ))
                             ) : (
-                                <EmptyState text="No committees have been created yet." />
+                                <EmptyState title="No committees found" description="No committees have been created yet." />
                             )}
                         </CardContent>
                     </Card>
@@ -892,14 +893,6 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
         <div className="grid gap-2">
             <Label>{label}</Label>
             {children}
-        </div>
-    );
-}
-
-function EmptyState({ text }: { text: string }) {
-    return (
-        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-            {text}
         </div>
     );
 }

@@ -6,6 +6,7 @@ import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -442,9 +443,10 @@ function ListTable({
                     </div>
                 ))
             ) : (
-                <div className="rounded-xl border border-dashed border-zinc-200 p-6 text-sm text-zinc-500">
-                    No reference records yet.
-                </div>
+                <EmptyState
+                    title="No reference records"
+                    description="No reference records have been created yet."
+                />
             )}
         </div>
     );

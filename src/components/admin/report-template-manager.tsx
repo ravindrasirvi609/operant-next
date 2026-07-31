@@ -5,6 +5,7 @@ import { type FormEvent, useEffect, useMemo, useState, useTransition } from "rea
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -242,9 +243,10 @@ export function ReportTemplateManager({
 
     if (!selectedTemplate) {
         return (
-            <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-6 text-sm text-zinc-500">
-                No report templates are available yet.
-            </div>
+            <EmptyState
+                title="No report templates"
+                description="No report templates are available yet."
+            />
         );
     }
 
@@ -436,9 +438,10 @@ export function ReportTemplateManager({
                         ) : null}
 
                         {previewMode === "live" && previewCandidates.length === 0 ? (
-                            <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-center text-sm text-zinc-500">
-                                No live records are available yet for this template type. Switch to sample mode to review the layout.
-                            </div>
+                            <EmptyState
+                                title="No live records"
+                                description="No live records are available for this template type. Switch to sample mode to review the layout."
+                            />
                         ) : previewMode === "live" && !previewRecordId ? (
                             <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-center text-sm text-zinc-500">
                                 Select a live record to load the preview.

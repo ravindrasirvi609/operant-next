@@ -2,9 +2,12 @@
 
 import { useMemo, useState, useTransition } from "react";
 
+import { ScrollText } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import {
     Select,
@@ -206,6 +209,14 @@ export function AuditLogManager({ initialData }: { initialData: AuditLogResponse
 
                 {error ? <p className="text-sm text-rose-600">{error}</p> : null}
                 {isPending ? <p className="text-sm text-zinc-500">Refreshing audit logs...</p> : null}
+
+                {data.items.length === 0 ? (
+                    <EmptyState
+                        icon={ScrollText}
+                        title="No audit logs found"
+                        description="Try adjusting your filters or date range."
+                    />
+                ) : null}
 
                 <div className="space-y-3">
                     {data.items.map((item) => (

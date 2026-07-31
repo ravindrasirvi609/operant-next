@@ -19,6 +19,7 @@ import { FieldError, FormMessage, Spinner } from "@/components/auth/auth-helpers
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -724,10 +725,10 @@ export function HierarchyManager({
                                     ))}
                                 </div>
                             ) : (
-                                <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-6 text-center">
-                                    <p className="text-sm font-medium text-zinc-700">No hierarchy nodes match these filters.</p>
-                                    <p className="mt-1 text-xs text-zinc-500">Try clearing search or changing type/status filters.</p>
-                                </div>
+                                <EmptyState
+                                    title="No hierarchy nodes found"
+                                    description="Try clearing search or changing type/status filters."
+                                />
                             )}
                         </TabsContent>
 
@@ -758,10 +759,10 @@ export function HierarchyManager({
                                     </div>
                                 </div>
                             ) : (
-                                <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-6 text-center">
-                                    <p className="text-sm font-medium text-zinc-700">No nodes available for visual tree.</p>
-                                    <p className="mt-1 text-xs text-zinc-500">Create hierarchy nodes or adjust filters to render the graph.</p>
-                                </div>
+                                <EmptyState
+                                    title="No nodes for tree view"
+                                    description="Create hierarchy nodes or adjust filters to render the graph."
+                                />
                             )}
                         </TabsContent>
                     </Tabs>

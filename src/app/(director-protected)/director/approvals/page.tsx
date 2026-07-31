@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { requireDirector } from "@/lib/auth/user";
 import { getLeadershipDashboardData } from "@/lib/director/dashboard";
 
@@ -146,9 +147,10 @@ export default async function DirectorApprovalsPage() {
                             </div>
                         ))
                     ) : (
-                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-8 text-center text-sm text-zinc-500">
-                            Nothing is waiting on your action right now.
-                        </div>
+                        <EmptyState
+                            title="No pending actions"
+                            description="Nothing is waiting on your action right now."
+                        />
                     )}
                 </CardContent>
             </Card>

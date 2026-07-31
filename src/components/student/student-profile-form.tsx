@@ -17,6 +17,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -211,7 +212,23 @@ export function StudentProfileForm({
                             </FormField>
 
                             <FormField label="Date of Birth" id="student-dob" error={form.formState.errors.dob?.message}>
-                                <Input id="student-dob" type="date" {...form.register("dob")} />
+                                <Controller
+                                    control={form.control}
+                                    name="dob"
+                                    render={({ field }) => {
+                                        const strVal = typeof field.value === "string" ? field.value : "";
+                                        return (
+                                            <DatePicker
+                                                value={strVal ? new Date(strVal) : undefined}
+                                                onValueChange={(date) =>
+                                                    field.onChange(date ? date.toISOString().slice(0, 10) : "")
+                                                }
+                                                placeholder="Select date of birth"
+                                                toYear={new Date().getFullYear()}
+                                            />
+                                        );
+                                    }}
+                                />
                             </FormField>
 
                             <FormField label="Mobile Number" id="student-mobile" error={form.formState.errors.mobile?.message}>

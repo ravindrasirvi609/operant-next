@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { requireDirector } from "@/lib/auth/user";
 import { getLeadershipDashboardData } from "@/lib/director/dashboard";
 
@@ -101,9 +102,10 @@ export default async function DirectorDashboardPage() {
                                 </div>
                             ))
                         ) : (
-                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                                No workflow items are currently assigned to your account.
-                            </div>
+                            <EmptyState
+                                title="No action items"
+                                description="No workflow items are currently assigned to your account."
+                            />
                         )}
                     </CardContent>
                 </Card>
@@ -129,9 +131,10 @@ export default async function DirectorDashboardPage() {
                                 </div>
                             ))
                         ) : (
-                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                                No active governance scope is mapped to this account yet.
-                            </div>
+                            <EmptyState
+                                title="No governance scope"
+                                description="No active governance scope is mapped to this account yet."
+                            />
                         )}
                     </CardContent>
                 </Card>
@@ -231,9 +234,10 @@ export default async function DirectorDashboardPage() {
                                 </div>
                             ))
                         ) : (
-                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                                No departments were resolved from your current governance scope.
-                            </div>
+                            <EmptyState
+                                title="No departments in scope"
+                                description="No departments were resolved from your current governance scope."
+                            />
                         )}
                     </CardContent>
                 </Card>
@@ -264,9 +268,10 @@ export default async function DirectorDashboardPage() {
                                 </div>
                             ))
                         ) : (
-                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                                No faculty members currently need workflow attention in your scope.
-                            </div>
+                            <EmptyState
+                                title="No faculty needing attention"
+                                description="No faculty members currently need workflow attention in your scope."
+                            />
                         )}
                         <Button asChild className="w-full" variant="secondary">
                             <Link href="/director/faculty">Open full faculty roster</Link>

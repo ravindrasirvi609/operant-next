@@ -6,6 +6,7 @@ import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -366,9 +367,10 @@ export function NaacCriteriaMappingManager({
                             );
                         })
                     ) : (
-                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                            No NAAC criteria mappings configured yet.
-                        </div>
+                        <EmptyState
+                            title="No mappings configured"
+                            description="No NAAC criteria mappings have been configured yet."
+                        />
                     )}
                 </CardContent>
             </Card>

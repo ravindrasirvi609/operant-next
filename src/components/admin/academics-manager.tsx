@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Download, Pencil, Search, Trash2, Upload } from "lucide-react";
+import { BookMarked, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Download, GraduationCap, MoreHorizontal, Pencil, Search, Trash2, Upload } from "lucide-react";
 import { useId, useMemo, useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
@@ -11,6 +11,14 @@ import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1161,38 +1169,50 @@ export function AcademicsManager({
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        setEditingAcademicYearId(year._id);
-                                                        academicYearForm.reset({
-                                                            yearStart: year.yearStart,
-                                                            yearEnd: year.yearEnd,
-                                                            isActive: year.isActive,
-                                                        });
-                                                    }}
-                                                >
-                                                    <Pencil className="mr-2 size-4" />
-                                                    Edit
-                                                </Button>
-                                                {!year.isActive ? (
-                                                    <Button type="button" size="sm" onClick={() => setActiveYear(year._id)}>
-                                                        Set Active
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button type="button" variant="ghost" size="sm">
+                                                        <MoreHorizontal className="size-4" />
+                                                        <span className="sr-only">Row actions</span>
                                                     </Button>
-                                                ) : null}
-                                                <Button type="button" variant="ghost" size="sm" onClick={() => deleteAcademicYear(year._id)}>
-                                                    <Trash2 className="size-4" />
-                                                </Button>
-                                            </div>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem
+                                                        onClick={() => {
+                                                            setEditingAcademicYearId(year._id);
+                                                            academicYearForm.reset({
+                                                                yearStart: year.yearStart,
+                                                                yearEnd: year.yearEnd,
+                                                                isActive: year.isActive,
+                                                            });
+                                                        }}
+                                                    >
+                                                        <Pencil className="mr-2 size-4" /> Edit
+                                                    </DropdownMenuItem>
+                                                    {!year.isActive ? (
+                                                        <DropdownMenuItem onClick={() => setActiveYear(year._id)}>
+                                                            Set Active
+                                                        </DropdownMenuItem>
+                                                    ) : null}
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        className="text-rose-600 focus:text-rose-600"
+                                                        onClick={() => deleteAcademicYear(year._id)}
+                                                    >
+                                                        <Trash2 className="mr-2 size-4" /> Delete
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
                                         </TableCell>
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={3} className="text-center text-zinc-500">
-                                            No academic years match your search/filter.
+                                        <TableCell colSpan={3}>
+                                            <EmptyState
+                                                icon={CalendarDays}
+                                                title="No academic years found"
+                                                description="No academic years match your search or filter."
+                                            />
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -1428,37 +1448,49 @@ export function AcademicsManager({
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        setEditingProgramId(program._id);
-                                                        programForm.reset({
-                                                            name: program.name,
-                                                            degreeType: normalizeDegreeType(program.degreeType) ?? "Other",
-                                                            durationYears: program.durationYears,
-                                                            isActive: program.isActive,
-                                                            institutionId: unwrapId(program.institutionId),
-                                                            departmentId: unwrapId(program.departmentId),
-                                                            startAcademicYearId: unwrapId(program.startAcademicYearId),
-                                                        });
-                                                    }}
-                                                >
-                                                    <Pencil className="mr-2 size-4" />
-                                                    Edit
-                                                </Button>
-                                                <Button type="button" variant="ghost" size="sm" onClick={() => deleteProgram(program._id)}>
-                                                    <Trash2 className="size-4" />
-                                                </Button>
-                                            </div>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button type="button" variant="ghost" size="sm">
+                                                        <MoreHorizontal className="size-4" />
+                                                        <span className="sr-only">Row actions</span>
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem
+                                                        onClick={() => {
+                                                            setEditingProgramId(program._id);
+                                                            programForm.reset({
+                                                                name: program.name,
+                                                                degreeType: normalizeDegreeType(program.degreeType) ?? "Other",
+                                                                durationYears: program.durationYears,
+                                                                isActive: program.isActive,
+                                                                institutionId: unwrapId(program.institutionId),
+                                                                departmentId: unwrapId(program.departmentId),
+                                                                startAcademicYearId: unwrapId(program.startAcademicYearId),
+                                                            });
+                                                        }}
+                                                    >
+                                                        <Pencil className="mr-2 size-4" /> Edit
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        className="text-rose-600 focus:text-rose-600"
+                                                        onClick={() => deleteProgram(program._id)}
+                                                    >
+                                                        <Trash2 className="mr-2 size-4" /> Delete
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
                                         </TableCell>
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center text-zinc-500">
-                                            No programs match your search/filter.
+                                        <TableCell colSpan={5}>
+                                            <EmptyState
+                                                icon={GraduationCap}
+                                                title="No programs found"
+                                                description="No programs match your search or filter."
+                                            />
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -1570,31 +1602,43 @@ export function AcademicsManager({
                                     <TableRow key={semester._id}>
                                         <TableCell className="font-medium text-zinc-900">Semester {semester.semesterNumber}</TableCell>
                                         <TableCell className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        setEditingSemesterId(semester._id);
-                                                        semesterForm.reset({
-                                                            semesterNumber: semester.semesterNumber,
-                                                        });
-                                                    }}
-                                                >
-                                                    <Pencil className="mr-2 size-4" />
-                                                    Edit
-                                                </Button>
-                                                <Button type="button" variant="ghost" size="sm" onClick={() => deleteSemester(semester._id)}>
-                                                    <Trash2 className="size-4" />
-                                                </Button>
-                                            </div>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button type="button" variant="ghost" size="sm">
+                                                        <MoreHorizontal className="size-4" />
+                                                        <span className="sr-only">Row actions</span>
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem
+                                                        onClick={() => {
+                                                            setEditingSemesterId(semester._id);
+                                                            semesterForm.reset({
+                                                                semesterNumber: semester.semesterNumber,
+                                                            });
+                                                        }}
+                                                    >
+                                                        <Pencil className="mr-2 size-4" /> Edit
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        className="text-rose-600 focus:text-rose-600"
+                                                        onClick={() => deleteSemester(semester._id)}
+                                                    >
+                                                        <Trash2 className="mr-2 size-4" /> Delete
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
                                         </TableCell>
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={2} className="text-center text-zinc-500">
-                                            No semesters match your search/filter.
+                                        <TableCell colSpan={2}>
+                                            <EmptyState
+                                                icon={BookOpen}
+                                                title="No semesters found"
+                                                description="No semesters match your search."
+                                            />
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -1845,37 +1889,49 @@ export function AcademicsManager({
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        setEditingCourseId(course._id);
-                                                        courseForm.reset({
-                                                            name: course.name,
-                                                            subjectCode: course.subjectCode ?? "",
-                                                            programId: unwrapId(course.programId),
-                                                            semesterId: unwrapId(course.semesterId),
-                                                            courseType: course.courseType,
-                                                            credits: course.credits,
-                                                            isActive: course.isActive,
-                                                        });
-                                                    }}
-                                                >
-                                                    <Pencil className="mr-2 size-4" />
-                                                    Edit
-                                                </Button>
-                                                <Button type="button" variant="ghost" size="sm" onClick={() => deleteCourse(course._id)}>
-                                                    <Trash2 className="size-4" />
-                                                </Button>
-                                            </div>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button type="button" variant="ghost" size="sm">
+                                                        <MoreHorizontal className="size-4" />
+                                                        <span className="sr-only">Row actions</span>
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem
+                                                        onClick={() => {
+                                                            setEditingCourseId(course._id);
+                                                            courseForm.reset({
+                                                                name: course.name,
+                                                                subjectCode: course.subjectCode ?? "",
+                                                                programId: unwrapId(course.programId),
+                                                                semesterId: unwrapId(course.semesterId),
+                                                                courseType: course.courseType,
+                                                                credits: course.credits,
+                                                                isActive: course.isActive,
+                                                            });
+                                                        }}
+                                                    >
+                                                        <Pencil className="mr-2 size-4" /> Edit
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        className="text-rose-600 focus:text-rose-600"
+                                                        onClick={() => deleteCourse(course._id)}
+                                                    >
+                                                        <Trash2 className="mr-2 size-4" /> Delete
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
                                         </TableCell>
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center text-zinc-500">
-                                            No courses match your search/filter.
+                                        <TableCell colSpan={5}>
+                                            <EmptyState
+                                                icon={BookMarked}
+                                                title="No courses found"
+                                                description="No courses match your search or filter."
+                                            />
                                         </TableCell>
                                     </TableRow>
                                 )}

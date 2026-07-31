@@ -1661,7 +1661,29 @@ export function SystemUpdatesManager({
                         </Field>
 
                         <Field label="Category" id="system-category" error={form.formState.errors.category?.message}>
-                            <Input id="system-category" placeholder="Admissions / Exam / IQAC" {...form.register("category")} />
+                            <Controller
+                                control={form.control}
+                                name="category"
+                                render={({ field }) => (
+                                    <Select value={field.value || undefined} onValueChange={field.onChange}>
+                                        <SelectTrigger id="system-category" className="w-full">
+                                            <SelectValue placeholder="Select category (optional)" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="General">General</SelectItem>
+                                            <SelectItem value="Admissions">Admissions</SelectItem>
+                                            <SelectItem value="Examination">Examination</SelectItem>
+                                            <SelectItem value="IQAC">IQAC</SelectItem>
+                                            <SelectItem value="Academic">Academic</SelectItem>
+                                            <SelectItem value="Research">Research</SelectItem>
+                                            <SelectItem value="Infrastructure">Infrastructure</SelectItem>
+                                            <SelectItem value="HR">HR</SelectItem>
+                                            <SelectItem value="Events">Events</SelectItem>
+                                            <SelectItem value="Other">Other</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
                         </Field>
 
                         <Field label="Expires at" id="system-expires" error={form.formState.errors.expiresAt?.message}>
