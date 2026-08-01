@@ -989,7 +989,7 @@ export function TeachingLearningContributorWorkspace({
                                 <Card>
                                     <CardHeader>
                                         <div className="flex items-center justify-between gap-3">
-                                            <div>
+                                            <div className="min-w-0">
                                                 <CardTitle>Lesson Delivery Register</CardTitle>
                                                 <CardDescription>
                                                     Capture planned and delivered sessions with outcomes and evidence.
@@ -1283,7 +1283,7 @@ export function TeachingLearningContributorWorkspace({
                                 <Card>
                                     <CardHeader>
                                         <div className="flex items-center justify-between gap-3">
-                                            <div>
+                                            <div className="min-w-0">
                                                 <CardTitle>Assessment Register</CardTitle>
                                                 <CardDescription>
                                                     Maintain internal evaluation checkpoints and attainment indicators.
@@ -1570,7 +1570,7 @@ export function TeachingLearningContributorWorkspace({
                                 <Card>
                                     <CardHeader>
                                         <div className="flex items-center justify-between gap-3">
-                                            <div>
+                                            <div className="min-w-0">
                                                 <CardTitle>Learner Support Register</CardTitle>
                                                 <CardDescription>
                                                     Capture remedial classes, mentoring, bridge support, or advanced learner interventions.

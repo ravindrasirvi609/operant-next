@@ -4410,7 +4410,7 @@ function SectionCard({
         <Card>
             <CardHeader>
                 <div className="flex flex-row items-center justify-between gap-3">
-                    <div>
+                    <div className="min-w-0">
                         <CardTitle>{title}</CardTitle>
                         <CardDescription>{description}</CardDescription>
                     </div>

@@ -402,7 +402,7 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
                                                             </div>
                                                         ) : null}
                                                         {row.email ? (
-                                                            <div className="text-xs text-zinc-500">{row.email}</div>
+                                                            <div className="max-w-[26ch] truncate text-xs text-zinc-500">{row.email}</div>
                                                         ) : null}
                                                         <button
                                                             type="button"

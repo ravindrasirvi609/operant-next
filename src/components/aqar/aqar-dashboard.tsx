@@ -2169,7 +2169,7 @@ export function AqarDashboard({
                                 <div className="space-y-4">
                                     {summarySections.map((section) => (
                                         <div key={section.label} className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3">
-                                            <div>
+                                            <div className="min-w-0">
                                                 <p className="text-sm font-medium text-zinc-950">{section.label}</p>
                                                 <p className="text-xs text-zinc-500">
                                                     {section.count ? `${section.count} records ready` : "No records added yet"}
@@ -2489,7 +2489,7 @@ function AQARStatusTimeline({ logs }: { logs: AqarApp["statusLogs"] }) {
             {sortedLogs.map((log) => (
                 <div key={log._id ?? `${log.status}-${log.changedAt}`} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
                     <div className="flex items-center justify-between gap-3">
-                        <p className="font-semibold text-zinc-950">{log.status}</p>
+                        <p className="min-w-0 font-semibold text-zinc-950">{log.status}</p>
                         <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                             {formatTimestamp(log.changedAt)}
                         </p>

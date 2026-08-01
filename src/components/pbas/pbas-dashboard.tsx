@@ -328,7 +328,7 @@ export function PBASStatusTimeline({
                         key={log._id ?? `${log.status}-${log.changedAt}`}
                     >
                         <div className="flex items-center justify-between gap-4">
-                            <p className="font-semibold text-zinc-950">{log.status}</p>
+                            <p className="min-w-0 font-semibold text-zinc-950">{log.status}</p>
                             <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">
                                 {new Date(log.changedAt).toLocaleString()}
                             </p>

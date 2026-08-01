@@ -650,7 +650,7 @@ export function SsrReviewBoard({
                                                 key={`${entry.stage}-${entry.reviewedAt}-${index}`}
                                             >
                                                 <div className="flex items-center justify-between gap-3">
-                                                    <div>
+                                                    <div className="min-w-0">
                                                         <p className="font-medium text-zinc-950">
                                                             {entry.stage}
                                                         </p>
@@ -693,7 +693,7 @@ export function SsrReviewBoard({
                                                 key={`${entry.status}-${entry.changedAt}-${index}`}
                                             >
                                                 <div className="flex items-center justify-between gap-3">
-                                                    <p className="font-medium text-zinc-950">
+                                                    <p className="min-w-0 font-medium text-zinc-950">
                                                         {entry.status}
                                                     </p>
                                                     <p className="text-xs text-zinc-500">

@@ -719,7 +719,7 @@ function EditBanner({
 }) {
     return (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-            <div>
+            <div className="min-w-0">
                 <div className="text-sm font-semibold text-amber-950">Editing existing record</div>
                 <div className="text-xs text-amber-800">{label}</div>
             </div>
@@ -1933,7 +1933,7 @@ export function AccreditationOperationsManager({
                                             <TableRow key={item._id}>
                                                 <TableCell>{item.bodyName}</TableCell>
                                                 <TableCell>{item.jurisdiction ?? "-"}</TableCell>
-                                                <TableCell>{item.websiteUrl ?? "-"}</TableCell>
+                                                <TableCell className="max-w-[28ch] truncate">{item.websiteUrl ?? "-"}</TableCell>
                                                 <TableCell><Button onClick={() => { setEditingBodyId(item._id); setBodyForm(mapBodyRecordToForm(item)); }} size="sm" type="button" variant="outline">Edit</Button></TableCell>
                                             </TableRow>
                                         ))}

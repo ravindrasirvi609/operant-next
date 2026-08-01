@@ -417,7 +417,7 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
                                                         {row.studentName}
                                                     </button>
                                                     <div className="text-xs text-zinc-500">{row.enrollmentNo}</div>
-                                                    <div className="text-xs text-zinc-500">
+                                                    <div className="max-w-[26ch] truncate text-xs text-zinc-500">
                                                         {row.email ?? "Email not available"}
                                                     </div>
                                                     <div className="text-xs text-zinc-500">
@@ -615,13 +615,13 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
                                                         {records.publications.length ? (
                                                             records.publications.map((item) => (
                                                                 <TableRow key={item.id}>
-                                                                    <TableCell>{item.title}</TableCell>
+                                                                    <TableCell className="max-w-[32ch] truncate">{item.title}</TableCell>
                                                                     <TableCell>{item.publicationType ?? "-"}</TableCell>
-                                                                    <TableCell>
+                                                                    <TableCell className="max-w-[24ch] truncate">
                                                                         {item.journalName ?? item.publisher ?? "-"}
                                                                     </TableCell>
                                                                     <TableCell>{formatDate(item.publicationDate)}</TableCell>
-                                                                    <TableCell>{item.doi ?? item.indexedIn ?? "-"}</TableCell>
+                                                                    <TableCell className="max-w-[24ch] truncate">{item.doi ?? item.indexedIn ?? "-"}</TableCell>
                                                                     <TableCell>
                                                                         <DocumentBadge document={item.document} />
                                                                     </TableCell>

@@ -261,7 +261,7 @@ export function EvidenceReviewBoard() {
                                     key={entry.label}
                                     className="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3"
                                 >
-                                    <span className="text-sm font-medium capitalize text-zinc-900">
+                                    <span className="min-w-0 truncate text-sm font-medium capitalize text-zinc-900">
                                         {entry.label}
                                     </span>
                                     <Badge variant="secondary">{entry.count}</Badge>
@@ -284,7 +284,7 @@ export function EvidenceReviewBoard() {
                                     className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3"
                                 >
                                     <div className="flex items-center justify-between gap-3">
-                                        <span className="text-sm font-medium text-zinc-900">
+                                        <span className="min-w-0 truncate text-sm font-medium text-zinc-900">
                                             {entry.label}
                                         </span>
                                         <Badge variant="secondary">{entry.count} total</Badge>

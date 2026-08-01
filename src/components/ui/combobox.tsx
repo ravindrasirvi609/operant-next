@@ -59,7 +59,7 @@ export function Combobox({
                         className
                     )}
                 >
-                    <span className="truncate">{selectedLabel ?? placeholder}</span>
+                    <span className="min-w-0 flex-1 truncate text-left">{selectedLabel ?? placeholder}</span>
                     <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
@@ -84,7 +84,7 @@ export function Combobox({
                                             value === opt.value ? "opacity-100" : "opacity-0"
                                         )}
                                     />
-                                    {opt.label}
+                                    <span className="min-w-0 flex-1 break-words">{opt.label}</span>
                                 </CommandItem>
                             ))}
                         </CommandGroup>

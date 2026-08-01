@@ -823,7 +823,7 @@ export function NaacMetricWarehouseManager({
                                                                         key={`${snapshot.collectionName}-${index}`}
                                                                     >
                                                                         <div className="flex items-center justify-between gap-3">
-                                                                            <div>
+                                                                            <div className="min-w-0">
                                                                                 <p className="font-medium text-zinc-900">
                                                                                     {snapshot.label}
                                                                                 </p>

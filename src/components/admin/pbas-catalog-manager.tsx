@@ -591,7 +591,7 @@ export function PbasCatalogManager({
                         {categoryOptions.length ? categoryOptions.map((category) => (
                             <div key={category._id} className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
                                 <div className="flex flex-wrap items-center justify-between gap-3">
-                                    <div>
+                                    <div className="min-w-0">
                                         <div className="flex items-center gap-2">
                                             <Badge>{category.categoryCode}</Badge>
                                             <p className="font-semibold text-zinc-950">{category.categoryName}</p>
@@ -784,7 +784,7 @@ export function PbasCatalogManager({
                                 return (
                                     <div key={indicator._id} className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
                                         <div className="flex flex-wrap items-center justify-between gap-3">
-                                            <div>
+                                            <div className="min-w-0">
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     <Badge>{indicator.indicatorCode}</Badge>
                                                     <p className="font-semibold text-zinc-950">{indicator.indicatorName}</p>

@@ -1266,7 +1266,7 @@ export function SsrManager({
                                         className="rounded-lg border border-zinc-200 p-4"
                                     >
                                         <div className="flex flex-wrap items-center justify-between gap-3">
-                                            <div>
+                                            <div className="min-w-0">
                                                 <p className="font-medium text-zinc-950">
                                                     {item.criterionCode} · {item.title}
                                                 </p>

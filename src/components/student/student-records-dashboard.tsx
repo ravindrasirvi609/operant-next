@@ -565,13 +565,13 @@ export function StudentRecordsDashboard({
                                             "-"
                                         )}
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="max-w-[24ch] truncate">
                                         {r.journalName || r.publisher || "-"}
                                     </TableCell>
                                     <TableCell>
                                         {fmtDate(r.publicationDate)}
                                     </TableCell>
-                                    <TableCell className="font-mono text-xs">
+                                    <TableCell className="max-w-[24ch] truncate font-mono text-xs">
                                         {r.doi || "-"}
                                     </TableCell>
                                     <TableCell>{r.indexedIn || "-"}</TableCell>

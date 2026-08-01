@@ -375,7 +375,7 @@ export function PBASSelector({
                         className={`rounded-lg border p-4 text-left ${isSelected ? "border-zinc-400 bg-white" : "border-zinc-200 bg-zinc-50"}`}
                     >
                         <div className="flex items-center justify-between gap-3">
-                            <div>
+                            <div className="min-w-0">
                                 <p className="text-sm font-semibold text-zinc-950">{item.academicYear}</p>
                                 <p className="mt-1 text-sm text-zinc-500">
                                     Teaching {item.teachingScore ?? 0} | Research {item.researchScore ?? 0} | Institutional {item.institutionalScore ?? 0}
@@ -466,7 +466,7 @@ export function CASStatusTimeline({
             {logs.length ? logs.map((log) => (
                 <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={log._id ?? `${log.status}-${log.changedAt}`}>
                     <div className="flex items-center justify-between gap-4">
-                        <p className="font-semibold text-zinc-950">{log.status}</p>
+                        <p className="min-w-0 font-semibold text-zinc-950">{log.status}</p>
                         <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">{new Date(log.changedAt).toLocaleString()}</p>
                     </div>
                     <p className="mt-2 text-sm text-zinc-600">{log.actorName ? `${log.actorName} (${log.actorRole ?? "User"})` : "System"}</p>

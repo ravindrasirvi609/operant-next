@@ -1040,7 +1040,7 @@ export function AcademicsManager({
         <div className="space-y-6">
             <Card>
                 <CardHeader className="flex flex-row items-start justify-between gap-4">
-                    <div>
+                    <div className="min-w-0">
                         <CardTitle>Academic Years</CardTitle>
                         <CardDescription>
                             Create academic years and choose the single active year for reporting modules.
@@ -1233,7 +1233,7 @@ export function AcademicsManager({
 
             <Card>
                 <CardHeader className="flex flex-row items-start justify-between gap-4">
-                    <div>
+                    <div className="min-w-0">
                         <CardTitle>Programs</CardTitle>
                         <CardDescription>
                             Create reusable programs for all batches. Department is primary, and institution is auto-resolved from department mapping.
@@ -1511,7 +1511,7 @@ export function AcademicsManager({
 
             <Card>
                 <CardHeader className="flex flex-row items-start justify-between gap-4">
-                    <div>
+                    <div className="min-w-0">
                         <CardTitle>Semesters</CardTitle>
                         <CardDescription>
                             Use this to correct or append semester mappings when program structures change.
@@ -1659,7 +1659,7 @@ export function AcademicsManager({
 
             <Card>
                 <CardHeader className="flex flex-row items-start justify-between gap-4">
-                    <div>
+                    <div className="min-w-0">
                         <CardTitle>Courses</CardTitle>
                         <CardDescription>
                             Maintain course master records linked to program-semester mappings.
