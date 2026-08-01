@@ -45,7 +45,9 @@ const ProjectSchema = new Schema<IProject>(
         userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
         collegeName: { type: String, required: true, index: true },
     },
-    { timestamps: true }
+    // Explicit collection name pins Mongoose's implicit pluralization ("projects"),
+    // guarding against a future model resolving to the same default collection.
+    { timestamps: true, collection: "projects" }
 );
 
 const Project: Model<IProject> =

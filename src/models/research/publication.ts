@@ -55,7 +55,8 @@ const PublicationSchema = new Schema<IPublication>(
         userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
         collegeName: { type: String, required: true, index: true },
     },
-    { timestamps: true }
+    // Explicit collection name pins Mongoose's implicit pluralization ("publications").
+    { timestamps: true, collection: "publications" }
 );
 
 const Publication: Model<IPublication> =

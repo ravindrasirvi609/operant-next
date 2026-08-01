@@ -10,13 +10,6 @@ const ExperienceSchema = new Schema({
     isCurrent: { type: Boolean, default: false },
 }, { _id: false });
 
-const ResearchProfileSchema = new Schema({
-    orcidId: { type: String },
-    scopusId: { type: String },
-    researcherId: { type: String },
-    googleScholarId: { type: String },
-}, { _id: false });
-
 // --- Unified User Schema ---
 
 export type UserRole =
@@ -39,13 +32,6 @@ export interface IExperience {
     isCurrent?: boolean;
 }
 
-export interface IResearchProfile {
-    orcidId?: string;
-    scopusId?: string;
-    researcherId?: string;
-    googleScholarId?: string;
-}
-
 export interface IUser extends Document {
     name: string;
     email: string;
@@ -63,7 +49,6 @@ export interface IUser extends Document {
     designation?: string;
     phone?: string;
     experience: IExperience[];
-    researchProfile?: IResearchProfile;
     isActive: boolean;
     emailVerified: boolean;
     emailVerificationTokenHash?: string;
@@ -113,7 +98,6 @@ const UserSchema = new Schema<IUser>(
 
         // Embedded Faculty Data
         experience: [ExperienceSchema],
-        researchProfile: ResearchProfileSchema,
         isActive: { type: Boolean, default: true },
         emailVerified: { type: Boolean, default: false },
         emailVerificationTokenHash: { type: String, select: false },

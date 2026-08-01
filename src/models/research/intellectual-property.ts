@@ -41,7 +41,8 @@ const IntellectualPropertySchema = new Schema<IIntellectualProperty>(
         userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
         collegeName: { type: String, required: true, index: true },
     },
-    { timestamps: true }
+    // Explicit collection name pins Mongoose's implicit pluralization ("intellectualproperties").
+    { timestamps: true, collection: "intellectualproperties" }
 );
 
 const IntellectualProperty: Model<IIntellectualProperty> =
