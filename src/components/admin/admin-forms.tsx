@@ -192,31 +192,31 @@ const categoryVisuals: Record<
 > = {
     university: {
         icon: Landmark,
-        tone: "border-indigo-200 bg-indigo-50 text-indigo-700",
+        tone: "border-chart-1/40 bg-chart-1/10 text-foreground",
     },
     college: {
         icon: Building2,
-        tone: "border-sky-200 bg-sky-50 text-sky-700",
+        tone: "border-chart-2/40 bg-chart-2/10 text-foreground",
     },
     department: {
         icon: Layers,
-        tone: "border-teal-200 bg-teal-50 text-teal-700",
+        tone: "border-chart-3/40 bg-chart-3/10 text-foreground",
     },
     "report-category": {
         icon: FileText,
-        tone: "border-purple-200 bg-purple-50 text-purple-700",
+        tone: "border-chart-4/40 bg-chart-4/10 text-foreground",
     },
     "event-type": {
         icon: Calendar,
-        tone: "border-emerald-200 bg-emerald-50 text-emerald-700",
+        tone: "border-chart-5/40 bg-chart-5/10 text-foreground",
     },
     "notification-category": {
         icon: Bell,
-        tone: "border-orange-200 bg-orange-50 text-orange-700",
+        tone: "border-chart-1/40 bg-chart-1/10 text-foreground",
     },
     office: {
         icon: Briefcase,
-        tone: "border-rose-200 bg-rose-50 text-rose-700",
+        tone: "border-destructive-border bg-destructive-muted text-destructive-muted-foreground",
     },
 };
 
@@ -545,14 +545,14 @@ export function AdminLoginForm({
                     <Field label="Password" id="admin-login-password" error={form.formState.errors.password?.message}>
                         <Input id="admin-login-password" type="password" {...form.register("password")} />
                     </Field>
-                    <Button className="w-full" disabled={isPending || !adminExists} size="lg" type="submit">
-                        {isPending ? <Spinner /> : <Shield className="size-4" />}
+                    <Button loading={isPending} className="w-full" disabled={isPending || !adminExists} size="lg" type="submit">
+                        <Shield aria-hidden />
                         Open Admin Console
                     </Button>
                 </form>
 
                 {!adminExists ? (
-                    <Link className="text-sm font-medium text-zinc-950" href="/admin/setup">
+                    <Link className="text-sm font-medium text-foreground" href="/admin/setup">
                         Create the first admin account
                     </Link>
                 ) : null}
@@ -653,7 +653,7 @@ export function AdminBootstrapForm({
                     />
                 ) : null}
                 {requiresSetupSecret ? (
-                    <p className="text-sm text-zinc-600">
+                    <p className="text-sm text-muted-foreground">
                         Enter the one-time bootstrap secret configured in
                         {" "}
                         <code>ADMIN_BOOTSTRAP_SECRET</code>
@@ -694,8 +694,8 @@ export function AdminBootstrapForm({
 
                     <PasswordChecklist password={password} />
 
-                    <Button className="w-full" disabled={isPending || !bootstrapEnabled} size="lg" type="submit">
-                        {isPending ? <Spinner /> : <CheckCircle2 className="size-4" />}
+                    <Button loading={isPending} className="w-full" disabled={isPending || !bootstrapEnabled} size="lg" type="submit">
+                        <CheckCircle2 aria-hidden />
                         Create Admin Account
                     </Button>
                 </form>
@@ -1002,18 +1002,18 @@ export function MasterDataManager({
                                 </Field>
                             </div>
 
-                            <Button className="w-full" disabled={isPending} type="submit">
-                                {isPending ? <Spinner /> : <Plus className="size-4" />}
+                            <Button loading={isPending} className="w-full" disabled={isPending} type="submit">
+                                <Plus aria-hidden />
                                 Add Master Data Entry
                             </Button>
                         </form>
                     </CardContent>
                 </Card>
 
-                <Card className="border-zinc-200 bg-gradient-to-br from-zinc-50 via-white to-zinc-100">
+                <Card className="border-border bg-gradient-to-br from-muted/40 via-card to-muted">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <FileSpreadsheet className="size-5 text-zinc-700" />
+                            <FileSpreadsheet className="size-5 text-foreground" />
                             Bulk import from Excel
                         </CardTitle>
                         <CardDescription>
@@ -1021,11 +1021,11 @@ export function MasterDataManager({
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="rounded-xl border border-dashed border-zinc-300 bg-white/80 p-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-600">
+                        <div className="rounded-xl border border-dashed border-border bg-card/80 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                                 Required headers
                             </p>
-                            <p className="mt-1 text-sm text-zinc-700">
+                            <p className="mt-1 text-sm text-foreground">
                                 {templateHeaders.join(", ")}
                             </p>
                         </div>
@@ -1055,7 +1055,7 @@ export function MasterDataManager({
                                 />
                             </Field>
 
-                            <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+                            <div className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                                 {bulkFile
                                     ? `Selected: ${bulkFile.name}`
                                     : "Select a .xlsx/.xls/.csv file to start bulk import."}
@@ -1068,11 +1068,11 @@ export function MasterDataManager({
                         </form>
 
                         {bulkFailures.length ? (
-                            <div className="space-y-2 rounded-xl border border-rose-200 bg-rose-50 p-4">
-                                <p className="text-sm font-semibold text-rose-900">
+                            <div className="space-y-2 rounded-xl border border-destructive-border bg-destructive-muted p-4">
+                                <p className="text-sm font-semibold text-destructive">
                                     Failed rows ({bulkFailures.length})
                                 </p>
-                                <div className="max-h-48 space-y-1 overflow-auto text-xs text-rose-800">
+                                <div className="max-h-48 space-y-1 overflow-auto text-xs text-destructive">
                                     {bulkFailures.slice(0, 10).map((failure) => (
                                         <p key={`${failure.rowNumber}-${failure.category || "na"}-${failure.message}`}>
                                             Row {failure.rowNumber}: {failure.message}
@@ -1097,12 +1097,12 @@ export function MasterDataManager({
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue={categories[0]?.id}>
-                        <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50/80">
+                        <div className="overflow-hidden rounded-xl border border-border bg-muted/80">
                             <div className="flex items-center justify-between px-4 pt-4">
-                                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-600">
+                                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                                     Category Navigator
                                 </p>
-                                <Badge className="border-zinc-300 bg-zinc-100 text-zinc-700">
+                                <Badge className="border-border bg-muted text-foreground">
                                     {categories.length} categories
                                 </Badge>
                             </div>
@@ -1118,18 +1118,18 @@ export function MasterDataManager({
 
                                         return (
                                             <TabsTrigger
-                                                className="h-auto items-start justify-start rounded-xl border border-zinc-200 bg-white px-3 py-3 text-left data-active:border-zinc-900 data-active:bg-zinc-900 data-active:text-zinc-50"
+                                                className="h-auto items-start justify-start rounded-xl border border-border bg-card px-3 py-3 text-left data-active:border-border data-active:bg-primary data-active:text-primary-foreground"
                                                 key={category.id}
                                                 value={category.id}
                                             >
                                                 <div className="w-full">
                                                     <div className="flex items-center justify-between gap-2">
                                                         <span
-                                                            className={`inline-flex size-8 items-center justify-center rounded-md border ${visual?.tone ?? "border-zinc-200 bg-zinc-100 text-zinc-700"}`}
+                                                            className={`inline-flex size-8 items-center justify-center rounded-md border ${visual?.tone ?? "border-border bg-muted text-foreground"}`}
                                                         >
                                                             <Icon className="size-4" />
                                                         </span>
-                                                        <Badge className="border-zinc-300 bg-zinc-100 text-zinc-700">
+                                                        <Badge className="border-border bg-muted text-foreground">
                                                             {categoryEntries.length}
                                                         </Badge>
                                                     </div>
@@ -1154,37 +1154,37 @@ export function MasterDataManager({
 
                             return (
                                 <TabsContent className="mt-6 space-y-4" key={category.id} value={category.id}>
-                                    <div className="flex flex-col gap-4 rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 lg:flex-row lg:items-start lg:justify-between">
+                                    <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted/70 p-4 lg:flex-row lg:items-start lg:justify-between">
                                         <div>
-                                            <h3 className="text-lg font-semibold text-zinc-950">
+                                            <h3 className="text-lg font-semibold text-foreground">
                                                 {category.label}
                                             </h3>
-                                            <p className="mt-1 text-sm text-zinc-500">
+                                            <p className="mt-1 text-sm text-muted-foreground">
                                                 {category.description}
                                             </p>
                                         </div>
                                         <div className="grid grid-cols-3 gap-2 md:min-w-[320px]">
-                                            <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-center">
-                                                <p className="text-[11px] uppercase tracking-[0.1em] text-zinc-500">
+                                            <div className="rounded-lg border border-border bg-card px-3 py-2 text-center">
+                                                <p className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
                                                     Total
                                                 </p>
-                                                <p className="text-lg font-semibold text-zinc-950">
+                                                <p className="text-lg font-semibold text-foreground">
                                                     {categoryEntries.length}
                                                 </p>
                                             </div>
-                                            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center">
-                                                <p className="text-[11px] uppercase tracking-[0.1em] text-emerald-700">
+                                            <div className="rounded-lg border border-success-border bg-success-muted px-3 py-2 text-center">
+                                                <p className="text-[11px] uppercase tracking-[0.1em] text-success-muted-foreground">
                                                     Active
                                                 </p>
-                                                <p className="text-lg font-semibold text-emerald-900">
+                                                <p className="text-lg font-semibold text-success-muted-foreground">
                                                     {activeCount}
                                                 </p>
                                             </div>
-                                            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-center">
-                                                <p className="text-[11px] uppercase tracking-[0.1em] text-rose-700">
+                                            <div className="rounded-lg border border-destructive-border bg-destructive-muted px-3 py-2 text-center">
+                                                <p className="text-[11px] uppercase tracking-[0.1em] text-destructive">
                                                     Inactive
                                                 </p>
-                                                <p className="text-lg font-semibold text-rose-900">
+                                                <p className="text-lg font-semibold text-destructive">
                                                     {inactiveCount}
                                                 </p>
                                             </div>
@@ -1192,10 +1192,10 @@ export function MasterDataManager({
                                     </div>
 
                                     {categoryEntries.length ? (
-                                        <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
+                                        <div className="overflow-hidden rounded-xl border border-border bg-card">
                                             <Table className="min-w-[920px]">
-                                                <TableHeader className="bg-zinc-100/80">
-                                                    <TableRow className="text-left text-xs uppercase tracking-[0.08em] text-zinc-600 hover:bg-zinc-100/80">
+                                                <TableHeader className="bg-muted/80">
+                                                    <TableRow className="text-left text-xs uppercase tracking-[0.08em] text-muted-foreground hover:bg-muted/80">
                                                         <TableHead className="px-4 py-3 font-semibold">Label</TableHead>
                                                         <TableHead className="px-4 py-3 font-semibold">Code / Key</TableHead>
                                                         <TableHead className="px-4 py-3 font-semibold">Parent</TableHead>
@@ -1205,54 +1205,55 @@ export function MasterDataManager({
                                                         <TableHead className="px-4 py-3 text-right font-semibold">Action</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
-                                                <TableBody className="divide-y divide-zinc-200">
+                                                <TableBody className="divide-y divide-border">
                                                     {categoryEntries.map((item) => (
                                                         <TableRow
-                                                            className="align-top transition-colors hover:bg-zinc-50"
+                                                            className="align-top transition-colors hover:bg-muted/50"
                                                             key={item._id}
                                                         >
                                                             <TableCell className="px-4 py-3 whitespace-normal">
-                                                                <p className="text-sm font-semibold text-zinc-950">
+                                                                <p className="text-sm font-semibold text-foreground">
                                                                     {item.label}
                                                                 </p>
-                                                                <p className="mt-1 text-xs text-zinc-500">
+                                                                <p className="mt-1 text-xs text-muted-foreground">
                                                                     {item.description || "No description provided."}
                                                                 </p>
                                                             </TableCell>
                                                             <TableCell className="px-4 py-3">
-                                                                <Badge className="border-zinc-300 bg-zinc-100 text-zinc-700">
+                                                                <Badge className="border-border bg-muted text-foreground">
                                                                     {item.code || item.key}
                                                                 </Badge>
                                                             </TableCell>
-                                                            <TableCell className="px-4 py-3 text-xs text-zinc-600 whitespace-normal">
+                                                            <TableCell className="px-4 py-3 text-xs text-muted-foreground whitespace-normal">
                                                                 <p>
-                                                                    <span className="font-medium text-zinc-700">Category:</span>{" "}
+                                                                    <span className="font-medium text-foreground">Category:</span>{" "}
                                                                     {item.parentCategory || "None"}
                                                                 </p>
                                                                 <p className="mt-1">
-                                                                    <span className="font-medium text-zinc-700">Key:</span>{" "}
+                                                                    <span className="font-medium text-foreground">Key:</span>{" "}
                                                                     {item.parentKey || "None"}
                                                                 </p>
                                                             </TableCell>
-                                                            <TableCell className="px-4 py-3 text-sm font-mono text-zinc-700">
+                                                            <TableCell className="px-4 py-3 text-sm font-mono text-foreground">
                                                                 {item.sortOrder}
                                                             </TableCell>
                                                             <TableCell className="px-4 py-3">
                                                                 <Badge
                                                                     className={
                                                                         item.isActive
-                                                                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                                                            : "border-rose-200 bg-rose-50 text-rose-700"
+                                                                            ? "border-success-border bg-success-muted text-success-muted-foreground"
+                                                                            : "border-destructive-border bg-destructive-muted text-destructive-muted-foreground"
                                                                     }
                                                                 >
                                                                     {item.isActive ? "Active" : "Inactive"}
                                                                 </Badge>
                                                             </TableCell>
-                                                            <TableCell className="px-4 py-3 text-xs text-zinc-600">
+                                                            <TableCell className="px-4 py-3 text-xs text-muted-foreground">
                                                                 {formatMasterDataUpdatedAt(item.updatedAt)}
                                                             </TableCell>
                                                             <TableCell className="px-4 py-3 text-right">
                                                                 <Button
+                                                                    loading={isPending}
                                                                     disabled={isPending}
                                                                     onClick={() => toggleEntry(item)}
                                                                     size="sm"
@@ -1267,7 +1268,7 @@ export function MasterDataManager({
                                             </Table>
                                         </div>
                                     ) : (
-                                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                                             No entries created yet for this category.
                                         </div>
                                     )}
@@ -1348,21 +1349,21 @@ export function UserManagementTable({
                 <CardContent className="space-y-4">
                     {users.map((user) => (
                         <div
-                            className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                            className="rounded-lg border border-border bg-muted/50 p-4"
                             key={user._id}
                         >
                             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                                 <div>
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <h3 className="text-lg font-semibold text-zinc-950">
+                                        <h3 className="text-lg font-semibold text-foreground">
                                             {user.name}
                                         </h3>
                                         <Badge>{user.role}</Badge>
                                         <Badge
                                             className={
                                                 user.isActive
-                                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                                    : "border-rose-200 bg-rose-50 text-rose-700"
+                                                    ? "border-success-border bg-success-muted text-success-muted-foreground"
+                                                    : "border-destructive-border bg-destructive-muted text-destructive-muted-foreground"
                                             }
                                         >
                                             {user.isActive ? "Active" : "Inactive"}
@@ -1370,25 +1371,25 @@ export function UserManagementTable({
                                         <Badge
                                             className={
                                                 user.emailVerified
-                                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                                    : "border-amber-200 bg-amber-50 text-amber-700"
+                                                    ? "border-success-border bg-success-muted text-success-muted-foreground"
+                                                    : "border-warning-border bg-warning-muted text-warning-muted-foreground"
                                             }
                                         >
                                             {user.emailVerified ? "Verified" : "Pending verification"}
                                         </Badge>
                                     </div>
-                                    <p className="mt-2 text-sm text-zinc-500">{user.email}</p>
-                                    <p className="mt-2 text-sm text-zinc-500">
+                                    <p className="mt-2 text-sm text-muted-foreground">{user.email}</p>
+                                    <p className="mt-2 text-sm text-muted-foreground">
                                         {user.universityName || "No university"} / {user.collegeName || "No college"} /{" "}
                                         {user.department || "No department"}
                                     </p>
                                     {user.studentSummary?.enrollmentNo ? (
-                                        <p className="mt-1 text-sm text-zinc-500">
+                                        <p className="mt-1 text-sm text-muted-foreground">
                                             Enrollment No.: {user.studentSummary.enrollmentNo}
                                         </p>
                                     ) : null}
                                     {user.facultySummary?.employeeCode ? (
-                                        <p className="mt-1 text-sm text-zinc-500">
+                                        <p className="mt-1 text-sm text-muted-foreground">
                                             Employee Code: {user.facultySummary.employeeCode}
                                             {user.facultySummary.designation
                                                 ? ` · ${user.facultySummary.designation}`
@@ -1480,6 +1481,7 @@ export function UserManagementTable({
                                     </Select>
                                     <div className="grid grid-cols-2 gap-2">
                                         <Button
+                                            loading={isPending}
                                             disabled={isPending}
                                             onClick={() =>
                                                 updateUser(user._id, {
@@ -1491,6 +1493,7 @@ export function UserManagementTable({
                                             {user.isActive ? "Disable" : "Enable"}
                                         </Button>
                                         <Button
+                                            loading={isPending}
                                             disabled={isPending}
                                             onClick={() =>
                                                 updateUser(user._id, {
@@ -1504,7 +1507,7 @@ export function UserManagementTable({
                                 </div>
                             </div>
                             {user.accountStatus ? (
-                                <p className="mt-3 text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">
+                                <p className="mt-3 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                                     Account status: {user.accountStatus}
                                 </p>
                             ) : null}
@@ -1705,8 +1708,8 @@ export function SystemUpdatesManager({
                                     <button
                                         className={`rounded-full border px-3 py-2 text-sm font-semibold ${
                                             selectedRoles.includes(role)
-                                                ? "border-zinc-300 bg-zinc-100 text-zinc-950"
-                                                : "border-zinc-200 bg-white text-zinc-500"
+                                                ? "border-border bg-muted text-foreground"
+                                                : "border-border bg-card text-muted-foreground"
                                         }`}
                                         key={role}
                                         onClick={(event) => {
@@ -1721,8 +1724,8 @@ export function SystemUpdatesManager({
                             </div>
                         </div>
 
-                        <Button className="w-full" disabled={isPending} type="submit">
-                            {isPending ? <Spinner /> : <Plus className="size-4" />}
+                        <Button loading={isPending} className="w-full" disabled={isPending} type="submit">
+                            <Plus aria-hidden />
                             Publish Update
                         </Button>
                     </form>
@@ -1740,13 +1743,13 @@ export function SystemUpdatesManager({
                     {items.length ? (
                         items.map((item) => (
                             <div
-                                className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                                className="rounded-lg border border-border bg-muted/50 p-4"
                                 key={item._id}
                             >
                                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                     <div>
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <h3 className="text-lg font-semibold text-zinc-950">
+                                            <h3 className="text-lg font-semibold text-foreground">
                                                 {item.title || "Untitled system item"}
                                             </h3>
                                             <Badge>{item.type}</Badge>
@@ -1754,23 +1757,24 @@ export function SystemUpdatesManager({
                                             <Badge
                                                 className={
                                                     item.isActive
-                                                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                                        : "border-rose-200 bg-rose-50 text-rose-700"
+                                                        ? "border-success-border bg-success-muted text-success-muted-foreground"
+                                                        : "border-destructive-border bg-destructive-muted text-destructive-muted-foreground"
                                                 }
                                             >
                                                 {item.isActive ? "Active" : "Inactive"}
                                             </Badge>
                                         </div>
-                                        <p className="mt-3 text-sm leading-6 text-zinc-500">
+                                        <p className="mt-3 text-sm leading-6 text-muted-foreground">
                                             {typeof item.content === "string"
                                                 ? item.content
                                                 : JSON.stringify(item.content)}
                                         </p>
-                                        <p className="mt-3 text-xs uppercase tracking-[0.14em] text-zinc-500">
+                                        <p className="mt-3 text-xs uppercase tracking-[0.14em] text-muted-foreground">
                                             Target roles: {item.targetRoles.length ? item.targetRoles.join(", ") : "All"}
                                         </p>
                                     </div>
                                     <Button
+                                        loading={isPending}
                                         disabled={isPending}
                                         onClick={() => toggleStatus(item)}
                                         variant="secondary"
@@ -1781,7 +1785,7 @@ export function SystemUpdatesManager({
                             </div>
                         ))
                     ) : (
-                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                             No system updates have been created yet.
                         </div>
                     )}
@@ -1800,18 +1804,20 @@ function SummaryCard({
     value: string;
     icon: React.ReactNode;
 }) {
+    // `icon` here is a rendered node rather than a component, so the chip is
+    // composed inline instead of going through StatCard's `icon` prop.
     return (
-        <Card>
-            <CardContent className="flex items-center justify-between p-5">
-                <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
+        <Card className="gap-0">
+            <CardContent className="flex items-start justify-between gap-3 p-5">
+                <div className="min-w-0 space-y-1">
+                    <p className="truncate text-xs font-medium tracking-wide text-muted-foreground uppercase">
                         {label}
                     </p>
-                    <p className="mt-2 text-3xl font-semibold text-zinc-950">{value}</p>
+                    <p className="text-3xl font-semibold text-foreground">{value}</p>
                 </div>
-                <div className="inline-flex size-12 items-center justify-center rounded-md bg-zinc-100 text-zinc-700">
+                <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground [&>svg]:size-5">
                     {icon}
-                </div>
+                </span>
             </CardContent>
         </Card>
     );

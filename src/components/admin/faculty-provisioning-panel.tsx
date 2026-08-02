@@ -462,18 +462,17 @@ export function FacultyProvisioningPanel({
                             </Field>
                         </div>
 
-                        <Button className="w-full md:w-fit" disabled={isPending} type="submit">
-                            {isPending ? <Spinner /> : null}
+                        <Button loading={isPending} className="w-full md:w-fit" disabled={isPending} type="submit">
                             Create Faculty + Activation Account
                         </Button>
                     </form>
                 </CardContent>
             </Card>
 
-            <Card className="border-zinc-200 bg-gradient-to-br from-zinc-50 via-white to-zinc-100">
+            <Card className="border-border bg-gradient-to-br from-muted/40 via-card to-muted">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <FileSpreadsheet className="size-5 text-zinc-700" />
+                        <FileSpreadsheet className="size-5 text-foreground" />
                         Bulk import from Excel
                     </CardTitle>
                     <CardDescription>
@@ -481,11 +480,11 @@ export function FacultyProvisioningPanel({
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="rounded-xl border border-dashed border-zinc-300 bg-white/80 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-600">
+                    <div className="rounded-xl border border-dashed border-border bg-card/80 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                             Required headers
                         </p>
-                        <p className="mt-1 text-sm text-zinc-700">{templateHeaders.join(", ")}</p>
+                        <p className="mt-1 text-sm text-foreground">{templateHeaders.join(", ")}</p>
                     </div>
 
                     <Button className="w-full" onClick={() => { void getXlsx().then(downloadFacultyProvisionTemplate); }} type="button" variant="outline">
@@ -500,7 +499,7 @@ export function FacultyProvisioningPanel({
                             <Input accept=".xlsx,.xls,.csv" id="faculty-bulk-upload" key={fileInputVersion} onChange={onBulkFileChange} type="file" />
                         </Field>
 
-                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+                        <div className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                             {bulkFile ? `Selected: ${bulkFile.name}` : "Select a .xlsx/.xls/.csv file to start bulk import."}
                         </div>
 
@@ -511,11 +510,11 @@ export function FacultyProvisioningPanel({
                     </form>
 
                     {bulkFailures.length ? (
-                        <div className="space-y-2 rounded-xl border border-rose-200 bg-rose-50 p-4">
-                            <p className="text-sm font-semibold text-rose-900">
+                        <div className="space-y-2 rounded-xl border border-destructive-border bg-destructive-muted p-4">
+                            <p className="text-sm font-semibold text-destructive">
                                 Failed rows ({bulkFailures.length})
                             </p>
-                            <div className="max-h-48 space-y-1 overflow-auto text-xs text-rose-800">
+                            <div className="max-h-48 space-y-1 overflow-auto text-xs text-destructive">
                                 {bulkFailures.slice(0, 10).map((failure) => (
                                     <p key={`${failure.rowNumber}-${failure.employeeCode || failure.email || "na"}-${failure.message}`}>
                                         Row {failure.rowNumber}: {failure.message}
@@ -546,7 +545,7 @@ function Field({
         <div className="grid gap-2">
             <Label htmlFor={id}>{label}</Label>
             {children}
-            {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
         </div>
     );
 }

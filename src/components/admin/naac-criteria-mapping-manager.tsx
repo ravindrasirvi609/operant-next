@@ -2,7 +2,7 @@
 
 import { type FormEvent, useMemo, useState, useTransition } from "react";
 
-import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ConfirmButton } from "@/components/ui/confirm-button";
+import { Pencil, RotateCcw, Trash2 } from "lucide-react";
 
 type CriteriaOption = {
     criteriaCode: string;
@@ -291,16 +293,17 @@ export function NaacCriteriaMappingManager({
                         </div>
 
                         <div className="flex flex-wrap gap-3">
-                            <Button disabled={isPending} type="submit">
-                                {isPending ? <Spinner /> : null}
+                            <Button loading={isPending} disabled={isPending} type="submit">
                                 {editingId ? "Update Mapping" : "Create Mapping"}
                             </Button>
                             <Button
+                                loading={isPending}
                                 disabled={isPending}
                                 type="button"
                                 variant="secondary"
                                 onClick={() => resetForm(form.criteriaCode)}
                             >
+                                <RotateCcw aria-hidden />
                                 Reset
                             </Button>
                         </div>
@@ -326,42 +329,48 @@ export function NaacCriteriaMappingManager({
 
                             return (
                                 <div
-                                    className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                                    className="rounded-lg border border-border bg-muted/50 p-4"
                                     key={mapping._id}
                                 >
                                     <div className="flex flex-wrap items-start justify-between gap-3">
                                         <div>
-                                            <p className="font-semibold text-zinc-950">
+                                            <p className="font-semibold text-foreground">
                                                 {mapping.criteriaCode} · {mapping.criteriaName}
                                             </p>
-                                            <p className="mt-1 text-sm text-zinc-600">
+                                            <p className="mt-1 text-sm text-muted-foreground">
                                                 {metric?.label ?? mapping.fieldReference}
                                             </p>
                                         </div>
                                         <Badge>{mapping.weightage}</Badge>
                                     </div>
-                                    <p className="mt-2 text-xs text-zinc-500">
+                                    <p className="mt-2 text-xs text-muted-foreground">
                                         {mapping.tableName}.{mapping.fieldReference}
                                     </p>
                                     <div className="mt-4 flex flex-wrap gap-3">
                                         <Button
+                                            loading={isPending}
                                             disabled={isPending}
                                             size="sm"
                                             type="button"
                                             variant="secondary"
                                             onClick={() => startEdit(mapping)}
                                         >
+                                            <Pencil aria-hidden />
                                             Edit
                                         </Button>
-                                        <Button
+                                        <ConfirmButton
+                                            loading={isPending}
                                             disabled={isPending}
                                             size="sm"
                                             type="button"
-                                            variant="secondary"
-                                            onClick={() => handleDelete(mapping._id)}
+                                            variant="destructive"
+                                            onConfirm={() => handleDelete(mapping._id)}
+                                            title="Delete this criteria mapping?"
+                                            description="AQAR metrics that rely on this mapping will stop resolving until a replacement is created."
                                         >
+                                            <Trash2 aria-hidden />
                                             Delete
-                                        </Button>
+                                        </ConfirmButton>
                                     </div>
                                 </div>
                             );

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 
-import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FormMessage } from "@/components/auth/auth-helpers";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { getAcademicYearReportingPeriod } from "@/lib/academic-year";
+import { Lock, Send } from "lucide-react";
 
 type Criterion = {
     criterionCode: string;
@@ -238,8 +239,7 @@ export function AqarCycleDashboard({
                         value={createForm.toDate}
                         onChange={(event) => setCreateForm((current) => ({ ...current, toDate: event.target.value }))}
                     />
-                    <Button onClick={createCycle} disabled={isPending}>
-                        {isPending ? <Spinner /> : null}
+                    <Button loading={isPending} onClick={createCycle} disabled={isPending}>
                         Create AQAR Cycle
                     </Button>
                 </CardContent>
@@ -258,19 +258,19 @@ export function AqarCycleDashboard({
                                 key={cycle._id}
                                 onClick={() => setSelectedId(cycle._id)}
                                 className={`rounded-lg border p-4 text-left ${
-                                    selectedId === cycle._id ? "border-zinc-400 bg-white" : "border-zinc-200 bg-zinc-50"
+                                    selectedId === cycle._id ? "border-border bg-card" : "border-border bg-muted/50"
                                 }`}
                             >
                                 <div className="flex items-center justify-between gap-3">
-                                    <p className="font-semibold text-zinc-950">{cycle.academicYear}</p>
+                                    <p className="font-semibold text-foreground">{cycle.academicYear}</p>
                                     <Badge>{cycle.status}</Badge>
                                 </div>
-                                <p className="mt-2 text-sm text-zinc-600">
+                                <p className="mt-2 text-sm text-muted-foreground">
                                     Criteria {cycle.criteriaSections.length} | Publications {cycle.summaryMetrics.publications}
                                 </p>
                             </button>
                         )) : (
-                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                                 No institutional AQAR cycles created yet.
                             </div>
                         )}
@@ -295,7 +295,7 @@ export function AqarCycleDashboard({
                                 </div>
                                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                                     <div className="grid gap-2">
-                                        <p className="text-sm font-medium text-zinc-950">Cycle Status</p>
+                                        <p className="text-sm font-medium text-foreground">Cycle Status</p>
                                         <Select value={selected.status} onValueChange={updateCycleStatus}>
                                             <SelectTrigger className="w-full">
                                                 <SelectValue placeholder="Select status" />
@@ -309,15 +309,16 @@ export function AqarCycleDashboard({
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <Button type="button" variant="secondary" onClick={() => runAction("generate")} disabled={isPending}>
-                                        {isPending ? <Spinner /> : null}
+                                    <Button loading={isPending} type="button" variant="secondary" onClick={() => runAction("generate")} disabled={isPending}>
                                         Regenerate Snapshot
                                     </Button>
-                                    <Button type="button" variant="secondary" onClick={() => runAction("finalize")} disabled={isPending}>
+                                    <Button loading={isPending} type="button" variant="secondary" onClick={() => runAction("finalize")} disabled={isPending}>
+                                        <Lock aria-hidden />
                                         Finalize Cycle
                                     </Button>
                                     <div className="flex gap-3">
-                                        <Button type="button" onClick={() => runAction("submit")} disabled={isPending}>
+                                        <Button loading={isPending} type="button" onClick={() => runAction("submit")} disabled={isPending}>
+                                            <Send aria-hidden />
                                             Submit Cycle
                                         </Button>
                                         <Button asChild type="button" variant="secondary">
@@ -346,18 +347,18 @@ export function AqarCycleDashboard({
                                                 <Metric key={key} label={key} value={String(value)} />
                                             ))}
                                         </div>
-                                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                                            <p className="text-sm font-medium text-zinc-950">Source snapshots</p>
+                                        <div className="rounded-lg border border-border bg-muted/50 p-4">
+                                            <p className="text-sm font-medium text-foreground">Source snapshots</p>
                                             <div className="mt-3 grid gap-2">
                                                 {criterion.sourceSnapshots.map((source) => (
-                                                    <p className="text-sm text-zinc-600" key={`${criterion.criterionCode}-${source.label}`}>
+                                                    <p className="text-sm text-muted-foreground" key={`${criterion.criterionCode}-${source.label}`}>
                                                         {source.label}: {source.count ?? source.value ?? "-"}
                                                     </p>
                                                 ))}
                                             </div>
                                         </div>
                                         <div className="grid gap-2">
-                                            <p className="text-sm font-medium text-zinc-950">IQAC Narrative</p>
+                                            <p className="text-sm font-medium text-foreground">IQAC Narrative</p>
                                             <Textarea
                                                 defaultValue={criterion.narrative ?? ""}
                                                 placeholder="Add criterion-level institutional narrative for the final NAAC AQAR report."
@@ -376,17 +377,17 @@ export function AqarCycleDashboard({
                             </CardHeader>
                             <CardContent className="grid gap-3">
                                 {selected.statusLogs.map((log, index) => (
-                                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={`${log.action}-${index}`}>
+                                    <div className="rounded-lg border border-border bg-muted/50 p-4" key={`${log.action}-${index}`}>
                                         <div className="flex items-center justify-between gap-4">
-                                            <p className="font-semibold text-zinc-950">{log.action}</p>
-                                            <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">
+                                            <p className="font-semibold text-foreground">{log.action}</p>
+                                            <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                                                 {new Date(log.changedAt).toLocaleString()}
                                             </p>
                                         </div>
-                                        <p className="mt-2 text-sm text-zinc-600">
+                                        <p className="mt-2 text-sm text-muted-foreground">
                                             {log.actorName ? `${log.actorName} (${log.actorRole ?? "User"})` : "System"}
                                         </p>
-                                        {log.remarks ? <p className="mt-1 text-sm text-zinc-500">{log.remarks}</p> : null}
+                                        {log.remarks ? <p className="mt-1 text-sm text-muted-foreground">{log.remarks}</p> : null}
                                     </div>
                                 ))}
                             </CardContent>
@@ -400,9 +401,9 @@ export function AqarCycleDashboard({
 
 function Metric({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">{label}</p>
-            <p className="mt-2 font-semibold text-zinc-950">{value}</p>
+        <div className="rounded-lg border border-border bg-muted/50 p-4">
+            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+            <p className="mt-2 font-semibold text-foreground">{value}</p>
         </div>
     );
 }

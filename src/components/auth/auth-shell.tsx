@@ -19,13 +19,18 @@ export function AuthShell({
     aside?: React.ReactNode;
     footer?: React.ReactNode;
 }) {
+    // Ambient backdrop. Built from theme tokens with color-mix so the tint
+    // follows the brand accent and the whole thing survives dark mode — it was
+    // previously a hardcoded #f8fafc/#fffdf7 gradient plus sky/amber blobs,
+    // which stayed light-on-light when dark mode was enabled.
     return (
-        <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(245,158,11,0.14),_transparent_34%),linear-gradient(180deg,_#f8fafc_0%,_#fffdf7_100%)]">
+        <div className="relative min-h-screen overflow-hidden bg-background">
             <div className="pointer-events-none absolute inset-0">
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-zinc-300/70 to-transparent" />
-                <div className="absolute left-0 top-0 h-full w-full bg-[linear-gradient(rgba(255,255,255,0.62)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.62)_1px,transparent_1px)] bg-[size:72px_72px] opacity-40" />
-                <div className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-sky-300/35 blur-3xl" />
-                <div className="absolute -right-16 bottom-0 h-80 w-80 rounded-full bg-amber-300/35 blur-3xl" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,color-mix(in_oklch,var(--primary)_14%,transparent),transparent_38%),radial-gradient(circle_at_bottom_right,color-mix(in_oklch,var(--chart-4)_14%,transparent),transparent_40%)]" />
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+                <div className="absolute inset-0 bg-[linear-gradient(color-mix(in_oklch,var(--border)_60%,transparent)_1px,transparent_1px),linear-gradient(90deg,color-mix(in_oklch,var(--border)_60%,transparent)_1px,transparent_1px)] bg-[size:72px_72px] opacity-50" />
+                <div className="absolute -left-24 top-16 size-72 rounded-full bg-primary/20 blur-3xl" />
+                <div className="absolute -right-16 bottom-0 size-80 rounded-full bg-chart-4/20 blur-3xl" />
             </div>
             <div className="relative mx-auto grid min-h-screen max-w-7xl gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:px-8 lg:py-10">
                 <div className="order-2 lg:order-1">
@@ -33,15 +38,15 @@ export function AuthShell({
                 </div>
 
                 <section className="order-1 flex items-center justify-center lg:order-2">
-                    <div className="w-full max-w-2xl rounded-[32px] border border-white/80 bg-white/72 p-5 shadow-[0_30px_90px_-40px_rgba(15,23,42,0.5)] backdrop-blur xl:p-7">
+                    <div className="w-full max-w-2xl rounded-[32px] border border-border/80 bg-card/72 p-5 shadow-[0_30px_90px_-40px_color-mix(in_oklch,var(--foreground)_45%,transparent)] backdrop-blur xl:p-7">
                         <div className="mb-6 space-y-3">
-                            <p className="text-xs font-medium uppercase tracking-[0.24em] text-zinc-500">
+                            <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
                                 {eyebrow}
                             </p>
-                            <h2 className="text-3xl font-semibold tracking-tight text-zinc-950">
+                            <h2 className="text-3xl font-semibold tracking-tight text-foreground">
                                 {title}
                             </h2>
-                            <p className="max-w-xl text-base leading-7 text-zinc-500">
+                            <p className="max-w-xl text-base leading-7 text-muted-foreground">
                                 {description}
                             </p>
                         </div>
@@ -56,22 +61,22 @@ export function AuthShell({
 
 function DefaultAside() {
     return (
-        <Card className="flex h-full flex-col justify-between overflow-hidden rounded-[32px] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.94)_0%,rgba(250,250,249,0.88)_100%)] shadow-[0_30px_90px_-40px_rgba(15,23,42,0.5)] backdrop-blur">
-            <CardHeader className="gap-5 border-b border-zinc-100/80 px-6 py-6 sm:px-8">
+        <Card className="flex h-full flex-col justify-between overflow-hidden rounded-[32px] border border-border/80 bg-[linear-gradient(180deg,color-mix(in_oklch,var(--card)_94%,transparent)_0%,color-mix(in_oklch,var(--muted)_88%,transparent)_100%)] shadow-[0_30px_90px_-40px_color-mix(in_oklch,var(--foreground)_45%,transparent)] backdrop-blur">
+            <CardHeader className="gap-5 border-b border-border/80 px-6 py-6 sm:px-8">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <p className="text-xs font-medium uppercase tracking-[0.24em] text-zinc-500">
+                        <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
                             UMIS Software
                         </p>
-                        <CardTitle className="mt-3 max-w-2xl text-4xl font-semibold tracking-tight text-zinc-950 sm:text-5xl">
+                        <CardTitle className="mt-3 max-w-2xl text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
                             Secure access for everyday academic operations.
                         </CardTitle>
                     </div>
-                    <Badge className="border border-zinc-200 bg-white text-zinc-700 shadow-sm">
+                    <Badge className="border border-border bg-card text-foreground shadow-sm">
                         University Portal
                     </Badge>
                 </div>
-                <CardDescription className="max-w-2xl text-base leading-7 text-zinc-600">
+                <CardDescription className="max-w-2xl text-base leading-7 text-muted-foreground">
                     Bring student services, faculty workflows, and institutional operations into one reliable sign-in experience built for campus teams.
                 </CardDescription>
             </CardHeader>
@@ -93,28 +98,28 @@ function DefaultAside() {
                         text="Keeps teaching, administration, and review responsibilities inside one portal."
                     />
                 </div>
-                <div className="grid gap-4 rounded-[24px] border border-zinc-200/80 bg-white/80 p-5 shadow-sm sm:grid-cols-2">
+                <div className="grid gap-4 rounded-[24px] border border-border/80 bg-card/80 p-5 shadow-sm sm:grid-cols-2">
                     <div>
-                        <p className="text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">
+                        <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
                             Access Scope
                         </p>
-                        <p className="mt-2 text-sm leading-6 text-zinc-600">
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
                             Students, faculty, administrators, and academic leadership enter the right workspace from a shared identity layer.
                         </p>
                     </div>
                     <div>
-                        <p className="text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">
+                        <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
                             Operational Focus
                         </p>
-                        <p className="mt-2 text-sm leading-6 text-zinc-600">
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
                             Registration, records, approvals, and institutional workflows stay aligned under one sign-in experience.
                         </p>
                     </div>
                 </div>
             </CardContent>
-            <CardFooter className="flex items-center justify-between gap-4 border-t border-zinc-100/80 bg-zinc-50/70 px-6 py-5 text-sm text-zinc-500 sm:px-8">
+            <CardFooter className="flex items-center justify-between gap-4 border-t border-border/80 bg-muted/70 px-6 py-5 text-sm text-muted-foreground sm:px-8">
                 <span>Already onboarded?</span>
-                <Link href="/login" className="font-medium text-zinc-950">
+                <Link href="/login" className="font-medium text-foreground">
                     Sign in
                 </Link>
             </CardFooter>
@@ -132,14 +137,14 @@ function FeatureCard({
     text: string;
 }) {
     return (
-        <Card className="border-zinc-200/80 bg-white/88 shadow-sm">
+        <Card className="border-border/80 bg-card/88 shadow-sm">
             <CardContent className="space-y-3 px-5 py-5">
-                <div className="inline-flex size-11 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-700 shadow-sm">
+                <div className="inline-flex size-11 items-center justify-center rounded-2xl bg-muted text-foreground shadow-sm">
                     {icon}
                 </div>
                 <div>
-                    <h3 className="text-lg font-semibold text-zinc-950">{title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-zinc-500">{text}</p>
+                    <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{text}</p>
                 </div>
             </CardContent>
         </Card>

@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { RefreshCw } from "lucide-react";
 
 export default function Error({
     error,
@@ -19,6 +20,7 @@ export default function Error({
                 </AlertDescription>
                 <div className="mt-4 flex flex-wrap gap-2">
                     <Button type="button" variant="secondary" onClick={reset}>
+                        <RefreshCw aria-hidden />
                         Try again
                     </Button>
                 </div>

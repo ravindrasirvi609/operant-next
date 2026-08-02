@@ -9,6 +9,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { NativeSelect } from "@/components/ui/native-select";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { Plus, RefreshCw } from "lucide-react";
 
 type TemplateSection = {
     key: string;
@@ -267,8 +270,8 @@ export function ReportTemplateManager({
                             onClick={() => selectTemplate(template._id)}
                             className={`rounded-xl border px-4 py-3 text-left transition ${
                                 template._id === selectedId
-                                    ? "border-zinc-900 bg-zinc-900 text-white"
-                                    : "border-zinc-200 bg-zinc-50 text-zinc-900 hover:bg-zinc-100"
+                                    ? "border-border bg-primary text-primary-foreground"
+                                    : "border-border bg-muted/50 text-foreground hover:bg-muted"
                             }`}
                         >
                             <div className="text-sm font-semibold">{template.name}</div>
@@ -377,9 +380,9 @@ export function ReportTemplateManager({
                         <div className="grid gap-4 md:grid-cols-[160px_1fr_auto]">
                             <div className="space-y-2">
                                 <Label htmlFor="preview-mode">Preview Source</Label>
-                                <select
+                                <NativeSelect
                                     id="preview-mode"
-                                    className="h-10 rounded-md border border-zinc-200 bg-white px-3 text-sm"
+                                    className="h-10 rounded-md border border-border bg-card px-3 text-sm"
                                     value={previewMode}
                                     onChange={(event) =>
                                         setPreviewMode(event.target.value === "live" ? "live" : "sample")
@@ -387,14 +390,14 @@ export function ReportTemplateManager({
                                 >
                                     <option value="sample">Sample Data</option>
                                     <option value="live">Live Record</option>
-                                </select>
+                                </NativeSelect>
                             </div>
 
                             <div className="space-y-2">
                                 <Label htmlFor="preview-record">Live Record</Label>
-                                <select
+                                <NativeSelect
                                     id="preview-record"
-                                    className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm"
+                                    className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm"
                                     value={previewRecordId}
                                     disabled={previewMode !== "live" || isLoadingPreview || previewCandidates.length === 0}
                                     onChange={(event) => setPreviewRecordId(event.target.value)}
@@ -412,7 +415,7 @@ export function ReportTemplateManager({
                                             {candidate.subtitle ? ` - ${candidate.subtitle}` : ""}
                                         </option>
                                     ))}
-                                </select>
+                                </NativeSelect>
                             </div>
 
                             <div className="flex items-end gap-2">
@@ -421,6 +424,7 @@ export function ReportTemplateManager({
                                     variant="outline"
                                     onClick={() => setPreviewNonce((current) => current + 1)}
                                 >
+                                    <RefreshCw aria-hidden />
                                     Refresh Preview
                                 </Button>
                                 <Button asChild type="button">
@@ -432,7 +436,7 @@ export function ReportTemplateManager({
                         </div>
 
                         {previewError ? (
-                            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                            <div className="rounded-xl border border-destructive-border bg-destructive-muted px-4 py-3 text-sm text-destructive-muted-foreground">
                                 {previewError}
                             </div>
                         ) : null}
@@ -443,11 +447,11 @@ export function ReportTemplateManager({
                                 description="No live records are available for this template type. Switch to sample mode to review the layout."
                             />
                         ) : previewMode === "live" && !previewRecordId ? (
-                            <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-center text-sm text-zinc-500">
+                            <div className="rounded-xl border border-dashed border-border bg-muted/50 px-4 py-10 text-center text-sm text-muted-foreground">
                                 Select a live record to load the preview.
                             </div>
                         ) : (
-                            <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
+                            <div className="overflow-hidden rounded-xl border border-border bg-card">
                                 <iframe
                                     key={previewUrl}
                                     src={previewUrl}
@@ -469,13 +473,14 @@ export function ReportTemplateManager({
                                 </CardDescription>
                             </div>
                             <Button type="button" variant="outline" onClick={addSection}>
+                                <Plus aria-hidden />
                                 Add Section
                             </Button>
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {form.sections.map((section, index) => (
-                            <div key={`${section.key}-${index}`} className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                            <div key={`${section.key}-${index}`} className="rounded-xl border border-border bg-muted/50 p-4">
                                 <div className="grid gap-4 md:grid-cols-[1fr_1fr_120px]">
                                     <div className="space-y-2">
                                         <Label>Section Key</Label>
@@ -519,7 +524,7 @@ export function ReportTemplateManager({
                                         }
                                     />
                                 </div>
-                                <label className="mt-4 flex items-center gap-2 text-sm text-zinc-600">
+                                <label className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                                     <input
                                         type="checkbox"
                                         checked={section.isActive}
@@ -534,20 +539,10 @@ export function ReportTemplateManager({
                     </CardContent>
                 </Card>
 
-                {message ? (
-                    <div
-                        className={`rounded-xl border px-4 py-3 text-sm ${
-                            message.type === "success"
-                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                : "border-rose-200 bg-rose-50 text-rose-700"
-                        }`}
-                    >
-                        {message.text}
-                    </div>
-                ) : null}
+                <InlineAlert message={message} />
 
                 <div className="flex justify-end">
-                    <Button type="submit" disabled={isPending}>
+                    <Button loading={isPending} type="submit" disabled={isPending}>
                         {isPending ? "Saving version..." : "Save Template Version"}
                     </Button>
                 </div>

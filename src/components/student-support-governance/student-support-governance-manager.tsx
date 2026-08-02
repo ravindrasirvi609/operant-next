@@ -10,6 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ListTree, Pencil, Plus, RotateCcw, Save, Users } from "lucide-react";
 
 type PlanRecord = {
     _id: string;
@@ -158,22 +162,6 @@ function formatDate(value?: string) {
         month: "short",
         year: "numeric",
     });
-}
-
-function statusBadge(status: string) {
-    if (status === "Approved" || status === "Active") {
-        return <Badge className="bg-emerald-100 text-emerald-700">{status}</Badge>;
-    }
-
-    if (status === "Rejected") {
-        return <Badge className="bg-rose-100 text-rose-700">{status}</Badge>;
-    }
-
-    if (["Submitted", "Student Support Review", "Under Review", "Governance Review", "Locked"].includes(status)) {
-        return <Badge className="bg-amber-100 text-amber-700">{status}</Badge>;
-    }
-
-    return <Badge variant="secondary">{status}</Badge>;
 }
 
 export function StudentSupportGovernanceManager({
@@ -395,20 +383,24 @@ export function StudentSupportGovernanceManager({
     return (
         <div className="space-y-6">
             <div className="flex flex-wrap items-center gap-2">
-                <Button
-                    onClick={() => setTab("plans")}
-                    type="button"
-                    variant={tab === "plans" ? "default" : "outline"}
+                <ToggleGroup
+                    type="single"
+                    value={tab}
+                    onValueChange={(value) => {
+                        if (value) setTab(value as "plans" | "assignments");
+                    }}
+                    variant="outline"
+                    className="w-fit"
                 >
-                    Plans
-                </Button>
-                <Button
-                    onClick={() => setTab("assignments")}
-                    type="button"
-                    variant={tab === "assignments" ? "default" : "outline"}
-                >
-                    Assignments
-                </Button>
+                    <ToggleGroupItem value="plans">
+                        <ListTree aria-hidden />
+                        Plans
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="assignments">
+                        <Users aria-hidden />
+                        Assignments
+                    </ToggleGroupItem>
+                </ToggleGroup>
                 <Input
                     className="max-w-sm"
                     onChange={(event) => setSearch(event.target.value)}
@@ -417,17 +409,7 @@ export function StudentSupportGovernanceManager({
                 />
             </div>
 
-            {message ? (
-                <div
-                    className={`rounded-lg border px-4 py-3 text-sm ${
-                        message.type === "success"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                            : "border-rose-200 bg-rose-50 text-rose-900"
-                    }`}
-                >
-                    {message.text}
-                </div>
-            ) : null}
+            <InlineAlert message={message} />
 
             {tab === "plans" ? (
                 <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
@@ -642,10 +624,12 @@ export function StudentSupportGovernanceManager({
                             </div>
 
                             <div className="flex gap-3">
-                                <Button disabled={isPending} onClick={submitPlan} type="button">
+                                <Button loading={isPending} disabled={isPending} onClick={submitPlan} type="button">
+                                    {editingPlanId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                     {editingPlanId ? "Update plan" : "Create plan"}
                                 </Button>
-                                <Button disabled={isPending} onClick={resetPlanForm} type="button" variant="outline">
+                                <Button loading={isPending} disabled={isPending} onClick={resetPlanForm} type="button" variant="outline">
+                                    <RotateCcw aria-hidden />
                                     Reset
                                 </Button>
                             </div>
@@ -659,20 +643,20 @@ export function StudentSupportGovernanceManager({
                                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                         <div>
                                             <div className="flex flex-wrap items-center gap-2">
-                                                {statusBadge(plan.status)}
+                                                <StatusBadge status={plan.status} />
                                                 <Badge variant="outline">{plan.scopeType}</Badge>
                                                 <Badge variant="outline">{plan.focusArea}</Badge>
                                             </div>
-                                            <h3 className="mt-3 text-lg font-semibold text-zinc-950">
+                                            <h3 className="mt-3 text-lg font-semibold text-foreground">
                                                 {plan.title}
                                             </h3>
-                                            <p className="mt-1 text-sm text-zinc-500">
+                                            <p className="mt-1 text-sm text-muted-foreground">
                                                 {plan.departmentName || plan.institutionName || "Scoped unit"} · {plan.academicYearLabel}
                                             </p>
-                                            <p className="mt-3 text-sm text-zinc-600">
+                                            <p className="mt-3 text-sm text-muted-foreground">
                                                 {plan.summary?.trim() || "No plan summary provided."}
                                             </p>
-                                            <p className="mt-2 text-xs text-zinc-500">
+                                            <p className="mt-2 text-xs text-muted-foreground">
                                                 Targets: {plan.targetMentorGroupCount} mentor groups, {plan.targetGrievanceClosureCount} grievance closures, {plan.targetScholarshipBeneficiaryCount} scholarship beneficiaries, {plan.targetPlacementCount} placements, {plan.targetHigherStudiesCount} higher studies, {plan.targetRepresentationCount} representation bodies
                                             </p>
                                         </div>
@@ -683,9 +667,10 @@ export function StudentSupportGovernanceManager({
                                                 type="button"
                                                 variant="secondary"
                                             >
+                                                <Pencil aria-hidden />
                                                 Edit plan
                                             </Button>
-                                            <p className="text-xs text-zinc-500">
+                                            <p className="text-xs text-muted-foreground">
                                                 Updated {formatDate(plan.updatedAt)}
                                             </p>
                                         </div>
@@ -743,7 +728,7 @@ export function StudentSupportGovernanceManager({
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <p className="text-xs text-zinc-500">
+                                <p className="text-xs text-muted-foreground">
                                     Enforcement happens in the service layer for scoped plan owners, office heads, committee members, and active student-support coordinators.
                                 </p>
                             </div>
@@ -792,10 +777,12 @@ export function StudentSupportGovernanceManager({
                             </div>
 
                             <div className="flex gap-3">
-                                <Button disabled={isPending} onClick={submitAssignment} type="button">
+                                <Button loading={isPending} disabled={isPending} onClick={submitAssignment} type="button">
+                                    {editingAssignmentId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                     {editingAssignmentId ? "Update assignment" : "Create assignment"}
                                 </Button>
-                                <Button disabled={isPending} onClick={resetAssignmentForm} type="button" variant="outline">
+                                <Button loading={isPending} disabled={isPending} onClick={resetAssignmentForm} type="button" variant="outline">
+                                    <RotateCcw aria-hidden />
                                     Reset
                                 </Button>
                             </div>
@@ -809,18 +796,18 @@ export function StudentSupportGovernanceManager({
                                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                         <div>
                                             <div className="flex flex-wrap items-center gap-2">
-                                                {statusBadge(assignment.status)}
+                                                <StatusBadge status={assignment.status} />
                                                 <Badge variant={assignment.isActive ? "default" : "secondary"}>
                                                     {assignment.isActive ? "Active" : "Inactive"}
                                                 </Badge>
                                             </div>
-                                            <h3 className="mt-3 text-lg font-semibold text-zinc-950">
+                                            <h3 className="mt-3 text-lg font-semibold text-foreground">
                                                 {assignment.planTitle}
                                             </h3>
-                                            <p className="mt-1 text-sm text-zinc-500">
+                                            <p className="mt-1 text-sm text-muted-foreground">
                                                 {assignment.assigneeName} · {assignment.assigneeEmail || "No email"}
                                             </p>
-                                            <p className="mt-3 text-sm text-zinc-600">
+                                            <p className="mt-3 text-sm text-muted-foreground">
                                                 {assignment.notes?.trim() || "No assignment note provided."}
                                             </p>
                                         </div>
@@ -831,9 +818,10 @@ export function StudentSupportGovernanceManager({
                                                 type="button"
                                                 variant="secondary"
                                             >
+                                                <Pencil aria-hidden />
                                                 Edit assignment
                                             </Button>
-                                            <p className="text-xs text-zinc-500">
+                                            <p className="text-xs text-muted-foreground">
                                                 Due {formatDate(assignment.dueDate)}
                                             </p>
                                         </div>

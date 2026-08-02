@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
-import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -126,7 +126,7 @@ export function StudentSssWorkspace({
 
             {!activeSurvey ? (
                 <Card>
-                    <CardContent className="p-6 text-sm text-zinc-500">
+                    <CardContent className="p-6 text-sm text-muted-foreground">
                         No Student Satisfaction Survey is currently assigned to your account.
                     </CardContent>
                 </Card>
@@ -138,7 +138,7 @@ export function StudentSssWorkspace({
                             You already completed this survey. The live analytics snapshot is shown below for transparency.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-2 text-sm text-zinc-600">
+                    <CardContent className="space-y-2 text-sm text-muted-foreground">
                         <p>Overall satisfaction index: {activeSurvey.analytics?.overallSatisfactionIndex ?? 0}%</p>
                         <p>Institutional response rate: {activeSurvey.analytics?.responseRate ?? 0}%</p>
                     </CardContent>
@@ -154,12 +154,12 @@ export function StudentSssWorkspace({
                     <CardContent>
                         <form className="space-y-6" onSubmit={handleSubmit}>
                             {activeSurvey.questions.map((question) => (
-                                <div key={question._id} className="rounded-xl border border-zinc-200 p-4">
+                                <div key={question._id} className="rounded-xl border border-border p-4">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <Badge variant="secondary">{question.analyticsBucket}</Badge>
                                         <Badge variant="outline">Scale 1-{question.ratingScaleMax}</Badge>
                                     </div>
-                                    <p className="mt-3 text-sm font-medium text-zinc-900">{question.questionText}</p>
+                                    <p className="mt-3 text-sm font-medium text-foreground">{question.questionText}</p>
                                     <div className="mt-4 flex flex-wrap gap-2">
                                         {Array.from({ length: question.ratingScaleMax }, (_, index) => index + 1).map((rating) => (
                                             <Button
@@ -200,8 +200,7 @@ export function StudentSssWorkspace({
                                 </div>
                             ))}
 
-                            <Button disabled={isPending} type="submit">
-                                {isPending ? <Spinner className="mr-2 size-4" /> : null}
+                            <Button loading={isPending} disabled={isPending} type="submit">
                                 Submit SSS response
                             </Button>
                         </form>

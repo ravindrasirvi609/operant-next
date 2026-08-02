@@ -12,7 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { StatTile } from "@/components/ui/stat-card";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import type { UploadedDocument } from "@/lib/upload/service";
+import { Plus, Save, Send, Trash2 } from "lucide-react";
 
 type SourceCategory =
     | "facultyPublications"
@@ -317,22 +321,6 @@ function formatDate(value?: string) {
         month: "short",
         year: "numeric",
     });
-}
-
-function statusBadge(status: string) {
-    if (status === "Approved") {
-        return <Badge className="bg-emerald-100 text-emerald-700">{status}</Badge>;
-    }
-
-    if (status === "Rejected") {
-        return <Badge className="bg-rose-100 text-rose-700">{status}</Badge>;
-    }
-
-    if (["Submitted", "Research Review", "Under Review", "Committee Review"].includes(status)) {
-        return <Badge className="bg-amber-100 text-amber-700">{status}</Badge>;
-    }
-
-    return <Badge variant="secondary">{status}</Badge>;
 }
 
 function splitLines(value: string) {
@@ -830,17 +818,7 @@ export function ResearchInnovationContributorWorkspace({
                         value={search}
                     />
 
-                    {message ? (
-                        <div
-                            className={`rounded-lg border px-4 py-3 text-sm ${
-                                message.type === "success"
-                                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                                    : "border-rose-200 bg-rose-50 text-rose-900"
-                            }`}
-                        >
-                            {message.text}
-                        </div>
-                    ) : null}
+                    <InlineAlert message={message} />
 
                     <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
                         <div className="space-y-3">
@@ -851,8 +829,8 @@ export function ResearchInnovationContributorWorkspace({
                                     <button
                                         className={`w-full rounded-xl border p-4 text-left transition ${
                                             active
-                                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                                : "border-zinc-200 bg-zinc-50 text-zinc-900 hover:border-zinc-300 hover:bg-zinc-100"
+                                                ? "border-border bg-primary text-primary-foreground"
+                                                : "border-border bg-muted/50 text-foreground hover:border-border hover:bg-muted"
                                         }`}
                                         key={assignment._id}
                                         onClick={() => setSelectedId(assignment._id)}
@@ -870,7 +848,7 @@ export function ResearchInnovationContributorWorkspace({
                                                     {assignment.unitLabel} · {assignment.academicYearLabel}
                                                 </p>
                                             </div>
-                                            <div>{statusBadge(assignment.status)}</div>
+                                            <div><StatusBadge status={assignment.status} /></div>
                                         </div>
                                         <p className="mt-3 text-xs opacity-80">
                                             {assignment.currentStageLabel} · {assignment.valueSummary}
@@ -882,11 +860,11 @@ export function ResearchInnovationContributorWorkspace({
 
                         {selectedAssignment ? (
                             <div className="space-y-6">
-                                <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+                                <div className="rounded-2xl border border-border bg-muted/50 p-5">
                                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                         <div>
                                             <div className="flex flex-wrap items-center gap-2">
-                                                {statusBadge(selectedAssignment.status)}
+                                                <StatusBadge status={selectedAssignment.status} />
                                                 <Badge variant="secondary">
                                                     {selectedAssignment.currentStageLabel}
                                                 </Badge>
@@ -894,19 +872,19 @@ export function ResearchInnovationContributorWorkspace({
                                                     {selectedAssignment.scopeType}
                                                 </Badge>
                                             </div>
-                                            <h3 className="mt-3 text-2xl font-semibold text-zinc-950">
+                                            <h3 className="mt-3 text-2xl font-semibold text-foreground">
                                                 {selectedAssignment.planTitle}
                                             </h3>
-                                            <p className="mt-2 text-sm text-zinc-600">
+                                            <p className="mt-2 text-sm text-muted-foreground">
                                                 {selectedAssignment.unitLabel} · {selectedAssignment.academicYearLabel} ·{" "}
                                                 {selectedAssignment.focusArea}
                                             </p>
-                                            <p className="mt-2 text-sm text-zinc-500">
+                                            <p className="mt-2 text-sm text-muted-foreground">
                                                 Due {formatDate(selectedAssignment.dueDate)} · Plan status{" "}
                                                 {selectedAssignment.planStatus}
                                             </p>
                                         </div>
-                                        <div className="text-sm text-zinc-500">
+                                        <div className="text-sm text-muted-foreground">
                                             <p>
                                                 Linked records: {selectedAssignment.sourceMetrics.linkedTotal}
                                             </p>
@@ -928,11 +906,11 @@ export function ResearchInnovationContributorWorkspace({
                                         <MetricCard label="Innovation activity target" value={selectedAssignment.planTargets.innovationActivities} />
                                     </div>
 
-                                    <div className="mt-5 space-y-3 text-sm text-zinc-600">
+                                    <div className="mt-5 space-y-3 text-sm text-muted-foreground">
                                         <p>{selectedAssignment.planSummary?.trim() || "No plan summary provided."}</p>
                                         <p>{selectedAssignment.planStrategyGoals?.trim() || "No strategy goals defined on the plan."}</p>
                                         {selectedAssignment.notes ? (
-                                            <p className="rounded-lg border border-zinc-200 bg-white px-4 py-3 text-zinc-600">
+                                            <p className="rounded-lg border border-border bg-card px-4 py-3 text-muted-foreground">
                                                 {selectedAssignment.notes}
                                             </p>
                                         ) : null}
@@ -1025,10 +1003,10 @@ export function ResearchInnovationContributorWorkspace({
                                             return (
                                                 <div className="space-y-3" key={section.key}>
                                                     <div>
-                                                        <p className="text-sm font-semibold text-zinc-950">
+                                                        <p className="text-sm font-semibold text-foreground">
                                                             {section.label}
                                                         </p>
-                                                        <p className="text-xs text-zinc-500">
+                                                        <p className="text-xs text-muted-foreground">
                                                             {section.description}
                                                         </p>
                                                     </div>
@@ -1037,7 +1015,7 @@ export function ResearchInnovationContributorWorkspace({
                                                         <div className="space-y-3">
                                                             {options.map((option) => (
                                                                 <label
-                                                                    className="flex gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                                                                    className="flex gap-3 rounded-lg border border-border bg-muted/50 p-4"
                                                                     key={option.id}
                                                                 >
                                                                     <Checkbox
@@ -1052,17 +1030,17 @@ export function ResearchInnovationContributorWorkspace({
                                                                         }
                                                                     />
                                                                     <div className="space-y-1">
-                                                                        <p className="text-sm font-medium text-zinc-950">
+                                                                        <p className="text-sm font-medium text-foreground">
                                                                             {option.title}
                                                                         </p>
-                                                                        <p className="text-xs text-zinc-500">
+                                                                        <p className="text-xs text-muted-foreground">
                                                                             {[option.subtitle, option.ownerLabel, option.summary]
                                                                                 .filter(Boolean)
                                                                                 .join(" · ")}
                                                                         </p>
                                                                         {option.document?.fileUrl ? (
                                                                             <a
-                                                                                className="text-xs font-medium text-zinc-900 underline"
+                                                                                className="text-xs font-medium text-foreground underline"
                                                                                 href={option.document.fileUrl}
                                                                                 rel="noreferrer"
                                                                                 target="_blank"
@@ -1074,7 +1052,7 @@ export function ResearchInnovationContributorWorkspace({
                                                                             </a>
                                                                         ) : option.link ? (
                                                                             <a
-                                                                                className="text-xs font-medium text-zinc-900 underline"
+                                                                                className="text-xs font-medium text-foreground underline"
                                                                                 href={option.link}
                                                                                 rel="noreferrer"
                                                                                 target="_blank"
@@ -1087,7 +1065,7 @@ export function ResearchInnovationContributorWorkspace({
                                                             ))}
                                                         </div>
                                                     ) : (
-                                                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                                                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                                             No scoped source records are currently available in this category.
                                                         </div>
                                                     )}
@@ -1107,7 +1085,7 @@ export function ResearchInnovationContributorWorkspace({
                                     <CardContent className="space-y-4">
                                         {form.activities.map((row, index) => (
                                             <div
-                                                className="rounded-xl border border-zinc-200 p-4"
+                                                className="rounded-xl border border-border p-4"
                                                 key={row.id ?? `activity-${index}`}
                                             >
                                                 <div className="grid gap-4 md:grid-cols-2">
@@ -1283,6 +1261,7 @@ export function ResearchInnovationContributorWorkspace({
                                                             type="button"
                                                             variant="ghost"
                                                         >
+                                                            <Trash2 aria-hidden />
                                                             Remove row
                                                         </Button>
                                                     </div>
@@ -1301,6 +1280,7 @@ export function ResearchInnovationContributorWorkspace({
                                                 type="button"
                                                 variant="outline"
                                             >
+                                                <Plus aria-hidden />
                                                 Add activity row
                                             </Button>
                                         ) : null}
@@ -1317,7 +1297,7 @@ export function ResearchInnovationContributorWorkspace({
                                     <CardContent className="space-y-4">
                                         {form.grants.map((row, index) => (
                                             <div
-                                                className="rounded-xl border border-zinc-200 p-4"
+                                                className="rounded-xl border border-border p-4"
                                                 key={row.id ?? `grant-${index}`}
                                             >
                                                 <div className="grid gap-4 md:grid-cols-2">
@@ -1469,6 +1449,7 @@ export function ResearchInnovationContributorWorkspace({
                                                             type="button"
                                                             variant="ghost"
                                                         >
+                                                            <Trash2 aria-hidden />
                                                             Remove row
                                                         </Button>
                                                     </div>
@@ -1486,6 +1467,7 @@ export function ResearchInnovationContributorWorkspace({
                                                 type="button"
                                                 variant="outline"
                                             >
+                                                <Plus aria-hidden />
                                                 Add grant row
                                             </Button>
                                         ) : null}
@@ -1502,7 +1484,7 @@ export function ResearchInnovationContributorWorkspace({
                                     <CardContent className="space-y-4">
                                         {form.startups.map((row, index) => (
                                             <div
-                                                className="rounded-xl border border-zinc-200 p-4"
+                                                className="rounded-xl border border-border p-4"
                                                 key={row.id ?? `startup-${index}`}
                                             >
                                                 <div className="grid gap-4 md:grid-cols-2">
@@ -1662,6 +1644,7 @@ export function ResearchInnovationContributorWorkspace({
                                                             type="button"
                                                             variant="ghost"
                                                         >
+                                                            <Trash2 aria-hidden />
                                                             Remove row
                                                         </Button>
                                                     </div>
@@ -1679,6 +1662,7 @@ export function ResearchInnovationContributorWorkspace({
                                                 type="button"
                                                 variant="outline"
                                             >
+                                                <Plus aria-hidden />
                                                 Add startup row
                                             </Button>
                                         ) : null}
@@ -1686,15 +1670,18 @@ export function ResearchInnovationContributorWorkspace({
                                 </Card>
 
                                 <div className="flex flex-wrap gap-3">
-                                    <Button disabled={isPending || !canEdit} onClick={saveDraft} type="button">
+                                    <Button loading={isPending} disabled={isPending || !canEdit} onClick={saveDraft} type="button">
+                                        <Save aria-hidden />
                                         Save draft
                                     </Button>
                                     <Button
+                                        loading={isPending}
                                         disabled={isPending || !canEdit}
                                         onClick={submitAssignment}
                                         type="button"
                                         variant="secondary"
                                     >
+                                        <Send aria-hidden />
                                         Submit for review
                                     </Button>
                                 </div>
@@ -1708,12 +1695,7 @@ export function ResearchInnovationContributorWorkspace({
 }
 
 function MetricCard({ label, value }: { label: string; value: number }) {
-    return (
-        <div className="rounded-lg border border-zinc-200 bg-white p-4">
-            <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-2xl font-semibold text-zinc-950">{value}</p>
-        </div>
-    );
+    return <StatTile label={label} value={value} />;
 }
 
 function FieldInput({

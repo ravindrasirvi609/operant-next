@@ -16,12 +16,12 @@ export default async function DirectorFacultyPage() {
 
     return (
         <div className="space-y-6">
-            <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
                 <Badge>Faculty operations</Badge>
-                <h1 className="mt-4 text-4xl font-semibold tracking-tight text-zinc-950">
+                <h1 className="mt-4 text-4xl font-semibold tracking-tight text-foreground">
                     Scoped faculty roster
                 </h1>
-                <p className="mt-4 max-w-3xl text-base leading-8 text-zinc-500">
+                <p className="mt-4 max-w-3xl text-base leading-8 text-muted-foreground">
                     Faculty visibility is limited to your authorized departments and institutions. Use this roster to
                     track faculty-wise PBAS, CAS, and AQAR progress without leaving the leadership workspace.
                 </p>

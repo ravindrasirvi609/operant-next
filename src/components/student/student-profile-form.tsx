@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { z } from "zod";
 
-import { FieldError, FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FieldError, FormMessage } from "@/components/auth/auth-helpers";
 import { ProfilePhotoUpload } from "@/components/faculty/profile-photo-upload";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -129,7 +129,7 @@ export function StudentProfileForm({
 
     return (
         <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
-            <Card className="border-zinc-200 bg-white shadow-sm">
+            <Card className="border-border bg-card shadow-sm">
                 <CardContent className="flex flex-col items-center gap-4 p-5">
                     <ProfilePhotoUpload
                         userId={user.id}
@@ -137,21 +137,21 @@ export function StudentProfileForm({
                         endpoint="/api/student/photo"
                     />
                     <div className="space-y-2 text-center">
-                        <p className="text-lg font-semibold text-zinc-950">{user.name}</p>
+                        <p className="text-lg font-semibold text-foreground">{user.name}</p>
                         <div className="flex flex-wrap items-center justify-center gap-2">
                             <Badge variant="secondary">Student</Badge>
                             <Badge>{student.status}</Badge>
                             <Badge
                                 className={
                                     user.accountStatus === "Active"
-                                        ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
-                                        : "bg-amber-100 text-amber-700 hover:bg-amber-100"
+                                        ? "bg-success-muted text-success-muted-foreground hover:bg-success-muted"
+                                        : "bg-warning-muted text-warning-muted-foreground hover:bg-warning-muted"
                                 }
                             >
                                 {user.accountStatus}
                             </Badge>
                         </div>
-                        <p className="text-sm leading-6 text-zinc-500">
+                        <p className="text-sm leading-6 text-muted-foreground">
                             Upload the profile image here. Academic mapping stays institution-controlled.
                         </p>
                     </div>
@@ -166,7 +166,7 @@ export function StudentProfileForm({
                 </CardContent>
             </Card>
 
-            <Card className="border-zinc-200 bg-white shadow-sm">
+            <Card className="border-border bg-card shadow-sm">
                 <CardHeader>
                     <CardTitle>Basic Information</CardTitle>
                     <CardDescription>
@@ -235,14 +235,14 @@ export function StudentProfileForm({
                                 <Input id="student-mobile" inputMode="tel" {...form.register("mobile")} />
                             </FormField>
 
-                            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                            <div className="rounded-2xl border border-border bg-muted/50 p-4">
+                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                                     Admission Year
                                 </p>
-                                <p className="mt-2 text-lg font-semibold text-zinc-950">
+                                <p className="mt-2 text-lg font-semibold text-foreground">
                                     {student.admissionYear}
                                 </p>
-                                <p className="mt-1 text-sm text-zinc-500">
+                                <p className="mt-1 text-sm text-muted-foreground">
                                     Managed centrally with your academic mapping.
                                 </p>
                             </div>
@@ -258,11 +258,10 @@ export function StudentProfileForm({
                         </FormField>
 
                         <div className="flex flex-wrap items-center gap-3">
-                            <Button type="submit" disabled={isPending}>
-                                {isPending ? <Spinner /> : null}
+                            <Button loading={isPending} type="submit" disabled={isPending}>
                                 Save Basic Information
                             </Button>
-                            <p className="text-sm text-zinc-500">
+                            <p className="text-sm text-muted-foreground">
                                 Institution email, department, program, and enrollment mapping remain read-only.
                             </p>
                         </div>
@@ -295,9 +294,9 @@ function FormField({
 
 function StaticInfo({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-sm font-semibold text-zinc-950">{value}</p>
+        <div className="rounded-xl border border-border bg-muted/50 p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+            <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
         </div>
     );
 }

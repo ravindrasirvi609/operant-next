@@ -12,7 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { InlineUpload } from "@/components/ui/file-upload";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import type { UploadedDocument } from "@/lib/upload/service";
+import { Pencil, Plus, Save, X } from "lucide-react";
 
 type Option = {
     id: string;
@@ -465,17 +467,7 @@ export function CurriculumManager({
 
     return (
         <div className="space-y-6">
-            {message ? (
-                <div
-                    className={`rounded-lg border px-4 py-3 text-sm ${
-                        message.type === "success"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                            : "border-rose-200 bg-rose-50 text-rose-800"
-                    }`}
-                >
-                    {message.text}
-                </div>
-            ) : null}
+            <InlineAlert message={message} />
 
             <Tabs defaultValue="planning" className="space-y-6">
                 <TabsList className="grid w-full grid-cols-4">
@@ -524,6 +516,7 @@ export function CurriculumManager({
                                 </div>
                                 <div className="flex gap-3">
                                     <Button
+                                        loading={isPending}
                                         disabled={isPending}
                                         onClick={() =>
                                             submitForm(
@@ -539,10 +532,12 @@ export function CurriculumManager({
                                             )
                                         }
                                     >
+                                        {editingCalendarId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                         {editingCalendarId ? "Update Calendar" : "Create Calendar"}
                                     </Button>
                                     {editingCalendarId ? (
                                         <Button variant="secondary" onClick={resetCalendarForm}>
+                                            <X aria-hidden />
                                             Cancel
                                         </Button>
                                     ) : null}
@@ -607,6 +602,7 @@ export function CurriculumManager({
                                 <TextAreaField label="Description" value={calendarEventForm.description} onChange={(value) => setCalendarEventForm((current) => ({ ...current, description: value }))} rows={3} />
                                 <div className="flex gap-3">
                                     <Button
+                                        loading={isPending}
                                         disabled={isPending}
                                         onClick={() =>
                                             submitForm(
@@ -625,10 +621,12 @@ export function CurriculumManager({
                                             )
                                         }
                                     >
+                                        {editingCalendarEventId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                         {editingCalendarEventId ? "Update Event" : "Create Event"}
                                     </Button>
                                     {editingCalendarEventId ? (
                                         <Button variant="secondary" onClick={resetCalendarEventForm}>
+                                            <X aria-hidden />
                                             Cancel
                                         </Button>
                                     ) : null}
@@ -696,6 +694,7 @@ export function CurriculumManager({
                             </div>
                             <div className="flex gap-3">
                                 <Button
+                                    loading={isPending}
                                     disabled={isPending}
                                     onClick={() =>
                                         submitForm(
@@ -711,9 +710,10 @@ export function CurriculumManager({
                                         )
                                     }
                                 >
+                                    {editingPlanId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                     {editingPlanId ? "Update Plan" : "Create Plan"}
                                 </Button>
-                                {editingPlanId ? <Button variant="secondary" onClick={resetPlanForm}>Cancel</Button> : null}
+                                {editingPlanId ? <Button variant="secondary" onClick={resetPlanForm}><X aria-hidden />Cancel</Button> : null}
                             </div>
                             <div className="space-y-3 border-t pt-4">
                                 {plans.map((plan) => (
@@ -792,7 +792,7 @@ export function CurriculumManager({
                                     <TextField label="Course Title" value={courseForm.courseTitle} disabled={isCourseTitleLocked} onChange={(value) => setCourseForm((current) => ({ ...current, courseTitle: value }))} />
                                 </div>
                                 {courseForm.courseId ? (
-                                    <p className="text-xs text-zinc-500">
+                                    <p className="text-xs text-muted-foreground">
                                         Course code and title are synced from Academics for linked master courses.
                                     </p>
                                 ) : null}
@@ -832,6 +832,7 @@ export function CurriculumManager({
                                 />
                                 <div className="flex gap-3">
                                     <Button
+                                        loading={isPending}
                                         disabled={isPending}
                                         onClick={() =>
                                             submitForm(
@@ -853,9 +854,10 @@ export function CurriculumManager({
                                             )
                                         }
                                     >
+                                        {editingCourseId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                         {editingCourseId ? "Update Course" : "Create Course"}
                                     </Button>
-                                    {editingCourseId ? <Button variant="secondary" onClick={resetCourseForm}>Cancel</Button> : null}
+                                    {editingCourseId ? <Button variant="secondary" onClick={resetCourseForm}><X aria-hidden />Cancel</Button> : null}
                                 </div>
                                 <div className="space-y-3 border-t pt-4">
                                     {curriculumCourses.map((item) => (
@@ -894,8 +896,8 @@ export function CurriculumManager({
                                 <CardDescription>Create versioned syllabus records and curriculum-specific PO / PSO / PEO definitions.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
-                                <div className="space-y-4 rounded-xl border border-zinc-200 p-4">
-                                    <p className="text-sm font-medium text-zinc-950">Syllabus Version</p>
+                                <div className="space-y-4 rounded-xl border border-border p-4">
+                                    <p className="text-sm font-medium text-foreground">Syllabus Version</p>
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <SelectField
                                             label="Curriculum Plan"
@@ -956,6 +958,7 @@ export function CurriculumManager({
                                     </div>
                                     <div className="flex gap-3">
                                         <Button
+                                            loading={isPending}
                                             disabled={isPending}
                                             onClick={() =>
                                                 submitForm(
@@ -977,9 +980,10 @@ export function CurriculumManager({
                                                 )
                                             }
                                         >
+                                            {editingVersionId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                             {editingVersionId ? "Update Version" : "Create Version"}
                                         </Button>
-                                        {editingVersionId ? <Button variant="secondary" onClick={resetVersionForm}>Cancel</Button> : null}
+                                        {editingVersionId ? <Button variant="secondary" onClick={resetVersionForm}><X aria-hidden />Cancel</Button> : null}
                                     </div>
                                     <div className="space-y-3 border-t pt-4">
                                         {syllabusVersions.map((item) => (
@@ -1010,8 +1014,8 @@ export function CurriculumManager({
                                     </div>
                                 </div>
 
-                                <div className="space-y-4 rounded-xl border border-zinc-200 p-4">
-                                    <p className="text-sm font-medium text-zinc-950">Program Outcomes</p>
+                                <div className="space-y-4 rounded-xl border border-border p-4">
+                                    <p className="text-sm font-medium text-foreground">Program Outcomes</p>
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <SelectField
                                             label="Curriculum Plan"
@@ -1039,6 +1043,7 @@ export function CurriculumManager({
                                     <TextAreaField label="Description" value={outcomeForm.description} onChange={(value) => setOutcomeForm((current) => ({ ...current, description: value }))} rows={3} />
                                     <div className="flex gap-3">
                                         <Button
+                                            loading={isPending}
                                             disabled={isPending || !currentPlanForOutcome?.programId}
                                             onClick={() =>
                                                 submitForm(
@@ -1053,9 +1058,10 @@ export function CurriculumManager({
                                                 )
                                             }
                                         >
+                                            {editingOutcomeId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                             {editingOutcomeId ? "Update Outcome" : "Create Outcome"}
                                         </Button>
-                                        {editingOutcomeId ? <Button variant="secondary" onClick={resetOutcomeForm}>Cancel</Button> : null}
+                                        {editingOutcomeId ? <Button variant="secondary" onClick={resetOutcomeForm}><X aria-hidden />Cancel</Button> : null}
                                     </div>
                                     <div className="space-y-3 border-t pt-4">
                                         {programOutcomes.map((item) => (
@@ -1114,6 +1120,7 @@ export function CurriculumManager({
                                 </div>
                                 <div className="flex gap-3">
                                     <Button
+                                        loading={isPending}
                                         disabled={isPending}
                                         onClick={() =>
                                             submitForm(
@@ -1129,9 +1136,10 @@ export function CurriculumManager({
                                             )
                                         }
                                     >
+                                        {editingMeetingId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                         {editingMeetingId ? "Update Meeting" : "Create Meeting"}
                                     </Button>
-                                    {editingMeetingId ? <Button variant="secondary" onClick={resetMeetingForm}>Cancel</Button> : null}
+                                    {editingMeetingId ? <Button variant="secondary" onClick={resetMeetingForm}><X aria-hidden />Cancel</Button> : null}
                                 </div>
                                 <div className="space-y-3 border-t pt-4">
                                     {bosMeetings.map((item) => (
@@ -1176,6 +1184,7 @@ export function CurriculumManager({
                                 <TextAreaField label="Description" value={decisionForm.description} onChange={(value) => setDecisionForm((current) => ({ ...current, description: value }))} rows={3} />
                                 <div className="flex gap-3">
                                     <Button
+                                        loading={isPending}
                                         disabled={isPending}
                                         onClick={() =>
                                             submitForm(
@@ -1192,9 +1201,10 @@ export function CurriculumManager({
                                             )
                                         }
                                     >
+                                        {editingDecisionId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                         {editingDecisionId ? "Update Decision" : "Create Decision"}
                                     </Button>
-                                    {editingDecisionId ? <Button variant="secondary" onClick={resetDecisionForm}>Cancel</Button> : null}
+                                    {editingDecisionId ? <Button variant="secondary" onClick={resetDecisionForm}><X aria-hidden />Cancel</Button> : null}
                                 </div>
                                 <div className="space-y-3 border-t pt-4">
                                     {bosDecisions.map((item) => (
@@ -1256,6 +1266,7 @@ export function CurriculumManager({
                                 <TextAreaField label="Description" value={valueAddedForm.description} onChange={(value) => setValueAddedForm((current) => ({ ...current, description: value }))} rows={3} />
                                 <div className="flex gap-3">
                                     <Button
+                                        loading={isPending}
                                         disabled={isPending}
                                         onClick={() =>
                                             submitForm(
@@ -1276,9 +1287,10 @@ export function CurriculumManager({
                                             )
                                         }
                                     >
+                                        {editingValueAddedId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                         {editingValueAddedId ? "Update Course" : "Create Course"}
                                     </Button>
-                                    {editingValueAddedId ? <Button variant="secondary" onClick={resetValueAddedForm}>Cancel</Button> : null}
+                                    {editingValueAddedId ? <Button variant="secondary" onClick={resetValueAddedForm}><X aria-hidden />Cancel</Button> : null}
                                 </div>
                                 <div className="space-y-3 border-t pt-4">
                                     {valueAddedCourses.map((item) => (
@@ -1331,6 +1343,7 @@ export function CurriculumManager({
                             </div>
                             <div className="flex gap-3">
                                 <Button
+                                    loading={isPending}
                                     disabled={isPending}
                                     onClick={() =>
                                         submitForm(
@@ -1345,9 +1358,10 @@ export function CurriculumManager({
                                         )
                                     }
                                 >
+                                    {editingAssignmentId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                     {editingAssignmentId ? "Update Assignment" : "Create Assignment"}
                                 </Button>
-                                {editingAssignmentId ? <Button variant="secondary" onClick={resetAssignmentForm}>Cancel</Button> : null}
+                                {editingAssignmentId ? <Button variant="secondary" onClick={resetAssignmentForm}><X aria-hidden />Cancel</Button> : null}
                             </div>
                             <div className="space-y-3 border-t pt-4">
                                 {assignments.map((item) => (
@@ -1432,7 +1446,7 @@ function TextAreaField({
         <div className="space-y-2">
             <Label>{label}</Label>
             <Textarea rows={rows} value={value} onChange={(event) => onChange(event.target.value)} />
-            {description ? <p className="text-xs text-zinc-500">{description}</p> : null}
+            {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
         </div>
     );
 }
@@ -1479,13 +1493,14 @@ function ListRow({
     onEdit: () => void;
 }) {
     return (
-        <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/50 p-4 md:flex-row md:items-start md:justify-between">
             <div className="space-y-1">
-                <p className="font-medium text-zinc-950">{title}</p>
-                <p className="text-sm text-zinc-500">{subtitle}</p>
-                <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">{meta}</p>
+                <p className="font-medium text-foreground">{title}</p>
+                <p className="text-sm text-muted-foreground">{subtitle}</p>
+                <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{meta}</p>
             </div>
             <Button variant="secondary" size="sm" onClick={onEdit}>
+                <Pencil aria-hidden />
                 Edit
             </Button>
         </div>

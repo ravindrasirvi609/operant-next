@@ -2,7 +2,7 @@
 
 import { type FormEvent, useMemo, useState, useTransition } from "react";
 
-import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { pbasScoringWeightsSchema } from "@/lib/pbas/validators";
+import { FileDown, Merge, Pencil, X } from "lucide-react";
 
 type PbasCategory = {
     _id: string;
@@ -441,17 +442,17 @@ export function PbasCatalogManager({
                             value={scoringWeightsText}
                             onChange={(event) => setScoringWeightsText(event.target.value)}
                             disabled={isSavingSettings}
-                            className={`min-h-[280px] w-full rounded-md bg-white px-3 py-2 text-sm font-mono ${
+                            className={`min-h-[280px] w-full rounded-md bg-card px-3 py-2 text-sm font-mono ${
                                 scoringWeightsValidation.valid
-                                    ? "border border-zinc-200"
-                                    : "border border-rose-300 bg-rose-50"
+                                    ? "border border-border"
+                                    : "border border-destructive-border bg-destructive-muted"
                             }`}
                         />
                     </Field>
                     {scoringWeightsValidation.valid ? (
-                        <p className="text-xs text-emerald-700">Scoring weights JSON is valid.</p>
+                        <p className="text-xs text-success-muted-foreground">Scoring weights JSON is valid.</p>
                     ) : (
-                        <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                        <div className="rounded-md border border-destructive-border bg-destructive-muted p-3 text-sm text-destructive-muted-foreground">
                             <p className="font-medium">Fix these fields before saving:</p>
                             <ul className="mt-2 list-disc space-y-1 pl-5">
                                 {scoringWeightsValidation.errors.map((errorText) => (
@@ -462,27 +463,31 @@ export function PbasCatalogManager({
                     )}
                     <div className="flex flex-wrap gap-3">
                         <Button
+                            loading={isSavingSettings}
                             type="button"
                             variant="outline"
                             onClick={handleMergeMissingScoringKeys}
                             disabled={isSavingSettings}
                         >
+                            <Merge aria-hidden />
                             Merge Missing Keys
                         </Button>
                         <Button
+                            loading={isSavingSettings}
                             type="button"
                             variant="outline"
                             onClick={handleLoadScoringTemplate}
                             disabled={isSavingSettings}
                         >
+                            <FileDown aria-hidden />
                             Load Default Template
                         </Button>
                         <Button
+                            loading={isSavingSettings}
                             type="button"
                             onClick={handleSaveSettings}
                             disabled={isSavingSettings || !scoringWeightsValidation.valid}
                         >
-                            {isSavingSettings ? <Spinner /> : null}
                             Save PBAS Settings
                         </Button>
                     </div>
@@ -497,11 +502,10 @@ export function PbasCatalogManager({
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-wrap items-center gap-4">
-                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
+                    <div className="rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
                         {categories.length} Categories | {indicators.length} Indicators
                     </div>
-                    <Button type="button" onClick={handleSeedCatalog} disabled={isSeeding}>
-                        {isSeeding ? <Spinner /> : null}
+                    <Button loading={isSeeding} type="button" onClick={handleSeedCatalog} disabled={isSeeding}>
                         Seed Default Catalog
                     </Button>
                     {seedMessage ? <FormMessage message={seedMessage.text} type={seedMessage.type} /> : null}
@@ -568,12 +572,12 @@ export function PbasCatalogManager({
                                 </Field>
                             </div>
                             <div className="flex flex-wrap gap-3">
-                                <Button type="submit" disabled={isPending}>
-                                    {isPending ? <Spinner /> : null}
+                                <Button loading={isPending} type="submit" disabled={isPending}>
                                     {editingCategoryId ? "Update Category" : "Create Category"}
                                 </Button>
                                 {editingCategoryId ? (
                                     <Button type="button" variant="secondary" onClick={resetCategoryForm}>
+                                        <X aria-hidden />
                                         Cancel
                                     </Button>
                                 ) : null}
@@ -589,14 +593,14 @@ export function PbasCatalogManager({
                     </CardHeader>
                     <CardContent className="grid gap-3">
                         {categoryOptions.length ? categoryOptions.map((category) => (
-                            <div key={category._id} className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+                            <div key={category._id} className="rounded-lg border border-border bg-muted/50 p-4">
                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2">
                                             <Badge>{category.categoryCode}</Badge>
-                                            <p className="font-semibold text-zinc-950">{category.categoryName}</p>
+                                            <p className="font-semibold text-foreground">{category.categoryName}</p>
                                         </div>
-                                        <p className="mt-1 text-sm text-zinc-500">
+                                        <p className="mt-1 text-sm text-muted-foreground">
                                             Max score {category.maxScore} | Order {category.displayOrder}
                                         </p>
                                     </div>
@@ -613,6 +617,7 @@ export function PbasCatalogManager({
                                             });
                                         }}
                                     >
+                                        <Pencil aria-hidden />
                                         Edit
                                     </Button>
                                 </div>
@@ -737,12 +742,12 @@ export function PbasCatalogManager({
                                 </Field>
                             </div>
                             <div className="flex flex-wrap gap-3">
-                                <Button type="submit" disabled={isPending}>
-                                    {isPending ? <Spinner /> : null}
+                                <Button loading={isPending} type="submit" disabled={isPending}>
                                     {editingIndicatorId ? "Update Indicator" : "Create Indicator"}
                                 </Button>
                                 {editingIndicatorId ? (
                                     <Button type="button" variant="secondary" onClick={resetIndicatorForm}>
+                                        <X aria-hidden />
                                         Cancel
                                     </Button>
                                 ) : null}
@@ -782,18 +787,18 @@ export function PbasCatalogManager({
                                         : indicator.categoryId;
 
                                 return (
-                                    <div key={indicator._id} className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+                                    <div key={indicator._id} className="rounded-lg border border-border bg-muted/50 p-4">
                                         <div className="flex flex-wrap items-center justify-between gap-3">
                                             <div className="min-w-0">
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     <Badge>{indicator.indicatorCode}</Badge>
-                                                    <p className="font-semibold text-zinc-950">{indicator.indicatorName}</p>
+                                                    <p className="font-semibold text-foreground">{indicator.indicatorName}</p>
                                                 </div>
-                                                <p className="mt-1 text-sm text-zinc-500">
+                                                <p className="mt-1 text-sm text-muted-foreground">
                                                     Category {category?.categoryCode ?? "--"} | Formula {indicator.formulaKey ?? indicator.indicatorCode} | Max {indicator.maxScore} | NAAC {indicator.naacCriteriaCode ?? "--"}
                                                 </p>
                                                 {indicator.description ? (
-                                                    <p className="mt-1 text-xs text-zinc-500">{indicator.description}</p>
+                                                    <p className="mt-1 text-xs text-muted-foreground">{indicator.description}</p>
                                                 ) : null}
                                             </div>
                                             <Button
@@ -815,6 +820,7 @@ export function PbasCatalogManager({
                                                     });
                                                 }}
                                             >
+                                                <Pencil aria-hidden />
                                                 Edit
                                             </Button>
                                         </div>

@@ -11,7 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { InlineUpload, MultiFileUpload } from "@/components/ui/file-upload";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { StatTile } from "@/components/ui/stat-card";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import type { UploadedDocument } from "@/lib/upload/service";
+import { Plus, Save, Send, Trash2 } from "lucide-react";
 
 type DocumentRecord = {
     id: string;
@@ -284,22 +288,6 @@ function formatDateTime(value?: string) {
         hour: "2-digit",
         minute: "2-digit",
     });
-}
-
-function statusBadge(status: string) {
-    if (status === "Approved") {
-        return <Badge className="bg-emerald-100 text-emerald-700">{status}</Badge>;
-    }
-
-    if (status === "Rejected") {
-        return <Badge className="bg-rose-100 text-rose-700">{status}</Badge>;
-    }
-
-    if (["Submitted", "Student Support Review", "Under Review", "Governance Review"].includes(status)) {
-        return <Badge className="bg-amber-100 text-amber-700">{status}</Badge>;
-    }
-
-    return <Badge variant="secondary">{status}</Badge>;
 }
 
 function splitLines(value: string) {
@@ -776,17 +764,7 @@ export function StudentSupportGovernanceContributorWorkspace({
                         value={search}
                     />
 
-                    {message ? (
-                        <div
-                            className={`rounded-lg border px-4 py-3 text-sm ${
-                                message.type === "success"
-                                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                                    : "border-rose-200 bg-rose-50 text-rose-900"
-                            }`}
-                        >
-                            {message.text}
-                        </div>
-                    ) : null}
+                    <InlineAlert message={message} />
 
                     <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
                         <div className="space-y-3">
@@ -797,8 +775,8 @@ export function StudentSupportGovernanceContributorWorkspace({
                                     <button
                                         className={`w-full rounded-xl border p-4 text-left transition ${
                                             active
-                                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                                : "border-zinc-200 bg-zinc-50 text-zinc-900 hover:border-zinc-300 hover:bg-zinc-100"
+                                                ? "border-border bg-primary text-primary-foreground"
+                                                : "border-border bg-muted/50 text-foreground hover:border-border hover:bg-muted"
                                         }`}
                                         key={assignment._id}
                                         onClick={() => setSelectedId(assignment._id)}
@@ -816,7 +794,7 @@ export function StudentSupportGovernanceContributorWorkspace({
                                                     {assignment.unitLabel} · {assignment.academicYearLabel}
                                                 </p>
                                             </div>
-                                            <div>{statusBadge(assignment.status)}</div>
+                                            <div><StatusBadge status={assignment.status} /></div>
                                         </div>
                                         <p className="mt-3 text-xs opacity-80">
                                             {assignment.currentStageLabel} · {assignment.valueSummary}
@@ -828,29 +806,29 @@ export function StudentSupportGovernanceContributorWorkspace({
 
                         {selectedAssignment ? (
                             <div className="space-y-6">
-                                <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+                                <div className="rounded-2xl border border-border bg-muted/50 p-5">
                                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                         <div>
                                             <div className="flex flex-wrap items-center gap-2">
-                                                {statusBadge(selectedAssignment.status)}
+                                                <StatusBadge status={selectedAssignment.status} />
                                                 <Badge variant="secondary">
                                                     {selectedAssignment.currentStageLabel}
                                                 </Badge>
                                                 <Badge variant="outline">{selectedAssignment.scopeType}</Badge>
                                                 <Badge variant="outline">{selectedAssignment.focusArea}</Badge>
                                             </div>
-                                            <h3 className="mt-3 text-2xl font-semibold text-zinc-950">
+                                            <h3 className="mt-3 text-2xl font-semibold text-foreground">
                                                 {selectedAssignment.planTitle}
                                             </h3>
-                                            <p className="mt-2 text-sm text-zinc-600">
+                                            <p className="mt-2 text-sm text-muted-foreground">
                                                 {selectedAssignment.unitLabel} · {selectedAssignment.academicYearLabel}
                                             </p>
-                                            <p className="mt-2 text-sm text-zinc-500">
+                                            <p className="mt-2 text-sm text-muted-foreground">
                                                 Due {formatDate(selectedAssignment.dueDate)} · Plan status{" "}
                                                 {selectedAssignment.planStatus}
                                             </p>
                                         </div>
-                                        <div className="text-sm text-zinc-500">
+                                        <div className="text-sm text-muted-foreground">
                                             <p>Mentor groups: {selectedAssignment.mentorGroups.length}</p>
                                             <p>Grievances: {selectedAssignment.grievances.length}</p>
                                             <p>Progression rows: {selectedAssignment.progressionRows.length}</p>
@@ -868,16 +846,16 @@ export function StudentSupportGovernanceContributorWorkspace({
                                         <MetricCard label="Representation target" value={selectedAssignment.planTargets.representationBodies} />
                                     </div>
 
-                                    <div className="mt-5 space-y-3 text-sm text-zinc-600">
+                                    <div className="mt-5 space-y-3 text-sm text-muted-foreground">
                                         <p>{selectedAssignment.planSummary?.trim() || "No plan summary provided."}</p>
                                         <p>{selectedAssignment.planStrategyGoals?.trim() || "No strategy goals defined on the plan."}</p>
                                         {selectedAssignment.notes ? (
-                                            <p className="rounded-lg border border-zinc-200 bg-white px-4 py-3 text-zinc-600">
+                                            <p className="rounded-lg border border-border bg-card px-4 py-3 text-muted-foreground">
                                                 {selectedAssignment.notes}
                                             </p>
                                         ) : null}
                                         {selectedAssignment.reviewRemarks ? (
-                                            <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+                                            <p className="rounded-lg border border-warning-border bg-warning-muted px-4 py-3 text-warning-muted-foreground">
                                                 Latest review note: {selectedAssignment.reviewRemarks}
                                             </p>
                                         ) : null}
@@ -969,7 +947,7 @@ export function StudentSupportGovernanceContributorWorkspace({
                                     title="Mentor Groups"
                                 >
                                     {form.mentorGroups.map((row, index) => (
-                                        <div className="space-y-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4" key={`${row.id ?? "mentor-group"}-${index}`}>
+                                        <div className="space-y-4 rounded-xl border border-border bg-muted/50 p-4" key={`${row.id ?? "mentor-group"}-${index}`}>
                                             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                                                 <TextField disabled={!canEdit} label="Group name" onChange={(value) => updateFacility(index, "groupName", value)} value={row.groupName} />
                                                 <TextField disabled={!canEdit} label="Program" onChange={(value) => updateFacility(index, "programName", value)} value={row.programName} />
@@ -1011,7 +989,7 @@ export function StudentSupportGovernanceContributorWorkspace({
                                     title="Grievances"
                                 >
                                     {form.grievances.map((row, index) => (
-                                        <div className="space-y-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4" key={`${row.id ?? "grievance"}-${index}`}>
+                                        <div className="space-y-4 rounded-xl border border-border bg-muted/50 p-4" key={`${row.id ?? "grievance"}-${index}`}>
                                             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                                                 <SelectField disabled={!canEdit} label="Category" onValueChange={(value) => updateLibraryResource(index, "category", value)} options={["Academic","Administrative","Scholarship","Examination","Hostel","Infrastructure","AntiRagging","Harassment","Wellbeing","Other"]} value={row.category} />
                                                 <TextField disabled={!canEdit} label="Reference number" onChange={(value) => updateLibraryResource(index, "referenceNumber", value)} value={row.referenceNumber} />
@@ -1053,7 +1031,7 @@ export function StudentSupportGovernanceContributorWorkspace({
                                     title="Progression Tracking"
                                 >
                                     {form.progressionRows.map((row, index) => (
-                                        <div className="space-y-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4" key={`${row.id ?? "progression"}-${index}`}>
+                                        <div className="space-y-4 rounded-xl border border-border bg-muted/50 p-4" key={`${row.id ?? "progression"}-${index}`}>
                                             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                                                 <SelectField disabled={!canEdit} label="Progression type" onValueChange={(value) => updateUsage(index, "progressionType", value)} options={["Placement","HigherStudies","Entrepreneurship","CompetitiveExam","Internship","Other"]} value={row.progressionType} />
                                                 <TextField disabled={!canEdit} label="Title" onChange={(value) => updateUsage(index, "title", value)} value={row.title} />
@@ -1094,7 +1072,7 @@ export function StudentSupportGovernanceContributorWorkspace({
                                     title="Student Representation"
                                 >
                                     {form.representationRows.map((row, index) => (
-                                        <div className="space-y-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4" key={`${row.id ?? "representation"}-${index}`}>
+                                        <div className="space-y-4 rounded-xl border border-border bg-muted/50 p-4" key={`${row.id ?? "representation"}-${index}`}>
                                             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                                                 <SelectField disabled={!canEdit} label="Representation type" onValueChange={(value) => updateMaintenance(index, "representationType", value)} options={["StudentCouncil","ClassRepresentative","Committee","Club","QualityCircle","FeedbackForum","AntiRaggingCell","Other"]} value={row.representationType} />
                                                 <TextField disabled={!canEdit} label="Body name" onChange={(value) => updateMaintenance(index, "bodyName", value)} value={row.bodyName} />
@@ -1137,49 +1115,49 @@ export function StudentSupportGovernanceContributorWorkspace({
                                     </CardHeader>
                                     <CardContent className="grid gap-6 md:grid-cols-2">
                                         <div className="space-y-3">
-                                            <p className="text-sm font-semibold text-zinc-950">Review history</p>
+                                            <p className="text-sm font-semibold text-foreground">Review history</p>
                                             {selectedAssignment.reviewHistory.length ? (
                                                 selectedAssignment.reviewHistory.map((entry, index) => (
-                                                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={`${entry.stage}-${index}`}>
-                                                        <p className="text-sm font-semibold text-zinc-950">{entry.stage}</p>
-                                                        <p className="mt-1 text-xs text-zinc-500">
+                                                    <div className="rounded-lg border border-border bg-muted/50 p-4" key={`${entry.stage}-${index}`}>
+                                                        <p className="text-sm font-semibold text-foreground">{entry.stage}</p>
+                                                        <p className="mt-1 text-xs text-muted-foreground">
                                                             {[entry.reviewerName, entry.reviewerRole, entry.decision]
                                                                 .filter(Boolean)
                                                                 .join(" · ")}
                                                         </p>
-                                                        <p className="mt-2 text-sm text-zinc-600">
+                                                        <p className="mt-2 text-sm text-muted-foreground">
                                                             {entry.remarks?.trim() || "No remarks captured."}
                                                         </p>
-                                                        <p className="mt-2 text-xs text-zinc-500">
+                                                        <p className="mt-2 text-xs text-muted-foreground">
                                                             {formatDateTime(entry.reviewedAt)}
                                                         </p>
                                                     </div>
                                                 ))
                                             ) : (
-                                                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                                                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                                     No review entries recorded yet.
                                                 </div>
                                             )}
                                         </div>
                                         <div className="space-y-3">
-                                            <p className="text-sm font-semibold text-zinc-950">Status log</p>
+                                            <p className="text-sm font-semibold text-foreground">Status log</p>
                                             {selectedAssignment.statusLogs.length ? (
                                                 selectedAssignment.statusLogs.map((entry, index) => (
-                                                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={`${entry.status}-${index}`}>
-                                                        <p className="text-sm font-semibold text-zinc-950">{entry.status}</p>
-                                                        <p className="mt-1 text-xs text-zinc-500">
+                                                    <div className="rounded-lg border border-border bg-muted/50 p-4" key={`${entry.status}-${index}`}>
+                                                        <p className="text-sm font-semibold text-foreground">{entry.status}</p>
+                                                        <p className="mt-1 text-xs text-muted-foreground">
                                                             {[entry.actorName, entry.actorRole].filter(Boolean).join(" · ")}
                                                         </p>
-                                                        <p className="mt-2 text-sm text-zinc-600">
+                                                        <p className="mt-2 text-sm text-muted-foreground">
                                                             {entry.remarks?.trim() || "No remarks captured."}
                                                         </p>
-                                                        <p className="mt-2 text-xs text-zinc-500">
+                                                        <p className="mt-2 text-xs text-muted-foreground">
                                                             {formatDateTime(entry.changedAt)}
                                                         </p>
                                                     </div>
                                                 ))
                                             ) : (
-                                                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                                                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                                     No workflow status entries recorded yet.
                                                 </div>
                                             )}
@@ -1189,9 +1167,11 @@ export function StudentSupportGovernanceContributorWorkspace({
 
                                 <div className="flex flex-wrap gap-3">
                                     <Button disabled={!canEdit || isPending} onClick={saveDraft} type="button">
+                                        <Save aria-hidden />
                                         Save draft
                                     </Button>
                                     <Button disabled={!canEdit || isPending} onClick={submitAssignment} type="button">
+                                        <Send aria-hidden />
                                         Submit for review
                                     </Button>
                                 </div>
@@ -1205,12 +1185,7 @@ export function StudentSupportGovernanceContributorWorkspace({
 }
 
 function MetricCard({ label, value }: { label: string; value: number }) {
-    return (
-        <div className="rounded-lg border border-zinc-200 bg-white p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-2xl font-semibold text-zinc-950">{value}</p>
-        </div>
-    );
+    return <StatTile label={label} value={value} />;
 }
 
 function StructuredRowSection({
@@ -1302,9 +1277,11 @@ function RowActions({
     return (
         <div className="flex gap-3">
             <Button onClick={onAdd} type="button" variant="secondary">
+                <Plus aria-hidden />
                 Add row
             </Button>
             <Button onClick={onRemove} type="button" variant="outline">
+                <Trash2 aria-hidden />
                 Remove row
             </Button>
         </div>
@@ -1313,10 +1290,10 @@ function RowActions({
 
 function EvidenceCard({ document }: { document: DocumentRecord }) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+        <div className="rounded-lg border border-border bg-muted/50 p-4">
             {document.fileUrl ? (
                 <a
-                    className="text-sm font-semibold text-zinc-950 underline"
+                    className="text-sm font-semibold text-foreground underline"
                     href={document.fileUrl}
                     rel="noreferrer"
                     target="_blank"
@@ -1324,9 +1301,9 @@ function EvidenceCard({ document }: { document: DocumentRecord }) {
                     {document.fileName || document.id}
                 </a>
             ) : (
-                <p className="text-sm font-semibold text-zinc-950">{document.fileName || document.id}</p>
+                <p className="text-sm font-semibold text-foreground">{document.fileName || document.id}</p>
             )}
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-muted-foreground">
                 {document.verificationStatus || "Verification pending"}
             </p>
         </div>

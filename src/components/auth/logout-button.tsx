@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/auth/auth-helpers";
 
 export function LogoutButton() {
     const router = useRouter();
@@ -19,8 +18,7 @@ export function LogoutButton() {
     }
 
     return (
-        <Button variant="secondary" onClick={handleLogout} disabled={isPending}>
-            {isPending ? <Spinner /> : null}
+        <Button loading={isPending} variant="secondary" onClick={handleLogout} disabled={isPending}>
             Logout
         </Button>
     );

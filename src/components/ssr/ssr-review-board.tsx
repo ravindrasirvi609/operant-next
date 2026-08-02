@@ -9,6 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { StatCard, StatTile } from "@/components/ui/stat-card";
 
 type ReviewRecord = {
     _id: string;
@@ -144,26 +147,6 @@ function formatBoolean(value?: boolean) {
     return value ? "Yes" : "No";
 }
 
-function statusBadge(status: string) {
-    if (status === "Approved") {
-        return <Badge className="bg-emerald-100 text-emerald-700">{status}</Badge>;
-    }
-
-    if (status === "Rejected") {
-        return <Badge className="bg-rose-100 text-rose-700">{status}</Badge>;
-    }
-
-    if (status === "Committee Review") {
-        return <Badge className="bg-blue-100 text-blue-700">{status}</Badge>;
-    }
-
-    if (status === "Under Review" || status === "Submitted") {
-        return <Badge className="bg-amber-100 text-amber-700">{status}</Badge>;
-    }
-
-    return <Badge variant="secondary">{status}</Badge>;
-}
-
 export function SsrReviewBoard({
     records,
     summary,
@@ -277,17 +260,7 @@ export function SsrReviewBoard({
 
     return (
         <div className="space-y-6">
-            {message ? (
-                <div
-                    className={`rounded-lg border px-4 py-3 text-sm ${
-                        message.type === "success"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                            : "border-rose-200 bg-rose-50 text-rose-800"
-                    }`}
-                >
-                    {message.text}
-                </div>
-            ) : null}
+            <InlineAlert message={message} />
 
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
                 <MetricCard label="Total Responses" value={summary.total} helper="All SSR submissions visible in your scope." />
@@ -352,8 +325,8 @@ export function SsrReviewBoard({
                                     <button
                                         className={`w-full rounded-lg border p-4 text-left transition ${
                                             isActive
-                                                ? "border-zinc-900 bg-zinc-100"
-                                                : "border-zinc-200 bg-zinc-50 hover:border-zinc-300 hover:bg-white"
+                                                ? "border-border bg-muted"
+                                                : "border-border bg-muted/50 hover:border-border hover:bg-card"
                                         }`}
                                         key={record._id}
                                         onClick={() => setSelectedId(record._id)}
@@ -361,34 +334,34 @@ export function SsrReviewBoard({
                                     >
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
-                                                <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">
+                                                <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
                                                     {record.metricCode}
                                                 </p>
-                                                <h3 className="mt-2 truncate text-base font-semibold text-zinc-950">
+                                                <h3 className="mt-2 truncate text-base font-semibold text-foreground">
                                                     {record.metricTitle}
                                                 </h3>
-                                                <p className="mt-1 text-sm text-zinc-500">
+                                                <p className="mt-1 text-sm text-muted-foreground">
                                                     {record.contributorName || "Contributor not mapped"} •{" "}
                                                     {record.currentStageLabel}
                                                 </p>
                                             </div>
-                                            {statusBadge(record.status)}
+                                            <StatusBadge status={record.status} />
                                         </div>
-                                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-zinc-500">
+                                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
                                             <span>{record.documents.length} docs</span>
                                             <span>{record.supportingLinks.length} links</span>
                                             <span>{formatDateTime(record.updatedAt)}</span>
                                         </div>
                                         {actionable ? (
                                             <div className="mt-3">
-                                                <Badge className="bg-zinc-900 text-white">Actionable</Badge>
+                                                <Badge className="bg-primary text-primary-foreground">Actionable</Badge>
                                             </div>
                                         ) : null}
                                     </button>
                                 );
                             })
                         ) : (
-                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                                 No SSR responses matched the current filters.
                             </div>
                         )}
@@ -412,7 +385,7 @@ export function SsrReviewBoard({
                                         </CardDescription>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                        {statusBadge(selectedRecord.status)}
+                                        <StatusBadge status={selectedRecord.status} />
                                         <Badge variant="secondary">
                                             {selectedRecord.currentStageLabel}
                                         </Badge>
@@ -485,11 +458,11 @@ export function SsrReviewBoard({
 
                                 {selectedRecord.tableData &&
                                 Object.keys(selectedRecord.tableData).length ? (
-                                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                                        <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">
+                                    <div className="rounded-lg border border-border bg-muted/50 p-4">
+                                        <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
                                             Structured table data
                                         </p>
-                                        <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-sm text-zinc-700">
+                                        <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-sm text-foreground">
                                             {JSON.stringify(selectedRecord.tableData, null, 2)}
                                         </pre>
                                     </div>
@@ -522,7 +495,7 @@ export function SsrReviewBoard({
                                     {selectedRecord.supportingLinks.length ? (
                                         selectedRecord.supportingLinks.map((link) => (
                                             <a
-                                                className="block rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700 underline"
+                                                className="block rounded-lg border border-border bg-muted/50 p-4 text-sm text-foreground underline"
                                                 href={link}
                                                 key={link}
                                                 rel="noreferrer"
@@ -532,7 +505,7 @@ export function SsrReviewBoard({
                                             </a>
                                         ))
                                     ) : (
-                                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                             No supporting links were submitted for this response.
                                         </div>
                                     )}
@@ -550,31 +523,29 @@ export function SsrReviewBoard({
                                     {selectedRecord.documents.length ? (
                                         selectedRecord.documents.map((document) => (
                                             <div
-                                                className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                                                className="rounded-lg border border-border bg-muted/50 p-4"
                                                 key={document.id}
                                             >
                                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                                     <div>
-                                                        <p className="font-medium text-zinc-950">
+                                                        <p className="font-medium text-foreground">
                                                             {document.fileName || "Document"}
                                                         </p>
-                                                        <p className="mt-1 text-sm text-zinc-500">
+                                                        <p className="mt-1 text-sm text-muted-foreground">
                                                             {document.fileType || "Unknown type"} • Uploaded{" "}
                                                             {formatDateTime(document.uploadedAt)}
                                                         </p>
                                                     </div>
-                                                    {statusBadge(
-                                                        document.verificationStatus || "Pending"
-                                                    )}
+                                                    <StatusBadge status={document.verificationStatus || "Pending"} />
                                                 </div>
                                                 {document.verificationRemarks ? (
-                                                    <p className="mt-3 text-sm text-zinc-600">
+                                                    <p className="mt-3 text-sm text-muted-foreground">
                                                         {document.verificationRemarks}
                                                     </p>
                                                 ) : null}
                                                 {document.fileUrl ? (
                                                     <a
-                                                        className="mt-3 inline-flex text-sm font-medium text-zinc-900 underline"
+                                                        className="mt-3 inline-flex text-sm font-medium text-foreground underline"
                                                         href={document.fileUrl}
                                                         rel="noreferrer"
                                                         target="_blank"
@@ -585,7 +556,7 @@ export function SsrReviewBoard({
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                             No documents were attached to this response.
                                         </div>
                                     )}
@@ -617,6 +588,7 @@ export function SsrReviewBoard({
                                         selectedRecord.permissions.canApprove) ? (
                                         selectedRecord.availableDecisions.map((decision) => (
                                             <Button
+                                                loading={isPending}
                                                 disabled={isPending}
                                                 key={decision}
                                                 onClick={() => submitDecision(decision)}
@@ -629,7 +601,7 @@ export function SsrReviewBoard({
                                             </Button>
                                         ))
                                     ) : (
-                                        <p className="text-sm text-zinc-500">
+                                        <p className="text-sm text-muted-foreground">
                                             This response is currently read-only in your governance scope.
                                         </p>
                                     )}
@@ -646,15 +618,15 @@ export function SsrReviewBoard({
                                     {selectedRecord.reviewHistory.length ? (
                                         selectedRecord.reviewHistory.map((entry, index) => (
                                             <div
-                                                className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                                                className="rounded-lg border border-border bg-muted/50 p-4"
                                                 key={`${entry.stage}-${entry.reviewedAt}-${index}`}
                                             >
                                                 <div className="flex items-center justify-between gap-3">
                                                     <div className="min-w-0">
-                                                        <p className="font-medium text-zinc-950">
+                                                        <p className="font-medium text-foreground">
                                                             {entry.stage}
                                                         </p>
-                                                        <p className="text-sm text-zinc-500">
+                                                        <p className="text-sm text-muted-foreground">
                                                             {entry.reviewerName || "Reviewer"}{" "}
                                                             {entry.reviewerRole
                                                                 ? `• ${entry.reviewerRole}`
@@ -664,17 +636,17 @@ export function SsrReviewBoard({
                                                     <Badge variant="secondary">{entry.decision}</Badge>
                                                 </div>
                                                 {entry.remarks ? (
-                                                    <p className="mt-3 text-sm text-zinc-600">
+                                                    <p className="mt-3 text-sm text-muted-foreground">
                                                         {entry.remarks}
                                                     </p>
                                                 ) : null}
-                                                <p className="mt-3 text-xs text-zinc-500">
+                                                <p className="mt-3 text-xs text-muted-foreground">
                                                     {formatDateTime(entry.reviewedAt)}
                                                 </p>
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                             No review actions have been recorded yet.
                                         </div>
                                     )}
@@ -689,30 +661,30 @@ export function SsrReviewBoard({
                                     {selectedRecord.statusLogs.length ? (
                                         selectedRecord.statusLogs.map((entry, index) => (
                                             <div
-                                                className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                                                className="rounded-lg border border-border bg-muted/50 p-4"
                                                 key={`${entry.status}-${entry.changedAt}-${index}`}
                                             >
                                                 <div className="flex items-center justify-between gap-3">
-                                                    <p className="min-w-0 font-medium text-zinc-950">
+                                                    <p className="min-w-0 font-medium text-foreground">
                                                         {entry.status}
                                                     </p>
-                                                    <p className="text-xs text-zinc-500">
+                                                    <p className="text-xs text-muted-foreground">
                                                         {formatDateTime(entry.changedAt)}
                                                     </p>
                                                 </div>
-                                                <p className="mt-2 text-sm text-zinc-500">
+                                                <p className="mt-2 text-sm text-muted-foreground">
                                                     {entry.actorName || "System"}
                                                     {entry.actorRole ? ` • ${entry.actorRole}` : ""}
                                                 </p>
                                                 {entry.remarks ? (
-                                                    <p className="mt-2 text-sm text-zinc-600">
+                                                    <p className="mt-2 text-sm text-muted-foreground">
                                                         {entry.remarks}
                                                     </p>
                                                 ) : null}
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                             Status changes will appear here once the workflow starts moving.
                                         </div>
                                     )}
@@ -722,7 +694,7 @@ export function SsrReviewBoard({
                     </div>
                 ) : (
                     <Card>
-                        <CardContent className="p-8 text-sm text-zinc-500">
+                        <CardContent className="p-8 text-sm text-muted-foreground">
                             Select an SSR response from the register to inspect it.
                         </CardContent>
                     </Card>
@@ -741,17 +713,7 @@ function MetricCard({
     value: number;
     helper: string;
 }) {
-    return (
-        <Card>
-            <CardContent className="p-5">
-                <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">
-                    {label}
-                </p>
-                <p className="mt-2 text-3xl font-semibold text-zinc-950">{value}</p>
-                <p className="mt-2 text-sm text-zinc-500">{helper}</p>
-            </CardContent>
-        </Card>
-    );
+    return <StatCard label={label} value={value} helper={helper} />;
 }
 
 function InfoCard({
@@ -763,13 +725,7 @@ function InfoCard({
     value: string;
     helper?: string;
 }) {
-    return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">{label}</p>
-            <p className="mt-2 font-semibold text-zinc-950">{value}</p>
-            {helper ? <p className="mt-2 text-sm text-zinc-500">{helper}</p> : null}
-        </div>
-    );
+    return <StatTile label={label} value={value} helper={helper} />;
 }
 
 function SectionBlock({
@@ -782,10 +738,10 @@ function SectionBlock({
     helper?: string;
 }) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">{title}</p>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-700">{body}</p>
-            {helper ? <p className="mt-3 text-xs text-zinc-500">{helper}</p> : null}
+        <div className="rounded-lg border border-border bg-muted/50 p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{title}</p>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground">{body}</p>
+            {helper ? <p className="mt-3 text-xs text-muted-foreground">{helper}</p> : null}
         </div>
     );
 }

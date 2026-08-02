@@ -2,6 +2,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { requireDirector } from "@/lib/auth/user";
 import { getNaacMetricWarehouseLeadershipWorkspace } from "@/lib/naac-metric-warehouse/service";
 
@@ -16,22 +18,6 @@ function formatDateTime(value?: string | Date | null) {
     }
 
     return parsed.toLocaleString();
-}
-
-function statusBadgeClass(status: string) {
-    if (status === "Reviewed") {
-        return "bg-emerald-100 text-emerald-700 hover:bg-emerald-100";
-    }
-
-    if (status === "Overridden") {
-        return "bg-amber-100 text-amber-800 hover:bg-amber-100";
-    }
-
-    if (status === "Generated") {
-        return "bg-sky-100 text-sky-700 hover:bg-sky-100";
-    }
-
-    return "bg-zinc-100 text-zinc-700 hover:bg-zinc-100";
 }
 
 export default async function DirectorNaacMetricWarehousePage() {
@@ -103,24 +89,22 @@ export default async function DirectorNaacMetricWarehousePage() {
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
-                                        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                                        <div className="rounded-xl border border-border bg-muted/50 p-4">
                                             <div className="flex items-center justify-between gap-3">
                                                 <div>
-                                                    <p className="text-sm font-semibold text-zinc-900">
+                                                    <p className="text-sm font-semibold text-foreground">
                                                         {safeDashboard.workspace.cycle.title}
                                                     </p>
-                                                    <p className="text-sm text-zinc-500">
+                                                    <p className="text-sm text-muted-foreground">
                                                         Status: {safeDashboard.workspace.cycle.status}
                                                     </p>
                                                 </div>
-                                                <Badge className={statusBadgeClass(safeDashboard.workspace.cycle.status)}>
-                                                    {safeDashboard.workspace.cycle.status}
-                                                </Badge>
+                                                <StatusBadge status={safeDashboard.workspace.cycle.status} />
                                             </div>
-                                            <p className="mt-3 text-sm text-zinc-500">
+                                            <p className="mt-3 text-sm text-muted-foreground">
                                                 Last generated: {formatDateTime(safeDashboard.workspace.cycle.lastGeneratedAt)}
                                             </p>
-                                            <p className="text-sm text-zinc-500">
+                                            <p className="text-sm text-muted-foreground">
                                                 Latest sync: {formatDateTime(safeDashboard.workspace.latestSync?.completedAt)}
                                             </p>
                                         </div>
@@ -138,10 +122,10 @@ export default async function DirectorNaacMetricWarehousePage() {
                                                 {safeDashboard.workspace.summary.criteria.map((criterion) => (
                                                     <TableRow key={criterion.criteriaCode}>
                                                         <TableCell>
-                                                            <div className="font-medium text-zinc-900">
+                                                            <div className="font-medium text-foreground">
                                                                 {criterion.criteriaCode}
                                                             </div>
-                                                            <div className="text-xs text-zinc-500">
+                                                            <div className="text-xs text-muted-foreground">
                                                                 {criterion.criteriaName}
                                                             </div>
                                                         </TableCell>
@@ -176,22 +160,20 @@ export default async function DirectorNaacMetricWarehousePage() {
                                                 {safeDashboard.workspace.values.map((value) => (
                                                     <TableRow key={String(value._id)}>
                                                         <TableCell>
-                                                            <div className="font-medium text-zinc-900">{value.label}</div>
-                                                            <div className="text-xs text-zinc-500">
+                                                            <div className="font-medium text-foreground">{value.label}</div>
+                                                            <div className="text-xs text-muted-foreground">
                                                                 {value.criteriaCode} · {value.metricCode}
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>
                                                             <div>{value.sourceMode}</div>
                                                             {value.moduleKey ? (
-                                                                <div className="text-xs text-zinc-500">{value.moduleKey}</div>
+                                                                <div className="text-xs text-muted-foreground">{value.moduleKey}</div>
                                                             ) : null}
                                                         </TableCell>
                                                         <TableCell>{value.effectiveValueText || "-"}</TableCell>
                                                         <TableCell>
-                                                            <Badge className={statusBadgeClass(value.status)}>
-                                                                {value.status}
-                                                            </Badge>
+                                                            <StatusBadge status={value.status} />
                                                         </TableCell>
                                                     </TableRow>
                                                 ))}
@@ -209,12 +191,5 @@ export default async function DirectorNaacMetricWarehousePage() {
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {
-    return (
-        <Card>
-            <CardHeader className="pb-2">
-                <CardDescription>{label}</CardDescription>
-                <CardTitle className="text-lg">{value}</CardTitle>
-            </CardHeader>
-        </Card>
-    );
+    return <StatCard label={label} value={value} />;
 }

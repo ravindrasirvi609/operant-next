@@ -2,13 +2,14 @@
 
 import { useDeferredValue, useMemo, useState, useTransition } from "react";
 
-import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { X } from "lucide-react";
 
 type AqarReviewApplication = {
     _id: string;
@@ -161,26 +162,26 @@ export function AqarReviewBoard({
                             <div className="flex flex-wrap gap-3">
                                 {(mode === "review" || (mode === "scoped" && application.permissions?.canReview)) ? (
                                     <>
-                                        <Button disabled={isPending} onClick={() => act(application._id, application.status === "Submitted" ? "Forward" : "Recommend")}>
-                                            {isPending ? <Spinner /> : null}
+                                        <Button loading={isPending} disabled={isPending} onClick={() => act(application._id, application.status === "Submitted" ? "Forward" : "Recommend")}>
                                             {application.status === "Submitted" ? "Move To Under Review" : "Move To Committee Review"}
                                         </Button>
-                                        <Button disabled={isPending} variant="secondary" onClick={() => act(application._id, "Reject")}>
+                                        <Button loading={isPending} disabled={isPending} variant="secondary" onClick={() => act(application._id, "Reject")}>
+                                            <X aria-hidden />
                                             Reject
                                         </Button>
                                     </>
                                 ) : mode === "approve" || (mode === "scoped" && application.permissions?.canApprove) ? (
                                     <>
-                                        <Button disabled={isPending} onClick={() => act(application._id, "Approve")}>
-                                            {isPending ? <Spinner /> : null}
+                                        <Button loading={isPending} disabled={isPending} onClick={() => act(application._id, "Approve")}>
                                             Final Approve
                                         </Button>
-                                        <Button disabled={isPending} variant="secondary" onClick={() => act(application._id, "Reject")}>
+                                        <Button loading={isPending} disabled={isPending} variant="secondary" onClick={() => act(application._id, "Reject")}>
+                                            <X aria-hidden />
                                             Final Reject
                                         </Button>
                                     </>
                                 ) : (
-                                    <p className="text-sm text-zinc-500">
+                                    <p className="text-sm text-muted-foreground">
                                         Read-only in your current governance scope.
                                     </p>
                                 )}
@@ -190,7 +191,7 @@ export function AqarReviewBoard({
                 ))
             ) : (
                 <Card>
-                    <CardContent className="p-6 text-sm text-zinc-500">
+                    <CardContent className="p-6 text-sm text-muted-foreground">
                         {items.length
                             ? "No AQAR records matched the current filters."
                             : "No AQAR records are available in your current governance scope."}
@@ -203,9 +204,9 @@ export function AqarReviewBoard({
 
 function Metric({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">{label}</p>
-            <p className="mt-2 font-semibold text-zinc-950">{value}</p>
+        <div className="rounded-lg border border-border bg-muted/50 p-4">
+            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+            <p className="mt-2 font-semibold text-foreground">{value}</p>
         </div>
     );
 }

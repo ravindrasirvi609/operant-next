@@ -11,7 +11,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { InlineUpload, MultiFileUpload } from "@/components/ui/file-upload";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import type { UploadedDocument } from "@/lib/upload/service";
+import { Save, Send } from "lucide-react";
 
 type AssignmentRecord = {
     _id: string;
@@ -391,17 +393,7 @@ export function CurriculumContributorWorkspace({
 
     return (
         <div className="space-y-6">
-            {message ? (
-                <div
-                    className={`rounded-lg border px-4 py-3 text-sm ${
-                        message.type === "success"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                            : "border-rose-200 bg-rose-50 text-rose-800"
-                    }`}
-                >
-                    {message.text}
-                </div>
-            ) : null}
+            <InlineAlert message={message} />
 
             <section className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
                 <Card className="h-fit">
@@ -419,8 +411,8 @@ export function CurriculumContributorWorkspace({
                                 onClick={() => setSelectedId(item._id)}
                                 className={`w-full rounded-xl border p-4 text-left transition ${
                                     item._id === selectedAssignment._id
-                                        ? "border-zinc-950 bg-zinc-950 text-white"
-                                        : "border-zinc-200 bg-white hover:border-zinc-300"
+                                        ? "border-border bg-primary text-primary-foreground"
+                                        : "border-border bg-card hover:border-border"
                                 }`}
                             >
                                 <div className="flex flex-wrap items-center gap-2">
@@ -436,7 +428,7 @@ export function CurriculumContributorWorkspace({
                                 </p>
                                 <p
                                     className={`mt-1 text-xs ${
-                                        item._id === selectedAssignment._id ? "text-white/75" : "text-zinc-500"
+                                        item._id === selectedAssignment._id ? "text-primary-foreground/75" : "text-muted-foreground"
                                     }`}
                                 >
                                     {item.curriculumTitle} · Semester {item.semesterNumber}
@@ -608,8 +600,8 @@ export function CurriculumContributorWorkspace({
                                 disabled={!isEditable || isPending}
                                 rows={6}
                             />
-                            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                                <p className="text-sm font-medium text-zinc-950">Available Program Outcomes</p>
+                            <div className="rounded-lg border border-border bg-muted/50 p-4">
+                                <p className="text-sm font-medium text-foreground">Available Program Outcomes</p>
                                 <div className="mt-3 flex flex-wrap gap-2">
                                     {selectedAssignment.programOutcomes.map((outcome) => (
                                         <Badge key={outcome.id} variant="outline">
@@ -662,6 +654,7 @@ export function CurriculumContributorWorkspace({
                             />
                             <div className="flex flex-wrap gap-3">
                                 <Button onClick={saveDraft} disabled={!isEditable || isPending}>
+                                    <Save aria-hidden />
                                     Save Draft
                                 </Button>
                                 <Button
@@ -669,6 +662,7 @@ export function CurriculumContributorWorkspace({
                                     disabled={!isEditable || isPending || selectedAssignment.planStatus !== "Active"}
                                     variant="secondary"
                                 >
+                                    <Send aria-hidden />
                                     Submit for Review
                                 </Button>
                             </div>
@@ -681,50 +675,50 @@ export function CurriculumContributorWorkspace({
                         </CardHeader>
                         <CardContent className="space-y-6">
                             <div>
-                                <p className="text-sm font-medium text-zinc-950">Linked Documents</p>
+                                <p className="text-sm font-medium text-foreground">Linked Documents</p>
                                 <div className="mt-3 space-y-2">
                                     {selectedAssignment.documents.length ? (
                                         selectedAssignment.documents.map((document) => (
                                             <div
                                                 key={document.id}
-                                                className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm"
+                                                className="rounded-lg border border-border bg-muted/50 p-3 text-sm"
                                             >
-                                                <p className="font-medium text-zinc-950">
+                                                <p className="font-medium text-foreground">
                                                     {document.fileName || document.id}
                                                 </p>
-                                                <p className="mt-1 text-zinc-500">
+                                                <p className="mt-1 text-muted-foreground">
                                                     Verification: {document.verificationStatus || "Pending"}
                                                 </p>
                                             </div>
                                         ))
                                     ) : (
-                                        <p className="text-sm text-zinc-500">No supporting documents linked yet.</p>
+                                        <p className="text-sm text-muted-foreground">No supporting documents linked yet.</p>
                                     )}
                                 </div>
                             </div>
 
                             <div>
-                                <p className="text-sm font-medium text-zinc-950">Review History</p>
+                                <p className="text-sm font-medium text-foreground">Review History</p>
                                 <div className="mt-3 space-y-2">
                                     {selectedAssignment.reviewHistory.length ? (
                                         selectedAssignment.reviewHistory.map((entry, index) => (
                                             <div
                                                 key={`${entry.stage}-${index}`}
-                                                className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm"
+                                                className="rounded-lg border border-border bg-muted/50 p-3 text-sm"
                                             >
-                                                <p className="font-medium text-zinc-950">
+                                                <p className="font-medium text-foreground">
                                                     {entry.stage} · {entry.decision}
                                                 </p>
-                                                <p className="mt-1 text-zinc-500">
+                                                <p className="mt-1 text-muted-foreground">
                                                     {entry.reviewerName || "Reviewer"} · {toPrettyDateTime(entry.reviewedAt)}
                                                 </p>
                                                 {entry.remarks ? (
-                                                    <p className="mt-2 text-zinc-600">{entry.remarks}</p>
+                                                    <p className="mt-2 text-muted-foreground">{entry.remarks}</p>
                                                 ) : null}
                                             </div>
                                         ))
                                     ) : (
-                                        <p className="text-sm text-zinc-500">No review actions have been recorded yet.</p>
+                                        <p className="text-sm text-muted-foreground">No review actions have been recorded yet.</p>
                                     )}
                                 </div>
                             </div>
@@ -766,16 +760,16 @@ function Field({
             ) : (
                 <Input value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled} />
             )}
-            {hint ? <p className="text-xs text-zinc-500">{hint}</p> : null}
+            {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
         </div>
     );
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-sm font-medium text-zinc-950">{value}</p>
+        <div className="rounded-lg border border-border bg-muted/50 p-3">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+            <p className="mt-2 text-sm font-medium text-foreground">{value}</p>
         </div>
     );
 }

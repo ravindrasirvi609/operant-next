@@ -18,7 +18,7 @@ export default async function FacultyAqarPage() {
     ]);
 
     return (
-        <main className="min-h-screen bg-zinc-50">
+        <main className="min-h-screen bg-muted/50">
             <div className="w-full px-4 py-8 sm:px-6 lg:px-8 xl:px-10">
                 <AqarDashboard
                     facultyName={faculty.name}

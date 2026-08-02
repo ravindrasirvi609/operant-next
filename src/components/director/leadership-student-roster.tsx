@@ -4,7 +4,6 @@ import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
     Dialog,
@@ -17,7 +16,13 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { DataPagination, useClientPagination } from "@/components/ui/data-pagination";
+import { EmptyState } from "@/components/ui/empty-state";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import type { LeadershipStudentRecordsData, LeadershipStudentRow } from "@/lib/director/dashboard";
+import { Users } from "lucide-react";
 
 type StudentDialogTab =
     | "overview"
@@ -35,42 +40,6 @@ const dialogTabValues = new Set<StudentDialogTab>([
     "activities",
     "career",
 ]);
-
-function accountTone(status?: string) {
-    if (status === "Active") {
-        return "bg-emerald-100 text-emerald-700";
-    }
-
-    if (status === "PendingActivation") {
-        return "bg-amber-100 text-amber-800";
-    }
-
-    if (status === "Suspended") {
-        return "bg-rose-100 text-rose-700";
-    }
-
-    return "bg-zinc-100 text-zinc-700";
-}
-
-function studentStatusTone(status?: string) {
-    if (status === "Active") {
-        return "bg-emerald-100 text-emerald-700";
-    }
-
-    if (status === "Inactive") {
-        return "bg-zinc-100 text-zinc-700";
-    }
-
-    if (status === "Dropped") {
-        return "bg-rose-100 text-rose-700";
-    }
-
-    if (status === "Graduated") {
-        return "bg-sky-100 text-sky-700";
-    }
-
-    return "bg-zinc-100 text-zinc-700";
-}
 
 function formatDateTime(value?: string) {
     if (!value) {
@@ -140,14 +109,14 @@ function ProfileAvatar({
                 width={imageSize}
                 height={imageSize}
                 unoptimized
-                className={`${dimensions} rounded-full border border-zinc-200 object-cover shadow-sm`}
+                className={`${dimensions} rounded-full border border-border object-cover shadow-sm`}
             />
         );
     }
 
     return (
         <div
-            className={`${dimensions} flex items-center justify-center rounded-full border border-zinc-300 bg-gradient-to-br from-zinc-100 to-zinc-200 text-xs font-semibold text-zinc-700`}
+            className={`${dimensions} flex items-center justify-center rounded-full border border-border bg-gradient-to-br from-muted to-accent text-xs font-semibold text-foreground`}
         >
             {initials(name)}
         </div>
@@ -192,6 +161,10 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
                 .some((value) => String(value).toLowerCase().includes(query))
         );
     }, [deferredSearch, rows]);
+
+    // The roster arrives whole from the server; slice it for display so a
+    // few thousand rows do not all land in the DOM at once.
+    const rosterPage = useClientPagination(filteredRows, 25);
 
     const activeStudents = filteredRows.filter((row) => row.status === "Active").length;
     const pendingActivation = filteredRows.filter((row) => row.accountStatus === "PendingActivation").length;
@@ -353,7 +326,7 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
 
         if (!selectedRecords) {
             return (
-                <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-6 text-sm text-zinc-600">
+                <div className="rounded-xl border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                     Open a student profile to load records.
                 </div>
             );
@@ -370,7 +343,7 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
                 <MetricCard label="Pending activation" value={String(pendingActivation)} />
             </div>
 
-            <Card className="overflow-hidden border-zinc-200 shadow-sm">
+            <Card className="overflow-hidden border-border shadow-sm">
                 <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
                     <div>
                         <CardTitle>Department student roster</CardTitle>
@@ -389,6 +362,7 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
                 </CardHeader>
                 <CardContent>
                     {filteredRows.length ? (
+                        <>
                         <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
@@ -400,8 +374,8 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredRows.map((row) => (
-                                    <TableRow key={row.studentId} className="hover:bg-zinc-50/80">
+                                {rosterPage.pageItems.map((row) => (
+                                    <TableRow key={row.studentId} className="hover:bg-muted/80">
                                         <TableCell className="align-top">
                                             <div className="flex items-start gap-3">
                                                 <ProfileAvatar
@@ -409,24 +383,63 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
                                                     photoURL={row.photoURL}
                                                 />
                                                 <div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setSelectedStudent(row)}
-                                                        className="cursor-pointer text-left text-sm font-semibold text-zinc-950 underline-offset-4 hover:text-zinc-700 hover:underline"
-                                                    >
-                                                        {row.studentName}
-                                                    </button>
-                                                    <div className="text-xs text-zinc-500">{row.enrollmentNo}</div>
-                                                    <div className="max-w-[26ch] truncate text-xs text-zinc-500">
+                                                    {/* Hovering the name previews the record; clicking still opens
+                                                        the full dialog. Lets a reviewer scan a page of rows without
+                                                        opening and closing a modal for each one. */}
+                                                    <HoverCard openDelay={200}>
+                                                        <HoverCardTrigger asChild>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSelectedStudent(row)}
+                                                                className="cursor-pointer text-left text-sm font-semibold text-foreground underline-offset-4 hover:text-foreground hover:underline"
+                                                            >
+                                                                {row.studentName}
+                                                            </button>
+                                                        </HoverCardTrigger>
+                                                        <HoverCardContent align="start" className="w-72">
+                                                            <div className="flex items-start justify-between gap-2">
+                                                                <div className="min-w-0">
+                                                                    <p className="truncate text-sm font-semibold text-foreground">
+                                                                        {row.studentName}
+                                                                    </p>
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        {row.enrollmentNo}
+                                                                    </p>
+                                                                </div>
+                                                                <StatusBadge status={row.status} />
+                                                            </div>
+                                                            <dl className="mt-3 grid gap-1.5 text-xs">
+                                                                {[
+                                                                    ["Program", row.programName],
+                                                                    ["Department", row.departmentName],
+                                                                    ["Institution", row.institutionName],
+                                                                    ["Admission year", String(row.admissionYear)],
+                                                                    ["Email", row.email],
+                                                                    ["Phone", row.mobile],
+                                                                ].map(([label, value]) => (
+                                                                    <div className="flex gap-2" key={label}>
+                                                                        <dt className="w-24 shrink-0 text-muted-foreground">
+                                                                            {label}
+                                                                        </dt>
+                                                                        <dd className="min-w-0 flex-1 truncate text-foreground">
+                                                                            {value || "-"}
+                                                                        </dd>
+                                                                    </div>
+                                                                ))}
+                                                            </dl>
+                                                        </HoverCardContent>
+                                                    </HoverCard>
+                                                    <div className="text-xs text-muted-foreground">{row.enrollmentNo}</div>
+                                                    <div className="max-w-[26ch] truncate text-xs text-muted-foreground">
                                                         {row.email ?? "Email not available"}
                                                     </div>
-                                                    <div className="text-xs text-zinc-500">
+                                                    <div className="text-xs text-muted-foreground">
                                                         {row.mobile ?? "Phone not available"}
                                                     </div>
                                                     <button
                                                         type="button"
                                                         onClick={() => setSelectedStudent(row)}
-                                                        className="mt-1 cursor-pointer text-xs font-medium text-zinc-600 underline-offset-4 hover:text-zinc-900 hover:underline"
+                                                        className="mt-1 cursor-pointer text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                                                     >
                                                         View full profile
                                                     </button>
@@ -434,32 +447,43 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
                                             </div>
                                         </TableCell>
                                         <TableCell className="align-top">
-                                            <div className="font-medium text-zinc-900">{row.departmentName ?? "-"}</div>
-                                            <div className="text-xs text-zinc-500">{row.programName ?? "Program not mapped"}</div>
-                                            <div className="text-xs text-zinc-500">{row.institutionName ?? "Institution not mapped"}</div>
+                                            <div className="font-medium text-foreground">{row.departmentName ?? "-"}</div>
+                                            <div className="text-xs text-muted-foreground">{row.programName ?? "Program not mapped"}</div>
+                                            <div className="text-xs text-muted-foreground">{row.institutionName ?? "Institution not mapped"}</div>
                                         </TableCell>
                                         <TableCell className="align-top">
-                                            <div className="text-sm text-zinc-700">Admission year: {row.admissionYear}</div>
-                                            <div className="text-xs text-zinc-500">
+                                            <div className="text-sm text-foreground">Admission year: {row.admissionYear}</div>
+                                            <div className="text-xs text-muted-foreground">
                                                 Last portal login: {formatDateTime(row.lastLoginAt)}
                                             </div>
                                         </TableCell>
                                         <TableCell className="align-top space-y-2">
-                                            <Badge className={studentStatusTone(row.status)}>{row.status}</Badge>
+                                            <StatusBadge status={row.status} />
                                             <br />
-                                            <Badge className={accountTone(row.accountStatus)}>
-                                                {row.accountStatus ?? "Account status unavailable"}
-                                            </Badge>
+                                            <StatusBadge status={row.accountStatus} label={row.accountStatus ?? "Account status unavailable"} />
                                         </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
                         </Table>
                         </div>
+                            <DataPagination
+                                page={rosterPage.page}
+                                totalPages={rosterPage.totalPages}
+                                onPageChange={rosterPage.setPage}
+                                from={rosterPage.from}
+                                to={rosterPage.to}
+                                total={rosterPage.total}
+                                label="students"
+                            />
+                        </>
                     ) : (
-                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                            No student records matched this search.
-                        </div>
+                        <EmptyState
+                            bordered
+                            icon={Users}
+                            title="No students found"
+                            description="No student records matched this search."
+                        />
                     )}
                 </CardContent>
             </Card>
@@ -473,8 +497,8 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
                 }}
             >
                 {selectedStudent ? (
-                    <DialogContent className="h-[96vh] w-[98vw] max-w-[98vw] sm:max-w-[98vw] overflow-y-auto border-zinc-200 p-0">
-                        <div className="bg-gradient-to-r from-zinc-900 to-zinc-700 p-6 text-white">
+                    <DialogContent className="h-[96vh] w-[98vw] max-w-[98vw] sm:max-w-[98vw] overflow-y-auto border-border p-0">
+                        <div className="bg-gradient-to-r from-primary to-primary/80 p-6 text-primary-foreground">
                             <DialogHeader className="space-y-3 text-left">
                                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                                     <div className="flex items-center gap-4">
@@ -484,21 +508,17 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
                                             size="lg"
                                         />
                                         <div>
-                                            <DialogTitle className="text-2xl text-white">
+                                            <DialogTitle className="text-2xl text-primary-foreground">
                                                 {selectedStudent.studentName}
                                             </DialogTitle>
-                                            <DialogDescription className="text-zinc-200">
+                                            <DialogDescription className="text-primary-foreground/80">
                                                 {selectedStudent.enrollmentNo} • {selectedStudent.departmentName ?? "Department not mapped"}
                                             </DialogDescription>
                                         </div>
                                     </div>
                                     <div className="space-x-2">
-                                        <Badge className={studentStatusTone(selectedStudent.status)}>
-                                            {selectedStudent.status}
-                                        </Badge>
-                                        <Badge className={accountTone(selectedStudent.accountStatus)}>
-                                            {selectedStudent.accountStatus ?? "Account status unavailable"}
-                                        </Badge>
+                                        <StatusBadge status={selectedStudent.status} />
+                                        <StatusBadge status={selectedStudent.accountStatus} label={selectedStudent.accountStatus ?? "Account status unavailable"} />
                                     </div>
                                 </div>
                             </DialogHeader>
@@ -882,7 +902,7 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
                                                                 <TableRow key={item.id}>
                                                                     <TableCell>
                                                                         {item.programName}
-                                                                        <div className="text-xs text-zinc-500">
+                                                                        <div className="text-xs text-muted-foreground">
                                                                             {item.programType ?? "-"}
                                                                         </div>
                                                                     </TableCell>
@@ -988,7 +1008,7 @@ export function LeadershipStudentRoster({ rows }: { rows: LeadershipStudentRow[]
 
 function RecordsLoadingState() {
     return (
-        <div className="space-y-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+        <div className="space-y-3 rounded-xl border border-border bg-muted/50 p-4">
             <Skeleton className="h-5 w-40" />
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-[92%]" />
@@ -999,7 +1019,7 @@ function RecordsLoadingState() {
 
 function RecordsErrorState({ message }: { message: string }) {
     return (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+        <div className="rounded-xl border border-destructive-border bg-destructive-muted p-4 text-sm text-destructive-muted-foreground">
             {message}
         </div>
     );
@@ -1015,7 +1035,7 @@ function SectionCard({
     children: ReactNode;
 }) {
     return (
-        <Card className="border-zinc-200 shadow-none">
+        <Card className="border-border shadow-none">
             <CardHeader>
                 <CardTitle className="text-base">{title}</CardTitle>
                 <CardDescription>{description}</CardDescription>
@@ -1027,9 +1047,9 @@ function SectionCard({
 
 function RecordMetric({ label, value }: { label: string; value: number }) {
     return (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-xl font-semibold text-zinc-950">{value}</p>
+        <div className="rounded-xl border border-border bg-muted/50 p-3">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+            <p className="mt-2 text-xl font-semibold text-foreground">{value}</p>
         </div>
     );
 }
@@ -1037,7 +1057,7 @@ function RecordMetric({ label, value }: { label: string; value: number }) {
 function EmptyTableRow({ colSpan }: { colSpan: number }) {
     return (
         <TableRow>
-            <TableCell className="py-6 text-center text-sm text-zinc-500" colSpan={colSpan}>
+            <TableCell className="py-6 text-center text-sm text-muted-foreground" colSpan={colSpan}>
                 No records found.
             </TableCell>
         </TableRow>
@@ -1054,7 +1074,7 @@ function DocumentBadge({
     };
 }) {
     if (!document) {
-        return <span className="text-xs text-zinc-400">-</span>;
+        return <span className="text-xs text-muted-foreground">-</span>;
     }
 
     return (
@@ -1064,30 +1084,16 @@ function DocumentBadge({
                     href={document.fileUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-xs font-medium text-zinc-700 underline-offset-4 hover:text-zinc-900 hover:underline"
+                    className="text-xs font-medium text-foreground underline-offset-4 hover:text-foreground hover:underline"
                 >
                     {document.fileName ?? "View file"}
                 </a>
             ) : (
-                <span className="text-xs text-zinc-500">{document.fileName ?? "Document"}</span>
+                <span className="text-xs text-muted-foreground">{document.fileName ?? "Document"}</span>
             )}
-            <Badge className={evidenceTone(document.verificationStatus)}>
-                {document.verificationStatus ?? "Pending"}
-            </Badge>
+            <StatusBadge status={document.verificationStatus ?? "Pending"} />
         </div>
     );
-}
-
-function evidenceTone(status?: string) {
-    if (status === "Verified") {
-        return "bg-emerald-100 text-emerald-700";
-    }
-
-    if (status === "Rejected") {
-        return "bg-rose-100 text-rose-700";
-    }
-
-    return "bg-amber-100 text-amber-800";
 }
 
 function formatCurrency(value?: number) {
@@ -1104,20 +1110,13 @@ function formatCurrency(value?: number) {
 
 function ProfileInfo({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-sm font-semibold text-zinc-900">{value}</p>
+        <div className="rounded-xl border border-border bg-muted/50 p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+            <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
         </div>
     );
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {
-    return (
-        <Card>
-            <CardContent className="p-5">
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-                <p className="mt-2 text-3xl font-semibold text-zinc-950">{value}</p>
-            </CardContent>
-        </Card>
-    );
+    return <StatCard label={label} value={value} />;
 }

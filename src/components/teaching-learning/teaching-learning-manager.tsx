@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { ListTree, Plus, Save, Users } from "lucide-react";
 
 type PlanRecord = {
     _id: string;
@@ -386,43 +388,33 @@ export function TeachingLearningManager({
             <div className="grid gap-4 md:grid-cols-3">
                 <Card>
                     <CardContent className="p-5">
-                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">
+                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                             Delivery Plans
                         </p>
-                        <p className="mt-2 text-3xl font-semibold text-zinc-950">{plans.length}</p>
+                        <p className="mt-2 text-3xl font-semibold text-foreground">{plans.length}</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="p-5">
-                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">
+                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                             Assignments
                         </p>
-                        <p className="mt-2 text-3xl font-semibold text-zinc-950">{assignments.length}</p>
+                        <p className="mt-2 text-3xl font-semibold text-foreground">{assignments.length}</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="p-5">
-                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">
+                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                             Active Contributors
                         </p>
-                        <p className="mt-2 text-3xl font-semibold text-zinc-950">
+                        <p className="mt-2 text-3xl font-semibold text-foreground">
                             {new Set(assignments.filter((item) => item.isActive).map((item) => item.assigneeUserId)).size}
                         </p>
                     </CardContent>
                 </Card>
             </div>
 
-            {message ? (
-                <div
-                    className={`rounded-lg border px-4 py-3 text-sm ${
-                        message.type === "success"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                            : "border-rose-200 bg-rose-50 text-rose-900"
-                    }`}
-                >
-                    {message.text}
-                </div>
-            ) : null}
+            <InlineAlert message={message} />
 
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <Input
@@ -433,8 +425,14 @@ export function TeachingLearningManager({
                 />
                 <Tabs onValueChange={(value) => setTab(value as "plans" | "assignments")} value={tab}>
                     <TabsList>
-                        <TabsTrigger value="plans">Plans</TabsTrigger>
-                        <TabsTrigger value="assignments">Assignments</TabsTrigger>
+                        <TabsTrigger value="plans">
+                            <ListTree aria-hidden />
+                            Plans
+                        </TabsTrigger>
+                        <TabsTrigger value="assignments">
+                            <Users aria-hidden />
+                            Assignments
+                        </TabsTrigger>
                     </TabsList>
                 </Tabs>
             </div>
@@ -454,6 +452,7 @@ export function TeachingLearningManager({
                                 </div>
                                 {editingPlanId ? (
                                     <Button onClick={resetPlanForm} type="button" variant="outline">
+                                        <Plus aria-hidden />
                                         New Plan
                                     </Button>
                                 ) : null}
@@ -675,7 +674,8 @@ export function TeachingLearningManager({
                                 />
                             </div>
                             <div className="md:col-span-2">
-                                <Button disabled={isPending} onClick={savePlan}>
+                                <Button loading={isPending} disabled={isPending} onClick={savePlan}>
+                                    {isPending ? "Saving..." : editingPlanId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                     {isPending ? "Saving..." : editingPlanId ? "Update Plan" : "Create Plan"}
                                 </Button>
                             </div>
@@ -695,8 +695,8 @@ export function TeachingLearningManager({
                                     <button
                                         className={`w-full rounded-xl border p-4 text-left transition ${
                                             editingPlanId === plan._id
-                                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                                : "border-zinc-200 bg-zinc-50 text-zinc-900 hover:border-zinc-300 hover:bg-zinc-100"
+                                                ? "border-border bg-primary text-primary-foreground"
+                                                : "border-border bg-muted/50 text-foreground hover:border-border hover:bg-muted"
                                         }`}
                                         key={plan._id}
                                         onClick={() => loadPlan(plan)}
@@ -743,6 +743,7 @@ export function TeachingLearningManager({
                                 </div>
                                 {editingAssignmentId ? (
                                     <Button onClick={resetAssignmentForm} type="button" variant="outline">
+                                        <Plus aria-hidden />
                                         New Assignment
                                     </Button>
                                 ) : null}
@@ -838,7 +839,10 @@ export function TeachingLearningManager({
                                 />
                             </div>
                             <div className="md:col-span-2">
-                                <Button disabled={isPending} onClick={saveAssignment}>
+                                <Button loading={isPending} disabled={isPending} onClick={saveAssignment}>
+                                    {isPending
+                                        ? "Saving..."
+                                        : editingAssignmentId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                     {isPending
                                         ? "Saving..."
                                         : editingAssignmentId
@@ -862,8 +866,8 @@ export function TeachingLearningManager({
                                     <button
                                         className={`w-full rounded-xl border p-4 text-left transition ${
                                             editingAssignmentId === assignment._id
-                                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                                : "border-zinc-200 bg-zinc-50 text-zinc-900 hover:border-zinc-300 hover:bg-zinc-100"
+                                                ? "border-border bg-primary text-primary-foreground"
+                                                : "border-border bg-muted/50 text-foreground hover:border-border hover:bg-muted"
                                         }`}
                                         key={assignment._id}
                                         onClick={() => loadAssignment(assignment)}

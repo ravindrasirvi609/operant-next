@@ -12,7 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import type { UploadedDocument } from "@/lib/upload/service";
+import { Plus, Trash2 } from "lucide-react";
 
 type AssignmentRecord = {
     _id: string;
@@ -253,22 +256,6 @@ function formatDate(value?: string) {
         month: "short",
         year: "numeric",
     });
-}
-
-function statusBadge(status: string) {
-    if (status === "Approved") {
-        return <Badge className="bg-emerald-100 text-emerald-700">{status}</Badge>;
-    }
-
-    if (status === "Rejected") {
-        return <Badge className="bg-rose-100 text-rose-700">{status}</Badge>;
-    }
-
-    if (["Submitted", "Teaching Learning Review", "Under Review", "Committee Review"].includes(status)) {
-        return <Badge className="bg-amber-100 text-amber-700">{status}</Badge>;
-    }
-
-    return <Badge variant="secondary">{status}</Badge>;
 }
 
 async function requestJson<T>(url: string, options?: RequestInit) {
@@ -705,17 +692,7 @@ export function TeachingLearningContributorWorkspace({
                         value={search}
                     />
 
-                    {message ? (
-                        <div
-                            className={`rounded-lg border px-4 py-3 text-sm ${
-                                message.type === "success"
-                                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                                    : "border-rose-200 bg-rose-50 text-rose-900"
-                            }`}
-                        >
-                            {message.text}
-                        </div>
-                    ) : null}
+                    <InlineAlert message={message} />
 
                     <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
                         <div className="space-y-3">
@@ -725,8 +702,8 @@ export function TeachingLearningContributorWorkspace({
                                     <button
                                         className={`w-full rounded-xl border p-4 text-left transition ${
                                             active
-                                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                                : "border-zinc-200 bg-zinc-50 text-zinc-900 hover:border-zinc-300 hover:bg-zinc-100"
+                                                ? "border-border bg-primary text-primary-foreground"
+                                                : "border-border bg-muted/50 text-foreground hover:border-border hover:bg-muted"
                                         }`}
                                         key={assignment._id}
                                         onClick={() => setSelectedId(assignment._id)}
@@ -744,7 +721,7 @@ export function TeachingLearningContributorWorkspace({
                                                     {assignment.courseTitle}
                                                 </p>
                                             </div>
-                                            <div>{statusBadge(assignment.status)}</div>
+                                            <div><StatusBadge status={assignment.status} /></div>
                                         </div>
                                         <p className="mt-3 text-xs opacity-80">
                                             {assignment.currentStageLabel} · {assignment.valueSummary}
@@ -756,11 +733,11 @@ export function TeachingLearningContributorWorkspace({
 
                         {selectedAssignment ? (
                             <div className="space-y-6">
-                                <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+                                <div className="rounded-2xl border border-border bg-muted/50 p-5">
                                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                         <div>
                                             <div className="flex flex-wrap items-center gap-2">
-                                                {statusBadge(selectedAssignment.status)}
+                                                <StatusBadge status={selectedAssignment.status} />
                                                 <Badge variant="secondary">
                                                     {selectedAssignment.currentStageLabel}
                                                 </Badge>
@@ -768,10 +745,10 @@ export function TeachingLearningContributorWorkspace({
                                                     {selectedAssignment.deliveryType}
                                                 </Badge>
                                             </div>
-                                            <h3 className="mt-3 text-2xl font-semibold text-zinc-950">
+                                            <h3 className="mt-3 text-2xl font-semibold text-foreground">
                                                 {selectedAssignment.planTitle}
                                             </h3>
-                                            <p className="mt-2 text-sm text-zinc-600">
+                                            <p className="mt-2 text-sm text-muted-foreground">
                                                 {selectedAssignment.courseTitle}
                                                 {selectedAssignment.courseCode
                                                     ? ` (${selectedAssignment.courseCode})`
@@ -785,24 +762,24 @@ export function TeachingLearningContributorWorkspace({
                                                     ? ` · Section ${selectedAssignment.sectionName}`
                                                     : ""}
                                             </p>
-                                            <p className="mt-2 text-sm text-zinc-500">
+                                            <p className="mt-2 text-sm text-muted-foreground">
                                                 Academic year: {selectedAssignment.academicYearLabel || "-"} · Due{" "}
                                                 {formatDate(selectedAssignment.dueDate)}
                                             </p>
                                         </div>
-                                        <div className="text-sm text-zinc-500">
+                                        <div className="text-sm text-muted-foreground">
                                             <p>Planned Sessions: {selectedAssignment.plannedSessions}</p>
                                             <p>Contact Hours: {selectedAssignment.plannedContactHours}</p>
                                             <p>Class Strength: {selectedAssignment.classStrength ?? "-"}</p>
                                         </div>
                                     </div>
                                     {selectedAssignment.notes ? (
-                                        <p className="mt-4 text-sm text-zinc-600">
+                                        <p className="mt-4 text-sm text-muted-foreground">
                                             Admin notes: {selectedAssignment.notes}
                                         </p>
                                     ) : null}
                                     {selectedAssignment.reviewRemarks ? (
-                                        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                                        <div className="mt-4 rounded-lg border border-warning-border bg-warning-muted p-4 text-sm text-warning-muted-foreground">
                                             Reviewer remarks: {selectedAssignment.reviewRemarks}
                                         </div>
                                     ) : null}
@@ -813,7 +790,7 @@ export function TeachingLearningContributorWorkspace({
                                         <CardHeader>
                                             <CardTitle>Teaching Load Context</CardTitle>
                                         </CardHeader>
-                                        <CardContent className="space-y-2 text-sm text-zinc-600">
+                                        <CardContent className="space-y-2 text-sm text-muted-foreground">
                                             {selectedAssignment.teachingLoadSnapshot ? (
                                                 <>
                                                     <p>
@@ -844,7 +821,7 @@ export function TeachingLearningContributorWorkspace({
                                         <CardHeader>
                                             <CardTitle>Annual Teaching Summary</CardTitle>
                                         </CardHeader>
-                                        <CardContent className="space-y-2 text-sm text-zinc-600">
+                                        <CardContent className="space-y-2 text-sm text-muted-foreground">
                                             {selectedAssignment.teachingSummarySnapshot ? (
                                                 <>
                                                     <p>
@@ -1009,13 +986,14 @@ export function TeachingLearningContributorWorkspace({
                                                 type="button"
                                                 variant="secondary"
                                             >
+                                                <Plus aria-hidden />
                                                 Add Session
                                             </Button>
                                         </div>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
                                         {form.sessions.map((row, index) => (
-                                            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4" key={row.id ?? `session-${index}`}>
+                                            <div className="rounded-xl border border-border bg-muted/50 p-4" key={row.id ?? `session-${index}`}>
                                                 <div className="mb-4 flex items-center justify-between gap-3">
                                                     <Badge variant="secondary">
                                                         Session {index + 1}
@@ -1032,6 +1010,7 @@ export function TeachingLearningContributorWorkspace({
                                                         type="button"
                                                         variant="outline"
                                                     >
+                                                        <Trash2 aria-hidden />
                                                         Remove
                                                     </Button>
                                                 </div>
@@ -1300,13 +1279,14 @@ export function TeachingLearningContributorWorkspace({
                                                 type="button"
                                                 variant="secondary"
                                             >
+                                                <Plus aria-hidden />
                                                 Add Assessment
                                             </Button>
                                         </div>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
                                         {form.assessments.map((row, index) => (
-                                            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4" key={row.id ?? `assessment-${index}`}>
+                                            <div className="rounded-xl border border-border bg-muted/50 p-4" key={row.id ?? `assessment-${index}`}>
                                                 <div className="mb-4 flex items-center justify-between gap-3">
                                                     <Badge variant="secondary">Assessment {index + 1}</Badge>
                                                     <Button
@@ -1321,6 +1301,7 @@ export function TeachingLearningContributorWorkspace({
                                                         type="button"
                                                         variant="outline"
                                                     >
+                                                        <Trash2 aria-hidden />
                                                         Remove
                                                     </Button>
                                                 </div>
@@ -1587,13 +1568,14 @@ export function TeachingLearningContributorWorkspace({
                                                 type="button"
                                                 variant="secondary"
                                             >
+                                                <Plus aria-hidden />
                                                 Add Support Action
                                             </Button>
                                         </div>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
                                         {form.supports.map((row, index) => (
-                                            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4" key={row.id ?? `support-${index}`}>
+                                            <div className="rounded-xl border border-border bg-muted/50 p-4" key={row.id ?? `support-${index}`}>
                                                 <div className="mb-4 flex items-center justify-between gap-3">
                                                     <Badge variant="secondary">Support {index + 1}</Badge>
                                                     <Button
@@ -1608,6 +1590,7 @@ export function TeachingLearningContributorWorkspace({
                                                         type="button"
                                                         variant="outline"
                                                     >
+                                                        <Trash2 aria-hidden />
                                                         Remove
                                                     </Button>
                                                 </div>
@@ -1847,7 +1830,7 @@ export function TeachingLearningContributorWorkspace({
                                                 disabled={!canEdit}
                                                 placeholder="Upload result analysis"
                                             />
-                                            <p className="text-xs text-zinc-500">
+                                            <p className="text-xs text-muted-foreground">
                                                 Submission requires a lesson plan. Result analysis becomes mandatory once completed assessment evidence is recorded.
                                             </p>
                                         </div>
@@ -1895,10 +1878,11 @@ export function TeachingLearningContributorWorkspace({
                                 </Card>
 
                                 <div className="flex flex-wrap gap-3">
-                                    <Button disabled={isPending || !canEdit} onClick={saveDraft}>
+                                    <Button loading={isPending} disabled={isPending || !canEdit} onClick={saveDraft}>
                                         {isPending ? "Saving..." : "Save Draft"}
                                     </Button>
                                     <Button
+                                        loading={isPending}
                                         disabled={isPending || !canEdit}
                                         onClick={submitAssignment}
                                         variant="secondary"
@@ -1908,7 +1892,7 @@ export function TeachingLearningContributorWorkspace({
                                 </div>
                             </div>
                         ) : (
-                            <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50 p-8 text-sm text-zinc-500">
+                            <div className="rounded-xl border border-dashed border-border bg-muted/50 p-8 text-sm text-muted-foreground">
                                 Select a teaching-learning assignment to continue.
                             </div>
                         )}

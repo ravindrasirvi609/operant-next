@@ -11,6 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ListTree, Pencil, Plus, RotateCcw, Save, Users } from "lucide-react";
 
 type PlanRecord = {
     _id: string;
@@ -161,34 +165,6 @@ function formatDate(value?: string) {
         month: "short",
         year: "numeric",
     });
-}
-
-function planStatusBadge(status: string) {
-    if (status === "Active") {
-        return <Badge className="bg-emerald-100 text-emerald-700">{status}</Badge>;
-    }
-
-    if (status === "Locked") {
-        return <Badge className="bg-amber-100 text-amber-700">{status}</Badge>;
-    }
-
-    return <Badge variant="secondary">{status}</Badge>;
-}
-
-function assignmentStatusBadge(status: string) {
-    if (status === "Approved") {
-        return <Badge className="bg-emerald-100 text-emerald-700">{status}</Badge>;
-    }
-
-    if (status === "Rejected") {
-        return <Badge className="bg-rose-100 text-rose-700">{status}</Badge>;
-    }
-
-    if (["Submitted", "Research Review", "Under Review", "Committee Review"].includes(status)) {
-        return <Badge className="bg-amber-100 text-amber-700">{status}</Badge>;
-    }
-
-    return <Badge variant="secondary">{status}</Badge>;
 }
 
 export function ResearchInnovationManager({
@@ -423,20 +399,24 @@ export function ResearchInnovationManager({
     return (
         <div className="space-y-6">
             <div className="flex flex-wrap items-center gap-3">
-                <Button
-                    onClick={() => setTab("plans")}
-                    type="button"
-                    variant={tab === "plans" ? "default" : "outline"}
+                <ToggleGroup
+                    type="single"
+                    value={tab}
+                    onValueChange={(value) => {
+                        if (value) setTab(value as "plans" | "assignments");
+                    }}
+                    variant="outline"
+                    className="w-fit"
                 >
-                    Plans
-                </Button>
-                <Button
-                    onClick={() => setTab("assignments")}
-                    type="button"
-                    variant={tab === "assignments" ? "default" : "outline"}
-                >
-                    Assignments
-                </Button>
+                    <ToggleGroupItem value="plans">
+                        <ListTree aria-hidden />
+                        Plans
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="assignments">
+                        <Users aria-hidden />
+                        Assignments
+                    </ToggleGroupItem>
+                </ToggleGroup>
                 <Input
                     className="max-w-sm"
                     onChange={(event) => setSearch(event.target.value)}
@@ -445,17 +425,7 @@ export function ResearchInnovationManager({
                 />
             </div>
 
-            {message ? (
-                <div
-                    className={`rounded-lg border px-4 py-3 text-sm ${
-                        message.type === "success"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                            : "border-rose-200 bg-rose-50 text-rose-900"
-                    }`}
-                >
-                    {message.text}
-                </div>
-            ) : null}
+            <InlineAlert message={message} />
 
             {tab === "plans" ? (
                 <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
@@ -715,15 +685,18 @@ export function ResearchInnovationManager({
                             </div>
 
                             <div className="flex flex-wrap gap-3">
-                                <Button disabled={isPending} onClick={savePlan} type="button">
+                                <Button loading={isPending} disabled={isPending} onClick={savePlan} type="button">
+                                    {editingPlanId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                     {editingPlanId ? "Update plan" : "Create plan"}
                                 </Button>
                                 <Button
+                                    loading={isPending}
                                     disabled={isPending}
                                     onClick={resetPlanForm}
                                     type="button"
                                     variant="outline"
                                 >
+                                    <RotateCcw aria-hidden />
                                     Reset
                                 </Button>
                             </div>
@@ -738,25 +711,25 @@ export function ResearchInnovationManager({
                                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                             <div className="space-y-3">
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    {planStatusBadge(plan.status)}
+                                                    <StatusBadge status={plan.status} />
                                                     <Badge variant="secondary">{plan.scopeType}</Badge>
                                                     <Badge variant="outline">{plan.focusArea}</Badge>
                                                 </div>
                                                 <div>
-                                                    <h3 className="text-xl font-semibold text-zinc-950">
+                                                    <h3 className="text-xl font-semibold text-foreground">
                                                         {plan.title}
                                                     </h3>
-                                                    <p className="mt-1 text-sm text-zinc-500">
+                                                    <p className="mt-1 text-sm text-muted-foreground">
                                                         {plan.academicYearLabel} ·{" "}
                                                         {plan.scopeType === "Department"
                                                             ? plan.departmentName || "Department"
                                                             : plan.institutionName || "Institution"}
                                                     </p>
                                                 </div>
-                                                <p className="text-sm text-zinc-600">
+                                                <p className="text-sm text-muted-foreground">
                                                     {plan.summary?.trim() || "No summary provided."}
                                                 </p>
-                                                <p className="text-xs text-zinc-500">
+                                                <p className="text-xs text-muted-foreground">
                                                     Targets: Publications {plan.targetPublicationCount} · Projects{" "}
                                                     {plan.targetProjectCount} · Patents {plan.targetPatentCount} · Consultancy{" "}
                                                     {plan.targetConsultancyCount} · Student Research{" "}
@@ -767,9 +740,10 @@ export function ResearchInnovationManager({
 
                                             <div className="flex flex-col gap-3 lg:items-end">
                                                 <Button onClick={() => loadPlan(plan)} type="button" variant="outline">
+                                                    <Pencil aria-hidden />
                                                     Edit plan
                                                 </Button>
-                                                <p className="text-xs text-zinc-500">
+                                                <p className="text-xs text-muted-foreground">
                                                     Updated {formatDate(plan.updatedAt)}
                                                 </p>
                                             </div>
@@ -838,7 +812,7 @@ export function ResearchInnovationManager({
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <p className="text-xs text-zinc-500">
+                                <p className="text-xs text-muted-foreground">
                                     Assignment is enforced server-side for scoped plan owners, research committee members, and active research coordinators only.
                                 </p>
                             </div>
@@ -867,15 +841,18 @@ export function ResearchInnovationManager({
                             </div>
 
                             <div className="flex flex-wrap gap-3">
-                                <Button disabled={isPending} onClick={saveAssignment} type="button">
+                                <Button loading={isPending} disabled={isPending} onClick={saveAssignment} type="button">
+                                    {editingAssignmentId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                     {editingAssignmentId ? "Update assignment" : "Create assignment"}
                                 </Button>
                                 <Button
+                                    loading={isPending}
                                     disabled={isPending}
                                     onClick={resetAssignmentForm}
                                     type="button"
                                     variant="outline"
                                 >
+                                    <RotateCcw aria-hidden />
                                     Reset
                                 </Button>
                             </div>
@@ -890,23 +867,23 @@ export function ResearchInnovationManager({
                                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                             <div className="space-y-3">
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    {assignmentStatusBadge(assignment.status)}
+                                                    <StatusBadge status={assignment.status} />
                                                     <Badge variant={assignment.isActive ? "secondary" : "outline"}>
                                                         {assignment.isActive ? "Active" : "Inactive"}
                                                     </Badge>
                                                 </div>
                                                 <div>
-                                                    <h3 className="text-xl font-semibold text-zinc-950">
+                                                    <h3 className="text-xl font-semibold text-foreground">
                                                         {assignment.planTitle}
                                                     </h3>
-                                                    <p className="mt-1 text-sm text-zinc-500">
+                                                    <p className="mt-1 text-sm text-muted-foreground">
                                                         {assignment.assigneeName} · {assignment.assigneeEmail}
                                                     </p>
                                                 </div>
-                                                <p className="text-sm text-zinc-600">
+                                                <p className="text-sm text-muted-foreground">
                                                     {assignment.notes?.trim() || "No assignment note provided."}
                                                 </p>
-                                                <p className="text-xs text-zinc-500">
+                                                <p className="text-xs text-muted-foreground">
                                                     Due {formatDate(assignment.dueDate)}
                                                 </p>
                                             </div>
@@ -917,9 +894,10 @@ export function ResearchInnovationManager({
                                                     type="button"
                                                     variant="outline"
                                                 >
+                                                    <Pencil aria-hidden />
                                                     Edit assignment
                                                 </Button>
-                                                <p className="text-xs text-zinc-500">
+                                                <p className="text-xs text-muted-foreground">
                                                     Updated {formatDate(assignment.updatedAt)}
                                                 </p>
                                             </div>

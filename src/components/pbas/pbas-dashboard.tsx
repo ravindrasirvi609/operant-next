@@ -1,12 +1,12 @@
 "use client";
 
-import { ShieldCheck, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ShieldCheck, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 
-import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getDesignationProfile } from "@/lib/faculty/options";
 import { pbasApplicationSchema, type PbasSnapshot } from "@/lib/pbas/validators";
 import { InlineUpload } from "@/components/ui/file-upload";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import type { UploadedDocument } from "@/lib/upload/service";
 
 type PbasFormValues = z.input<typeof pbasApplicationSchema>;
@@ -324,23 +325,23 @@ export function PBASStatusTimeline({
             {logs.length ? (
                 logs.map((log) => (
                     <div
-                        className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                        className="rounded-lg border border-border bg-muted/50 p-4"
                         key={log._id ?? `${log.status}-${log.changedAt}`}
                     >
                         <div className="flex items-center justify-between gap-4">
-                            <p className="min-w-0 font-semibold text-zinc-950">{log.status}</p>
-                            <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">
+                            <p className="min-w-0 font-semibold text-foreground">{log.status}</p>
+                            <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                                 {new Date(log.changedAt).toLocaleString()}
                             </p>
                         </div>
-                        <p className="mt-2 text-sm text-zinc-600">
+                        <p className="mt-2 text-sm text-muted-foreground">
                             {log.actorName ? `${log.actorName} (${log.actorRole ?? "User"})` : "System"}
                         </p>
-                        {log.remarks ? <p className="mt-1 text-sm text-zinc-500">{log.remarks}</p> : null}
+                        {log.remarks ? <p className="mt-1 text-sm text-muted-foreground">{log.remarks}</p> : null}
                     </div>
                 ))
             ) : (
-                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                     No PBAS status updates recorded yet.
                 </div>
             )}
@@ -1041,24 +1042,24 @@ export function PbasDashboard({
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid gap-3 md:grid-cols-3">
-                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                            <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Active Year</p>
-                            <p className="mt-2 text-lg font-semibold text-zinc-950">
+                        <div className="rounded-lg border border-border bg-muted/50 p-4">
+                            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Active Year</p>
+                            <p className="mt-2 text-lg font-semibold text-foreground">
                                 {summary.activeYear?.label || "Not configured"}
                             </p>
                         </div>
-                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                            <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Submission Deadline</p>
-                            <p className="mt-2 text-lg font-semibold text-zinc-950">
+                        <div className="rounded-lg border border-border bg-muted/50 p-4">
+                            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Submission Deadline</p>
+                            <p className="mt-2 text-lg font-semibold text-foreground">
                                 {summary.submissionDeadline || "Not configured"}
                             </p>
                         </div>
-                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                            <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Last Approved API</p>
-                            <p className="mt-2 text-lg font-semibold text-zinc-950">
+                        <div className="rounded-lg border border-border bg-muted/50 p-4">
+                            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Last Approved API</p>
+                            <p className="mt-2 text-lg font-semibold text-foreground">
                                 {summary.lastApprovedApiScore ?? 0}
                             </p>
-                            <p className="mt-1 text-xs text-zinc-500">
+                            <p className="mt-1 text-xs text-muted-foreground">
                                 {summary.lastApprovedYear ? `Year ${summary.lastApprovedYear}` : "No approved PBAS yet"}
                             </p>
                         </div>
@@ -1072,8 +1073,8 @@ export function PbasDashboard({
                         <Metric label="Evidence" value={String(summary.stats.evidenceCount)} />
                     </div>
                     {summary.warnings.length ? (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
-                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-700">
+                        <div className="rounded-lg border border-warning-border bg-warning-muted p-4 text-sm text-warning-muted-foreground">
+                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-warning-muted-foreground">
                                 Attention Needed
                             </p>
                             <ul className="mt-2 list-disc space-y-1 pl-4">
@@ -1097,21 +1098,21 @@ export function PbasDashboard({
                         </CardHeader>
                         <CardContent className="space-y-3">
                             <Button
+                                loading={isPending}
                                 className="w-full"
                                 onClick={createDraft}
                                 type="button"
                                 disabled={isPending || Boolean(activeApplication)}
                             >
-                                {isPending ? <Spinner /> : null}
                                 Start PBAS Draft
                             </Button>
                             {activeApplication ? (
-                                <p className="text-xs text-amber-700">
+                                <p className="text-xs text-warning-muted-foreground">
                                     One PBAS form is already active ({activeApplication.academicYear}, {activeApplication.status}).
                                     Complete, approve, or reject it before starting a new form.
                                 </p>
                             ) : null}
-                            <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-500">
+                            <div className="rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
                                 Auto save: {selectedId ? autoSaveState : "Create a draft to enable auto save"}
                             </div>
                         </CardContent>
@@ -1135,20 +1136,20 @@ export function PbasDashboard({
                                                 key={application._id}
                                                 className={`rounded-lg border p-4 text-left transition ${
                                                     selectedId === application._id
-                                                        ? "border-zinc-400 bg-white"
-                                                        : "border-zinc-200 bg-zinc-50 hover:border-zinc-300 hover:bg-white"
+                                                        ? "border-border bg-card"
+                                                        : "border-border bg-muted/50 hover:border-border hover:bg-card"
                                                 }`}
                                             >
                                                 <div className="flex items-center justify-between gap-3">
-                                                    <p className="font-semibold text-zinc-950">
+                                                    <p className="font-semibold text-foreground">
                                                         {application.academicYear}
                                                     </p>
                                                     <Badge variant="secondary">{application.status}</Badge>
                                                 </div>
-                                                <p className="mt-2 text-sm text-zinc-600">
+                                                <p className="mt-2 text-sm text-muted-foreground">
                                                     {application.currentDesignation}
                                                 </p>
-                                                <p className="mt-1 text-sm text-zinc-500">
+                                                <p className="mt-1 text-sm text-muted-foreground">
                                                     API {application.apiScore.totalScore}
                                                 </p>
                                             </button>
@@ -1156,7 +1157,7 @@ export function PbasDashboard({
                                     </div>
                                 </ScrollArea>
                             ) : (
-                                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                                     No PBAS applications created yet.
                                 </div>
                             )}
@@ -1172,6 +1173,7 @@ export function PbasDashboard({
                                 </div>
                                 {selected.status === "Draft" ? (
                                     <Button
+                                        loading={isPending}
                                         type="button"
                                         variant="ghost"
                                         size="icon"
@@ -1195,7 +1197,7 @@ export function PbasDashboard({
                     {message ? <FormMessage message={message.text} type={message.type} /> : null}
 
                     {selected?.status === "Rejected" ? (
-                        <Card className="border-rose-200 bg-rose-50">
+                        <Card className="border-destructive-border bg-destructive-muted">
                             <CardHeader>
                                 <CardTitle>Resubmission Required</CardTitle>
                                 <CardDescription>
@@ -1219,11 +1221,11 @@ export function PbasDashboard({
                             {entryLoading ? (
                                 <PbasIndicatorTableSkeleton />
                             ) : entryError ? (
-                                <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                                <div className="rounded-lg border border-destructive-border bg-destructive-muted p-4 text-sm text-destructive-muted-foreground">
                                     {entryError}
                                 </div>
                             ) : displayEntries.length ? (
-                                <div className="rounded-lg border border-zinc-200">
+                                <div className="rounded-lg border border-border">
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
@@ -1238,19 +1240,19 @@ export function PbasDashboard({
                                                 <TableRow key={entry.indicatorId}>
                                                     <TableCell className="align-top">
                                                         <div className="space-y-1">
-                                                            <p className="text-sm font-semibold text-zinc-950">
+                                                            <p className="text-sm font-semibold text-foreground">
                                                                 {entry.indicatorName}
                                                             </p>
-                                                            <p className="text-xs text-zinc-500">
+                                                            <p className="text-xs text-muted-foreground">
                                                                 {entry.category?.name} • {entry.indicatorCode} • Max {entry.maxScore}
                                                             </p>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="text-right align-top">
-                                                        <span className="text-sm font-semibold text-zinc-900">{entry.claimedScore}</span>
+                                                        <span className="text-sm font-semibold text-foreground">{entry.claimedScore}</span>
                                                     </TableCell>
                                                     <TableCell className="text-right align-top">
-                                                        <span className="text-sm font-semibold text-emerald-700">
+                                                        <span className="text-sm font-semibold text-success-muted-foreground">
                                                             {entry.approvedScore ?? "--"}
                                                         </span>
                                                     </TableCell>
@@ -1274,7 +1276,7 @@ export function PbasDashboard({
                                     </Table>
                                 </div>
                             ) : (
-                                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                                     Select a PBAS form to view indicator totals.
                                 </div>
                             )}
@@ -1336,43 +1338,43 @@ export function PbasDashboard({
                                 </Field>
                             </div>
 
-                            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+                            <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                 PBAS scores are derived from faculty teaching, research, and institutional records. Update the source data in{" "}
-                                <a className="font-semibold text-zinc-900 hover:underline" href="/faculty/profile">
+                                <a className="font-semibold text-foreground hover:underline" href="/faculty/profile">
                                     Faculty Workspace
                                 </a>
                                 .
                             </div>
 
-                            <div className="rounded-lg border border-zinc-200 bg-white p-4">
+                            <div className="rounded-lg border border-border bg-card p-4">
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <p className="text-sm font-semibold text-zinc-950">{designationProfile.label}</p>
+                                    <p className="text-sm font-semibold text-foreground">{designationProfile.label}</p>
                                     <Badge variant="secondary">{watchedValues.currentDesignation || selected?.currentDesignation || "PBAS"}</Badge>
                                 </div>
-                                <p className="mt-2 text-sm text-zinc-600">{designationProfile.pbasFocus}</p>
-                                <div className="mt-3 flex flex-wrap gap-2 text-xs uppercase tracking-[0.12em] text-zinc-500">
+                                <p className="mt-2 text-sm text-muted-foreground">{designationProfile.pbasFocus}</p>
+                                <div className="mt-3 flex flex-wrap gap-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
                                     {designationProfile.key === "early_assistant" ? (
                                         <>
-                                            <span className="rounded-full border border-zinc-200 px-3 py-1">Teaching-heavy visibility</span>
-                                            <span className="rounded-full border border-zinc-200 px-3 py-1">Research growth</span>
+                                            <span className="rounded-full border border-border px-3 py-1">Teaching-heavy visibility</span>
+                                            <span className="rounded-full border border-border px-3 py-1">Research growth</span>
                                         </>
                                     ) : null}
                                     {designationProfile.key === "advanced_assistant" ? (
                                         <>
-                                            <span className="rounded-full border border-zinc-200 px-3 py-1">Balanced teaching + research</span>
-                                            <span className="rounded-full border border-zinc-200 px-3 py-1">Institutional contribution visible</span>
+                                            <span className="rounded-full border border-border px-3 py-1">Balanced teaching + research</span>
+                                            <span className="rounded-full border border-border px-3 py-1">Institutional contribution visible</span>
                                         </>
                                     ) : null}
                                     {designationProfile.key === "associate" ? (
                                         <>
-                                            <span className="rounded-full border border-zinc-200 px-3 py-1">Research-first visibility</span>
-                                            <span className="rounded-full border border-zinc-200 px-3 py-1">Leadership contribution visible</span>
+                                            <span className="rounded-full border border-border px-3 py-1">Research-first visibility</span>
+                                            <span className="rounded-full border border-border px-3 py-1">Leadership contribution visible</span>
                                         </>
                                     ) : null}
                                     {designationProfile.key === "professor" ? (
                                         <>
-                                            <span className="rounded-full border border-zinc-200 px-3 py-1">Leadership-first visibility</span>
-                                            <span className="rounded-full border border-zinc-200 px-3 py-1">Mentoring and stewardship</span>
+                                            <span className="rounded-full border border-border px-3 py-1">Leadership-first visibility</span>
+                                            <span className="rounded-full border border-border px-3 py-1">Mentoring and stewardship</span>
                                         </>
                                     ) : null}
                                 </div>
@@ -1381,11 +1383,11 @@ export function PbasDashboard({
                             {detailLoading ? (
                                 <PbasReferenceSkeleton />
                             ) : detailError ? (
-                                <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                                <div className="rounded-lg border border-destructive-border bg-destructive-muted p-4 text-sm text-destructive-muted-foreground">
                                     {detailError}
                                 </div>
                             ) : selectedDetail ? (
-                                <div className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
+                                <div className="space-y-4 rounded-lg border border-border bg-card p-4">
                                     <div className="flex flex-wrap items-center gap-2">
                                         {sourceStepOrder.map((stepKey, index) => {
                                             const isActive = activeSourceStep === stepKey;
@@ -1406,11 +1408,11 @@ export function PbasDashboard({
                                         })}
                                     </div>
 
-                                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                                        <p className="text-sm font-semibold text-zinc-950">
+                                    <div className="rounded-lg border border-border bg-muted/50 p-4">
+                                        <p className="text-sm font-semibold text-foreground">
                                             Step {activeSourceStepIndex + 1}: {sourceTables?.[activeSourceStep]?.label}
                                         </p>
-                                        <p className="mt-1 text-sm text-zinc-600">
+                                        <p className="mt-1 text-sm text-muted-foreground">
                                             {sourceTables?.[activeSourceStep]?.description}
                                         </p>
                                     </div>
@@ -1438,6 +1440,7 @@ export function PbasDashboard({
                                                 if (previous) setActiveSourceStep(previous);
                                             }}
                                         >
+                                            <ChevronLeft aria-hidden />
                                             Previous Step
                                         </Button>
                                         <Button
@@ -1450,6 +1453,7 @@ export function PbasDashboard({
                                                 if (next) setActiveSourceStep(next);
                                             }}
                                         >
+                                            <ChevronRight aria-hidden />
                                             Next Step
                                         </Button>
                                     </div>
@@ -1457,52 +1461,52 @@ export function PbasDashboard({
                             ) : null}
 
                             <div className="grid gap-4 lg:grid-cols-3">
-                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
-                                    <p className="text-sm font-semibold text-zinc-950">Teaching Snapshot</p>
-                                    <p className="mt-2 text-sm text-zinc-600">
+                                <div className="rounded-lg border border-border bg-card p-4">
+                                    <p className="text-sm font-semibold text-foreground">Teaching Snapshot</p>
+                                    <p className="mt-2 text-sm text-muted-foreground">
                                         Classes taken: {selectedSnapshot.category1.classesTaken}
                                     </p>
-                                    <p className="text-sm text-zinc-600">
+                                    <p className="text-sm text-muted-foreground">
                                         Courses taught: {selectedSnapshot.category1.coursesTaught.length}
                                     </p>
-                                    <p className="text-sm text-zinc-600">
+                                    <p className="text-sm text-muted-foreground">
                                         Mentoring: {selectedSnapshot.category1.mentoringCount} | Lab: {selectedSnapshot.category1.labSupervisionCount}
                                     </p>
                                 </div>
-                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
-                                    <p className="text-sm font-semibold text-zinc-950">Research Snapshot</p>
-                                    <p className="mt-2 text-sm text-zinc-600">
+                                <div className="rounded-lg border border-border bg-card p-4">
+                                    <p className="text-sm font-semibold text-foreground">Research Snapshot</p>
+                                    <p className="mt-2 text-sm text-muted-foreground">
                                         Papers: {selectedSnapshot.category2.researchPapers.length} | Books: {selectedSnapshot.category2.books.length}
                                     </p>
-                                    <p className="text-sm text-zinc-600">
+                                    <p className="text-sm text-muted-foreground">
                                         Patents: {selectedSnapshot.category2.patents.length} | Projects: {selectedSnapshot.category2.projects.length}
                                     </p>
-                                    <p className="text-sm text-zinc-600">
+                                    <p className="text-sm text-muted-foreground">
                                         Conferences: {selectedSnapshot.category2.conferences.length}
                                     </p>
                                 </div>
-                                <div className="rounded-lg border border-zinc-200 bg-white p-4">
-                                    <p className="text-sm font-semibold text-zinc-950">Institutional Snapshot</p>
-                                    <p className="mt-2 text-sm text-zinc-600">
+                                <div className="rounded-lg border border-border bg-card p-4">
+                                    <p className="text-sm font-semibold text-foreground">Institutional Snapshot</p>
+                                    <p className="mt-2 text-sm text-muted-foreground">
                                         Committees: {selectedSnapshot.category3.committees.length} | Admin duties: {selectedSnapshot.category3.administrativeDuties.length}
                                     </p>
-                                    <p className="text-sm text-zinc-600">
+                                    <p className="text-sm text-muted-foreground">
                                         Exam duties: {selectedSnapshot.category3.examDuties.length} | Guidance: {selectedSnapshot.category3.studentGuidance.reduce((sum, item) => sum + item.count, 0)}
                                     </p>
-                                    <p className="text-sm text-zinc-600">
+                                    <p className="text-sm text-muted-foreground">
                                         Extension activities: {selectedSnapshot.category3.extensionActivities.length}
                                     </p>
                                 </div>
                             </div>
 
                             {selectedDetail?.revisionHistory?.length ? (
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                                    <p className="text-sm font-semibold text-zinc-950">Submission Revisions</p>
+                                <div className="rounded-lg border border-border bg-muted/50 p-4">
+                                    <p className="text-sm font-semibold text-foreground">Submission Revisions</p>
                                     <div className="mt-3 grid gap-3 md:grid-cols-2">
                                         {selectedDetail.revisionHistory.map((revision) => (
-                                            <div key={revision._id} className="rounded-lg border border-zinc-200 bg-white p-3 text-sm text-zinc-600">
+                                            <div key={revision._id} className="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">
                                                 <div className="flex items-center justify-between gap-3">
-                                                    <p className="font-semibold text-zinc-950">Revision {revision.revisionNumber}</p>
+                                                    <p className="font-semibold text-foreground">Revision {revision.revisionNumber}</p>
                                                     <Badge variant="secondary">{revision.apiScore.totalScore}</Badge>
                                                 </div>
                                                 <p className="mt-2">
@@ -1514,7 +1518,7 @@ export function PbasDashboard({
                                                         : revision.createdFromStatus}
                                                 </p>
                                                 {revision.backfillIntegrity || revision.migrationSource ? (
-                                                    <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">
+                                                    <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                                                         {[revision.backfillIntegrity, revision.migrationSource].filter(Boolean).join(" • ")}
                                                     </p>
                                                 ) : null}
@@ -1531,16 +1535,16 @@ export function PbasDashboard({
                                     </Button>
                                 ) : null}
                                 <Button
+                                    loading={isPending}
                                     type="button"
                                     onClick={submitApplication}
                                     disabled={isPending || !selectedId || !canEdit}
                                 >
-                                    {isPending ? <Spinner /> : null}
                                     Submit PBAS Application
                                 </Button>
                             </div>
                             {submitDisabledReason ? (
-                                <p className="text-sm text-amber-700">{submitDisabledReason}</p>
+                                <p className="text-sm text-warning-muted-foreground">{submitDisabledReason}</p>
                             ) : null}
                         </CardContent>
                 </Card>
@@ -1559,7 +1563,7 @@ function Field({
 }) {
     return (
         <div className="grid gap-2">
-            <p className="text-sm font-medium text-zinc-950">{label}</p>
+            <p className="text-sm font-medium text-foreground">{label}</p>
             {children}
         </div>
     );
@@ -1567,16 +1571,16 @@ function Field({
 
 function Metric({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">{label}</p>
-            <p className="mt-2 font-semibold text-zinc-950">{value}</p>
+        <div className="rounded-lg border border-border bg-muted/50 p-4">
+            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+            <p className="mt-2 font-semibold text-foreground">{value}</p>
         </div>
     );
 }
 
 function PbasIndicatorTableSkeleton() {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-white p-4">
+        <div className="rounded-lg border border-border bg-card p-4">
             <div className="grid gap-3">
                 <Skeleton className="h-4 w-1/3" />
                 <Skeleton className="h-10 w-full" />
@@ -1592,7 +1596,7 @@ function PbasReferenceSkeleton() {
     return (
         <div className="grid gap-4 xl:grid-cols-3">
             {Array.from({ length: 3 }).map((_, index) => (
-                <div key={`reference-skeleton-${index}`} className="rounded-lg border border-zinc-200 bg-white p-4">
+                <div key={`reference-skeleton-${index}`} className="rounded-lg border border-border bg-card p-4">
                     <div className="grid gap-3">
                         <Skeleton className="h-4 w-2/3" />
                         <Skeleton className="h-3 w-full" />
@@ -1618,10 +1622,10 @@ function ReadonlySourceTable({
     onRemove: (row: PbasSourceRow) => void;
 }) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-white p-4">
-            <p className="text-sm font-semibold text-zinc-950">{title}</p>
+        <div className="rounded-lg border border-border bg-card p-4">
+            <p className="text-sm font-semibold text-foreground">{title}</p>
             {rows.length ? (
-                <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200">
+                <div className="mt-4 overflow-x-auto rounded-lg border border-border">
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -1634,14 +1638,14 @@ function ReadonlySourceTable({
                         <TableBody>
                             {rows.map((row) => (
                                 <TableRow key={`${title}-${row.id}`}>
-                                    <TableCell className="align-top text-sm font-medium text-zinc-900">
+                                    <TableCell className="align-top text-sm font-medium text-foreground">
                                         {row.sourceType}
                                     </TableCell>
                                     <TableCell className="align-top">
-                                        <p className="text-sm font-medium text-zinc-950">{row.title}</p>
-                                        {row.subtitle ? <p className="text-xs text-zinc-500">{row.subtitle}</p> : null}
+                                        <p className="text-sm font-medium text-foreground">{row.title}</p>
+                                        {row.subtitle ? <p className="text-xs text-muted-foreground">{row.subtitle}</p> : null}
                                         {row.note ? (
-                                            <p className="text-xs uppercase tracking-[0.12em] text-zinc-400">{row.note}</p>
+                                            <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{row.note}</p>
                                         ) : null}
                                     </TableCell>
                                     <TableCell className="align-top">
@@ -1655,15 +1659,19 @@ function ReadonlySourceTable({
                                                 <a href={row.sourceHref}>Edit Source</a>
                                             </Button>
                                             {row.included && row.removable !== false ? (
-                                                <Button
+                                                <ConfirmButton
                                                     type="button"
                                                     size="sm"
-                                                    variant="secondary"
+                                                    variant="destructive"
                                                     disabled={!canEdit}
-                                                    onClick={() => onRemove(row)}
+                                                    onConfirm={() => onRemove(row)}
+                                                    title="Remove this row from the PBAS report?"
+                                                    description="The underlying record is not deleted — it is only excluded from this PBAS submission."
+                                                    confirmLabel="Remove"
                                                 >
+                                                    <Trash2 aria-hidden />
                                                     Remove from PBAS
-                                                </Button>
+                                                </ConfirmButton>
                                             ) : null}
                                         </div>
                                     </TableCell>
@@ -1673,7 +1681,7 @@ function ReadonlySourceTable({
                     </Table>
                 </div>
             ) : (
-                <div className="mt-4 rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                <div className="mt-4 rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                     No records available in this section for the selected academic year.
                 </div>
             )}

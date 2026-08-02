@@ -54,9 +54,9 @@ function maxSizeLabel(category: UploadCategory): string {
 function VerificationBadge({ status }: { status?: string }) {
     if (!status) return null;
     const variants: Record<string, string> = {
-        Verified: "bg-emerald-100 text-emerald-700",
-        Rejected: "bg-red-100 text-red-700",
-        Pending: "bg-amber-100 text-amber-700",
+        Verified: "bg-success-muted text-success-muted-foreground",
+        Rejected: "bg-destructive-muted text-destructive-muted-foreground",
+        Pending: "bg-warning-muted text-warning-muted-foreground",
     };
     const icons: Record<string, React.ReactNode> = {
         Verified: <CheckCircle2 className="size-3" />,
@@ -66,7 +66,7 @@ function VerificationBadge({ status }: { status?: string }) {
     return (
         <Badge
             variant="secondary"
-            className={cn("inline-flex items-center gap-1 text-xs", variants[status] ?? "bg-zinc-100 text-zinc-600")}
+            className={cn("inline-flex items-center gap-1 text-xs", variants[status] ?? "bg-muted text-muted-foreground")}
         >
             {icons[status]}
             {status}
@@ -76,9 +76,9 @@ function VerificationBadge({ status }: { status?: string }) {
 
 function ProgressBar({ percent }: { percent: number }) {
     return (
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div
-                className="h-full rounded-full bg-sky-500 transition-all duration-200"
+                className="h-full rounded-full bg-info-muted transition-all duration-200"
                 style={{ width: `${percent}%` }}
             />
         </div>
@@ -179,7 +179,7 @@ export function FileUpload({
     return (
         <div className={cn("grid gap-2", className)}>
             {label && (
-                <p className="text-sm font-medium text-zinc-800">{label}</p>
+                <p className="text-sm font-medium text-foreground">{label}</p>
             )}
 
             {/* Drop zone */}
@@ -194,9 +194,9 @@ export function FileUpload({
                 onDrop={handleDrop}
                 className={cn(
                     "relative flex min-h-[80px] cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-4 transition-colors",
-                    dragging ? "border-sky-400 bg-sky-50" : "border-zinc-300 bg-zinc-50/60 hover:border-zinc-400 hover:bg-zinc-50",
+                    dragging ? "border-info-border bg-info-muted" : "border-border bg-muted/60 hover:border-border hover:bg-muted/50",
                     disabled && "cursor-not-allowed opacity-60",
-                    currentUrl && "border-solid border-zinc-200 bg-white",
+                    currentUrl && "border-solid border-border bg-card",
                 )}
             >
                 <input
@@ -213,26 +213,26 @@ export function FileUpload({
                 {currentUrl ? (
                     <div className="flex w-full items-start gap-3">
                         {isImage ? (
-                            <div className="relative size-12 shrink-0 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
+                            <div className="relative size-12 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
                                 <Image src={currentUrl} alt="Preview" fill className="object-cover" sizes="48px" unoptimized />
                             </div>
                         ) : (
-                            <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-100">
+                            <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border bg-muted">
                                 {isPdf ? (
-                                    <FileText className="size-6 text-zinc-500" />
+                                    <FileText className="size-6 text-muted-foreground" />
                                 ) : (
-                                    <FileText className="size-6 text-zinc-500" />
+                                    <FileText className="size-6 text-muted-foreground" />
                                 )}
                             </div>
                         )}
 
                         <div className="min-w-0 flex-1 text-left">
-                            <p className="truncate text-sm font-medium text-zinc-900">
+                            <p className="truncate text-sm font-medium text-foreground">
                                 {currentDoc?.fileName ?? "Uploaded file"}
                             </p>
                             <div className="mt-0.5 flex flex-wrap items-center gap-2">
                                 {currentDoc?.sizeBytes ? (
-                                    <span className="text-xs text-zinc-500">{formatBytes(currentDoc.sizeBytes)}</span>
+                                    <span className="text-xs text-muted-foreground">{formatBytes(currentDoc.sizeBytes)}</span>
                                 ) : null}
                                 <VerificationBadge status={currentDoc?.verificationStatus} />
                                 <a
@@ -240,7 +240,7 @@ export function FileUpload({
                                     target="_blank"
                                     rel="noreferrer"
                                     onClick={(e) => e.stopPropagation()}
-                                    className="text-xs font-medium text-sky-600 hover:underline"
+                                    className="text-xs font-medium text-primary hover:underline"
                                 >
                                     Open ↗
                                 </a>
@@ -252,7 +252,7 @@ export function FileUpload({
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="size-7 shrink-0 text-zinc-400 hover:bg-rose-50 hover:text-rose-600"
+                                className="size-7 shrink-0 text-muted-foreground hover:bg-destructive-muted hover:text-destructive-muted-foreground"
                                 onClick={(e) => { e.stopPropagation(); handleRemove(); }}
                                 aria-label="Remove file"
                             >
@@ -264,14 +264,14 @@ export function FileUpload({
                     /* Empty state */
                     <>
                         {loading ? (
-                            <Loader2 className="size-6 animate-spin text-sky-500" />
+                            <Loader2 className="size-6 animate-spin text-info-muted-foreground" />
                         ) : (
-                            <Upload className="size-6 text-zinc-400" />
+                            <Upload className="size-6 text-muted-foreground" />
                         )}
-                        <p className="text-center text-sm text-zinc-600">
+                        <p className="text-center text-sm text-muted-foreground">
                             {loading ? "Uploading…" : "Drop file here or click to browse"}
                         </p>
-                        <p className="text-xs text-zinc-400">
+                        <p className="text-xs text-muted-foreground">
                             {humanAccept(category)} — max {maxSizeLabel(category)}
                         </p>
                     </>
@@ -281,7 +281,7 @@ export function FileUpload({
                 {progress && (
                     <div className="w-full">
                         <ProgressBar percent={progress.percent} />
-                        <p className="mt-1 text-center text-xs text-zinc-500">
+                        <p className="mt-1 text-center text-xs text-muted-foreground">
                             {progress.percent}% — {formatBytes(progress.bytesTransferred)} / {formatBytes(progress.totalBytes)}
                         </p>
                     </div>
@@ -289,9 +289,9 @@ export function FileUpload({
             </div>
 
             {description && !error && (
-                <p className="text-xs text-zinc-500">{description}</p>
+                <p className="text-xs text-muted-foreground">{description}</p>
             )}
-            {error && <p className="text-xs text-rose-600">{error}</p>}
+            {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
     );
 }
@@ -349,14 +349,16 @@ export function AvatarUpload({
     return (
         <div className="flex w-full max-w-[210px] flex-col items-center gap-3">
             {/* Avatar circle */}
-            <div className="relative size-28 shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 shadow-sm">
+            <div className="relative size-28 shrink-0 overflow-hidden rounded-xl border border-border bg-muted shadow-sm">
                 {value ? (
                     <Image src={value} alt="Profile photo" fill className="object-cover" sizes="112px" unoptimized />
                 ) : (
-                    <div className="flex size-full items-center justify-center text-zinc-400">
+                    <div className="flex size-full items-center justify-center text-muted-foreground">
                         <UserCircle2 className="size-10" />
                     </div>
                 )}
+                {/* Scrim over a user-uploaded image: literal black/white is correct in
+                    both themes, since the photo underneath is not theme-aware. */}
                 {progress && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-xs font-bold text-white">
                         {progress.percent}%
@@ -394,7 +396,7 @@ export function AvatarUpload({
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="size-8 text-zinc-400 hover:bg-rose-50 hover:text-rose-600"
+                            className="size-8 text-muted-foreground hover:bg-destructive-muted hover:text-destructive-muted-foreground"
                             disabled={disabled || loading}
                             onClick={() => { onChange?.(null); setError(null); }}
                             aria-label="Remove photo"
@@ -404,8 +406,8 @@ export function AvatarUpload({
                     )}
                 </div>
 
-                <p className="text-center text-xs text-zinc-500">{hint}</p>
-                {error && <p className="text-center text-sm text-rose-700">{error}</p>}
+                <p className="text-center text-xs text-muted-foreground">{hint}</p>
+                {error && <p className="text-center text-sm text-destructive">{error}</p>}
             </div>
         </div>
     );
@@ -475,7 +477,7 @@ export function MultiFileUpload({
 
     return (
         <div className={cn("grid gap-2", className)}>
-            {label && <p className="text-sm font-medium text-zinc-800">{label}</p>}
+            {label && <p className="text-sm font-medium text-foreground">{label}</p>}
 
             {/* Existing files */}
             {value.length > 0 && (
@@ -483,21 +485,21 @@ export function MultiFileUpload({
                     {value.map((doc, i) => (
                         <div
                             key={doc._id}
-                            className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2"
+                            className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2"
                         >
-                            <FileText className="size-4 shrink-0 text-zinc-400" />
+                            <FileText className="size-4 shrink-0 text-muted-foreground" />
                             <div className="min-w-0 flex-1">
-                                <p className="truncate text-xs font-medium text-zinc-800">{doc.fileName}</p>
+                                <p className="truncate text-xs font-medium text-foreground">{doc.fileName}</p>
                                 <div className="flex items-center gap-2">
                                     {doc.sizeBytes ? (
-                                        <span className="text-xs text-zinc-400">{formatBytes(doc.sizeBytes)}</span>
+                                        <span className="text-xs text-muted-foreground">{formatBytes(doc.sizeBytes)}</span>
                                     ) : null}
                                     <VerificationBadge status={doc.verificationStatus} />
                                     <a
                                         href={doc.fileUrl}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="text-xs font-medium text-sky-600 hover:underline"
+                                        className="text-xs font-medium text-primary hover:underline"
                                     >
                                         Open ↗
                                     </a>
@@ -508,7 +510,7 @@ export function MultiFileUpload({
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    className="size-7 text-zinc-400 hover:bg-rose-50 hover:text-rose-600"
+                                    className="size-7 text-muted-foreground hover:bg-destructive-muted hover:text-destructive-muted-foreground"
                                     onClick={() => removeDoc(i)}
                                     aria-label="Remove file"
                                 >
@@ -527,7 +529,7 @@ export function MultiFileUpload({
                     disabled={disabled || loading}
                     onClick={() => inputRef.current?.click()}
                     className={cn(
-                        "flex items-center gap-2 rounded-lg border-2 border-dashed border-zinc-300 bg-zinc-50/60 px-4 py-2.5 text-sm text-zinc-600 transition-colors hover:border-zinc-400 hover:bg-zinc-50",
+                        "flex items-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/60 px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:border-border hover:bg-muted/50",
                         (disabled || loading) && "cursor-not-allowed opacity-60"
                     )}
                 >
@@ -540,7 +542,7 @@ export function MultiFileUpload({
                         onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void handleFile(f); }}
                         disabled={disabled || loading}
                     />
-                    {loading ? <Loader2 className="size-4 animate-spin text-sky-500" /> : <Upload className="size-4 text-zinc-400" />}
+                    {loading ? <Loader2 className="size-4 animate-spin text-info-muted-foreground" /> : <Upload className="size-4 text-muted-foreground" />}
                     {loading ? `Uploading ${progress?.percent ?? 0}%…` : `Add file (${value.length}/${maxFiles})`}
                 </button>
             )}
@@ -549,8 +551,8 @@ export function MultiFileUpload({
                 <ProgressBar percent={progress.percent} />
             )}
 
-            {description && !error && <p className="text-xs text-zinc-500">{description}</p>}
-            {error && <p className="text-xs text-rose-600">{error}</p>}
+            {description && !error && <p className="text-xs text-muted-foreground">{description}</p>}
+            {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
     );
 }
@@ -618,7 +620,7 @@ export function InlineUpload({
                     href={currentUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-medium text-sky-700 hover:underline"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
                 >
                     <FileText className="size-3.5" />
                     {currentDoc?.fileName ?? "View file"}
@@ -628,7 +630,7 @@ export function InlineUpload({
                     <button
                         type="button"
                         onClick={() => { onChange?.(null); setError(null); }}
-                        className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-rose-500"
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive-muted-foreground"
                         aria-label="Remove"
                     >
                         <Trash2 className="size-3" /> Remove
@@ -651,14 +653,14 @@ export function InlineUpload({
             <label
                 onClick={() => !disabled && !loading && inputRef.current?.click()}
                 className={cn(
-                    "inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:border-zinc-400 hover:bg-zinc-50",
+                    "inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-border hover:bg-muted/50",
                     (disabled || loading) && "cursor-not-allowed opacity-60"
                 )}
             >
                 {loading ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
                 {loading ? `${progress?.percent ?? 0}%` : placeholder}
             </label>
-            {error && <span className="text-xs text-rose-600">{error}</span>}
+            {error && <span className="text-xs text-destructive">{error}</span>}
         </div>
     );
 }

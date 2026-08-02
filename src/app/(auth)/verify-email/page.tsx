@@ -36,8 +36,8 @@ export default async function VerifyEmailPage({
                         <div
                             className={`mb-4 inline-flex size-14 items-center justify-center rounded-2xl ${
                                 result.success
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : "bg-rose-100 text-rose-700"
+                                    ? "bg-success-muted text-success-muted-foreground"
+                                    : "bg-destructive-muted text-destructive-muted-foreground"
                             }`}
                         >
                             {result.success ? (

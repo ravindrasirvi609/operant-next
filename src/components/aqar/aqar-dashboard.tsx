@@ -2,23 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format, isValid, parseISO } from "date-fns";
-import {
-    ArrowRight,
-    BookOpenText,
-    CalendarClock,
-    CheckCircle2,
-    ChevronRight,
-    ClipboardCheck,
-    FileText,
-    FolderKanban,
-    GraduationCap,
-    Layers3,
-    Plus,
-    Sparkles,
-    Trash2,
-    Trophy,
-    type LucideIcon,
-} from "lucide-react";
+import { ArrowRight, BookOpenText, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, FileText, FolderKanban, GraduationCap, Layers3, Plus, Sparkles, Trash2, Trophy, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from "react";
 import { Controller, useFieldArray, useForm, useWatch, type FieldErrors, type UseFormReturn } from "react-hook-form";
 import type { z } from "zod";
@@ -27,6 +11,7 @@ import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { StatTile } from "@/components/ui/stat-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,7 +29,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getAcademicYearReportingPeriod } from "@/lib/academic-year";
 import { aqarApplicationSchema } from "@/lib/aqar/validators";
 import { InlineUpload } from "@/components/ui/file-upload";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { cn } from "@/lib/utils";
+import { resolveStatus } from "@/lib/ui/status";
+import { TONE_CLASSES } from "@/lib/ui/tone";
 
 type AqarFormValues = z.input<typeof aqarApplicationSchema>;
 type AqarResolvedValues = z.output<typeof aqarApplicationSchema>;
@@ -358,19 +346,14 @@ function getLastActivity(application: AqarApp) {
     return candidates.sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0];
 }
 
+/**
+ * Tone classes for an AQAR status, from the shared resolver. Kept as a
+ * class-returning helper (rather than swapping every call site to
+ * <StatusBadge />) because one of the two call sites composes it with an
+ * "active row" override via cn().
+ */
 function getStatusBadgeClass(status: string) {
-    switch (status) {
-        case "Approved":
-            return "bg-emerald-100 text-emerald-700";
-        case "Submitted":
-        case "Under Review":
-        case "Committee Review":
-            return "bg-amber-100 text-amber-700";
-        case "Rejected":
-            return "bg-red-100 text-red-700";
-        default:
-            return "bg-zinc-100 text-zinc-700";
-    }
+    return TONE_CLASSES[resolveStatus(status).tone].badge;
 }
 
 export function AqarDashboard({
@@ -799,24 +782,24 @@ export function AqarDashboard({
         <div className="space-y-8">
             <section className="space-y-6">
                 <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-                    <Card className="overflow-hidden border-zinc-200 bg-gradient-to-br from-white via-white to-amber-50/70">
+                    <Card className="overflow-hidden border-border bg-gradient-to-br from-white via-white to-amber-50/70">
                         <CardHeader className="gap-4">
                             <div className="flex flex-wrap items-start justify-between gap-4">
                                 <div className="space-y-3">
-                                    <Badge className="bg-zinc-900 text-zinc-50">AQAR Faculty Dashboard</Badge>
+                                    <Badge className="bg-primary text-primary-foreground">AQAR Faculty Dashboard</Badge>
                                     <div className="space-y-2">
                                         <CardTitle className="text-3xl">Modern AQAR workspace for {facultyName}</CardTitle>
-                                        <CardDescription className="max-w-2xl text-base text-zinc-600">
+                                        <CardDescription className="max-w-2xl text-base text-muted-foreground">
                                             Keep the dashboard and form workspace separate while managing every AQAR contribution from one full-width faculty module.
                                         </CardDescription>
                                     </div>
                                 </div>
-                                <div className="rounded-2xl border border-zinc-200 bg-white/90 px-4 py-3 shadow-sm">
-                                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Active Year</p>
-                                    <p className="mt-2 text-lg font-semibold text-zinc-950">
+                                <div className="rounded-2xl border border-border bg-card/90 px-4 py-3 shadow-sm">
+                                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Active Year</p>
+                                    <p className="mt-2 text-lg font-semibold text-foreground">
                                         {selected?.academicYear ?? normalizedValues.academicYear}
                                     </p>
-                                    <p className="mt-1 text-sm text-zinc-500">
+                                    <p className="mt-1 text-sm text-muted-foreground">
                                         Status {selected ? selected.status : "Unsaved workspace"}
                                     </p>
                                 </div>
@@ -850,8 +833,8 @@ export function AqarDashboard({
                             </div>
 
                             <div className="flex flex-wrap gap-3">
-                                <Button type="button" size="lg" onClick={createDraft} disabled={isPending}>
-                                    {isPending ? <Spinner /> : <Plus className="h-4 w-4" />}
+                                <Button loading={isPending} type="button" size="lg" onClick={createDraft} disabled={isPending}>
+                                    <Plus className="h-4 w-4" aria-hidden />
                                     {selectedId ? "Create New AQAR Draft" : "Start AQAR Draft"}
                                 </Button>
                                 <Button type="button" variant="outline" size="lg" onClick={focusFormWorkspace}>
@@ -862,7 +845,7 @@ export function AqarDashboard({
                         </CardHeader>
                     </Card>
 
-                    <Card className="border-zinc-200">
+                    <Card className="border-border">
                         <CardHeader>
                             <CardTitle className="text-xl">Selected AQAR Snapshot</CardTitle>
                             <CardDescription>
@@ -887,11 +870,11 @@ export function AqarDashboard({
                                 <MetricCard label="Books and chapters" value={String(dashboardMetrics.bookChapterCount)} />
                             </div>
                             {!editable && selected ? (
-                                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                                <div className="rounded-2xl border border-warning-border bg-warning-muted px-4 py-3 text-sm text-warning-muted-foreground">
                                     This AQAR application is in <strong>{selected.status}</strong> state. The form stays view-only until it returns to Draft or Rejected.
                                 </div>
                             ) : (
-                                <div className="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
+                                <div className="rounded-2xl border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
                                     {selectedId
                                         ? "Draft edits are auto-saved while you stay in an editable AQAR status."
                                         : "The form is prefilled from faculty category records. Create a draft to enable autosave and workflow tracking."}
@@ -902,7 +885,7 @@ export function AqarDashboard({
                 </div>
 
                 <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
-                    <Card className="border-zinc-200">
+                    <Card className="border-border">
                         <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                             <div>
                                 <CardTitle className="text-xl">AQAR Applications</CardTitle>
@@ -910,7 +893,7 @@ export function AqarDashboard({
                                     Select an AQAR record to continue editing or review its workflow status.
                                 </CardDescription>
                             </div>
-                            <Badge className="bg-zinc-100 text-zinc-700">{applications.length} records</Badge>
+                            <Badge className="bg-muted text-foreground">{applications.length} records</Badge>
                         </CardHeader>
                         <CardContent>
                             {applications.length ? (
@@ -927,10 +910,10 @@ export function AqarDashboard({
                                                 onClick={() => selectApplication(application._id)}
                                                 onKeyDown={(event) => handleApplicationKeyDown(event, application._id)}
                                                 className={cn(
-                                                    "rounded-2xl border p-5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/30",
+                                                    "rounded-2xl border p-5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border/30",
                                                     isActive
-                                                        ? "border-zinc-900 bg-zinc-900 text-zinc-50 shadow-lg"
-                                                        : "border-zinc-200 bg-zinc-50/80 text-zinc-950 hover:border-zinc-300 hover:bg-white"
+                                                        ? "border-border bg-primary text-primary-foreground shadow-lg"
+                                                        : "border-border bg-muted/80 text-foreground hover:border-border hover:bg-card"
                                                 )}
                                             >
                                                 <div className="flex items-start justify-between gap-3">
@@ -942,27 +925,30 @@ export function AqarDashboard({
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         {editableStatuses.has(application.status) ? (
-                                                            <Button
+                                                            <ConfirmButton
+                                                                loading={isPending}
                                                                 type="button"
                                                                 variant="ghost"
                                                                 size="icon"
                                                                 className={cn(
                                                                     "h-9 w-9",
                                                                     isActive
-                                                                        ? "text-white/90 hover:bg-white/10 hover:text-white"
-                                                                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                                                                        ? "text-primary-foreground/90 hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                                                                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
                                                                 )}
-                                                                onClick={(event) => {
-                                                                    event.stopPropagation();
-                                                                    deleteApplication(application._id);
-                                                                }}
+                                                                // The card itself is clickable, so the trigger must not
+                                                                // also select this application while opening the dialog.
+                                                                onClick={(event) => event.stopPropagation()}
+                                                                onConfirm={() => deleteApplication(application._id)}
+                                                                title="Delete this AQAR draft?"
+                                                                description={`The ${application.academicYear} draft and its unsaved contributions will be removed permanently.`}
                                                                 aria-label="Delete AQAR draft"
                                                                 disabled={isPending}
                                                             >
                                                                 <Trash2 className="h-4 w-4" />
-                                                            </Button>
+                                                            </ConfirmButton>
                                                         ) : null}
-                                                        <Badge className={cn("shrink-0", isActive ? "bg-white/15 text-white" : getStatusBadgeClass(application.status))}>
+                                                        <Badge className={cn("shrink-0", isActive ? "bg-primary-foreground/15 text-primary-foreground" : getStatusBadgeClass(application.status))}>
                                                             {application.status}
                                                         </Badge>
                                                     </div>
@@ -998,7 +984,7 @@ export function AqarDashboard({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-zinc-200">
+                    <Card className="border-border">
                         <CardHeader>
                             <CardTitle className="text-xl">Status Timeline</CardTitle>
                             <CardDescription>Every AQAR workflow transition for the selected record is listed here.</CardDescription>
@@ -1010,25 +996,25 @@ export function AqarDashboard({
                 </div>
             </section>
 
-            <section ref={formSectionRef} className="rounded-[2rem] border border-zinc-200 bg-white p-4 shadow-sm sm:p-6 xl:p-8">
+            <section ref={formSectionRef} className="rounded-[2rem] border border-border bg-card p-4 shadow-sm sm:p-6 xl:p-8">
                 <div className="space-y-6">
                     <div className="space-y-4">
                         <div className="flex flex-wrap items-start justify-between gap-4">
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
-                                    <Badge className="bg-zinc-100 text-zinc-700">Form Workspace</Badge>
+                                    <Badge className="bg-muted text-foreground">Form Workspace</Badge>
                                     <Badge className={getStatusBadgeClass(selected?.status ?? "Draft")}>
                                         {selected?.status ?? "Prepared"}
                                     </Badge>
                                 </div>
-                                <h2 className="text-3xl font-semibold tracking-tight text-zinc-950">
+                                <h2 className="text-3xl font-semibold tracking-tight text-foreground">
                                     AQAR Faculty Contribution Form
                                 </h2>
-                                <p className="max-w-3xl text-sm text-zinc-600">
+                                <p className="max-w-3xl text-sm text-muted-foreground">
                                     Complete the AQAR contribution in guided steps. The dashboard stays above for context, while this workspace stays focused on data entry and review.
                                 </p>
                             </div>
-                            <div className="grid gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
+                            <div className="grid gap-2 rounded-2xl border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
                                 <div className="flex items-center gap-2">
                                     <CalendarClock className="h-4 w-4" />
                                     Academic year {normalizedValues.academicYear}
@@ -1046,26 +1032,27 @@ export function AqarDashboard({
 
                         {message ? <FormMessage message={message.text} type={message.type} /> : null}
 
-                        <div className="sticky top-4 z-20 rounded-[1.5rem] border border-zinc-200 bg-white/95 p-4 shadow-lg backdrop-blur">
+                        <div className="sticky top-4 z-20 rounded-[1.5rem] border border-border bg-card/95 p-4 shadow-lg backdrop-blur">
                             <div className="flex flex-wrap items-center justify-between gap-4">
                                 <div>
-                                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                                         Step {currentStep + 1} of {steps.length}
                                     </p>
-                                    <p className="mt-1 text-lg font-semibold text-zinc-950">{steps[currentStep].title}</p>
-                                    <p className="text-sm text-zinc-500">{steps[currentStep].description}</p>
+                                    <p className="mt-1 text-lg font-semibold text-foreground">{steps[currentStep].title}</p>
+                                    <p className="text-sm text-muted-foreground">{steps[currentStep].description}</p>
                                 </div>
                                 <div className="flex flex-wrap gap-3">
                                     <Button type="button" variant="outline" onClick={handlePrevious} disabled={currentStep === 0}>
+                                        <ChevronLeft aria-hidden />
                                         Previous
                                     </Button>
                                     {currentStep === steps.length - 1 ? (
                                         <Button
+                                            loading={isPending}
                                             type="button"
                                             onClick={submitApplication}
                                             disabled={isPending || !selectedId || !reviewReady}
                                         >
-                                            {isPending ? <Spinner /> : null}
                                             Submit AQAR Application
                                         </Button>
                                     ) : (
@@ -1143,7 +1130,7 @@ export function AqarDashboard({
                                         Profile data mapped for {prefillYear}
                                     </Badge>
                                 </div>
-                                <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5 text-sm text-zinc-600">
+                                <div className="rounded-2xl border border-border bg-muted/50 p-5 text-sm text-muted-foreground">
                                     AQAR defaults are now tied to the selected academic year. Use the autofill action to refresh publications, projects, awards, FDPs, and other faculty records for the chosen cycle before submission.
                                 </div>
                             </SectionCard>
@@ -1160,9 +1147,9 @@ export function AqarDashboard({
                                     <MetricCard label="Books" value={String(liveMetrics.bookChapterCount)} />
                                     <MetricCard label="Consultancy" value={String(liveMetrics.consultancyCount)} />
                                 </div>
-                                <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-                                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Total contribution index</p>
-                                    <p className="mt-2 text-3xl font-semibold text-zinc-950">{liveMetrics.totalContributionIndex}</p>
+                                <div className="rounded-2xl border border-border bg-card p-4">
+                                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Total contribution index</p>
+                                    <p className="mt-2 text-3xl font-semibold text-foreground">{liveMetrics.totalContributionIndex}</p>
                                 </div>
                             </SectionCard>
                         </div>
@@ -1453,8 +1440,8 @@ export function AqarDashboard({
                                     <div className="grid gap-4">
                                         <div className="flex items-center justify-between gap-3">
                                             <div>
-                                                <h3 className="text-lg font-semibold text-zinc-950">Faculty Fellowships</h3>
-                                                <p className="text-sm text-zinc-500">Awards or fellowships received by faculty members.</p>
+                                                <h3 className="text-lg font-semibold text-foreground">Faculty Fellowships</h3>
+                                                <p className="text-sm text-muted-foreground">Awards or fellowships received by faculty members.</p>
                                             </div>
                                         </div>
                                         {fellowshipFields.fields.length ? (
@@ -1533,8 +1520,8 @@ export function AqarDashboard({
 
                                     <div className="grid gap-4">
                                         <div>
-                                            <h3 className="text-lg font-semibold text-zinc-950">Research Fellows</h3>
-                                            <p className="text-sm text-zinc-500">Research scholars or fellows enrolled with faculty supervision or support.</p>
+                                            <h3 className="text-lg font-semibold text-foreground">Research Fellows</h3>
+                                            <p className="text-sm text-muted-foreground">Research scholars or fellows enrolled with faculty supervision or support.</p>
                                         </div>
                                         {fellowFields.fields.length ? (
                                             fellowFields.fields.map((field, index) => (
@@ -2153,10 +2140,10 @@ export function AqarDashboard({
                                     <MetricCard label="Books and e-content" value={String(liveMetrics.bookChapterCount + liveMetrics.eContentCount)} />
                                     <MetricCard label="Consultancy and FDP" value={String(liveMetrics.consultancyCount + liveMetrics.fdpCount)} />
                                 </div>
-                                <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
-                                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Contribution index</p>
-                                    <p className="mt-2 text-3xl font-semibold text-zinc-950">{liveMetrics.totalContributionIndex}</p>
-                                    <p className="mt-2 text-sm text-zinc-600">
+                                <div className="rounded-2xl border border-border bg-muted/50 p-5">
+                                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Contribution index</p>
+                                    <p className="mt-2 text-3xl font-semibold text-foreground">{liveMetrics.totalContributionIndex}</p>
+                                    <p className="mt-2 text-sm text-muted-foreground">
                                         Academic year {normalizedValues.academicYear} with reporting period from {formatDateLabel(normalizedValues.reportingPeriod.fromDate)} to {formatDateLabel(normalizedValues.reportingPeriod.toDate)}.
                                     </p>
                                 </div>
@@ -2168,21 +2155,21 @@ export function AqarDashboard({
                             >
                                 <div className="space-y-4">
                                     {summarySections.map((section) => (
-                                        <div key={section.label} className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3">
+                                        <div key={section.label} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/50 px-4 py-3">
                                             <div className="min-w-0">
-                                                <p className="text-sm font-medium text-zinc-950">{section.label}</p>
-                                                <p className="text-xs text-zinc-500">
+                                                <p className="text-sm font-medium text-foreground">{section.label}</p>
+                                                <p className="text-xs text-muted-foreground">
                                                     {section.count ? `${section.count} records ready` : "No records added yet"}
                                                 </p>
                                             </div>
-                                            <Badge className={section.count ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}>
+                                            <Badge className={section.count ? "bg-success-muted text-success-muted-foreground" : "bg-warning-muted text-warning-muted-foreground"}>
                                                 {section.count ? "Ready" : "Attention"}
                                             </Badge>
                                         </div>
                                     ))}
 
                                     {reviewWarnings.length ? (
-                                        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                                        <div className="rounded-2xl border border-warning-border bg-warning-muted p-4 text-sm text-warning-muted-foreground">
                                             <p className="font-semibold">Incomplete sections detected</p>
                                             <ul className="mt-2 list-disc pl-5">
                                                 {reviewWarnings.map((warning) => (
@@ -2191,16 +2178,16 @@ export function AqarDashboard({
                                             </ul>
                                         </div>
                                     ) : (
-                                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                                        <div className="rounded-2xl border border-success-border bg-success-muted p-4 text-sm text-success-muted-foreground">
                                             All major AQAR sections contain at least one record.
                                         </div>
                                     )}
 
-                                    <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-                                        <p className="text-sm font-semibold text-zinc-950">Submission checklist</p>
+                                    <div className="rounded-2xl border border-border bg-card p-4">
+                                        <p className="text-sm font-semibold text-foreground">Submission checklist</p>
                                         <div className="mt-4 space-y-4">
                                             {reviewChecklistItems.map((item, index) => (
-                                                <label key={item} className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3">
+                                                <label key={item} className="flex items-start gap-3 rounded-xl border border-border bg-muted/50 px-4 py-3">
                                                     <Checkbox
                                                         checked={reviewChecks[index]}
                                                         onCheckedChange={(checked) =>
@@ -2212,7 +2199,7 @@ export function AqarDashboard({
                                                         }
                                                         disabled={!editable || isPending}
                                                     />
-                                                    <span className="text-sm text-zinc-700">{item}</span>
+                                                    <span className="text-sm text-foreground">{item}</span>
                                                 </label>
                                             ))}
                                         </div>
@@ -2225,11 +2212,12 @@ export function AqarDashboard({
                                             </Button>
                                         ) : null}
                                         <Button
+                                            loading={isPending}
                                             type="button"
                                             onClick={submitApplication}
                                             disabled={isPending || !selectedId || !reviewReady}
                                         >
-                                            {isPending ? <Spinner /> : <CheckCircle2 className="h-4 w-4" />}
+                                            <CheckCircle2 className="h-4 w-4" aria-hidden />
                                             Submit AQAR Application
                                         </Button>
                                     </div>
@@ -2333,7 +2321,7 @@ function AQARDataTables({
 
     if (!sections.length) {
         return (
-            <Card className="rounded-[1.5rem] border-zinc-200 shadow-none">
+            <Card className="rounded-[1.5rem] border-border shadow-none">
                 <CardHeader>
                     <CardTitle className="text-xl">Current AQAR data tables</CardTitle>
                     <CardDescription>
@@ -2341,7 +2329,7 @@ function AQARDataTables({
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                    <div className="rounded-2xl border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                         No AQAR rows are loaded yet for the current academic year.
                     </div>
                 </CardContent>
@@ -2350,7 +2338,7 @@ function AQARDataTables({
     }
 
     return (
-        <Card className="rounded-[1.5rem] border-zinc-200 shadow-none">
+        <Card className="rounded-[1.5rem] border-border shadow-none">
             <CardHeader>
                 <CardTitle className="text-xl">Current AQAR data tables</CardTitle>
                 <CardDescription>
@@ -2359,8 +2347,8 @@ function AQARDataTables({
             </CardHeader>
             <CardContent className="space-y-4">
                 {sections.map((section) => (
-                    <details key={section.title} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4" open>
-                        <summary className="cursor-pointer text-sm font-semibold text-zinc-950">
+                    <details key={section.title} className="rounded-2xl border border-border bg-muted/50 p-4" open>
+                        <summary className="cursor-pointer text-sm font-semibold text-foreground">
                             {section.title} ({section.rows.length})
                         </summary>
                         <div className="mt-4">
@@ -2420,12 +2408,12 @@ function AQARProgressStepper({
                         className={cn(
                             "min-w-[210px] rounded-2xl border p-4 text-left transition-colors",
                             active
-                                ? "border-zinc-900 bg-zinc-900 text-zinc-50"
+                                ? "border-border bg-primary text-primary-foreground"
                                 : completed
-                                  ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                                  ? "border-success-border bg-success-muted text-success-muted-foreground"
                                   : hasErrors
-                                    ? "border-red-200 bg-red-50 text-red-900"
-                                    : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-300 hover:bg-white"
+                                    ? "border-destructive-border bg-destructive-muted text-destructive-muted-foreground"
+                                    : "border-border bg-muted/50 text-foreground hover:border-border hover:bg-card"
                         )}
                     >
                         <div className="flex items-center justify-between gap-3">
@@ -2434,12 +2422,12 @@ function AQARProgressStepper({
                                     className={cn(
                                         "flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold",
                                         active
-                                            ? "bg-white/15 text-white"
+                                            ? "bg-primary-foreground/15 text-primary-foreground"
                                             : completed
-                                              ? "bg-emerald-100 text-emerald-700"
+                                              ? "bg-success-muted text-success-muted-foreground"
                                               : hasErrors
-                                                ? "bg-red-100 text-red-700"
-                                                : "bg-white text-zinc-700"
+                                                ? "bg-destructive-muted text-destructive-muted-foreground"
+                                                : "bg-card text-foreground"
                                     )}
                                 >
                                     {index + 1}
@@ -2449,19 +2437,19 @@ function AQARProgressStepper({
                             <Badge
                                 className={cn(
                                     active
-                                        ? "bg-white/15 text-white"
+                                        ? "bg-primary-foreground/15 text-primary-foreground"
                                         : completed
-                                          ? "bg-emerald-100 text-emerald-700"
+                                          ? "bg-success-muted text-success-muted-foreground"
                                           : hasErrors
-                                            ? "bg-red-100 text-red-700"
-                                            : "bg-white text-zinc-700"
+                                            ? "bg-destructive-muted text-destructive-muted-foreground"
+                                            : "bg-card text-foreground"
                                 )}
                             >
                                 {active ? "Current" : completed ? "Done" : hasErrors ? "Fix" : "Open"}
                             </Badge>
                         </div>
                         <p className="mt-4 font-semibold">{step.title}</p>
-                        <p className={cn("mt-1 text-sm", active ? "text-zinc-200" : "text-current/75")}>
+                        <p className={cn("mt-1 text-sm", active ? "text-primary-foreground/80" : "text-current/75")}>
                             {step.description}
                         </p>
                     </button>
@@ -2478,7 +2466,7 @@ function AQARStatusTimeline({ logs }: { logs: AqarApp["statusLogs"] }) {
 
     if (!sortedLogs.length) {
         return (
-            <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+            <div className="rounded-2xl border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                 No AQAR workflow transitions recorded yet.
             </div>
         );
@@ -2487,17 +2475,17 @@ function AQARStatusTimeline({ logs }: { logs: AqarApp["statusLogs"] }) {
     return (
         <div className="grid gap-4">
             {sortedLogs.map((log) => (
-                <div key={log._id ?? `${log.status}-${log.changedAt}`} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                <div key={log._id ?? `${log.status}-${log.changedAt}`} className="rounded-2xl border border-border bg-muted/50 p-4">
                     <div className="flex items-center justify-between gap-3">
-                        <p className="min-w-0 font-semibold text-zinc-950">{log.status}</p>
-                        <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                        <p className="min-w-0 font-semibold text-foreground">{log.status}</p>
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                             {formatTimestamp(log.changedAt)}
                         </p>
                     </div>
-                    <p className="mt-2 text-sm text-zinc-600">
+                    <p className="mt-2 text-sm text-muted-foreground">
                         {log.actorName ? `${log.actorName} (${log.actorRole ?? "User"})` : "System"}
                     </p>
-                    {log.remarks ? <p className="mt-2 text-sm text-zinc-500">{log.remarks}</p> : null}
+                    {log.remarks ? <p className="mt-2 text-sm text-muted-foreground">{log.remarks}</p> : null}
                 </div>
             ))}
         </div>
@@ -2514,7 +2502,7 @@ function SectionCard({
     children: ReactNode;
 }) {
     return (
-        <Card className="rounded-[1.5rem] border-zinc-200 shadow-none">
+        <Card className="rounded-[1.5rem] border-border shadow-none">
             <CardHeader>
                 <CardTitle className="text-xl">{title}</CardTitle>
                 <CardDescription>{description}</CardDescription>
@@ -2538,11 +2526,11 @@ function EntryCard({
     disabled?: boolean;
 }) {
     return (
-        <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50/80 p-5">
+        <div className="rounded-[1.5rem] border border-border bg-muted/80 p-5">
             <div className="mb-5 flex items-start justify-between gap-3">
                 <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Entry {index + 1}</p>
-                    <p className="mt-1 text-lg font-semibold text-zinc-950">{title}</p>
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Entry {index + 1}</p>
+                    <p className="mt-1 text-lg font-semibold text-foreground">{title}</p>
                 </div>
                 <Button
                     type="button"
@@ -2587,8 +2575,8 @@ function GroupedEntries({
     return (
         <div className="grid gap-4">
             <div>
-                <h3 className="text-lg font-semibold text-zinc-950">{title}</h3>
-                <p className="text-sm text-zinc-500">{description}</p>
+                <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+                <p className="text-sm text-muted-foreground">{description}</p>
             </div>
             {hasItems ? children : (
                 <EmptyState
@@ -2639,10 +2627,10 @@ function EmptyState({
     disabled?: boolean;
 }) {
     return (
-        <div className="rounded-[1.5rem] border border-dashed border-zinc-300 bg-zinc-50 p-6">
+        <div className="rounded-[1.5rem] border border-dashed border-border bg-muted/50 p-6">
             <div className="max-w-xl space-y-2">
-                <p className="text-lg font-semibold text-zinc-950">{title}</p>
-                <p className="text-sm text-zinc-500">{description}</p>
+                <p className="text-lg font-semibold text-foreground">{title}</p>
+                <p className="text-sm text-muted-foreground">{description}</p>
             </div>
             {onAction ? (
                 <Button type="button" variant="outline" className="mt-4" onClick={onAction} disabled={disabled}>
@@ -2665,9 +2653,9 @@ function FieldShell({
 }) {
     return (
         <div className="grid gap-2">
-            <Label className="text-sm font-medium text-zinc-950">{label}</Label>
+            <Label className="text-sm font-medium text-foreground">{label}</Label>
             {children}
-            {error ? <p className="text-xs text-red-600">{error}</p> : null}
+            {error ? <p className="text-xs text-destructive">{error}</p> : null}
         </div>
     );
 }
@@ -2773,7 +2761,7 @@ function DatePickerField({
                                 variant="outline"
                                 className={cn(
                                     "h-10 justify-start px-3 text-left font-normal",
-                                    !field.value && "text-zinc-400"
+                                    !field.value && "text-muted-foreground"
                                 )}
                                 disabled={disabled}
                             >
@@ -2840,10 +2828,10 @@ function DashboardStat({
     detail: string;
 }) {
     return (
-        <div className="rounded-2xl border border-zinc-200 bg-white/90 p-4 shadow-sm">
-            <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-2xl font-semibold text-zinc-950">{value}</p>
-            <p className="mt-1 text-sm text-zinc-500">{detail}</p>
+        <div className="rounded-2xl border border-border bg-card/90 p-4 shadow-sm">
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+            <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
         </div>
     );
 }
@@ -2856,9 +2844,9 @@ function SummaryTile({
     value: string;
 }) {
     return (
-        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-sm font-medium text-zinc-950">{value}</p>
+        <div className="rounded-2xl border border-border bg-muted/50 p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+            <p className="mt-2 text-sm font-medium text-foreground">{value}</p>
         </div>
     );
 }
@@ -2873,20 +2861,15 @@ function SummaryChip({
     inverse?: boolean;
 }) {
     return (
-        <div className={cn("rounded-xl border px-3 py-2", inverse ? "border-white/15 bg-white/10" : "border-zinc-200 bg-white")}>
-            <p className={cn("text-[11px] uppercase tracking-[0.16em]", inverse ? "text-zinc-300" : "text-zinc-500")}>
+        <div className={cn("rounded-xl border px-3 py-2", inverse ? "border-border/15 bg-card/10" : "border-border bg-card")}>
+            <p className={cn("text-[11px] uppercase tracking-[0.16em]", inverse ? "text-primary-foreground/70" : "text-muted-foreground")}>
                 {label}
             </p>
-            <p className={cn("mt-1 text-sm font-medium", inverse ? "text-zinc-50" : "text-zinc-950")}>{value}</p>
+            <p className={cn("mt-1 text-sm font-medium", inverse ? "text-primary-foreground" : "text-foreground")}>{value}</p>
         </div>
     );
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-lg font-semibold text-zinc-950">{value}</p>
-        </div>
-    );
+    return <StatTile label={label} value={value} />;
 }

@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { reportClientError, type BoundaryError } from "@/lib/observability.client";
+import { RefreshCw } from "lucide-react";
 
 /**
  * Shared presentational error boundary UI.
@@ -56,6 +57,7 @@ export function RouteError({
                 </AlertDescription>
                 <div className="mt-4 flex flex-wrap gap-2">
                     <Button type="button" variant="secondary" onClick={reset}>
+                        <RefreshCw aria-hidden />
                         Try again
                     </Button>
                 </div>

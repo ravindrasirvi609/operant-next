@@ -1,13 +1,14 @@
 "use client";
 
-import { ShieldCheck, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 
-import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
+import { StatTile } from "@/components/ui/stat-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -206,7 +207,7 @@ export function CASProgressStepper({
     return (
         <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
             {steps.map((step, index) => (
-                <div className={`rounded-lg border p-3 text-sm ${index <= currentStep ? "border-zinc-300 bg-white text-zinc-950" : "border-zinc-200 bg-zinc-50 text-zinc-500"}`} key={step}>
+                <div className={`rounded-lg border p-3 text-sm ${index <= currentStep ? "border-border bg-card text-foreground" : "border-border bg-muted/50 text-muted-foreground"}`} key={step}>
                     <p className="text-xs uppercase tracking-[0.16em]">Step {index + 1}</p>
                     <p className="mt-2 font-medium">{step}</p>
                 </div>
@@ -241,22 +242,22 @@ function LinkedAchievementsReadonly({
     linkedAchievements: NonNullable<CasApp["linkedAchievements"]>;
 }) {
     return (
-        <div className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-700">
+        <div className="space-y-3 rounded-lg border border-border bg-card p-4 text-sm text-foreground">
             <div>
-                <p className="font-semibold text-zinc-950">Linked profile achievements (read-only)</p>
-                <p className="mt-1 text-zinc-600">
+                <p className="font-semibold text-foreground">Linked profile achievements (read-only)</p>
+                <p className="mt-1 text-muted-foreground">
                     These records are reused from profile data and are not editable in CAS.
                 </p>
             </div>
 
-            <details className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-                <summary className="cursor-pointer font-medium text-zinc-900">
+            <details className="rounded-md border border-border bg-muted/50 p-3">
+                <summary className="cursor-pointer font-medium text-foreground">
                     Publications ({linkedAchievements.publications.length})
                 </summary>
                 {linkedAchievements.publications.length ? (
                     <div className="mt-3 overflow-x-auto">
                         <table className="min-w-full text-left text-xs">
-                            <thead className="text-zinc-500">
+                            <thead className="text-muted-foreground">
                                 <tr>
                                     <th className="px-2 py-1 font-medium">Title</th>
                                     <th className="px-2 py-1 font-medium">Journal</th>
@@ -267,8 +268,8 @@ function LinkedAchievementsReadonly({
                             </thead>
                             <tbody>
                                 {linkedAchievements.publications.map((item, index) => (
-                                    <tr key={`${item.title}-${index}`} className="border-t border-zinc-200">
-                                        <td className="px-2 py-1 text-zinc-900">{item.title}</td>
+                                    <tr key={`${item.title}-${index}`} className="border-t border-border">
+                                        <td className="px-2 py-1 text-foreground">{item.title}</td>
                                         <td className="px-2 py-1">{item.journal || "-"}</td>
                                         <td className="px-2 py-1">{item.year}</td>
                                         <td className="px-2 py-1">{item.issn || "-"}</td>
@@ -279,18 +280,18 @@ function LinkedAchievementsReadonly({
                         </table>
                     </div>
                 ) : (
-                    <p className="mt-2 text-xs text-zinc-500">No linked publications available.</p>
+                    <p className="mt-2 text-xs text-muted-foreground">No linked publications available.</p>
                 )}
             </details>
 
-            <details className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-                <summary className="cursor-pointer font-medium text-zinc-900">
+            <details className="rounded-md border border-border bg-muted/50 p-3">
+                <summary className="cursor-pointer font-medium text-foreground">
                     Books ({linkedAchievements.books.length})
                 </summary>
                 {linkedAchievements.books.length ? (
                     <div className="mt-3 overflow-x-auto">
                         <table className="min-w-full text-left text-xs">
-                            <thead className="text-zinc-500">
+                            <thead className="text-muted-foreground">
                                 <tr>
                                     <th className="px-2 py-1 font-medium">Title</th>
                                     <th className="px-2 py-1 font-medium">Publisher</th>
@@ -300,8 +301,8 @@ function LinkedAchievementsReadonly({
                             </thead>
                             <tbody>
                                 {linkedAchievements.books.map((item, index) => (
-                                    <tr key={`${item.title}-${index}`} className="border-t border-zinc-200">
-                                        <td className="px-2 py-1 text-zinc-900">{item.title}</td>
+                                    <tr key={`${item.title}-${index}`} className="border-t border-border">
+                                        <td className="px-2 py-1 text-foreground">{item.title}</td>
                                         <td className="px-2 py-1">{item.publisher || "-"}</td>
                                         <td className="px-2 py-1">{item.year}</td>
                                         <td className="px-2 py-1">{item.isbn || "-"}</td>
@@ -311,18 +312,18 @@ function LinkedAchievementsReadonly({
                         </table>
                     </div>
                 ) : (
-                    <p className="mt-2 text-xs text-zinc-500">No linked books available.</p>
+                    <p className="mt-2 text-xs text-muted-foreground">No linked books available.</p>
                 )}
             </details>
 
-            <details className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-                <summary className="cursor-pointer font-medium text-zinc-900">
+            <details className="rounded-md border border-border bg-muted/50 p-3">
+                <summary className="cursor-pointer font-medium text-foreground">
                     Research Projects ({linkedAchievements.researchProjects.length})
                 </summary>
                 {linkedAchievements.researchProjects.length ? (
                     <div className="mt-3 overflow-x-auto">
                         <table className="min-w-full text-left text-xs">
-                            <thead className="text-zinc-500">
+                            <thead className="text-muted-foreground">
                                 <tr>
                                     <th className="px-2 py-1 font-medium">Title</th>
                                     <th className="px-2 py-1 font-medium">Funding Agency</th>
@@ -332,8 +333,8 @@ function LinkedAchievementsReadonly({
                             </thead>
                             <tbody>
                                 {linkedAchievements.researchProjects.map((item, index) => (
-                                    <tr key={`${item.title}-${index}`} className="border-t border-zinc-200">
-                                        <td className="px-2 py-1 text-zinc-900">{item.title}</td>
+                                    <tr key={`${item.title}-${index}`} className="border-t border-border">
+                                        <td className="px-2 py-1 text-foreground">{item.title}</td>
                                         <td className="px-2 py-1">{item.fundingAgency || "-"}</td>
                                         <td className="px-2 py-1">{item.amount}</td>
                                         <td className="px-2 py-1">{item.year}</td>
@@ -343,11 +344,11 @@ function LinkedAchievementsReadonly({
                         </table>
                     </div>
                 ) : (
-                    <p className="mt-2 text-xs text-zinc-500">No linked research projects available.</p>
+                    <p className="mt-2 text-xs text-muted-foreground">No linked research projects available.</p>
                 )}
             </details>
 
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+            <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                 Linked conference count: {linkedAchievements.conferences}
             </div>
         </div>
@@ -372,16 +373,16 @@ export function PBASSelector({
                         type="button"
                         onClick={() => onToggle(item._id)}
                         key={item._id}
-                        className={`rounded-lg border p-4 text-left ${isSelected ? "border-zinc-400 bg-white" : "border-zinc-200 bg-zinc-50"}`}
+                        className={`rounded-lg border p-4 text-left ${isSelected ? "border-border bg-card" : "border-border bg-muted/50"}`}
                     >
                         <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
-                                <p className="text-sm font-semibold text-zinc-950">{item.academicYear}</p>
-                                <p className="mt-1 text-sm text-zinc-500">
+                                <p className="text-sm font-semibold text-foreground">{item.academicYear}</p>
+                                <p className="mt-1 text-sm text-muted-foreground">
                                     Teaching {item.teachingScore ?? 0} | Research {item.researchScore ?? 0} | Institutional {item.institutionalScore ?? 0}
                                 </p>
                                 {item.status ? (
-                                    <p className="mt-1 text-xs uppercase tracking-[0.12em] text-zinc-400">
+                                    <p className="mt-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">
                                         {item.status}{item.usableForSubmit === false ? " • Preview only" : ""}
                                     </p>
                                 ) : null}
@@ -391,7 +392,7 @@ export function PBASSelector({
                     </button>
                 );
             }) : (
-                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                     No PBAS reports are available yet. Create and submit PBAS applications first in the PBAS module.
                 </div>
             )}
@@ -419,14 +420,14 @@ export function APIScoreCalculator({
                 <ScoreCard label="Research Publications" value={score.researchPublication} />
                 <ScoreCard label="Academic Contribution" value={score.academicContribution} />
                 <ScoreCard label="Total API Score" value={score.totalScore} />
-                <div className={`md:col-span-2 xl:col-span-4 rounded-lg border p-4 ${eligibility.isEligible ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+                <div className={`md:col-span-2 xl:col-span-4 rounded-lg border p-4 ${eligibility.isEligible ? "border-success-border bg-success-muted text-success-muted-foreground" : "border-warning-border bg-warning-muted text-warning-muted-foreground"}`}>
                     <p className="text-sm font-semibold">{eligibility.isEligible ? "Eligible" : "Not Eligible"}</p>
                     <p className="mt-1 text-sm">{eligibility.message ?? "Eligibility is being recalculated from the saved CAS record."}</p>
                 </div>
                 {breakup?.length ? (
-                    <div className="md:col-span-2 xl:col-span-4 overflow-x-auto rounded-lg border border-zinc-200 bg-zinc-50">
+                    <div className="md:col-span-2 xl:col-span-4 overflow-x-auto rounded-lg border border-border bg-muted/50">
                         <table className="min-w-full text-left text-sm">
-                            <thead className="bg-white text-zinc-500">
+                            <thead className="bg-card text-muted-foreground">
                                 <tr>
                                     <th className="px-4 py-3 font-medium">Category</th>
                                     <th className="px-4 py-3 font-medium">Obtained</th>
@@ -436,8 +437,8 @@ export function APIScoreCalculator({
                             </thead>
                             <tbody>
                                 {breakup.map((entry) => (
-                                    <tr className="border-t border-zinc-200" key={entry._id ?? entry.categoryCode}>
-                                        <td className="px-4 py-3 font-medium text-zinc-900">{entry.categoryCode}</td>
+                                    <tr className="border-t border-border" key={entry._id ?? entry.categoryCode}>
+                                        <td className="px-4 py-3 font-medium text-foreground">{entry.categoryCode}</td>
                                         <td className="px-4 py-3">{entry.scoreObtained}</td>
                                         <td className="px-4 py-3">{entry.minimumRequired}</td>
                                         <td className="px-4 py-3">
@@ -464,16 +465,16 @@ export function CASStatusTimeline({
     return (
         <div className="grid gap-3">
             {logs.length ? logs.map((log) => (
-                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={log._id ?? `${log.status}-${log.changedAt}`}>
+                <div className="rounded-lg border border-border bg-muted/50 p-4" key={log._id ?? `${log.status}-${log.changedAt}`}>
                     <div className="flex items-center justify-between gap-4">
-                        <p className="min-w-0 font-semibold text-zinc-950">{log.status}</p>
-                        <p className="text-xs uppercase tracking-[0.12em] text-zinc-500">{new Date(log.changedAt).toLocaleString()}</p>
+                        <p className="min-w-0 font-semibold text-foreground">{log.status}</p>
+                        <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{new Date(log.changedAt).toLocaleString()}</p>
                     </div>
-                    <p className="mt-2 text-sm text-zinc-600">{log.actorName ? `${log.actorName} (${log.actorRole ?? "User"})` : "System"}</p>
-                    {log.remarks ? <p className="mt-1 text-sm text-zinc-500">{log.remarks}</p> : null}
+                    <p className="mt-2 text-sm text-muted-foreground">{log.actorName ? `${log.actorName} (${log.actorRole ?? "User"})` : "System"}</p>
+                    {log.remarks ? <p className="mt-1 text-sm text-muted-foreground">{log.remarks}</p> : null}
                 </div>
             )) : (
-                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                     No CAS status updates recorded yet.
                 </div>
             )}
@@ -489,24 +490,24 @@ export function CASCommitteeTimeline({
     return (
         <div className="grid gap-3">
             {reviews.length ? reviews.map((review) => (
-                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={review._id ?? `${review.stage}-${review.createdAt}`}>
+                <div className="rounded-lg border border-border bg-muted/50 p-4" key={review._id ?? `${review.stage}-${review.createdAt}`}>
                     <div className="flex items-center justify-between gap-4">
                         <div>
-                            <p className="font-semibold text-zinc-950">{review.stage}</p>
-                            <p className="mt-1 text-sm text-zinc-600">
+                            <p className="font-semibold text-foreground">{review.stage}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">
                                 {review.committeeMemberName} ({review.reviewerRole ?? review.role})
                             </p>
                         </div>
                         <Badge>{review.decision ?? "Recorded"}</Badge>
                     </div>
-                    <p className="mt-2 text-sm text-zinc-600">{review.designation}</p>
-                    {review.remarks ? <p className="mt-2 text-sm text-zinc-500">{review.remarks}</p> : null}
-                    <p className="mt-2 text-xs uppercase tracking-[0.12em] text-zinc-400">
+                    <p className="mt-2 text-sm text-muted-foreground">{review.designation}</p>
+                    {review.remarks ? <p className="mt-2 text-sm text-muted-foreground">{review.remarks}</p> : null}
+                    <p className="mt-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
                         {new Date(review.decisionDate ?? review.createdAt ?? Date.now()).toLocaleString()}
                     </p>
                 </div>
             )) : (
-                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                     No committee reviews recorded yet.
                 </div>
             )}
@@ -841,28 +842,28 @@ export function CasDashboard({
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-3">
-                    <div className={`rounded-lg border p-4 ${eligibility.eligible ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
-                        <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Eligibility</p>
-                        <p className="mt-2 text-lg font-semibold text-zinc-950">
+                    <div className={`rounded-lg border p-4 ${eligibility.eligible ? "border-success-border bg-success-muted" : "border-warning-border bg-warning-muted"}`}>
+                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Eligibility</p>
+                        <p className="mt-2 text-lg font-semibold text-foreground">
                             {eligibility.eligible ? "Eligible" : "Not Eligible"}
                         </p>
-                        <p className="mt-1 text-xs text-zinc-500">{eligibility.reason}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{eligibility.reason}</p>
                     </div>
-                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                        <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Required</p>
-                        <p className="mt-2 text-lg font-semibold text-zinc-950">
+                    <div className="rounded-lg border border-border bg-muted/50 p-4">
+                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Required</p>
+                        <p className="mt-2 text-lg font-semibold text-foreground">
                             {eligibility.requiredYears ?? "--"} yrs | API {eligibility.requiredScore ?? "--"}
                         </p>
-                        <p className="mt-1 text-xs text-zinc-500">
+                        <p className="mt-1 text-xs text-muted-foreground">
                             Next: {eligibility.nextDesignation ?? "Not configured"}
                         </p>
                     </div>
-                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                        <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Approved PBAS</p>
-                        <p className="mt-2 text-lg font-semibold text-zinc-950">
+                    <div className="rounded-lg border border-border bg-muted/50 p-4">
+                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Approved PBAS</p>
+                        <p className="mt-2 text-lg font-semibold text-foreground">
                             {eligibility.lastApprovedApiScore ?? 0}
                         </p>
-                        <p className="mt-1 text-xs text-zinc-500">
+                        <p className="mt-1 text-xs text-muted-foreground">
                             {eligibility.lastApprovedYear ? `Year ${eligibility.lastApprovedYear}` : "No approved PBAS yet"}
                         </p>
                     </div>
@@ -879,11 +880,10 @@ export function CasDashboard({
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        <Button className="w-full" onClick={createDraft} type="button" disabled={isPending}>
-                            {isPending ? <Spinner /> : null}
+                        <Button loading={isPending} className="w-full" onClick={createDraft} type="button" disabled={isPending}>
                             Start CAS Draft
                         </Button>
-                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-500">
+                        <div className="rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
                             Auto save: {selectedId ? autoSaveState : "Create a draft to enable auto save"}
                         </div>
                     </CardContent>
@@ -903,21 +903,21 @@ export function CasDashboard({
                                     setCurrentStep(0);
                                 }}
                                 key={application._id}
-                                className={`rounded-lg border p-4 text-left ${selectedId === application._id ? "border-zinc-400 bg-white" : "border-zinc-200 bg-zinc-50"}`}
+                                className={`rounded-lg border p-4 text-left ${selectedId === application._id ? "border-border bg-card" : "border-border bg-muted/50"}`}
                             >
                                 <div className="flex items-center justify-between gap-3">
-                                    <p className="font-semibold text-zinc-950">{application.applyingForDesignation}</p>
+                                    <p className="font-semibold text-foreground">{application.applyingForDesignation}</p>
                                     <Badge>{application.status}</Badge>
                                 </div>
-                                <p className="mt-2 text-sm text-zinc-600">
+                                <p className="mt-2 text-sm text-muted-foreground">
                                     {application.currentDesignation} | {application.applicationYear}
                                 </p>
-                                <p className="mt-1 text-sm text-zinc-500">
+                                <p className="mt-1 text-sm text-muted-foreground">
                                     API {application.apiScore.totalScore} | Experience {application.experienceYears} years
                                 </p>
                             </button>
                         )) : (
-                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                                 No CAS applications created yet.
                             </div>
                         )}
@@ -955,40 +955,40 @@ export function CasDashboard({
                     </CardHeader>
                     <CardContent className="space-y-3">
                         {workflowLoading ? (
-                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                                 Loading verification status...
                             </div>
                         ) : workflowError ? (
-                            <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                            <div className="rounded-lg border border-destructive-border bg-destructive-muted p-4 text-sm text-destructive-muted-foreground">
                                 {workflowError}
                             </div>
                         ) : workflow ? (
-                            <div className="grid gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm">
+                            <div className="grid gap-3 rounded-lg border border-border bg-muted/50 p-4 text-sm">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div>
-                                        <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">Status</p>
-                                        <p className="mt-1 text-base font-semibold text-zinc-950">{workflow.status}</p>
+                                        <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Status</p>
+                                        <p className="mt-1 text-base font-semibold text-foreground">{workflow.status}</p>
                                     </div>
                                     <Badge>{workflow.currentApproverRole}</Badge>
                                 </div>
-                                <div className="text-xs text-zinc-500">
+                                <div className="text-xs text-muted-foreground">
                                     Last updated{" "}
                                     {workflow.updatedAt
                                         ? new Date(workflow.updatedAt).toLocaleString()
                                         : "Not available"}
                                 </div>
                                 {workflow.remarks ? (
-                                    <div className="rounded-md border border-zinc-200 bg-white p-3 text-xs text-zinc-600">
+                                    <div className="rounded-md border border-border bg-card p-3 text-xs text-muted-foreground">
                                         {workflow.remarks}
                                     </div>
                                 ) : (
-                                    <div className="text-xs text-zinc-500">
+                                    <div className="text-xs text-muted-foreground">
                                         No verification remarks recorded yet.
                                     </div>
                                 )}
                             </div>
                         ) : (
-                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                                 Verification workflow has not started yet.
                             </div>
                         )}
@@ -1000,7 +1000,7 @@ export function CasDashboard({
                 {message ? <FormMessage message={message.text} type={message.type} /> : null}
 
                 {selected?.status === "Rejected" ? (
-                    <Card className="border-rose-200 bg-rose-50">
+                    <Card className="border-destructive-border bg-destructive-muted">
                         <CardHeader>
                             <CardTitle>Resubmission Required</CardTitle>
                             <CardDescription>
@@ -1095,10 +1095,10 @@ export function CasDashboard({
                                         />
                                     </Field>
                                 </div>
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
-                                    <p className="font-semibold text-zinc-950">{designationProfile.label}</p>
+                                <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
+                                    <p className="font-semibold text-foreground">{designationProfile.label}</p>
                                     <p className="mt-1">{designationProfile.casFocus}</p>
-                                    <p className="mt-2 text-xs uppercase tracking-[0.12em] text-zinc-500">
+                                    <p className="mt-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
                                         Allowed promotion path: {allowedPromotionTargets.join(" / ")}
                                     </p>
                                 </div>
@@ -1115,7 +1115,7 @@ export function CasDashboard({
 
                         {currentStep === 2 ? (
                             <div className="space-y-4">
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+                                <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                     Select approved PBAS reports. CAS API scoring primarily reuses linked PBAS data, so you only
                                     add achievements below when something is not already captured.
                                 </div>
@@ -1138,7 +1138,7 @@ export function CasDashboard({
                         {currentStep === 3 ? (
                             <AchievementTable title="Research Publications (Optional Additions)" description="Add only missing publications that are not already covered in your PBAS-linked data.">
                                 {publicationFields.fields.map((field, index) => (
-                                    <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2 xl:grid-cols-5" key={field.id}>
+                                    <div className="grid gap-4 rounded-lg border border-border bg-muted/50 p-4 md:grid-cols-2 xl:grid-cols-5" key={field.id}>
                                         <Input placeholder="Title" {...form.register(`manualAchievements.publications.${index}.title`)} />
                                         <Input placeholder="Journal" {...form.register(`manualAchievements.publications.${index}.journal`)} />
                                         <Input placeholder="Year" type="number" {...form.register(`manualAchievements.publications.${index}.year`, { valueAsNumber: true })} />
@@ -1157,6 +1157,7 @@ export function CasDashboard({
                                     </div>
                                 ))}
                                 <Button type="button" variant="secondary" onClick={() => publicationFields.append({ title: "", journal: "", year: new Date().getFullYear(), issn: "", indexing: "" })}>
+                                    <Plus aria-hidden />
                                     Add Extra Publication
                                 </Button>
                             </AchievementTable>
@@ -1166,7 +1167,7 @@ export function CasDashboard({
                             <div className="space-y-6">
                                 <AchievementTable title="Books" description="Record published books and chapters relevant to CAS review.">
                                     {bookFields.fields.map((field, index) => (
-                                        <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2 xl:grid-cols-4" key={field.id}>
+                                        <div className="grid gap-4 rounded-lg border border-border bg-muted/50 p-4 md:grid-cols-2 xl:grid-cols-4" key={field.id}>
                                             <Input placeholder="Title" {...form.register(`manualAchievements.books.${index}.title`)} />
                                             <Input placeholder="Publisher" {...form.register(`manualAchievements.books.${index}.publisher`)} />
                                             <Input placeholder="ISBN" {...form.register(`manualAchievements.books.${index}.isbn`)} />
@@ -1184,12 +1185,13 @@ export function CasDashboard({
                                         </div>
                                     ))}
                                     <Button type="button" variant="secondary" onClick={() => bookFields.append({ title: "", publisher: "", isbn: "", year: new Date().getFullYear() })}>
+                                        <Plus aria-hidden />
                                         Add Extra Book
                                     </Button>
                                 </AchievementTable>
                                 <AchievementTable title="Research Projects" description="Capture only additional funded projects that are not already represented in PBAS-linked records.">
                                     {projectFields.fields.map((field, index) => (
-                                        <div className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 md:grid-cols-2 xl:grid-cols-4" key={field.id}>
+                                        <div className="grid gap-4 rounded-lg border border-border bg-muted/50 p-4 md:grid-cols-2 xl:grid-cols-4" key={field.id}>
                                             <Input placeholder="Title" {...form.register(`manualAchievements.researchProjects.${index}.title`)} />
                                             <Input placeholder="Funding Agency" {...form.register(`manualAchievements.researchProjects.${index}.fundingAgency`)} />
                                             <Input placeholder="Amount" type="number" {...form.register(`manualAchievements.researchProjects.${index}.amount`, { valueAsNumber: true })} />
@@ -1207,6 +1209,7 @@ export function CasDashboard({
                                         </div>
                                     ))}
                                     <Button type="button" variant="secondary" onClick={() => projectFields.append({ title: "", fundingAgency: "", amount: 0, year: new Date().getFullYear() })}>
+                                        <Plus aria-hidden />
                                         Add Extra Project
                                     </Button>
                                 </AchievementTable>
@@ -1215,7 +1218,7 @@ export function CasDashboard({
 
                         {currentStep === 5 ? (
                             <div className="space-y-4">
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+                                <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                     {designationProfile.showCasPhdGuided
                                         ? "This promotion path includes doctoral guidance as a visible CAS contribution field."
                                         : "This promotion path keeps the academic contribution section lighter, with PBAS, publications, books, projects, and conference activity carrying most of the score."}
@@ -1242,20 +1245,20 @@ export function CasDashboard({
                                     </CardHeader>
                                     <CardContent className="space-y-3">
                                         {docLoading ? (
-                                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                                            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                                                 Loading CAS documents...
                                             </div>
                                         ) : docError ? (
-                                            <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                                            <div className="rounded-lg border border-destructive-border bg-destructive-muted p-4 text-sm text-destructive-muted-foreground">
                                                 {docError}
                                             </div>
                                         ) : documents.length ? (
                                             documents.map((doc) => (
-                                                <div key={doc.documentType} className="rounded-lg border border-zinc-200 p-4">
+                                                <div key={doc.documentType} className="rounded-lg border border-border p-4">
                                                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                                                         <div>
-                                                            <p className="text-sm font-semibold text-zinc-950">{doc.label}</p>
-                                                            <p className="text-xs text-zinc-500">
+                                                            <p className="text-sm font-semibold text-foreground">{doc.label}</p>
+                                                            <p className="text-xs text-muted-foreground">
                                                                 {doc.isMandatory ? "Mandatory" : "Optional"}
                                                             </p>
                                                         </div>
@@ -1264,7 +1267,7 @@ export function CasDashboard({
                                                                 href={doc.documentId.fileUrl}
                                                                 target="_blank"
                                                                 rel="noreferrer"
-                                                                className="inline-flex items-center gap-2 text-xs font-medium text-emerald-700"
+                                                                className="inline-flex items-center gap-2 text-xs font-medium text-success-muted-foreground"
                                                             >
                                                                 <ShieldCheck className="size-4" />
                                                                 {doc.documentId.fileName || "Uploaded"}
@@ -1285,7 +1288,7 @@ export function CasDashboard({
                                                 </div>
                                             ))
                                         ) : (
-                                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                                            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                                                 No CAS documents defined yet.
                                             </div>
                                         )}
@@ -1296,31 +1299,30 @@ export function CasDashboard({
 
                         {currentStep === 7 ? (
                             <div className="space-y-4">
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                                    <p className="text-sm font-semibold text-zinc-950">Review Summary</p>
-                                    <p className="mt-2 text-sm text-zinc-600">
+                                <div className="rounded-lg border border-border bg-muted/50 p-4">
+                                    <p className="text-sm font-semibold text-foreground">Review Summary</p>
+                                    <p className="mt-2 text-sm text-muted-foreground">
                                         {watchedValues.currentDesignation ?? ""} to {watchedValues.applyingForDesignation ?? ""} | PBAS linked: {(watchedValues.pbasReports ?? []).length}
                                     </p>
-                                    <p className="mt-1 text-sm text-zinc-600">
+                                    <p className="mt-1 text-sm text-muted-foreground">
                                         Linked publications/books/projects: {linkedAchievements.publications.length}/{linkedAchievements.books.length}/{linkedAchievements.researchProjects.length}
                                     </p>
-                                    <p className="mt-1 text-sm text-zinc-600">
+                                    <p className="mt-1 text-sm text-muted-foreground">
                                         Manual additions publications/books/projects: {(watchedValues.manualAchievements?.publications ?? []).length}/{(watchedValues.manualAchievements?.books ?? []).length}/{(watchedValues.manualAchievements?.researchProjects ?? []).length}
                                     </p>
                                     {designationProfile.showCasPhdGuided ? (
-                                        <p className="mt-1 text-sm text-zinc-600">
+                                        <p className="mt-1 text-sm text-muted-foreground">
                                             PhD guided: {Number(watchedValues.manualAchievements?.phdGuided ?? 0)}
                                         </p>
                                     ) : null}
                                     {designationProfile.showCasConferenceCount ? (
-                                        <p className="mt-1 text-sm text-zinc-600">
+                                        <p className="mt-1 text-sm text-muted-foreground">
                                             Conference contributions: {Number(watchedValues.manualAchievements?.conferences ?? 0)}
                                         </p>
                                     ) : null}
                                 </div>
                                 <div className="flex flex-wrap gap-3">
-                                    <Button type="button" onClick={submitApplication} disabled={isPending || !selectedId}>
-                                        {isPending ? <Spinner /> : null}
+                                    <Button loading={isPending} type="button" onClick={submitApplication} disabled={isPending || !selectedId}>
                                         Submit CAS Application
                                     </Button>
                                 </div>
@@ -1329,9 +1331,11 @@ export function CasDashboard({
 
                         <div className="flex flex-wrap gap-3">
                             <Button type="button" variant="secondary" onClick={() => setCurrentStep((step) => Math.max(0, step - 1))} disabled={currentStep === 0}>
+                                <ChevronLeft aria-hidden />
                                 Previous
                             </Button>
                             <Button type="button" onClick={() => setCurrentStep((step) => Math.min(steps.length - 1, step + 1))} disabled={currentStep === steps.length - 1}>
+                                <ChevronRight aria-hidden />
                                 Next
                             </Button>
                         </div>
@@ -1353,10 +1357,5 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function ScoreCard({ label, value }: { label: string; value: number }) {
-    return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-2xl font-semibold text-zinc-950">{value}</p>
-        </div>
-    );
+    return <StatTile label={label} value={value} />;
 }

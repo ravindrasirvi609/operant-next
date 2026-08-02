@@ -15,7 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 
-import { FieldError, FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FieldError, FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,44 +53,31 @@ type AssignableUser = {
     designation?: string;
 };
 
+/**
+ * Organisation type -> categorical chart slot.
+ *
+ * These are entity KINDS, not workflow states, so they draw from the categorical
+ * chart ramp rather than the semantic tones: painting "College" with `--success`
+ * would imply the college is in a good *state*, which is meaningless here.
+ *
+ * One map feeds both the node chip and the minimap, so the diagram and its
+ * minimap can never disagree about a colour. The class strings are written out
+ * literally rather than built from a slot number, because Tailwind only sees
+ * class names that appear verbatim in the source.
+ */
+const TYPE_VISUALS: Record<string, { chip: string; minimap: string }> = {
+    University: { chip: "border-chart-1/40 bg-chart-1/10 text-foreground", minimap: "var(--chart-1)" },
+    College: { chip: "border-chart-2/40 bg-chart-2/10 text-foreground", minimap: "var(--chart-2)" },
+    Department: { chip: "border-chart-3/40 bg-chart-3/10 text-foreground", minimap: "var(--chart-3)" },
+    Center: { chip: "border-chart-4/40 bg-chart-4/10 text-foreground", minimap: "var(--chart-4)" },
+};
+
 function getTypeNodeStyle(type: string) {
-    if (type === "University") {
-        return "border-sky-300 bg-sky-50 text-sky-900";
-    }
-
-    if (type === "College") {
-        return "border-emerald-300 bg-emerald-50 text-emerald-900";
-    }
-
-    if (type === "Department") {
-        return "border-amber-300 bg-amber-50 text-amber-900";
-    }
-
-    if (type === "Center") {
-        return "border-violet-300 bg-violet-50 text-violet-900";
-    }
-
-    return "border-zinc-300 bg-zinc-100 text-zinc-900";
+    return TYPE_VISUALS[type]?.chip ?? "border-border bg-muted text-foreground";
 }
 
 function getTypeMinimapColor(type: string) {
-    if (type === "University") {
-        return "#0284c7";
-    }
-
-    if (type === "College") {
-        return "#059669";
-    }
-
-    if (type === "Department") {
-        return "#d97706";
-    }
-
-    if (type === "Center") {
-        return "#7c3aed";
-    }
-
-    return "#52525b";
+    return TYPE_VISUALS[type]?.minimap ?? "var(--muted-foreground)";
 }
 
 async function requestJson(url: string, options?: RequestInit) {
@@ -397,7 +384,7 @@ export function HierarchyManager({
                                 height: 16,
                             },
                             style: {
-                                stroke: "#64748b",
+                                stroke: "var(--muted-foreground)",
                                 strokeWidth: 1.5,
                             },
                         });
@@ -421,18 +408,18 @@ export function HierarchyManager({
                 <CardContent className="space-y-5">
                     {message ? <FormMessage message={message.text} type={message.type} /> : null}
 
-                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                    <div className="rounded-lg border border-border bg-muted/50 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                             Quick Guide
                         </p>
-                        <p className="mt-2 text-sm text-zinc-700">
+                        <p className="mt-2 text-sm text-foreground">
                             Create University first, then College, then Department. Centers and Offices can be attached under University or College.
                         </p>
                     </div>
 
                     <form className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
-                        <div className="space-y-4 rounded-lg border border-zinc-200 p-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                        <div className="space-y-4 rounded-lg border border-border p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                                 Basic Details
                             </p>
                             <Field label="Organization name" id="organization-name" error={form.formState.errors.name?.message}>
@@ -500,8 +487,8 @@ export function HierarchyManager({
                             </div>
                         </div>
 
-                        <div className="space-y-4 rounded-lg border border-zinc-200 p-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                        <div className="space-y-4 rounded-lg border border-border p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                                 Reporting And Leadership
                             </p>
                             <div className="grid gap-4 md:grid-cols-2">
@@ -533,7 +520,7 @@ export function HierarchyManager({
                                             </Select>
                                         )}
                                     />
-                                    <p className="text-xs text-zinc-500">
+                                    <p className="text-xs text-muted-foreground">
                                         {organizationType === "University"
                                             ? "Universities are always root-level nodes."
                                             : `${potentialParents.length} parent option(s) available for ${organizationType}.`}
@@ -572,8 +559,8 @@ export function HierarchyManager({
                             </Field>
                         </div>
 
-                        <div className="space-y-4 rounded-lg border border-zinc-200 p-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                        <div className="space-y-4 rounded-lg border border-border p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                                 Contact And Context
                             </p>
                             <div className="grid gap-4 md:grid-cols-2">
@@ -594,8 +581,7 @@ export function HierarchyManager({
                             </Field>
                         </div>
 
-                        <Button disabled={isPending} type="submit">
-                            {isPending ? <Spinner /> : null}
+                        <Button loading={isPending} disabled={isPending} type="submit">
                             Create Hierarchy Node
                         </Button>
                     </form>
@@ -609,7 +595,7 @@ export function HierarchyManager({
                         <Badge variant="secondary">{hierarchySummary.total} Total</Badge>
                         <Badge variant="secondary">{hierarchySummary.active} Active</Badge>
                         {hierarchySummary.inactive ? (
-                            <Badge className="border-amber-200 bg-amber-50 text-amber-700" variant="outline">
+                            <Badge className="border-warning-border bg-warning-muted text-warning-muted-foreground" variant="outline">
                                 {hierarchySummary.inactive} Inactive
                             </Badge>
                         ) : null}
@@ -619,7 +605,7 @@ export function HierarchyManager({
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="grid gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 lg:grid-cols-[1fr_180px_140px]">
+                    <div className="grid gap-3 rounded-lg border border-border bg-muted/50 p-3 lg:grid-cols-[1fr_180px_140px]">
                         <Input
                             placeholder="Search by name, type, parent, or head"
                             value={searchValue}
@@ -655,7 +641,7 @@ export function HierarchyManager({
                         </Select>
                     </div>
 
-                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">
+                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                         Showing {filteredCount} of {hierarchySummary.total} nodes
                     </p>
 
@@ -673,8 +659,8 @@ export function HierarchyManager({
                                             className={cn(
                                                 "rounded-lg border p-4 transition",
                                                 item.isActive
-                                                    ? "border-zinc-200 bg-zinc-50"
-                                                    : "border-amber-200 bg-amber-50/40"
+                                                    ? "border-border bg-muted/50"
+                                                    : "border-warning-border bg-warning-muted/40"
                                             )}
                                             key={item._id}
                                         >
@@ -687,33 +673,34 @@ export function HierarchyManager({
                                                             className={cn(
                                                                 "border",
                                                                 item.isActive
-                                                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                                                    : "border-amber-200 bg-amber-50 text-amber-700"
+                                                                    ? "border-success-border bg-success-muted text-success-muted-foreground"
+                                                                    : "border-warning-border bg-warning-muted text-warning-muted-foreground"
                                                             )}
                                                             variant="outline"
                                                         >
                                                             {item.isActive ? "Active" : "Inactive"}
                                                         </Badge>
                                                         {item.code ? (
-                                                            <Badge className="border-zinc-300 bg-white text-zinc-700" variant="outline">
+                                                            <Badge className="border-border bg-card text-foreground" variant="outline">
                                                                 {item.code}
                                                             </Badge>
                                                         ) : null}
                                                     </div>
-                                                    <h3 className="mt-2 text-lg font-semibold text-zinc-950">
+                                                    <h3 className="mt-2 text-lg font-semibold text-foreground">
                                                         {item.name}
                                                     </h3>
-                                                    <p className="mt-2 text-sm text-zinc-500">
+                                                    <p className="mt-2 text-sm text-muted-foreground">
                                                         Parent: {item.parentOrganizationName || "Root"}
                                                     </p>
-                                                    <p className="mt-1 text-sm text-zinc-500">
+                                                    <p className="mt-1 text-sm text-muted-foreground">
                                                         Head: {item.headName || "Unassigned"} {item.headTitle ? `• ${item.headTitle}` : ""}
                                                     </p>
-                                                    <p className="mt-1 text-sm text-zinc-500">
+                                                    <p className="mt-1 text-sm text-muted-foreground">
                                                         {item.universityName || "No university"} / {item.collegeName || "No college"}
                                                     </p>
                                                 </div>
                                                 <Button
+                                                    loading={isPending}
                                                     disabled={isPending}
                                                     onClick={() => toggleStatus(item)}
                                                     variant={item.isActive ? "secondary" : "default"}
@@ -735,10 +722,10 @@ export function HierarchyManager({
                         <TabsContent value="tree">
                             {graphNodesAndEdges.nodes.length ? (
                                 <div className="space-y-3">
-                                    <p className="text-xs text-zinc-500">
+                                    <p className="text-xs text-muted-foreground">
                                         Interactive view: drag canvas, zoom with wheel, and use controls to fit hierarchy.
                                     </p>
-                                    <div className="h-[560px] overflow-hidden rounded-xl border border-zinc-200 bg-white">
+                                    <div className="h-[560px] overflow-hidden rounded-xl border border-border bg-card">
                                         <ReactFlow
                                             fitView
                                             fitViewOptions={{
@@ -748,7 +735,7 @@ export function HierarchyManager({
                                             edges={graphNodesAndEdges.edges}
                                             proOptions={{ hideAttribution: true }}
                                         >
-                                            <Background color="#e4e4e7" gap={20} />
+                                            <Background color="var(--border)" gap={20} />
                                             <MiniMap
                                                 pannable
                                                 zoomable

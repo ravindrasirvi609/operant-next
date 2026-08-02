@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 
-import { FieldError, FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FieldError, FormMessage } from "@/components/auth/auth-helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -67,8 +67,7 @@ export function DirectorLoginForm() {
                 <FieldError message={form.formState.errors.password?.message} />
             </div>
 
-            <Button disabled={isPending} type="submit">
-                {isPending ? <Spinner /> : null}
+            <Button loading={isPending} disabled={isPending} type="submit">
                 Open Leadership Portal
             </Button>
         </form>

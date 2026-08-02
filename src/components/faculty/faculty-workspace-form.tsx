@@ -48,6 +48,7 @@ import {
     researchProjectTypes,
 } from "@/lib/faculty/options";
 import { facultyRecordSchema } from "@/lib/faculty/validators";
+import { ArrowDown, Download, Pencil, Plus, RotateCcw, X } from "lucide-react";
 
 type FacultyWorkspaceValues = z.input<typeof facultyRecordSchema>;
 type FacultyWorkspaceResolvedValues = z.output<typeof facultyRecordSchema>;
@@ -1184,9 +1185,9 @@ export function FacultyWorkspaceForm({
     return (
         <div className="space-y-6 pb-20">
             <div className="space-y-1">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Institutional Dashboard</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Institutional Dashboard</p>
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Faculty Workspace</h1>
+                    <h1 className="text-3xl font-semibold tracking-tight text-foreground">Faculty Workspace</h1>
                     <div className="flex items-center gap-2">
                         <Badge variant="secondary">
                             {selectedAcademicYear}
@@ -1194,6 +1195,7 @@ export function FacultyWorkspaceForm({
                                 <Dialog open={isExportDialogOpen} onOpenChange={setExportDialogOpen}>
                                     <DialogTrigger asChild>
                                         <Button type="button" variant="outline" size="sm">
+                                            <Download aria-hidden />
                                             Export Dossier
                                         </Button>
                                     </DialogTrigger>
@@ -1224,6 +1226,7 @@ export function FacultyWorkspaceForm({
                                                     setExportDialogOpen(false);
                                                 }}
                                             >
+                                                <ArrowDown aria-hidden />
                                                 Jump to Profile
                                             </Button>
                                             <Button
@@ -1234,6 +1237,7 @@ export function FacultyWorkspaceForm({
                                                     setExportDialogOpen(false);
                                                 }}
                                             >
+                                                <ArrowDown aria-hidden />
                                                 Jump to Teaching
                                             </Button>
                                             <Button
@@ -1244,6 +1248,7 @@ export function FacultyWorkspaceForm({
                                                     setExportDialogOpen(false);
                                                 }}
                                             >
+                                                <ArrowDown aria-hidden />
                                                 Jump to Activities
                                             </Button>
                                             <Button
@@ -1254,6 +1259,7 @@ export function FacultyWorkspaceForm({
                                                     setExportDialogOpen(false);
                                                 }}
                                             >
+                                                <ArrowDown aria-hidden />
                                                 Jump to Compliance
                                             </Button>
                                         </div>
@@ -1269,6 +1275,7 @@ export function FacultyWorkspaceForm({
                                                     setExportDialogOpen(false);
                                                 }}
                                             >
+                                                <Download aria-hidden />
                                                 Download Identity & Qualification (Excel)
                                             </Button>
                                             <Button
@@ -1279,6 +1286,7 @@ export function FacultyWorkspaceForm({
                                                     setExportDialogOpen(false);
                                                 }}
                                             >
+                                                <Download aria-hidden />
                                                 Download Teaching Summary (Excel)
                                             </Button>
                                             <Button
@@ -1289,6 +1297,7 @@ export function FacultyWorkspaceForm({
                                                     setExportDialogOpen(false);
                                                 }}
                                             >
+                                                <Download aria-hidden />
                                                 Download Teaching Load (Excel)
                                             </Button>
                                             <Button
@@ -1299,12 +1308,14 @@ export function FacultyWorkspaceForm({
                                                     setExportDialogOpen(false);
                                                 }}
                                             >
+                                                <Download aria-hidden />
                                                 Download Result Summary (Excel)
                                             </Button>
                                         </div>
 
                                         <DialogFooter>
                                             <Button type="button" variant="ghost" onClick={() => setExportDialogOpen(false)}>
+                                                <X aria-hidden />
                                                 Close
                                             </Button>
                                         </DialogFooter>
@@ -1329,12 +1340,12 @@ export function FacultyWorkspaceForm({
                     <CardContent className="flex flex-col items-center gap-4 p-5">
                         <ProfilePhotoUpload userId={user.id} currentPhotoURL={user.photoURL} />
                         <div className="w-full space-y-1 text-center">
-                            <p className="text-lg font-semibold text-slate-900">{user.name}</p>
-                            <p className="text-xs text-slate-500">
+                            <p className="text-lg font-semibold text-foreground">{user.name}</p>
+                            <p className="text-xs text-muted-foreground">
                                 Profile completion: {completion.completedProfileFields}/{completion.totalProfileFields} fields
                             </p>
                             <Progress value={completion.profileScore} className="mt-2 h-1.5" />
-                            <p className="text-xs font-medium text-slate-700">{completion.profileScore}%</p>
+                            <p className="text-xs font-medium text-foreground">{completion.profileScore}%</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -1512,6 +1523,7 @@ export function FacultyWorkspaceForm({
                                         {editingQualificationIndex !== null ? "Update in Table" : "Save to Table"}
                                     </Button>
                                     <Button type="button" variant="outline" onClick={resetQualificationDraft}>
+                                        <RotateCcw aria-hidden />
                                         Clear Form
                                     </Button>
                                     <Button type="button" variant="outline" onClick={downloadQualificationCsv}>
@@ -1689,7 +1701,7 @@ export function FacultyWorkspaceForm({
                                         <LucideIcons.Save className="mr-1 size-4" />
                                         {editingTeachingSummaryIndex !== null ? "Update in Table" : "Save to Table"}
                                     </Button>
-                                    <Button type="button" variant="outline" onClick={resetTeachingSummaryDraft}>Clear Form</Button>
+                                    <Button type="button" variant="outline" onClick={resetTeachingSummaryDraft}><RotateCcw aria-hidden />Clear Form</Button>
                                     <Button type="button" variant="outline" onClick={downloadTeachingSummaryExcel}>
                                         <LucideIcons.Download className="mr-1 size-4" />
                                         Download Excel
@@ -1860,7 +1872,7 @@ export function FacultyWorkspaceForm({
                                         <LucideIcons.Save className="mr-1 size-4" />
                                         {editingTeachingLoadIndex !== null ? "Update in Table" : "Save to Table"}
                                     </Button>
-                                    <Button type="button" variant="outline" onClick={resetTeachingLoadDraft}>Clear Form</Button>
+                                    <Button type="button" variant="outline" onClick={resetTeachingLoadDraft}><RotateCcw aria-hidden />Clear Form</Button>
                                     <Button type="button" variant="outline" onClick={downloadTeachingLoadExcel}>
                                         <LucideIcons.Download className="mr-1 size-4" />
                                         Download Excel
@@ -1979,7 +1991,7 @@ export function FacultyWorkspaceForm({
                                         <LucideIcons.Save className="mr-1 size-4" />
                                         {editingResultSummaryIndex !== null ? "Update in Table" : "Save to Table"}
                                     </Button>
-                                    <Button type="button" variant="outline" onClick={resetResultSummaryDraft}>Clear Form</Button>
+                                    <Button type="button" variant="outline" onClick={resetResultSummaryDraft}><RotateCcw aria-hidden />Clear Form</Button>
                                     <Button type="button" variant="outline" onClick={downloadResultSummaryExcel}>
                                         <LucideIcons.Download className="mr-1 size-4" />
                                         Download Excel
@@ -2199,6 +2211,7 @@ export function FacultyWorkspaceForm({
                                         })
                                     }
                                 >
+                                    <Plus aria-hidden />
                                     Add Publication
                                 </Button>
                             </div>
@@ -2306,6 +2319,7 @@ export function FacultyWorkspaceForm({
                                         })
                                     }
                                 >
+                                    <Plus aria-hidden />
                                     Add Book
                                 </Button>
                             </div>
@@ -2470,6 +2484,7 @@ export function FacultyWorkspaceForm({
                                         })
                                     }
                                 >
+                                    <Plus aria-hidden />
                                     Add Patent
                                 </Button>
 
@@ -2558,6 +2573,7 @@ export function FacultyWorkspaceForm({
                                         })
                                     }
                                 >
+                                    <Plus aria-hidden />
                                     Add Research Project
                                 </Button>
                             </div>
@@ -2749,6 +2765,7 @@ export function FacultyWorkspaceForm({
                                         })
                                     }
                                 >
+                                    <Plus aria-hidden />
                                     Add Event Participation
                                 </Button>
                             </div>
@@ -2860,6 +2877,7 @@ export function FacultyWorkspaceForm({
                                         })
                                     }
                                 >
+                                    <Plus aria-hidden />
                                     Add Consultancy Project
                                 </Button>
                             </div>
@@ -2970,6 +2988,7 @@ export function FacultyWorkspaceForm({
                                         })
                                     }
                                 >
+                                    <Plus aria-hidden />
                                     Add Award
                                 </Button>
                             </div>
@@ -3119,6 +3138,7 @@ export function FacultyWorkspaceForm({
                                         })
                                     }
                                 >
+                                    <Plus aria-hidden />
                                     Add PhD Guidance
                                 </Button>
                             </div>
@@ -3245,6 +3265,7 @@ export function FacultyWorkspaceForm({
                                         })
                                     }
                                 >
+                                    <Plus aria-hidden />
                                     Add E-content
                                 </Button>
                             </div>
@@ -3372,6 +3393,7 @@ export function FacultyWorkspaceForm({
                                         })
                                     }
                                 >
+                                    <Plus aria-hidden />
                                     Add MOOC Course
                                 </Button>
                             </div>
@@ -3459,6 +3481,7 @@ export function FacultyWorkspaceForm({
                                     </EditableRow>
                                 ))}
                                 <Button type="button" variant="secondary" onClick={() => administrativeRoles.append({ documentId: "", academicYear: "", roleName: "", committeeName: "", responsibilityDescription: "" })}>
+                                    <Plus aria-hidden />
                                     Add Administrative Role
                                 </Button>
                             </div>
@@ -3576,6 +3599,7 @@ export function FacultyWorkspaceForm({
                                         })
                                     }
                                 >
+                                    <Plus aria-hidden />
                                     Add Institutional Contribution
                                 </Button>
                             </div>
@@ -3676,6 +3700,7 @@ export function FacultyWorkspaceForm({
                                     </EditableRow>
                                 ))}
                                 <Button type="button" variant="secondary" onClick={() => facultyDevelopmentProgrammes.append({ documentId: "", title: "", sponsoredBy: "", level: "College", startDate: "", endDate: "", participantsCount: 0 })}>
+                                    <Plus aria-hidden />
                                     Add FDP Record
                                 </Button>
                             </div>
@@ -3763,6 +3788,7 @@ export function FacultyWorkspaceForm({
                                     </EditableRow>
                                 ))}
                                 <Button type="button" variant="secondary" onClick={() => socialExtensionActivities.append({ documentId: "", academicYear: "", programName: "", activityName: "", hoursContributed: 0 })}>
+                                    <Plus aria-hidden />
                                     Add Extension Activity
                                 </Button>
                             </div>
@@ -3914,6 +3940,7 @@ export function FacultyWorkspaceForm({
                                         });
                                     }}
                                 >
+                                    <Plus aria-hidden />
                                     Add KPI Target
                                 </Button>
                             </div>
@@ -4077,6 +4104,7 @@ export function FacultyWorkspaceForm({
                                         });
                                     }}
                                 >
+                                    <Plus aria-hidden />
                                     Add KPI Achievement
                                 </Button>
                             </div>
@@ -4269,6 +4297,7 @@ export function FacultyWorkspaceForm({
                                         });
                                     }}
                                 >
+                                    <Plus aria-hidden />
                                     Add AQAR Summary
                                 </Button>
                             </div>
@@ -4305,7 +4334,7 @@ function ActionCard({
     return (
         <Card>
             <CardContent className="flex h-full items-start gap-3 p-4">
-                <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-600">
+                <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
                         {icon}
                 </span>
                 <div className="space-y-2">
@@ -4378,9 +4407,9 @@ function ActionLink({
     href: string;
 }) {
     return (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4">
-            <p className="text-sm font-semibold text-zinc-900">{title}</p>
-            <p className="mt-1 text-xs text-zinc-600">{description}</p>
+        <div className="rounded-xl border border-border bg-muted/80 p-4">
+            <p className="text-sm font-semibold text-foreground">{title}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{description}</p>
             <Button asChild variant="outline" className="mt-4 w-full">
                 <Link href={href}>Open {title}</Link>
             </Button>
@@ -4390,9 +4419,9 @@ function ActionLink({
 
 function Info({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
-            <p className="mt-1.5 truncate text-base font-semibold text-slate-900">{value}</p>
+        <div className="rounded-lg border border-border bg-muted/50 p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+            <p className="mt-1.5 truncate text-base font-semibold text-foreground">{value}</p>
         </div>
     );
 }
@@ -4415,6 +4444,7 @@ function SectionCard({
                         <CardDescription>{description}</CardDescription>
                     </div>
                     <Button type="button" variant="link" size="sm">
+                        <Pencil aria-hidden />
                         Edit Section
                     </Button>
                 </div>
@@ -4439,7 +4469,7 @@ function Field({
         <div className="grid gap-2.5">
             <Label htmlFor={id}>{label}</Label>
             {children}
-            {error ? <p className="text-xs font-medium text-rose-600">{error}</p> : null}
+            {error ? <p className="text-xs font-medium text-destructive">{error}</p> : null}
         </div>
     );
 }
@@ -4578,7 +4608,7 @@ function MultiSelectField({
             <PopoverContent className="w-[320px] p-3" align="start">
                 <div className="grid max-h-60 gap-2 overflow-auto">
                     {options.map((option) => (
-                        <label key={option} className="flex items-center gap-2 rounded-md border border-zinc-200 px-2 py-1.5 text-sm">
+                        <label key={option} className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5 text-sm">
                             <Checkbox
                                 checked={selected.includes(option)}
                                 onCheckedChange={() => toggle(option)}
@@ -4586,7 +4616,7 @@ function MultiSelectField({
                             <span>{option}</span>
                         </label>
                     ))}
-                    {!options.length ? <p className="text-xs text-zinc-500">No options available.</p> : null}
+                    {!options.length ? <p className="text-xs text-muted-foreground">No options available.</p> : null}
                 </div>
             </PopoverContent>
         </Popover>
@@ -4630,7 +4660,7 @@ function CheckboxField({
     label: string;
 }) {
     return (
-        <label className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
+        <label className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-foreground">
             <Checkbox checked={checked} onCheckedChange={(value) => onCheckedChange(Boolean(value))} />
             <span>{label}</span>
         </label>
@@ -4639,7 +4669,7 @@ function CheckboxField({
 
 function EditableRow({ children }: { children: React.ReactNode }) {
     return (
-        <div className="grid gap-4 rounded-2xl border border-zinc-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] p-4 shadow-sm md:grid-cols-2 xl:grid-cols-6">
+        <div className="grid gap-4 rounded-2xl border border-border bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] p-4 shadow-sm md:grid-cols-2 xl:grid-cols-6">
             {children}
         </div>
     );
@@ -4656,7 +4686,7 @@ function RowField({
 }) {
     return (
         <div className={`grid gap-2 ${className ?? ""}`.trim()}>
-            <Label className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-600">{label}</Label>
+            <Label className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{label}</Label>
             {children}
         </div>
     );

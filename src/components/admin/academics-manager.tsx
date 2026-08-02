@@ -1,13 +1,13 @@
 "use client";
 
-import { BookMarked, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Download, GraduationCap, MoreHorizontal, Pencil, Search, Trash2, Upload } from "lucide-react";
+import { BookMarked, BookOpen, CalendarDays, ChevronLeft, ChevronRight, Download, GraduationCap, MoreHorizontal, Pencil, Search, Trash2, Upload, X } from "lucide-react";
 import { useId, useMemo, useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import type { z } from "zod";
 import * as XLSX from "xlsx";
 
-import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1048,7 +1048,7 @@ export function AcademicsManager({
                     </div>
                     <div className="flex items-center gap-2">
                         <Badge variant="secondary">Total {academicYears.length}</Badge>
-                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                        <Badge className="bg-success-muted text-success-muted-foreground hover:bg-success-muted">
                             Active {academicYears.filter((item) => item.isActive).length}
                         </Badge>
                     </div>
@@ -1056,7 +1056,7 @@ export function AcademicsManager({
                 <CardContent className="grid gap-6 xl:grid-cols-[360px_1fr]">
                     <div className="space-y-4">
                         {message ? <FormMessage message={message.text} type={message.type} /> : null}
-                        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/50 p-3">
                             <Button type="button" variant="outline" onClick={downloadAcademicYearSampleExcel}>
                                 <Download className="mr-2 size-4" />
                                 Sample Excel
@@ -1088,13 +1088,12 @@ export function AcademicsManager({
                             <Field label="Year end" id="yearEnd" error={academicYearForm.formState.errors.yearEnd?.message}>
                                 <Input id="yearEnd" type="number" {...academicYearForm.register("yearEnd", { valueAsNumber: true })} />
                             </Field>
-                            <label className="flex items-center gap-2 text-sm text-zinc-700">
+                            <label className="flex items-center gap-2 text-sm text-foreground">
                                 <input type="checkbox" {...academicYearForm.register("isActive")} />
                                 Set as active year
                             </label>
                             <div className="flex flex-wrap gap-3">
-                                <Button type="submit" disabled={isPending}>
-                                    {isPending ? <Spinner /> : null}
+                                <Button loading={isPending} type="submit" disabled={isPending}>
                                     {editingAcademicYearId ? "Update Year" : "Create Year"}
                                 </Button>
                                 {editingAcademicYearId ? (
@@ -1110,6 +1109,7 @@ export function AcademicsManager({
                                             });
                                         }}
                                     >
+                                        <X aria-hidden />
                                         Cancel
                                     </Button>
                                 ) : null}
@@ -1119,7 +1119,7 @@ export function AcademicsManager({
                     <div className="space-y-3">
                         <div className="grid gap-3 md:grid-cols-[1fr_220px]">
                             <div className="relative">
-                                <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-zinc-400" />
+                                <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
                                 <Input
                                     value={yearQuery}
                                     onChange={(event) => {
@@ -1148,9 +1148,9 @@ export function AcademicsManager({
                             </Select>
                         </div>
 
-                        <div className="max-h-[420px] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200">
+                        <div className="max-h-[420px] overflow-y-auto overflow-x-auto rounded-lg border border-border">
                             <Table disableContainer className="min-w-[640px]">
-                                <TableHeader className="sticky top-0 z-10 bg-white">
+                                <TableHeader className="sticky top-0 z-10 bg-card">
                                 <TableRow>
                                     <TableHead>Academic Year</TableHead>
                                     <TableHead>Status</TableHead>
@@ -1160,11 +1160,11 @@ export function AcademicsManager({
                                 <TableBody>
                                 {pagedAcademicYears.items.length ? pagedAcademicYears.items.map((year) => (
                                     <TableRow key={year._id}>
-                                        <TableCell className="font-medium text-zinc-900">
+                                        <TableCell className="font-medium text-foreground">
                                             {year.yearStart}-{year.yearEnd}
                                         </TableCell>
                                         <TableCell>
-                                            <Badge className={year.isActive ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : ""}>
+                                            <Badge className={year.isActive ? "bg-success-muted text-success-muted-foreground hover:bg-success-muted" : ""}>
                                                 {year.isActive ? "Active" : "Inactive"}
                                             </Badge>
                                         </TableCell>
@@ -1196,7 +1196,7 @@ export function AcademicsManager({
                                                     ) : null}
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem
-                                                        className="text-rose-600 focus:text-rose-600"
+                                                        className="text-destructive focus:text-destructive"
                                                         onClick={() => deleteAcademicYear(year._id)}
                                                     >
                                                         <Trash2 className="mr-2 size-4" /> Delete
@@ -1241,7 +1241,7 @@ export function AcademicsManager({
                     </div>
                     <div className="flex items-center gap-2">
                         <Badge variant="secondary">Total {programs.length}</Badge>
-                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                        <Badge className="bg-success-muted text-success-muted-foreground hover:bg-success-muted">
                             Active {programs.filter((item) => item.isActive).length}
                         </Badge>
                     </div>
@@ -1249,7 +1249,7 @@ export function AcademicsManager({
                 <CardContent className="grid gap-6 xl:grid-cols-[400px_1fr]">
                     <div className="space-y-4">
                         {programMessage ? <FormMessage message={programMessage.text} type={programMessage.type} /> : null}
-                        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/50 p-3">
                             <Button type="button" variant="outline" onClick={downloadProgramSampleExcel}>
                                 <Download className="mr-2 size-4" />
                                 Sample Excel
@@ -1353,14 +1353,13 @@ export function AcademicsManager({
                                 <Field label="Duration (years)" id="durationYears" error={programForm.formState.errors.durationYears?.message}>
                                     <Input id="durationYears" type="number" min={1} {...programForm.register("durationYears", { valueAsNumber: true })} />
                                 </Field>
-                                <label className="flex items-center gap-2 text-sm text-zinc-700 md:pt-7">
+                                <label className="flex items-center gap-2 text-sm text-foreground md:pt-7">
                                     <input type="checkbox" {...programForm.register("isActive")} />
                                     Active program
                                 </label>
                             </div>
                             <div className="flex flex-wrap gap-3">
-                                <Button type="submit" disabled={isPending}>
-                                    {isPending ? <Spinner /> : null}
+                                <Button loading={isPending} type="submit" disabled={isPending}>
                                     {editingProgramId ? "Update Program" : "Create Program"}
                                 </Button>
                                 {editingProgramId ? (
@@ -1380,6 +1379,7 @@ export function AcademicsManager({
                                             });
                                         }}
                                     >
+                                        <X aria-hidden />
                                         Cancel
                                     </Button>
                                 ) : null}
@@ -1389,7 +1389,7 @@ export function AcademicsManager({
                     <div className="space-y-3">
                         <div className="grid gap-3 md:grid-cols-[1fr_220px]">
                             <div className="relative">
-                                <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-zinc-400" />
+                                <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
                                 <Input
                                     value={programQuery}
                                     onChange={(event) => {
@@ -1418,9 +1418,9 @@ export function AcademicsManager({
                             </Select>
                         </div>
 
-                        <div className="max-h-[420px] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200">
+                        <div className="max-h-[420px] overflow-y-auto overflow-x-auto rounded-lg border border-border">
                             <Table disableContainer className="min-w-[980px]">
-                                <TableHeader className="sticky top-0 z-10 bg-white">
+                                <TableHeader className="sticky top-0 z-10 bg-card">
                                 <TableRow>
                                     <TableHead>Program</TableHead>
                                     <TableHead>Department / Institution</TableHead>
@@ -1433,17 +1433,17 @@ export function AcademicsManager({
                                 {pagedPrograms.items.length ? pagedPrograms.items.map((program) => (
                                     <TableRow key={program._id}>
                                         <TableCell>
-                                            <p className="font-medium text-zinc-900">{program.name}</p>
-                                            <p className="text-xs text-zinc-500">{formatDegreeTypeLabel(program.degreeType)} • {program.durationYears} years</p>
+                                            <p className="font-medium text-foreground">{program.name}</p>
+                                            <p className="text-xs text-muted-foreground">{formatDegreeTypeLabel(program.degreeType)} • {program.durationYears} years</p>
                                         </TableCell>
-                                        <TableCell className="text-sm text-zinc-600">
+                                        <TableCell className="text-sm text-muted-foreground">
                                             {(typeof program.departmentId === "string" ? program.departmentId : program.departmentId?.name) ?? "-"}
                                             {" / "}
                                             {(typeof program.institutionId === "string" ? program.institutionId : program.institutionId?.name) ?? "-"}
                                         </TableCell>
                                         <TableCell>{yearLabel(program.startAcademicYearId)}</TableCell>
                                         <TableCell>
-                                            <Badge className={program.isActive ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : ""}>
+                                            <Badge className={program.isActive ? "bg-success-muted text-success-muted-foreground hover:bg-success-muted" : ""}>
                                                 {program.isActive ? "Active" : "Inactive"}
                                             </Badge>
                                         </TableCell>
@@ -1474,7 +1474,7 @@ export function AcademicsManager({
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem
-                                                        className="text-rose-600 focus:text-rose-600"
+                                                        className="text-destructive focus:text-destructive"
                                                         onClick={() => deleteProgram(program._id)}
                                                     >
                                                         <Trash2 className="mr-2 size-4" /> Delete
@@ -1522,7 +1522,7 @@ export function AcademicsManager({
                 <CardContent className="grid gap-6 xl:grid-cols-[360px_1fr]">
                     <div className="space-y-4">
                         {semesterMessage ? <FormMessage message={semesterMessage.text} type={semesterMessage.type} /> : null}
-                        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/50 p-3">
                             <Button type="button" variant="outline" onClick={downloadSemesterSampleExcel}>
                                 <Download className="mr-2 size-4" />
                                 Sample Excel
@@ -1552,8 +1552,7 @@ export function AcademicsManager({
                                 <Input id="semesterNumber" type="number" min={1} {...semesterForm.register("semesterNumber", { valueAsNumber: true })} />
                             </Field>
                             <div className="flex flex-wrap gap-3">
-                                <Button type="submit" disabled={isPending}>
-                                    {isPending ? <Spinner /> : null}
+                                <Button loading={isPending} type="submit" disabled={isPending}>
                                     {editingSemesterId ? "Update Semester" : "Create Semester"}
                                 </Button>
                                 {editingSemesterId ? (
@@ -1567,6 +1566,7 @@ export function AcademicsManager({
                                             });
                                         }}
                                     >
+                                        <X aria-hidden />
                                         Cancel
                                     </Button>
                                 ) : null}
@@ -1576,7 +1576,7 @@ export function AcademicsManager({
                     <div className="space-y-3">
                         <div className="grid gap-3 md:grid-cols-[1fr]">
                             <div className="relative">
-                                <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-zinc-400" />
+                                <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
                                 <Input
                                     value={semesterQuery}
                                     onChange={(event) => {
@@ -1589,9 +1589,9 @@ export function AcademicsManager({
                             </div>
                         </div>
 
-                        <div className="max-h-[420px] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200">
+                        <div className="max-h-[420px] overflow-y-auto overflow-x-auto rounded-lg border border-border">
                             <Table disableContainer className="min-w-[820px]">
-                                <TableHeader className="sticky top-0 z-10 bg-white">
+                                <TableHeader className="sticky top-0 z-10 bg-card">
                                 <TableRow>
                                     <TableHead>Semester</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
@@ -1600,7 +1600,7 @@ export function AcademicsManager({
                                 <TableBody>
                                 {pagedSemesters.items.length ? pagedSemesters.items.map((semester) => (
                                     <TableRow key={semester._id}>
-                                        <TableCell className="font-medium text-zinc-900">Semester {semester.semesterNumber}</TableCell>
+                                        <TableCell className="font-medium text-foreground">Semester {semester.semesterNumber}</TableCell>
                                         <TableCell className="text-right">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
@@ -1622,7 +1622,7 @@ export function AcademicsManager({
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem
-                                                        className="text-rose-600 focus:text-rose-600"
+                                                        className="text-destructive focus:text-destructive"
                                                         onClick={() => deleteSemester(semester._id)}
                                                     >
                                                         <Trash2 className="mr-2 size-4" /> Delete
@@ -1667,7 +1667,7 @@ export function AcademicsManager({
                     </div>
                     <div className="flex items-center gap-2">
                         <Badge variant="secondary">Total {courses.length}</Badge>
-                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                        <Badge className="bg-success-muted text-success-muted-foreground hover:bg-success-muted">
                             Active {courses.filter((item) => item.isActive).length}
                         </Badge>
                     </div>
@@ -1675,7 +1675,7 @@ export function AcademicsManager({
                 <CardContent className="grid gap-6 xl:grid-cols-[420px_1fr]">
                     <div className="space-y-4">
                         {courseMessage ? <FormMessage message={courseMessage.text} type={courseMessage.type} /> : null}
-                        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/50 p-3">
                             <Button type="button" variant="outline" onClick={downloadCourseSampleExcel}>
                                 <Download className="mr-2 size-4" />
                                 Sample Excel
@@ -1777,13 +1777,12 @@ export function AcademicsManager({
                                     <Input id="courseCredits" type="number" min={0} {...courseForm.register("credits", { valueAsNumber: true })} />
                                 </Field>
                             </div>
-                            <label className="flex items-center gap-2 text-sm text-zinc-700">
+                            <label className="flex items-center gap-2 text-sm text-foreground">
                                 <input type="checkbox" {...courseForm.register("isActive")} />
                                 Active course
                             </label>
                             <div className="flex flex-wrap gap-3">
-                                <Button type="submit" disabled={isPending}>
-                                    {isPending ? <Spinner /> : null}
+                                <Button loading={isPending} type="submit" disabled={isPending}>
                                     {editingCourseId ? "Update Course" : "Create Course"}
                                 </Button>
                                 {editingCourseId ? (
@@ -1803,6 +1802,7 @@ export function AcademicsManager({
                                             });
                                         }}
                                     >
+                                        <X aria-hidden />
                                         Cancel
                                     </Button>
                                 ) : null}
@@ -1812,7 +1812,7 @@ export function AcademicsManager({
                     <div className="space-y-3">
                         <div className="grid gap-3 md:grid-cols-[1fr_220px_200px]">
                             <div className="relative">
-                                <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-zinc-400" />
+                                <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
                                 <Input
                                     value={courseQuery}
                                     onChange={(event) => {
@@ -1859,9 +1859,9 @@ export function AcademicsManager({
                             </Select>
                         </div>
 
-                        <div className="max-h-[420px] overflow-y-auto overflow-x-auto rounded-lg border border-zinc-200">
+                        <div className="max-h-[420px] overflow-y-auto overflow-x-auto rounded-lg border border-border">
                             <Table disableContainer className="min-w-[980px]">
-                                <TableHeader className="sticky top-0 z-10 bg-white">
+                                <TableHeader className="sticky top-0 z-10 bg-card">
                                 <TableRow>
                                     <TableHead>Course</TableHead>
                                     <TableHead>Program</TableHead>
@@ -1874,8 +1874,8 @@ export function AcademicsManager({
                                 {pagedCourses.items.length ? pagedCourses.items.map((course) => (
                                     <TableRow key={course._id}>
                                         <TableCell>
-                                            <p className="font-medium text-zinc-900">{course.name}</p>
-                                            <p className="text-xs text-zinc-500">
+                                            <p className="font-medium text-foreground">{course.name}</p>
+                                            <p className="text-xs text-muted-foreground">
                                                 {course.subjectCode || "No code"} • {course.courseType} • {course.credits} credits
                                             </p>
                                         </TableCell>
@@ -1884,7 +1884,7 @@ export function AcademicsManager({
                                         </TableCell>
                                         <TableCell>{courseSemesterLabel(course)}</TableCell>
                                         <TableCell>
-                                            <Badge className={course.isActive ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : ""}>
+                                            <Badge className={course.isActive ? "bg-success-muted text-success-muted-foreground hover:bg-success-muted" : ""}>
                                                 {course.isActive ? "Active" : "Inactive"}
                                             </Badge>
                                         </TableCell>
@@ -1915,7 +1915,7 @@ export function AcademicsManager({
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem
-                                                        className="text-rose-600 focus:text-rose-600"
+                                                        className="text-destructive focus:text-destructive"
                                                         onClick={() => deleteCourse(course._id)}
                                                     >
                                                         <Trash2 className="mr-2 size-4" /> Delete
@@ -1968,7 +1968,7 @@ function Field({
         <div className="grid gap-2">
             <Label htmlFor={id}>{label}</Label>
             {children}
-            {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+            {error ? <p className="text-xs text-destructive">{error}</p> : null}
         </div>
     );
 }
@@ -1987,8 +1987,8 @@ function PaginationControls({
     onPageChange: (nextPage: number) => void;
 }) {
     return (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">
-            <div className="text-zinc-600">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm">
+            <div className="text-muted-foreground">
                 Showing {totalItems ? `${Math.min((page - 1) * PAGE_SIZE + 1, totalItems)}-${Math.min(page * PAGE_SIZE, totalItems)}` : "0"} of {totalItems} {itemLabel}
             </div>
             <div className="flex items-center gap-2">

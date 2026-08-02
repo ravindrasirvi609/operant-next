@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, Trash2 } from "lucide-react";
+import { Building2, Flag, Globe2, MapPin, Plus, Trash2, X, type LucideIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
 
-import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +32,9 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { NativeSelect } from "@/components/ui/native-select";
+import { StatTile } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import type { RecordType } from "@/lib/student/record-validators";
@@ -131,8 +134,6 @@ function refName(ref: any, field: string = "name") {
     return ref[field] ?? ref.title ?? ref.sportName ?? "-";
 }
 
-const selectBaseClass =
-    "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40";
 
 const recordsTabs = [
     { value: "academics", label: "Academics" },
@@ -333,10 +334,10 @@ export function StudentRecordsDashboard({
 
     return (
         <div className="space-y-6">
-            <Card className="relative overflow-hidden border-zinc-200 bg-white">
+            <Card className="relative overflow-hidden border-border bg-card">
                 <div className="pointer-events-none absolute inset-0">
-                    <div className="absolute -left-12 top-8 h-36 w-36 rounded-full bg-sky-100/70 blur-3xl" />
-                    <div className="absolute right-0 top-0 h-48 w-48 rounded-full bg-emerald-100/60 blur-3xl" />
+                    <div className="absolute -left-12 top-8 h-36 w-36 rounded-full bg-info-muted/70 blur-3xl" />
+                    <div className="absolute right-0 top-0 h-48 w-48 rounded-full bg-success-muted/60 blur-3xl" />
                 </div>
                 <CardHeader className="relative space-y-4">
                     <div className="flex flex-wrap items-center gap-2">
@@ -345,8 +346,8 @@ export function StudentRecordsDashboard({
                         <Badge
                             className={
                                 studentMeta.accountStatus === "Active"
-                                    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
-                                    : "bg-amber-100 text-amber-700 hover:bg-amber-100"
+                                    ? "bg-success-muted text-success-muted-foreground hover:bg-success-muted"
+                                    : "bg-warning-muted text-warning-muted-foreground hover:bg-warning-muted"
                             }
                         >
                             {studentMeta.accountStatus}
@@ -393,7 +394,7 @@ export function StudentRecordsDashboard({
 
             <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
                 <aside className="space-y-6 lg:sticky lg:top-32 lg:self-start">
-                    <Card className="border-zinc-200 bg-white">
+                    <Card className="border-border bg-card">
                         <CardHeader>
                             <CardTitle className="text-lg">Student Mapping</CardTitle>
                             <CardDescription>Institution and program context used for all records.</CardDescription>
@@ -408,7 +409,7 @@ export function StudentRecordsDashboard({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-zinc-200 bg-white">
+                    <Card className="border-border bg-card">
                         <CardHeader>
                             <CardTitle className="text-lg">Navigation</CardTitle>
                             <CardDescription>Use route-based tabs to move across the student workspace.</CardDescription>
@@ -448,7 +449,7 @@ export function StudentRecordsDashboard({
                 </aside>
 
                 <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-                <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-2 overflow-x-auto rounded-2xl border border-zinc-200 bg-white p-2 shadow-sm">
+                <TabsList className="flex h-auto w-full flex-nowrap justify-start gap-2 overflow-x-auto rounded-2xl border border-border bg-card p-2 shadow-sm">
                     {recordsTabs.map((tab) => (
                         <TabsTrigger
                             key={tab.value}
@@ -961,7 +962,7 @@ export function StudentRecordsDashboard({
                                         <Badge
                                             className={
                                                 r.role === "Presenter"
-                                                    ? "bg-blue-100 text-blue-700 hover:bg-blue-100"
+                                                    ? "bg-info-muted text-info-muted-foreground hover:bg-info-muted"
                                                     : ""
                                             }
                                             variant="secondary"
@@ -1186,52 +1187,36 @@ function CountCard({
     count?: number;
     countLabel?: string;
 }) {
-    return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">
-                {label}
-            </p>
-            <p className="mt-2 text-2xl font-bold text-zinc-950">{countLabel ?? count ?? 0}</p>
-        </div>
-    );
+    return <StatTile label={label} value={countLabel ?? count ?? 0} />;
 }
 
+/**
+ * Pass / Fail / Promoted / Withheld are workflow outcomes, so they go through
+ * the shared status resolver rather than a private color map.
+ */
 function ResultBadge({ status }: { status: string }) {
-    const colors: Record<string, string> = {
-        Pass: "bg-emerald-100 text-emerald-700",
-        Fail: "bg-red-100 text-red-700",
-        Promoted: "bg-blue-100 text-blue-700",
-        Withheld: "bg-amber-100 text-amber-700",
-    };
-    return (
-        <Badge className={`${colors[status] ?? ""} hover:opacity-80`}>
-            {status}
-        </Badge>
-    );
+    return <StatusBadge status={status} />;
 }
 
-function StatusBadge({ status }: { status: string }) {
-    const colors: Record<string, string> = {
-        Planned: "bg-zinc-100 text-zinc-700",
-        Ongoing: "bg-blue-100 text-blue-700",
-        Completed: "bg-emerald-100 text-emerald-700",
-    };
-    return (
-        <Badge className={`${colors[status] ?? ""} hover:opacity-80`}>
-            {status}
-        </Badge>
-    );
-}
+/**
+ * Scope level is an ORDINAL rank (College < State < National < International),
+ * not a state. It deliberately does not use the semantic tones — those are
+ * reserved for workflow status, and reusing them here would make "National"
+ * look like a warning. Distinctness comes from the icon plus the label.
+ */
+const LEVEL_ICONS: Record<string, LucideIcon> = {
+    College: Building2,
+    State: MapPin,
+    National: Flag,
+    International: Globe2,
+};
 
 function LevelBadge({ level }: { level: string }) {
-    const colors: Record<string, string> = {
-        College: "bg-zinc-100 text-zinc-700",
-        State: "bg-blue-100 text-blue-700",
-        National: "bg-amber-100 text-amber-700",
-        International: "bg-cyan-100 text-cyan-700",
-    };
+    const Icon = LEVEL_ICONS[level] ?? Building2;
+
     return (
-        <Badge className={`${colors[level] ?? ""} hover:opacity-80`}>
+        <Badge variant="outline" className="gap-1">
+            <Icon aria-hidden />
             {level}
         </Badge>
     );
@@ -1239,9 +1224,9 @@ function LevelBadge({ level }: { level: string }) {
 
 function ReadOnlyLine({ label, value }: { label: string; value: string }) {
     return (
-        <div className="grid gap-1 rounded-md border border-zinc-200 bg-zinc-50 p-3">
-            <p className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">{label}</p>
-            <p className="text-sm font-semibold text-zinc-900">{value}</p>
+        <div className="grid gap-1 rounded-md border border-border bg-muted/50 p-3">
+            <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+            <p className="text-sm font-semibold text-foreground">{value}</p>
         </div>
     );
 }
@@ -1262,7 +1247,7 @@ function SectionCard({
     children: React.ReactNode;
 }) {
     return (
-        <Card className="border-zinc-200 bg-white shadow-sm">
+        <Card className="border-border bg-card shadow-sm">
             <CardHeader className="flex flex-row items-start justify-between gap-4">
                 <div>
                     <CardTitle>{title}</CardTitle>
@@ -1297,7 +1282,7 @@ function RecordTable({
 }) {
     if (rows.length === 0) {
         return (
-            <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-8 text-center text-sm text-zinc-500">
+            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-8 text-center text-sm text-muted-foreground">
                 No records added yet. Click &quot;Add&quot; to create your first
                 entry.
             </div>
@@ -1363,11 +1348,11 @@ function FormActions({
 }) {
     return (
         <div className="flex gap-3 pt-2">
-            <Button type="submit" disabled={isPending}>
-                {isPending ? <Spinner /> : null}
+            <Button loading={isPending} type="submit" disabled={isPending}>
                 Save
             </Button>
             <Button type="button" variant="secondary" onClick={onCancel}>
+                <X aria-hidden />
                 Cancel
             </Button>
         </div>
@@ -1434,7 +1419,7 @@ function EvidenceCell({
                 placeholder={docObject?.fileUrl ? "Replace" : "Upload evidence"}
             />
             {docObject?.verificationRemarks ? (
-                <span className="text-[11px] text-zinc-500">{docObject.verificationRemarks}</span>
+                <span className="text-[11px] text-muted-foreground">{docObject.verificationRemarks}</span>
             ) : null}
         </div>
     );
@@ -1457,7 +1442,7 @@ function AcademicForm({
 }) {
     return (
         <form
-            className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-4"
+            className="rounded-lg border border-border bg-muted/50 p-4 space-y-4"
             onSubmit={(e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
@@ -1473,11 +1458,10 @@ function AcademicForm({
         >
             <div className="grid gap-4 md:grid-cols-3">
                 <FormField label="Semester" id="semesterId">
-                    <select
+                    <NativeSelect
                         id="semesterId"
                         name="semesterId"
                         required
-                        className={selectBaseClass}
                     >
                         <option value="">Select semester</option>
                         {semesters.map((semester) => {
@@ -1493,9 +1477,9 @@ function AcademicForm({
                                 </option>
                             );
                         })}
-                    </select>
+                    </NativeSelect>
                     {semesterError ? (
-                        <p className="text-xs text-rose-600">{semesterError}</p>
+                        <p className="text-xs text-destructive">{semesterError}</p>
                     ) : null}
                 </FormField>
                 <FormField label="SGPA" id="sgpa">
@@ -1539,17 +1523,16 @@ function AcademicForm({
                     />
                 </FormField>
                 <FormField label="Result Status" id="resultStatus">
-                    <select
+                    <NativeSelect
                         id="resultStatus"
                         name="resultStatus"
-                        className={selectBaseClass}
                     >
                         <option value="">Select status</option>
                         <option value="Pass">Pass</option>
                         <option value="Fail">Fail</option>
                         <option value="Promoted">Promoted</option>
                         <option value="Withheld">Withheld</option>
-                    </select>
+                    </NativeSelect>
                 </FormField>
             </div>
             <FormActions onCancel={onCancel} isPending={isPending} />
@@ -1570,7 +1553,7 @@ function PublicationForm({
 }) {
     return (
         <form
-            className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-4"
+            className="rounded-lg border border-border bg-muted/50 p-4 space-y-4"
             onSubmit={(e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
@@ -1591,16 +1574,15 @@ function PublicationForm({
                     <Input id="title" name="title" required />
                 </FormField>
                 <FormField label="Publication Type" id="publicationType">
-                    <select
+                    <NativeSelect
                         id="publicationType"
                         name="publicationType"
-                        className={selectBaseClass}
                     >
                         <option value="">Select type</option>
                         <option value="Journal">Journal</option>
                         <option value="Conference">Conference</option>
                         <option value="Book">Book</option>
-                    </select>
+                    </NativeSelect>
                 </FormField>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
@@ -1649,7 +1631,7 @@ function ResearchForm({
 }) {
     return (
         <form
-            className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-4"
+            className="rounded-lg border border-border bg-muted/50 p-4 space-y-4"
             onSubmit={(e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
@@ -1680,16 +1662,15 @@ function ResearchForm({
                     <Input id="endDate" name="endDate" type="date" />
                 </FormField>
                 <FormField label="Status" id="status">
-                    <select
+                    <NativeSelect
                         id="status"
                         name="status"
-                        className={selectBaseClass}
                     >
                         <option value="">Select status</option>
                         <option value="Planned">Planned</option>
                         <option value="Ongoing">Ongoing</option>
                         <option value="Completed">Completed</option>
-                    </select>
+                    </NativeSelect>
                 </FormField>
             </div>
             <FormField label="Description" id="description">
@@ -1718,7 +1699,7 @@ function AwardForm({
 }) {
     return (
         <form
-            className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-4"
+            className="rounded-lg border border-border bg-muted/50 p-4 space-y-4"
             onSubmit={(e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
@@ -1731,11 +1712,10 @@ function AwardForm({
         >
             <div className="grid gap-4 md:grid-cols-2">
                 <FormField label="Award" id="awardId">
-                    <select
+                    <NativeSelect
                         id="awardId"
                         name="awardId"
                         required
-                        className={selectBaseClass}
                     >
                         <option value="">Select award</option>
                         {awards.map((award) => (
@@ -1745,11 +1725,11 @@ function AwardForm({
                                 {award.level ? ` • ${award.level}` : ""}
                             </option>
                         ))}
-                    </select>
+                    </NativeSelect>
                     {masterError ? (
-                        <p className="text-xs text-rose-600">{masterError}</p>
+                        <p className="text-xs text-destructive">{masterError}</p>
                     ) : awards.length === 0 ? (
-                        <p className="text-xs text-amber-600">
+                        <p className="text-xs text-warning-muted-foreground">
                             No awards found. Ask admin to add master awards.
                         </p>
                     ) : null}
@@ -1783,7 +1763,7 @@ function SkillForm({
 }) {
     return (
         <form
-            className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-4"
+            className="rounded-lg border border-border bg-muted/50 p-4 space-y-4"
             onSubmit={(e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
@@ -1798,11 +1778,10 @@ function SkillForm({
         >
             <div className="grid gap-4 md:grid-cols-3">
                 <FormField label="Skill" id="skillId">
-                    <select
+                    <NativeSelect
                         id="skillId"
                         name="skillId"
                         required
-                        className={selectBaseClass}
                     >
                         <option value="">Select skill</option>
                         {skills.map((skill) => (
@@ -1811,11 +1790,11 @@ function SkillForm({
                                 {skill.category ? ` • ${skill.category}` : ""}
                             </option>
                         ))}
-                    </select>
+                    </NativeSelect>
                     {masterError ? (
-                        <p className="text-xs text-rose-600">{masterError}</p>
+                        <p className="text-xs text-destructive">{masterError}</p>
                     ) : skills.length === 0 ? (
-                        <p className="text-xs text-amber-600">
+                        <p className="text-xs text-warning-muted-foreground">
                             No skills found. Ask admin to add skill masters.
                         </p>
                     ) : null}
@@ -1859,7 +1838,7 @@ function SportForm({
 }) {
     return (
         <form
-            className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-4"
+            className="rounded-lg border border-border bg-muted/50 p-4 space-y-4"
             onSubmit={(e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
@@ -1875,11 +1854,10 @@ function SportForm({
         >
             <div className="grid gap-4 md:grid-cols-2">
                 <FormField label="Sport" id="sportId">
-                    <select
+                    <NativeSelect
                         id="sportId"
                         name="sportId"
                         required
-                        className={selectBaseClass}
                     >
                         <option value="">Select sport</option>
                         {sports.map((sport) => (
@@ -1887,11 +1865,11 @@ function SportForm({
                                 {sport.sportName ?? sport.name ?? sport.title}
                             </option>
                         ))}
-                    </select>
+                    </NativeSelect>
                     {masterError ? (
-                        <p className="text-xs text-rose-600">{masterError}</p>
+                        <p className="text-xs text-destructive">{masterError}</p>
                     ) : sports.length === 0 ? (
-                        <p className="text-xs text-amber-600">
+                        <p className="text-xs text-warning-muted-foreground">
                             No sports found. Ask admin to add sport masters.
                         </p>
                     ) : null}
@@ -1907,17 +1885,16 @@ function SportForm({
             </div>
             <div className="grid gap-4 md:grid-cols-3">
                 <FormField label="Level" id="level">
-                    <select
+                    <NativeSelect
                         id="level"
                         name="level"
-                        className={selectBaseClass}
                     >
                         <option value="">Select level</option>
                         <option value="College">College</option>
                         <option value="State">State</option>
                         <option value="National">National</option>
                         <option value="International">International</option>
-                    </select>
+                    </NativeSelect>
                 </FormField>
                 <FormField label="Position / Rank" id="position">
                     <Input
@@ -1953,7 +1930,7 @@ function CulturalForm({
 }) {
     return (
         <form
-            className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-4"
+            className="rounded-lg border border-border bg-muted/50 p-4 space-y-4"
             onSubmit={(e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
@@ -1969,11 +1946,10 @@ function CulturalForm({
         >
             <div className="grid gap-4 md:grid-cols-2">
                 <FormField label="Cultural Activity" id="activityId">
-                    <select
+                    <NativeSelect
                         id="activityId"
                         name="activityId"
                         required
-                        className={selectBaseClass}
                     >
                         <option value="">Select activity</option>
                         {activities.map((activity) => (
@@ -1982,11 +1958,11 @@ function CulturalForm({
                                 {activity.category ? ` • ${activity.category}` : ""}
                             </option>
                         ))}
-                    </select>
+                    </NativeSelect>
                     {masterError ? (
-                        <p className="text-xs text-rose-600">{masterError}</p>
+                        <p className="text-xs text-destructive">{masterError}</p>
                     ) : activities.length === 0 ? (
-                        <p className="text-xs text-amber-600">
+                        <p className="text-xs text-warning-muted-foreground">
                             No activities found. Ask admin to add cultural masters.
                         </p>
                     ) : null}
@@ -2038,7 +2014,7 @@ function EventForm({
     const [role, setRole] = useState("Participant");
     return (
         <form
-            className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-4"
+            className="rounded-lg border border-border bg-muted/50 p-4 space-y-4"
             onSubmit={(e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
@@ -2052,11 +2028,10 @@ function EventForm({
         >
             <div className="grid gap-4 md:grid-cols-2">
                 <FormField label="Event" id="eventId">
-                    <select
+                    <NativeSelect
                         id="eventId"
                         name="eventId"
                         required
-                        className={selectBaseClass}
                     >
                         <option value="">Select event</option>
                         {events.map((event) => (
@@ -2066,11 +2041,11 @@ function EventForm({
                                 {event.startDate ? ` • ${fmtDate(event.startDate)}` : ""}
                             </option>
                         ))}
-                    </select>
+                    </NativeSelect>
                     {masterError ? (
-                        <p className="text-xs text-rose-600">{masterError}</p>
+                        <p className="text-xs text-destructive">{masterError}</p>
                     ) : events.length === 0 ? (
-                        <p className="text-xs text-amber-600">
+                        <p className="text-xs text-warning-muted-foreground">
                             No events found. Ask admin to add event masters.
                         </p>
                     ) : null}
@@ -2123,7 +2098,7 @@ function SocialForm({
 }) {
     return (
         <form
-            className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-4"
+            className="rounded-lg border border-border bg-muted/50 p-4 space-y-4"
             onSubmit={(e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
@@ -2138,11 +2113,10 @@ function SocialForm({
         >
             <div className="grid gap-4 md:grid-cols-3">
                 <FormField label="Program" id="programId">
-                    <select
+                    <NativeSelect
                         id="programId"
                         name="programId"
                         required
-                        className={selectBaseClass}
                     >
                         <option value="">Select program</option>
                         {programs.map((program) => (
@@ -2151,11 +2125,11 @@ function SocialForm({
                                 {program.type ? ` • ${program.type}` : ""}
                             </option>
                         ))}
-                    </select>
+                    </NativeSelect>
                     {masterError ? (
-                        <p className="text-xs text-rose-600">{masterError}</p>
+                        <p className="text-xs text-destructive">{masterError}</p>
                     ) : programs.length === 0 ? (
-                        <p className="text-xs text-amber-600">
+                        <p className="text-xs text-warning-muted-foreground">
                             No social programs found. Ask admin to add program masters.
                         </p>
                     ) : null}
@@ -2194,7 +2168,7 @@ function PlacementForm({
 }) {
     return (
         <form
-            className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-4"
+            className="rounded-lg border border-border bg-muted/50 p-4 space-y-4"
             onSubmit={(e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
@@ -2250,7 +2224,7 @@ function InternshipRecordForm({
 }) {
     return (
         <form
-            className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-4"
+            className="rounded-lg border border-border bg-muted/50 p-4 space-y-4"
             onSubmit={(e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);

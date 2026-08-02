@@ -49,8 +49,8 @@ export function StudentRecordOverview({ workspace }: { workspace: StudentWorkspa
                         <Badge
                             className={
                                 user.accountStatus === "Active"
-                                    ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
-                                    : "bg-amber-100 text-amber-700 hover:bg-amber-100"
+                                    ? "bg-success-muted text-success-muted-foreground hover:bg-success-muted"
+                                    : "bg-warning-muted text-warning-muted-foreground hover:bg-warning-muted"
                             }
                         >
                             {user.accountStatus}
@@ -124,7 +124,7 @@ export function StudentRecordOverview({ workspace }: { workspace: StudentWorkspa
                             Your activities, academic performance, research, documents, internships, and placement outcomes will be tracked by institutional workflows.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4 text-sm leading-7 text-zinc-600">
+                    <CardContent className="space-y-4 text-sm leading-7 text-muted-foreground">
                         <p>
                             Self-registration and self-profile approval are not used in this accreditation system. Your identity is provisioned by the institution, and your account is activated once through First Time Student Login Setup.
                         </p>
@@ -157,9 +157,9 @@ function formatDate(value?: string) {
 
 function InfoItem({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-base font-semibold text-zinc-950">{value}</p>
+        <div className="rounded-xl border border-border bg-muted/50 p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+            <p className="mt-2 text-base font-semibold text-foreground">{value}</p>
         </div>
     );
 }

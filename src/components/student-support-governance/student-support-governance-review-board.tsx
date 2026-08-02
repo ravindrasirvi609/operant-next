@@ -10,6 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { StatTile } from "@/components/ui/stat-card";
+import { StatCard } from "@/components/ui/stat-card";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { Save } from "lucide-react";
 
 type DocumentRecord = {
     id: string;
@@ -215,22 +220,6 @@ function formatDateTime(value?: string) {
     });
 }
 
-function statusBadge(status: string) {
-    if (status === "Approved") {
-        return <Badge className="bg-emerald-100 text-emerald-700">{status}</Badge>;
-    }
-
-    if (status === "Rejected") {
-        return <Badge className="bg-rose-100 text-rose-700">{status}</Badge>;
-    }
-
-    if (["Submitted", "Student Support Review", "Under Review", "Governance Review"].includes(status)) {
-        return <Badge className="bg-amber-100 text-amber-700">{status}</Badge>;
-    }
-
-    return <Badge variant="secondary">{status}</Badge>;
-}
-
 function EvidenceLink({
     label,
     document,
@@ -239,12 +228,12 @@ function EvidenceLink({
     document?: DocumentRecord | null;
 }) {
     if (!document?.fileUrl) {
-        return <p className="mt-2 text-xs text-zinc-500">{label}: no linked file available.</p>;
+        return <p className="mt-2 text-xs text-muted-foreground">{label}: no linked file available.</p>;
     }
 
     return (
         <a
-            className="mt-2 inline-block text-xs font-medium text-zinc-900 underline"
+            className="mt-2 inline-block text-xs font-medium text-foreground underline"
             href={document.fileUrl}
             rel="noreferrer"
             target="_blank"
@@ -257,9 +246,9 @@ function EvidenceLink({
 
 function renderNarrative(title: string, value?: string) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-sm font-semibold text-zinc-950">{title}</p>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-600">
+        <div className="rounded-lg border border-border bg-muted/50 p-4">
+            <p className="text-sm font-semibold text-foreground">{title}</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
                 {value?.trim() || "Not provided."}
             </p>
         </div>
@@ -372,17 +361,7 @@ export function StudentSupportGovernanceReviewBoard({
                 value={search}
             />
 
-            {message ? (
-                <div
-                    className={`rounded-lg border px-4 py-3 text-sm ${
-                        message.type === "success"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                            : "border-rose-200 bg-rose-50 text-rose-900"
-                    }`}
-                >
-                    {message.text}
-                </div>
-            ) : null}
+            <InlineAlert message={message} />
 
             <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
                 <div className="space-y-3">
@@ -394,8 +373,8 @@ export function StudentSupportGovernanceReviewBoard({
                                 <button
                                     className={`w-full rounded-xl border p-4 text-left transition ${
                                         active
-                                            ? "border-zinc-900 bg-zinc-900 text-white"
-                                            : "border-zinc-200 bg-zinc-50 text-zinc-900 hover:border-zinc-300 hover:bg-zinc-100"
+                                            ? "border-border bg-primary text-primary-foreground"
+                                            : "border-border bg-muted/50 text-foreground hover:border-border hover:bg-muted"
                                     }`}
                                     key={record._id}
                                     onClick={() => setSelectedId(record._id)}
@@ -413,7 +392,7 @@ export function StudentSupportGovernanceReviewBoard({
                                                 {record.unitLabel} · {record.assigneeName}
                                             </p>
                                         </div>
-                                        <div>{statusBadge(record.status)}</div>
+                                        <div><StatusBadge status={record.status} /></div>
                                     </div>
                                     <p className="mt-3 text-xs opacity-80">
                                         {record.currentStageLabel} · {record.valueSummary}
@@ -423,7 +402,7 @@ export function StudentSupportGovernanceReviewBoard({
                         })
                     ) : (
                         <Card>
-                            <CardContent className="p-6 text-sm text-zinc-500">
+                            <CardContent className="p-6 text-sm text-muted-foreground">
                                 No student-support records match the current filter.
                             </CardContent>
                         </Card>
@@ -432,27 +411,27 @@ export function StudentSupportGovernanceReviewBoard({
 
                 {selectedRecord ? (
                     <div className="space-y-6">
-                        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+                        <div className="rounded-2xl border border-border bg-muted/50 p-5">
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                 <div>
                                     <div className="flex flex-wrap items-center gap-2">
-                                        {statusBadge(selectedRecord.status)}
+                                        <StatusBadge status={selectedRecord.status} />
                                         <Badge variant="secondary">{selectedRecord.currentStageLabel}</Badge>
                                         <Badge variant="outline">{selectedRecord.scopeType}</Badge>
                                         <Badge variant="outline">{selectedRecord.focusArea}</Badge>
                                     </div>
-                                    <h3 className="mt-3 text-2xl font-semibold text-zinc-950">
+                                    <h3 className="mt-3 text-2xl font-semibold text-foreground">
                                         {selectedRecord.planTitle}
                                     </h3>
-                                    <p className="mt-2 text-sm text-zinc-600">
+                                    <p className="mt-2 text-sm text-muted-foreground">
                                         {selectedRecord.unitLabel} · {selectedRecord.academicYearLabel} ·{" "}
                                         {selectedRecord.assigneeName}
                                     </p>
-                                    <p className="mt-2 text-sm text-zinc-500">
+                                    <p className="mt-2 text-sm text-muted-foreground">
                                         Due {formatDate(selectedRecord.dueDate)} · Plan status {selectedRecord.planStatus}
                                     </p>
                                 </div>
-                                <div className="grid gap-2 text-right text-sm text-zinc-500">
+                                <div className="grid gap-2 text-right text-sm text-muted-foreground">
                                     <p>{selectedRecord.mentorGroups.length} mentor group row(s)</p>
                                     <p>{selectedRecord.grievances.length} grievance row(s)</p>
                                     <p>{selectedRecord.progressionRows.length} progression row(s)</p>
@@ -479,20 +458,20 @@ export function StudentSupportGovernanceReviewBoard({
                                     <MetricCard label="Higher studies target" value={selectedRecord.planTargets.higherStudies} />
                                     <MetricCard label="Representation target" value={selectedRecord.planTargets.representationBodies} />
                                 </div>
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+                                <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                     {selectedRecord.planSummary?.trim() || "No plan summary provided."}
                                 </div>
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+                                <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                     {selectedRecord.planStrategyGoals?.trim() || "No plan strategy goals provided."}
                                 </div>
                                 {selectedRecord.notes ? (
-                                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+                                    <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                         {selectedRecord.notes}
                                     </div>
                                 ) : null}
                                 {selectedRecord.contributorRemarks ? (
-                                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
-                                        <p className="font-semibold text-zinc-950">Contributor remarks</p>
+                                    <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
+                                        <p className="font-semibold text-foreground">Contributor remarks</p>
                                         <p className="mt-2 whitespace-pre-wrap">
                                             {selectedRecord.contributorRemarks}
                                         </p>
@@ -522,24 +501,24 @@ export function StudentSupportGovernanceReviewBoard({
                             title="Mentor Groups"
                             emptyLabel="No mentor groups were added."
                             rows={selectedRecord.mentorGroups.map((row) => (
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={row.id}>
-                                    <p className="text-sm font-semibold text-zinc-950">{row.groupName}</p>
-                                    <p className="mt-1 text-xs text-zinc-500">
+                                <div className="rounded-lg border border-border bg-muted/50 p-4" key={row.id}>
+                                    <p className="text-sm font-semibold text-foreground">{row.groupName}</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
                                         {[row.programName, row.batchLabel, row.mentorName]
                                             .filter(Boolean)
                                             .join(" · ")}
                                     </p>
-                                    <p className="mt-2 text-sm text-zinc-600">
+                                    <p className="mt-2 text-sm text-muted-foreground">
                                         Mentees {row.menteeCount ?? "-"} · Meetings {row.meetingCount ?? "-"} · Escalations {row.escalatedCount ?? "-"}
                                     </p>
                                     {row.supportThemes ? (
-                                        <p className="mt-2 text-sm text-zinc-600">Themes: {row.supportThemes}</p>
+                                        <p className="mt-2 text-sm text-muted-foreground">Themes: {row.supportThemes}</p>
                                     ) : null}
                                     {row.actionTaken ? (
-                                        <p className="mt-2 text-sm text-zinc-600">Action: {row.actionTaken}</p>
+                                        <p className="mt-2 text-sm text-muted-foreground">Action: {row.actionTaken}</p>
                                     ) : null}
                                     {row.remarks ? (
-                                        <p className="mt-2 text-sm text-zinc-600">{row.remarks}</p>
+                                        <p className="mt-2 text-sm text-muted-foreground">{row.remarks}</p>
                                     ) : null}
                                     <EvidenceLink document={row.document} label="Evidence" />
                                 </div>
@@ -550,22 +529,22 @@ export function StudentSupportGovernanceReviewBoard({
                             title="Grievances"
                             emptyLabel="No grievances were added."
                             rows={selectedRecord.grievances.map((row) => (
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={row.id}>
-                                    <p className="text-sm font-semibold text-zinc-950">{row.category}</p>
-                                    <p className="mt-1 text-xs text-zinc-500">
+                                <div className="rounded-lg border border-border bg-muted/50 p-4" key={row.id}>
+                                    <p className="text-sm font-semibold text-foreground">{row.category}</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
                                         {[row.referenceNumber, row.lodgedByType, row.status].filter(Boolean).join(" · ")}
                                     </p>
-                                    <p className="mt-2 text-sm text-zinc-600">
+                                    <p className="mt-2 text-sm text-muted-foreground">
                                         Received {formatDate(row.receivedDate)} · Resolved {formatDate(row.resolvedDate)} · Resolution days {row.resolutionDays ?? "-"}
                                     </p>
                                     {row.committeeName ? (
-                                        <p className="mt-2 text-sm text-zinc-600">Committee: {row.committeeName}</p>
+                                        <p className="mt-2 text-sm text-muted-foreground">Committee: {row.committeeName}</p>
                                     ) : null}
                                     {row.resolutionSummary ? (
-                                        <p className="mt-2 text-sm text-zinc-600">{row.resolutionSummary}</p>
+                                        <p className="mt-2 text-sm text-muted-foreground">{row.resolutionSummary}</p>
                                     ) : null}
                                     {row.remarks ? (
-                                        <p className="mt-2 text-sm text-zinc-600">{row.remarks}</p>
+                                        <p className="mt-2 text-sm text-muted-foreground">{row.remarks}</p>
                                     ) : null}
                                     <EvidenceLink document={row.document} label="Evidence" />
                                 </div>
@@ -576,18 +555,18 @@ export function StudentSupportGovernanceReviewBoard({
                             title="Progression Tracking"
                             emptyLabel="No progression rows were added."
                             rows={selectedRecord.progressionRows.map((row) => (
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={row.id}>
-                                    <p className="text-sm font-semibold text-zinc-950">{row.title}</p>
-                                    <p className="mt-1 text-xs text-zinc-500">
+                                <div className="rounded-lg border border-border bg-muted/50 p-4" key={row.id}>
+                                    <p className="text-sm font-semibold text-foreground">{row.title}</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
                                         {[row.progressionType, row.programName, row.batchLabel, row.status]
                                             .filter(Boolean)
                                             .join(" · ")}
                                     </p>
-                                    <p className="mt-2 text-sm text-zinc-600">
+                                    <p className="mt-2 text-sm text-muted-foreground">
                                         Destination {row.destinationName ?? "-"} · Student count {row.studentCount ?? "-"} · Median package {row.medianPackageLpa ?? "-"}
                                     </p>
                                     {row.remarks ? (
-                                        <p className="mt-2 text-sm text-zinc-600">{row.remarks}</p>
+                                        <p className="mt-2 text-sm text-muted-foreground">{row.remarks}</p>
                                     ) : null}
                                     <EvidenceLink document={row.document} label="Evidence" />
                                 </div>
@@ -598,21 +577,21 @@ export function StudentSupportGovernanceReviewBoard({
                             title="Student Representation"
                             emptyLabel="No representation rows were added."
                             rows={selectedRecord.representationRows.map((row) => (
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={row.id}>
-                                    <p className="text-sm font-semibold text-zinc-950">{row.bodyName}</p>
-                                    <p className="mt-1 text-xs text-zinc-500">
+                                <div className="rounded-lg border border-border bg-muted/50 p-4" key={row.id}>
+                                    <p className="text-sm font-semibold text-foreground">{row.bodyName}</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
                                         {[row.representationType, row.roleTitle]
                                             .filter(Boolean)
                                             .join(" · ")}
                                     </p>
-                                    <p className="mt-2 text-sm text-zinc-600">
+                                    <p className="mt-2 text-sm text-muted-foreground">
                                         Students {row.studentCount ?? "-"} · Meetings {row.meetingCount ?? "-"}
                                     </p>
                                     {row.outcomeSummary ? (
-                                        <p className="mt-2 text-sm text-zinc-600">{row.outcomeSummary}</p>
+                                        <p className="mt-2 text-sm text-muted-foreground">{row.outcomeSummary}</p>
                                     ) : null}
                                     {row.remarks ? (
-                                        <p className="mt-2 text-sm text-zinc-600">{row.remarks}</p>
+                                        <p className="mt-2 text-sm text-muted-foreground">{row.remarks}</p>
                                     ) : null}
                                     <EvidenceLink document={row.document} label="Evidence" />
                                 </div>
@@ -626,10 +605,10 @@ export function StudentSupportGovernanceReviewBoard({
                             <CardContent className="space-y-4">
                                 <div className="grid gap-3 md:grid-cols-2">
                                     {selectedRecord.documents.map((document) => (
-                                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={document.id}>
+                                        <div className="rounded-lg border border-border bg-muted/50 p-4" key={document.id}>
                                             {document.fileUrl ? (
                                                 <a
-                                                    className="text-sm font-semibold text-zinc-950 underline"
+                                                    className="text-sm font-semibold text-foreground underline"
                                                     href={document.fileUrl}
                                                     rel="noreferrer"
                                                     target="_blank"
@@ -637,15 +616,15 @@ export function StudentSupportGovernanceReviewBoard({
                                                     {document.fileName || document.id}
                                                 </a>
                                             ) : (
-                                                <p className="text-sm font-semibold text-zinc-950">
+                                                <p className="text-sm font-semibold text-foreground">
                                                     {document.fileName || document.id}
                                                 </p>
                                             )}
-                                            <p className="mt-1 text-xs text-zinc-500">
+                                            <p className="mt-1 text-xs text-muted-foreground">
                                                 {document.verificationStatus || "Verification pending"}
                                             </p>
                                             {document.verificationRemarks ? (
-                                                <p className="mt-2 text-xs text-zinc-500">
+                                                <p className="mt-2 text-xs text-muted-foreground">
                                                     {document.verificationRemarks}
                                                 </p>
                                             ) : null}
@@ -653,12 +632,12 @@ export function StudentSupportGovernanceReviewBoard({
                                     ))}
                                 </div>
                                 {selectedRecord.supportingLinks.length ? (
-                                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                                        <p className="text-sm font-semibold text-zinc-950">Supporting links</p>
+                                    <div className="rounded-lg border border-border bg-muted/50 p-4">
+                                        <p className="text-sm font-semibold text-foreground">Supporting links</p>
                                         <div className="mt-3 flex flex-col gap-2">
                                             {selectedRecord.supportingLinks.map((link) => (
                                                 <a
-                                                    className="text-sm font-medium text-zinc-900 underline"
+                                                    className="text-sm font-medium text-foreground underline"
                                                     href={link}
                                                     key={link}
                                                     rel="noreferrer"
@@ -679,49 +658,49 @@ export function StudentSupportGovernanceReviewBoard({
                             </CardHeader>
                             <CardContent className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-3">
-                                    <p className="text-sm font-semibold text-zinc-950">Review history</p>
+                                    <p className="text-sm font-semibold text-foreground">Review history</p>
                                     {selectedRecord.reviewHistory.length ? (
                                         selectedRecord.reviewHistory.map((entry, index) => (
-                                            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={`${entry.stage}-${index}`}>
-                                                <p className="text-sm font-semibold text-zinc-950">{entry.stage}</p>
-                                                <p className="mt-1 text-xs text-zinc-500">
+                                            <div className="rounded-lg border border-border bg-muted/50 p-4" key={`${entry.stage}-${index}`}>
+                                                <p className="text-sm font-semibold text-foreground">{entry.stage}</p>
+                                                <p className="mt-1 text-xs text-muted-foreground">
                                                     {[entry.reviewerName, entry.reviewerRole, entry.decision]
                                                         .filter(Boolean)
                                                         .join(" · ")}
                                                 </p>
-                                                <p className="mt-2 text-sm text-zinc-600">
+                                                <p className="mt-2 text-sm text-muted-foreground">
                                                     {entry.remarks?.trim() || "No remarks captured."}
                                                 </p>
-                                                <p className="mt-2 text-xs text-zinc-500">
+                                                <p className="mt-2 text-xs text-muted-foreground">
                                                     {formatDateTime(entry.reviewedAt)}
                                                 </p>
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                             No review entries recorded yet.
                                         </div>
                                     )}
                                 </div>
                                 <div className="space-y-3">
-                                    <p className="text-sm font-semibold text-zinc-950">Status log</p>
+                                    <p className="text-sm font-semibold text-foreground">Status log</p>
                                     {selectedRecord.statusLogs.length ? (
                                         selectedRecord.statusLogs.map((entry, index) => (
-                                            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={`${entry.status}-${index}`}>
-                                                <p className="text-sm font-semibold text-zinc-950">{entry.status}</p>
-                                                <p className="mt-1 text-xs text-zinc-500">
+                                            <div className="rounded-lg border border-border bg-muted/50 p-4" key={`${entry.status}-${index}`}>
+                                                <p className="text-sm font-semibold text-foreground">{entry.status}</p>
+                                                <p className="mt-1 text-xs text-muted-foreground">
                                                     {[entry.actorName, entry.actorRole].filter(Boolean).join(" · ")}
                                                 </p>
-                                                <p className="mt-2 text-sm text-zinc-600">
+                                                <p className="mt-2 text-sm text-muted-foreground">
                                                     {entry.remarks?.trim() || "No remarks captured."}
                                                 </p>
-                                                <p className="mt-2 text-xs text-zinc-500">
+                                                <p className="mt-2 text-xs text-muted-foreground">
                                                     {formatDateTime(entry.changedAt)}
                                                 </p>
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                             No workflow status entries recorded yet.
                                         </div>
                                     )}
@@ -756,7 +735,7 @@ export function StudentSupportGovernanceReviewBoard({
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Current reviewer</Label>
-                                            <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
+                                            <div className="rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
                                                 {viewerLabel}
                                             </div>
                                         </div>
@@ -780,6 +759,7 @@ export function StudentSupportGovernanceReviewBoard({
                                         onClick={submitReview}
                                         type="button"
                                     >
+                                        <Save aria-hidden />
                                         Save review
                                     </Button>
                                 </CardContent>
@@ -793,23 +773,11 @@ export function StudentSupportGovernanceReviewBoard({
 }
 
 function SummaryCard({ label, value }: { label: string; value: number }) {
-    return (
-        <Card>
-            <CardContent className="p-5">
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-                <p className="mt-2 text-3xl font-semibold text-zinc-950">{value}</p>
-            </CardContent>
-        </Card>
-    );
+    return <StatCard label={label} value={value} />;
 }
 
 function MetricCard({ label, value }: { label: string; value: number }) {
-    return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-2xl font-semibold text-zinc-950">{value}</p>
-        </div>
-    );
+    return <StatTile label={label} value={value} />;
 }
 
 function RowCard({
@@ -830,7 +798,7 @@ function RowCard({
                 {rows.length ? (
                     rows
                 ) : (
-                    <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                    <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                         {emptyLabel}
                     </div>
                 )}

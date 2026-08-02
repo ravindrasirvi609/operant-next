@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { StatCard } from "@/components/ui/stat-card";
 import { requireDirector } from "@/lib/auth/user";
 import { getLeadershipDashboardData } from "@/lib/director/dashboard";
 
@@ -20,12 +21,12 @@ export default async function DirectorApprovalsPage() {
 
     return (
         <div className="space-y-6">
-            <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
                 <Badge>Action queue</Badge>
-                <h1 className="mt-4 text-4xl font-semibold tracking-tight text-zinc-950">
+                <h1 className="mt-4 text-4xl font-semibold tracking-tight text-foreground">
                     Pending approvals and final decisions
                 </h1>
-                <p className="mt-4 max-w-3xl text-base leading-8 text-zinc-500">
+                <p className="mt-4 max-w-3xl text-base leading-8 text-muted-foreground">
                     This queue shows only workflow items that are currently assigned to your account through active
                     governance mapping. Browsing access and action eligibility stay separate.
                 </p>
@@ -127,19 +128,19 @@ export default async function DirectorApprovalsPage() {
                 <CardContent className="space-y-3">
                     {dashboard.queue.items.length ? (
                         dashboard.queue.items.map((item) => (
-                            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={`${item.moduleName}-${item.id}`}>
+                            <div className="rounded-lg border border-border bg-muted/50 p-4" key={`${item.moduleName}-${item.id}`}>
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
-                                        <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">
+                                        <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
                                             {item.moduleName}
                                         </p>
-                                        <h3 className="mt-2 text-base font-semibold text-zinc-950">{item.title}</h3>
-                                        <p className="mt-1 text-sm text-zinc-500">{item.subtitle}</p>
+                                        <h3 className="mt-2 text-base font-semibold text-foreground">{item.title}</h3>
+                                        <p className="mt-1 text-sm text-muted-foreground">{item.subtitle}</p>
                                     </div>
                                     <Badge>{item.actionLabel}</Badge>
                                 </div>
                                 <div className="mt-3 flex items-center justify-between gap-3">
-                                    <p className="text-sm text-zinc-500">Current status: {item.status}</p>
+                                    <p className="text-sm text-muted-foreground">Current status: {item.status}</p>
                                     <Button asChild size="sm" variant="secondary">
                                         <Link href={item.href}>Open {item.moduleName}</Link>
                                     </Button>
@@ -159,14 +160,7 @@ export default async function DirectorApprovalsPage() {
 }
 
 function MetricCard({ label, value }: { label: string; value: number }) {
-    return (
-        <Card>
-            <CardContent className="p-5">
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-                <p className="mt-2 text-3xl font-semibold text-zinc-950">{value}</p>
-            </CardContent>
-        </Card>
-    );
+    return <StatCard label={label} value={value} />;
 }
 
 function ModuleQueueCard({

@@ -6,9 +6,9 @@ export default async function AdminHierarchyPage() {
 
     return (
         <div className="space-y-6">
-            <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-                <h1 className="text-3xl font-semibold tracking-tight text-zinc-950">Organization hierarchy</h1>
-                <p className="mt-3 max-w-4xl text-sm leading-7 text-zinc-600">
+            <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                <h1 className="text-3xl font-semibold tracking-tight text-foreground">Organization hierarchy</h1>
+                <p className="mt-3 max-w-4xl text-sm leading-7 text-muted-foreground">
                     Build and maintain the university-college-department structure from a single workspace, with clean ownership mapping and quick status controls.
                 </p>
             </section>

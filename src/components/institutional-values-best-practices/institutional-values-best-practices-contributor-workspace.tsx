@@ -11,7 +11,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { InlineUpload, MultiFileUpload } from "@/components/ui/file-upload";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import type { UploadedDocument } from "@/lib/upload/service";
+import { Plus, Save, Send, Trash2 } from "lucide-react";
 
 type DocumentRecord = {
     id: string;
@@ -540,22 +543,6 @@ function formatDateTime(value?: string) {
     });
 }
 
-function statusBadge(status: string) {
-    if (status === "Approved") {
-        return <Badge className="bg-emerald-100 text-emerald-700">{status}</Badge>;
-    }
-
-    if (status === "Rejected") {
-        return <Badge className="bg-rose-100 text-rose-700">{status}</Badge>;
-    }
-
-    if (["Submitted", "IQAC Review", "Leadership Review", "Governance Review"].includes(status)) {
-        return <Badge className="bg-amber-100 text-amber-700">{status}</Badge>;
-    }
-
-    return <Badge variant="secondary">{status}</Badge>;
-}
-
 function splitLines(value: string) {
     return value
         .split(/\n+/)
@@ -824,17 +811,7 @@ export function InstitutionalValuesBestPracticesContributorWorkspace({
 
     return (
         <div className="space-y-6">
-            {message ? (
-                <div
-                    className={`rounded-lg border px-4 py-3 text-sm ${
-                        message.type === "success"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                            : "border-rose-200 bg-rose-50 text-rose-900"
-                    }`}
-                >
-                    {message.text}
-                </div>
-            ) : null}
+            <InlineAlert message={message} />
 
             <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
                 <div className="space-y-3">
@@ -846,8 +823,8 @@ export function InstitutionalValuesBestPracticesContributorWorkspace({
                                 <button
                                     className={`w-full rounded-xl border p-4 text-left transition ${
                                         active
-                                            ? "border-zinc-900 bg-zinc-900 text-white"
-                                            : "border-zinc-200 bg-zinc-50 text-zinc-900 hover:border-zinc-300 hover:bg-zinc-100"
+                                            ? "border-border bg-primary text-primary-foreground"
+                                            : "border-border bg-muted/50 text-foreground hover:border-border hover:bg-muted"
                                     }`}
                                     key={assignment._id}
                                     onClick={() => setSelectedId(assignment._id)}
@@ -865,7 +842,7 @@ export function InstitutionalValuesBestPracticesContributorWorkspace({
                                                 {assignment.unitLabel} · {assignment.academicYearLabel}
                                             </p>
                                         </div>
-                                        <div>{statusBadge(assignment.status)}</div>
+                                        <div><StatusBadge status={assignment.status} /></div>
                                     </div>
                                     <p className="mt-3 text-xs opacity-80">
                                         {assignment.currentStageLabel} · {assignment.valueSummary}
@@ -874,7 +851,7 @@ export function InstitutionalValuesBestPracticesContributorWorkspace({
                             );
                         })
                     ) : (
-                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                             No assignments are currently mapped to your account.
                         </div>
                     )}
@@ -893,12 +870,12 @@ export function InstitutionalValuesBestPracticesContributorWorkspace({
                                         </CardDescription>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                        {statusBadge(selectedAssignment.status)}
+                                        <StatusBadge status={selectedAssignment.status} />
                                         <Badge variant="secondary">{selectedAssignment.planStatus}</Badge>
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="space-y-3 text-sm text-zinc-600">
+                            <CardContent className="space-y-3 text-sm text-muted-foreground">
                                 {selectedAssignment.planOverview ? (
                                     <p>{selectedAssignment.planOverview}</p>
                                 ) : null}
@@ -989,15 +966,16 @@ export function InstitutionalValuesBestPracticesContributorWorkspace({
                                             <CardDescription>{section.description}</CardDescription>
                                         </div>
                                         <Button onClick={() => addRow(section)} type="button" variant="secondary">
+                                            <Plus aria-hidden />
                                             Add row
                                         </Button>
                                     </div>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     {form[section.key].map((row, index) => (
-                                        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4" key={`${section.key}-${index}`}>
+                                        <div className="rounded-xl border border-border bg-muted/50 p-4" key={`${section.key}-${index}`}>
                                             <div className="mb-4 flex items-center justify-between gap-3">
-                                                <p className="text-sm font-semibold text-zinc-950">
+                                                <p className="text-sm font-semibold text-foreground">
                                                     {section.label} row {index + 1}
                                                 </p>
                                                 <Button
@@ -1006,6 +984,7 @@ export function InstitutionalValuesBestPracticesContributorWorkspace({
                                                     type="button"
                                                     variant="ghost"
                                                 >
+                                                    <Trash2 aria-hidden />
                                                     Remove
                                                 </Button>
                                             </div>
@@ -1086,15 +1065,18 @@ export function InstitutionalValuesBestPracticesContributorWorkspace({
                         ))}
 
                         <div className="flex flex-wrap gap-3">
-                            <Button disabled={isPending} onClick={saveDraft} type="button">
+                            <Button loading={isPending} disabled={isPending} onClick={saveDraft} type="button">
+                                <Save aria-hidden />
                                 Save draft
                             </Button>
                             <Button
+                                loading={isPending}
                                 disabled={isPending || !["Draft", "Rejected"].includes(selectedAssignment.status)}
                                 onClick={submitAssignment}
                                 type="button"
                                 variant="secondary"
                             >
+                                <Send aria-hidden />
                                 Submit for review
                             </Button>
                         </div>
@@ -1109,16 +1091,16 @@ export function InstitutionalValuesBestPracticesContributorWorkspace({
                             <CardContent className="space-y-3">
                                 {selectedAssignment.documents.length ? (
                                     selectedAssignment.documents.map((document) => (
-                                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={document.id}>
-                                            <p className="text-sm font-medium text-zinc-950">
+                                        <div className="rounded-lg border border-border bg-muted/50 p-4" key={document.id}>
+                                            <p className="text-sm font-medium text-foreground">
                                                 {document.fileName || document.id}
                                             </p>
-                                            <p className="mt-1 text-xs text-zinc-500">
+                                            <p className="mt-1 text-xs text-muted-foreground">
                                                 {document.verificationStatus || "Unverified"}
                                             </p>
                                             {document.fileUrl ? (
                                                 <a
-                                                    className="mt-2 inline-block text-xs font-medium text-zinc-900 underline"
+                                                    className="mt-2 inline-block text-xs font-medium text-foreground underline"
                                                     href={document.fileUrl}
                                                     rel="noreferrer"
                                                     target="_blank"
@@ -1129,7 +1111,7 @@ export function InstitutionalValuesBestPracticesContributorWorkspace({
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                                    <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                         No manual evidence files are linked yet.
                                     </div>
                                 )}
@@ -1144,19 +1126,19 @@ export function InstitutionalValuesBestPracticesContributorWorkspace({
                                 <CardContent className="space-y-3">
                                     {selectedAssignment.statusLogs.length ? (
                                         selectedAssignment.statusLogs.map((entry, index) => (
-                                            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={`${entry.status}-${index}`}>
-                                                <p className="text-sm font-medium text-zinc-950">{entry.status}</p>
-                                                <p className="mt-1 text-xs text-zinc-500">
+                                            <div className="rounded-lg border border-border bg-muted/50 p-4" key={`${entry.status}-${index}`}>
+                                                <p className="text-sm font-medium text-foreground">{entry.status}</p>
+                                                <p className="mt-1 text-xs text-muted-foreground">
                                                     {entry.actorName || "System"} · {entry.actorRole || "Workflow"} ·{" "}
                                                     {formatDateTime(entry.changedAt)}
                                                 </p>
                                                 {entry.remarks ? (
-                                                    <p className="mt-2 text-sm text-zinc-600">{entry.remarks}</p>
+                                                    <p className="mt-2 text-sm text-muted-foreground">{entry.remarks}</p>
                                                 ) : null}
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                             No workflow history yet.
                                         </div>
                                     )}
@@ -1170,21 +1152,21 @@ export function InstitutionalValuesBestPracticesContributorWorkspace({
                                 <CardContent className="space-y-3">
                                     {selectedAssignment.reviewHistory.length ? (
                                         selectedAssignment.reviewHistory.map((entry, index) => (
-                                            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={`${entry.stage}-${index}`}>
-                                                <p className="text-sm font-medium text-zinc-950">
+                                            <div className="rounded-lg border border-border bg-muted/50 p-4" key={`${entry.stage}-${index}`}>
+                                                <p className="text-sm font-medium text-foreground">
                                                     {entry.stage} · {entry.decision}
                                                 </p>
-                                                <p className="mt-1 text-xs text-zinc-500">
+                                                <p className="mt-1 text-xs text-muted-foreground">
                                                     {entry.reviewerName || "Reviewer"} · {entry.reviewerRole || "Leadership"} ·{" "}
                                                     {formatDateTime(entry.reviewedAt)}
                                                 </p>
                                                 {entry.remarks ? (
-                                                    <p className="mt-2 text-sm text-zinc-600">{entry.remarks}</p>
+                                                    <p className="mt-2 text-sm text-muted-foreground">{entry.remarks}</p>
                                                 ) : null}
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                             No review remarks yet.
                                         </div>
                                     )}

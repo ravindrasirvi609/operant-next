@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Bell, CheckCheck } from "lucide-react";
+import { Bell, Check, CheckCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -116,14 +116,14 @@ export function NotificationCenter() {
                     <Bell className="size-4" />
                     <span className="sr-only">Notifications</span>
                     {unreadLabel ? (
-                        <span className="absolute -top-2 -right-2 rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                        <span className="absolute -top-2 -right-2 rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-semibold text-destructive-foreground">
                             {unreadLabel}
                         </span>
                     ) : null}
                 </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-[min(24rem,calc(100vw-1.5rem))] p-0">
-                <PopoverHeader className="border-b border-zinc-200 px-4 py-3">
+                <PopoverHeader className="border-b border-border px-4 py-3">
                     <div className="flex items-start justify-between gap-3">
                         <div>
                             <PopoverTitle>Notifications</PopoverTitle>
@@ -146,7 +146,7 @@ export function NotificationCenter() {
                 <ScrollArea className="h-96">
                     <div className="p-3">
                         {isLoading ? (
-                            <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                            <div className="rounded-xl border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                 Loading notifications...
                             </div>
                         ) : summary.notifications.length ? (
@@ -156,25 +156,25 @@ export function NotificationCenter() {
                                         key={notification.id}
                                         className={`rounded-xl border p-3 ${
                                             notification.status === "delivered"
-                                                ? "border-sky-200 bg-sky-50/60"
-                                                : "border-zinc-200 bg-white"
+                                                ? "border-info-border bg-info-muted/60"
+                                                : "border-border bg-card"
                                         }`}
                                     >
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
-                                                <p className="text-sm font-semibold text-zinc-950">
+                                                <p className="text-sm font-semibold text-foreground">
                                                     {notification.title}
                                                 </p>
-                                                <p className="mt-1 text-xs leading-5 text-zinc-600">
+                                                <p className="mt-1 text-xs leading-5 text-muted-foreground">
                                                     {notification.message}
                                                 </p>
-                                                <p className="mt-2 text-[11px] text-zinc-500">
+                                                <p className="mt-2 text-[11px] text-muted-foreground">
                                                     {new Date(notification.createdAt).toLocaleString()}
                                                     {notification.actorName ? ` · ${notification.actorName}` : ""}
                                                 </p>
                                             </div>
                                             {notification.status === "delivered" ? (
-                                                <span className="mt-1 size-2 rounded-full bg-sky-500" />
+                                                <span className="mt-1 size-2 rounded-full bg-info" />
                                             ) : null}
                                         </div>
                                         <div className="mt-3 flex items-center justify-between gap-2">
@@ -200,17 +200,18 @@ export function NotificationCenter() {
                                                     variant="ghost"
                                                     onClick={() => void markOneRead(notification.id)}
                                                 >
+                                                    <Check aria-hidden />
                                                     Mark read
                                                 </Button>
                                             ) : (
-                                                <span className="text-[11px] text-zinc-400">Read</span>
+                                                <span className="text-[11px] text-muted-foreground">Read</span>
                                             )}
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                            <div className="rounded-xl border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                 No notifications yet.
                             </div>
                         )}

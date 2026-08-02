@@ -1,8 +1,25 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
+import {
+    Building2,
+    CheckCheck,
+    Clock,
+    ExternalLink,
+    FileSearch,
+    FileStack,
+    FileX2,
+    Hourglass,
+    Layers,
+    RefreshCw,
+    Search,
+    ShieldCheck,
+    TriangleAlert,
+    X,
+} from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
+import { BreakdownBarChart } from "@/components/charts/breakdown-bar-chart";
+import { StatusDonutChart } from "@/components/charts/status-donut-chart";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -11,8 +28,14 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/empty-state";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
     Table,
     TableBody,
@@ -66,6 +89,8 @@ type EvidenceSummary = {
 
 const STATUS_OPTIONS = ["Pending", "Rejected", "Verified", "All"] as const;
 
+type StatusOption = (typeof STATUS_OPTIONS)[number];
+
 function formatDate(value?: string) {
     if (!value) return "-";
     const d = new Date(value);
@@ -73,24 +98,17 @@ function formatDate(value?: string) {
     return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function statusBadge(status?: string) {
-    if (status === "Verified") {
-        return <Badge className="bg-emerald-100 text-emerald-700">Verified</Badge>;
-    }
-    if (status === "Rejected") {
-        return <Badge className="bg-red-100 text-red-700">Rejected</Badge>;
-    }
-    return <Badge className="bg-amber-100 text-amber-700">Pending</Badge>;
-}
-
 export function EvidenceReviewBoard() {
-    const [status, setStatus] = useState<(typeof STATUS_OPTIONS)[number]>("Pending");
+    const [status, setStatus] = useState<StatusOption>("Pending");
     const [search, setSearch] = useState("");
     const [items, setItems] = useState<EvidenceItem[]>([]);
     const [summary, setSummary] = useState<EvidenceSummary | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
     const [remarks, setRemarks] = useState<Record<string, string>>({});
+    // Tracks which row+action is in flight, so only that button spins rather
+    // than every button in the table.
+    const [actingOn, setActingOn] = useState<string | null>(null);
     const deferredSearch = useDeferredValue(search);
 
     const load = () => {
@@ -140,20 +158,35 @@ export function EvidenceReviewBoard() {
     }, [deferredSearch, items]);
 
     const emptyState = useMemo(() => {
-        if (isPending) return "Loading evidence...";
-        if (filteredItems.length === 0) {
-            return status === "All"
-                ? items.length
-                    ? "No evidence items matched this search."
-                    : "No evidence uploaded yet."
-                : items.length
-                  ? `No ${status.toLowerCase()} evidence items matched this search.`
-                  : `No ${status.toLowerCase()} evidence items found.`;
+        if (isPending) {
+            return { title: "Loading evidence…", description: "Fetching the verification queue." };
         }
+
+        if (filteredItems.length === 0) {
+            if (items.length) {
+                return {
+                    title: "No matches",
+                    description:
+                        status === "All"
+                            ? "No evidence items matched this search."
+                            : `No ${status.toLowerCase()} evidence items matched this search.`,
+                };
+            }
+
+            return {
+                title: status === "All" ? "No evidence uploaded yet" : `Nothing ${status.toLowerCase()}`,
+                description:
+                    status === "All"
+                        ? "Documents uploaded by students will appear here for verification."
+                        : `There are no ${status.toLowerCase()} evidence items right now.`,
+            };
+        }
+
         return null;
     }, [filteredItems.length, isPending, items.length, status]);
 
     async function updateStatus(documentId: string, nextStatus: "Verified" | "Rejected") {
+        setActingOn(`${documentId}:${nextStatus}`);
         startTransition(async () => {
             try {
                 const res = await fetch(`/api/evidence/review/${documentId}`, {
@@ -172,6 +205,8 @@ export function EvidenceReviewBoard() {
                 load();
             } catch (err) {
                 setError(err instanceof Error ? err.message : "Unable to update evidence status.");
+            } finally {
+                setActingOn(null);
             }
         });
     }
@@ -180,240 +215,334 @@ export function EvidenceReviewBoard() {
         <div className="space-y-6">
             {summary ? (
                 <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <DashboardMetric
+                    <StatCard
+                        icon={FileStack}
                         label="Total documents"
                         value={summary.totalItems}
                         helper="All uploaded evidence linked to student records"
+                        tone="accent"
                     />
-                    <DashboardMetric
+                    <StatCard
+                        icon={Hourglass}
                         label="Pending review"
                         value={summary.pendingCount}
                         helper="Verification items still waiting for action"
+                        tone={summary.pendingCount > 0 ? "warning" : "success"}
                     />
-                    <DashboardMetric
+                    <StatCard
+                        icon={ShieldCheck}
                         label="Verified"
                         value={summary.verifiedCount}
                         helper="Evidence approved by reviewers"
+                        tone="success"
                     />
-                    <DashboardMetric
+                    <StatCard
+                        icon={FileX2}
                         label="Rejected"
                         value={summary.rejectedCount}
                         helper="Evidence returned for changes"
+                        tone={summary.rejectedCount > 0 ? "danger" : "neutral"}
                     />
-                    <DashboardMetric
+                    <StatCard
+                        icon={Building2}
                         label="Departments"
                         value={summary.departmentCount}
                         helper="Departments represented in the queue"
+                        tone="info"
                     />
-                    <DashboardMetric
+                    <StatCard
+                        icon={Clock}
                         label="Stale pending"
                         value={summary.stalePendingCount}
                         helper={`${summary.recentUploadsCount} new upload(s) in the last 7 days`}
+                        tone={summary.stalePendingCount > 0 ? "danger" : "success"}
                     />
                 </section>
             ) : null}
 
-            <Card className="border-zinc-200 bg-white shadow-sm">
+            <Card>
                 <CardHeader>
-                    <CardTitle>Student Evidence Verification</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <FileSearch className="size-4 text-muted-foreground" aria-hidden />
+                        Student Evidence Verification
+                    </CardTitle>
                     <CardDescription>
                         Review evidence documents submitted by students and mark them as verified or rejected.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-2 text-sm text-zinc-500">Filter</div>
-                    <select
-                        className="h-9 rounded-md border border-zinc-200 bg-white px-3 text-sm"
-                        value={status}
-                        onChange={(event) => setStatus(event.target.value as (typeof STATUS_OPTIONS)[number])}
-                    >
-                        {STATUS_OPTIONS.map((option) => (
-                            <option key={option} value={option}>
-                                {option}
-                            </option>
-                        ))}
-                    </select>
-                        {error ? <span className="text-sm text-rose-600">{error}</span> : null}
+                <CardContent className="space-y-3">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        {/* Was a bare <select>. A toggle group shows the whole filter
+                            state at once, which matters when triaging the queue is the job. */}
+                        <ToggleGroup
+                            type="single"
+                            value={status}
+                            onValueChange={(value) => {
+                                if (value) setStatus(value as StatusOption);
+                            }}
+                            variant="outline"
+                            className="w-fit"
+                        >
+                            {STATUS_OPTIONS.map((option) => (
+                                <ToggleGroupItem key={option} value={option} aria-label={`Show ${option}`}>
+                                    {option}
+                                </ToggleGroupItem>
+                            ))}
+                        </ToggleGroup>
+
+                        <div className="flex items-center gap-2">
+                            <InputGroup className="w-full max-w-sm">
+                                <InputGroupAddon>
+                                    <Search aria-hidden />
+                                </InputGroupAddon>
+                                <InputGroupInput
+                                    value={search}
+                                    onChange={(event) => setSearch(event.target.value)}
+                                    placeholder="Search student, department, or record type"
+                                />
+                            </InputGroup>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={load}
+                                        loading={isPending && !actingOn}
+                                    >
+                                        {isPending && !actingOn ? null : <RefreshCw aria-hidden />}
+                                        <span className="sr-only">Refresh queue</span>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Refresh queue</TooltipContent>
+                            </Tooltip>
+                        </div>
                     </div>
-                    <div className="w-full max-w-sm">
-                        <Input
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Search student, department, record type, or summary"
-                        />
-                    </div>
+
+                    {error ? <InlineAlert message={{ type: "error", text: error }} /> : null}
                 </CardContent>
             </Card>
 
             {summary ? (
                 <section className="grid gap-6 xl:grid-cols-2">
-                    <Card className="border-zinc-200 bg-white shadow-sm">
+                    <Card>
                         <CardHeader>
-                            <CardTitle>By Record Type</CardTitle>
+                            <CardTitle className="flex items-center gap-2">
+                                <Layers className="size-4 text-muted-foreground" aria-hidden />
+                                Verification status split
+                            </CardTitle>
+                            <CardDescription>
+                                Where the queue currently stands across all uploaded evidence.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <StatusDonutChart
+                                totalLabel="Documents"
+                                data={[
+                                    { status: "Pending", value: summary.pendingCount },
+                                    { status: "Verified", value: summary.verifiedCount },
+                                    { status: "Rejected", value: summary.rejectedCount },
+                                ]}
+                                emptyMessage="No evidence has been uploaded yet."
+                            />
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <FileStack className="size-4 text-muted-foreground" aria-hidden />
+                                By record type
+                            </CardTitle>
                             <CardDescription>
                                 Which student modules are creating the most verification work.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-3">
-                            {summary.recordTypeBreakdown.slice(0, 6).map((entry) => (
-                                <div
-                                    key={entry.label}
-                                    className="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3"
-                                >
-                                    <span className="min-w-0 truncate text-sm font-medium capitalize text-zinc-900">
-                                        {entry.label}
-                                    </span>
-                                    <Badge variant="secondary">{entry.count}</Badge>
-                                </div>
-                            ))}
+                        <CardContent>
+                            <BreakdownBarChart
+                                valueLabel="Documents"
+                                data={summary.recordTypeBreakdown.map((entry) => ({
+                                    label: entry.label,
+                                    value: entry.count,
+                                }))}
+                                emptyMessage="No records have attached evidence yet."
+                            />
                         </CardContent>
                     </Card>
 
-                    <Card className="border-zinc-200 bg-white shadow-sm">
+                    <Card className="xl:col-span-2">
                         <CardHeader>
-                            <CardTitle>Department Backlog</CardTitle>
+                            <CardTitle className="flex items-center gap-2">
+                                <Building2 className="size-4 text-muted-foreground" aria-hidden />
+                                Department backlog
+                            </CardTitle>
                             <CardDescription>
-                                Departments with the largest pending verification load right now.
+                                Departments with the largest verification load. Hover a bar for its pending count.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-3">
-                            {summary.departmentBreakdown.slice(0, 6).map((entry) => (
-                                <div
-                                    key={entry.label}
-                                    className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3"
-                                >
-                                    <div className="flex items-center justify-between gap-3">
-                                        <span className="min-w-0 truncate text-sm font-medium text-zinc-900">
-                                            {entry.label}
-                                        </span>
-                                        <Badge variant="secondary">{entry.count} total</Badge>
-                                    </div>
-                                    <p className="mt-2 text-xs text-zinc-500">
-                                        {entry.pendingCount} pending verification item(s)
-                                    </p>
-                                </div>
-                            ))}
+                        <CardContent>
+                            <BreakdownBarChart
+                                valueLabel="Documents"
+                                secondaryLabel="Pending"
+                                data={summary.departmentBreakdown.map((entry) => ({
+                                    label: entry.label,
+                                    value: entry.count,
+                                    secondaryValue: entry.pendingCount,
+                                }))}
+                                emptyMessage="No departments have submitted evidence yet."
+                            />
                         </CardContent>
                     </Card>
                 </section>
             ) : null}
 
-            <Card className="border-zinc-200 bg-white shadow-sm">
+            {summary && summary.stalePendingCount > 0 ? (
+                <InlineAlert tone="warning" title="Stale items in the queue" icon={TriangleAlert}>
+                    {summary.stalePendingCount} pending item(s) have been waiting longer than expected. Clearing
+                    these first keeps departments unblocked.
+                </InlineAlert>
+            ) : null}
+
+            <Card>
                 <CardHeader>
-                    <CardTitle>Evidence Queue</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <Hourglass className="size-4 text-muted-foreground" aria-hidden />
+                        Evidence Queue
+                        <span className="text-sm font-normal text-muted-foreground tabular-nums">
+                            ({filteredItems.length})
+                        </span>
+                    </CardTitle>
                 </CardHeader>
                 <CardContent>
                     {emptyState ? (
-                        <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-8 text-center text-sm text-zinc-500">
-                            {emptyState}
-                        </div>
+                        <EmptyState
+                            bordered
+                            icon={FileSearch}
+                            title={emptyState.title}
+                            description={emptyState.description}
+                        />
                     ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Student</TableHead>
-                                    <TableHead>Record</TableHead>
-                                    <TableHead>Evidence</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Remarks</TableHead>
-                                    <TableHead className="text-right">Action</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredItems.map((item) => (
-                                    <TableRow key={item.document.id}>
-                                        <TableCell>
-                                            <div className="font-medium text-zinc-900">{item.student.name || "-"}</div>
-                                            <div className="text-xs text-zinc-500">
-                                                {item.student.enrollmentNo}
-                                                {item.student.departmentName ? ` • ${item.student.departmentName}` : ""}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="text-sm font-medium text-zinc-900">{item.summary}</div>
-                                            <div className="text-xs text-zinc-500">
-                                                {item.recordType.toUpperCase()} • {formatDate(item.submittedAt)}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {item.document.fileUrl ? (
-                                                <a
-                                                    className="text-sm font-medium text-sky-700 underline"
-                                                    href={item.document.fileUrl}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                >
-                                                    {item.document.fileName ?? "Evidence file"}
-                                                </a>
-                                            ) : (
-                                                <span className="text-sm text-zinc-500">No file</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>{statusBadge(item.document.verificationStatus)}</TableCell>
-                                        <TableCell className="min-w-[200px]">
-                                            <Textarea
-                                                value={remarks[item.document.id] ?? item.document.verificationRemarks ?? ""}
-                                                onChange={(event) =>
-                                                    setRemarks((current) => ({
-                                                        ...current,
-                                                        [item.document.id]: event.target.value,
-                                                    }))
-                                                }
-                                                rows={2}
-                                                placeholder="Optional remarks"
-                                                className="text-xs"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button
-                                                    size="sm"
-                                                    variant="secondary"
-                                                    disabled={isPending || item.document.verificationStatus === "Verified"}
-                                                    onClick={() => updateStatus(item.document.id, "Verified")}
-                                                >
-                                                    Verify
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    disabled={isPending || item.document.verificationStatus === "Rejected"}
-                                                    onClick={() => updateStatus(item.document.id, "Rejected")}
-                                                >
-                                                    Reject
-                                                </Button>
-                                            </div>
-                                        </TableCell>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Student</TableHead>
+                                        <TableHead>Record</TableHead>
+                                        <TableHead>Evidence</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead>Remarks</TableHead>
+                                        <TableHead className="text-right">Action</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredItems.map((item) => {
+                                        const verifying = actingOn === `${item.document.id}:Verified`;
+                                        const rejecting = actingOn === `${item.document.id}:Rejected`;
+
+                                        return (
+                                            <TableRow key={item.document.id}>
+                                                <TableCell>
+                                                    <div className="font-medium text-foreground">
+                                                        {item.student.name || "-"}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {item.student.enrollmentNo}
+                                                        {item.student.departmentName
+                                                            ? ` • ${item.student.departmentName}`
+                                                            : ""}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="text-sm font-medium text-foreground">
+                                                        {item.summary}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {item.recordType.toUpperCase()} •{" "}
+                                                        {formatDate(item.submittedAt)}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {item.document.fileUrl ? (
+                                                        <Button asChild variant="link" size="sm" className="px-0">
+                                                            <a
+                                                                href={item.document.fileUrl}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                            >
+                                                                <ExternalLink aria-hidden />
+                                                                {item.document.fileName ?? "Evidence file"}
+                                                            </a>
+                                                        </Button>
+                                                    ) : (
+                                                        <span className="text-sm text-muted-foreground">
+                                                            No file
+                                                        </span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <StatusBadge
+                                                        status={item.document.verificationStatus ?? "Pending"}
+                                                    />
+                                                </TableCell>
+                                                <TableCell className="min-w-[200px]">
+                                                    <Textarea
+                                                        value={
+                                                            remarks[item.document.id] ??
+                                                            item.document.verificationRemarks ??
+                                                            ""
+                                                        }
+                                                        onChange={(event) =>
+                                                            setRemarks((current) => ({
+                                                                ...current,
+                                                                [item.document.id]: event.target.value,
+                                                            }))
+                                                        }
+                                                        rows={2}
+                                                        placeholder="Optional remarks"
+                                                        className="text-xs"
+                                                    />
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        <Button
+                                                            size="sm"
+                                                            loading={verifying}
+                                                            disabled={
+                                                                isPending ||
+                                                                item.document.verificationStatus === "Verified"
+                                                            }
+                                                            onClick={() =>
+                                                                updateStatus(item.document.id, "Verified")
+                                                            }
+                                                        >
+                                                            {verifying ? null : <CheckCheck aria-hidden />}
+                                                            Verify
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="destructive"
+                                                            loading={rejecting}
+                                                            disabled={
+                                                                isPending ||
+                                                                item.document.verificationStatus === "Rejected"
+                                                            }
+                                                            onClick={() =>
+                                                                updateStatus(item.document.id, "Rejected")
+                                                            }
+                                                        >
+                                                            {rejecting ? null : <X aria-hidden />}
+                                                            Reject
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </div>
                     )}
                 </CardContent>
             </Card>
         </div>
-    );
-}
-
-function DashboardMetric({
-    label,
-    value,
-    helper,
-}: {
-    label: string;
-    value: number;
-    helper: string;
-}) {
-    return (
-        <Card className="border-zinc-200 bg-white shadow-sm">
-            <CardContent className="p-5">
-                <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
-                    {label}
-                </p>
-                <p className="mt-2 text-3xl font-semibold text-zinc-950">{value}</p>
-                <p className="mt-2 text-xs text-zinc-500">{helper}</p>
-            </CardContent>
-        </Card>
     );
 }

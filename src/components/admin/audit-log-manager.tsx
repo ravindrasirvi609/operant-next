@@ -2,13 +2,14 @@
 
 import { useMemo, useState, useTransition } from "react";
 
-import { ScrollText } from "lucide-react";
+import { ChevronLeft, ChevronRight, ScrollText } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { DataPagination, useClientPagination } from "@/components/ui/data-pagination";
 import {
     Select,
     SelectContent,
@@ -115,6 +116,10 @@ export function AuditLogManager({ initialData }: { initialData: AuditLogResponse
     const [error, setError] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
 
+    // Audit logs are the longest list in the app and arrive as a single page
+    // from the API; slice for display so the DOM stays manageable.
+    const logPage = useClientPagination(data.items, 25);
+
     const activeFilterCount = useMemo(
         () =>
             [filters.query, filters.startDate, filters.endDate].filter(Boolean).length +
@@ -207,8 +212,8 @@ export function AuditLogManager({ initialData }: { initialData: AuditLogResponse
                     />
                 </div>
 
-                {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-                {isPending ? <p className="text-sm text-zinc-500">Refreshing audit logs...</p> : null}
+                {error ? <p className="text-sm text-destructive">{error}</p> : null}
+                {isPending ? <p className="text-sm text-muted-foreground">Refreshing audit logs...</p> : null}
 
                 {data.items.length === 0 ? (
                     <EmptyState
@@ -219,8 +224,8 @@ export function AuditLogManager({ initialData }: { initialData: AuditLogResponse
                 ) : null}
 
                 <div className="space-y-3">
-                    {data.items.map((item) => (
-                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={item._id}>
+                    {logPage.pageItems.map((item) => (
+                        <div className="rounded-lg border border-border bg-muted/50 p-4" key={item._id}>
                             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                 <div className="space-y-2">
                                     <div className="flex flex-wrap items-center gap-2">
@@ -228,13 +233,13 @@ export function AuditLogManager({ initialData }: { initialData: AuditLogResponse
                                         <Badge variant="outline">{item.tableName}</Badge>
                                         {item.recordId ? <Badge variant="secondary">{item.recordId}</Badge> : null}
                                     </div>
-                                    <p className="text-sm text-zinc-700">
+                                    <p className="text-sm text-foreground">
                                         {getUserLabel(item.userId)}{" "}
                                         {typeof item.userId === "object" && item.userId?.role
                                             ? `(${item.userId.role})`
                                             : ""}
                                     </p>
-                                    <p className="text-xs text-zinc-500">
+                                    <p className="text-xs text-muted-foreground">
                                         {new Date(item.createdAt).toLocaleString()}
                                         {item.ipAddress ? ` • ${item.ipAddress}` : ""}
                                     </p>
@@ -243,21 +248,21 @@ export function AuditLogManager({ initialData }: { initialData: AuditLogResponse
 
                             <div className="mt-3 grid gap-3 lg:grid-cols-2">
                                 {item.oldData !== undefined ? (
-                                    <details className="rounded-md border border-zinc-200 bg-white p-3">
-                                        <summary className="cursor-pointer text-sm font-medium text-zinc-900">
+                                    <details className="rounded-md border border-border bg-card p-3">
+                                        <summary className="cursor-pointer text-sm font-medium text-foreground">
                                             Previous data
                                         </summary>
-                                        <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs text-zinc-600">
+                                        <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs text-muted-foreground">
                                             {serializePreview(item.oldData)}
                                         </pre>
                                     </details>
                                 ) : null}
                                 {item.newData !== undefined ? (
-                                    <details className="rounded-md border border-zinc-200 bg-white p-3">
-                                        <summary className="cursor-pointer text-sm font-medium text-zinc-900">
+                                    <details className="rounded-md border border-border bg-card p-3">
+                                        <summary className="cursor-pointer text-sm font-medium text-foreground">
                                             New data
                                         </summary>
-                                        <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs text-zinc-600">
+                                        <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs text-muted-foreground">
                                             {serializePreview(item.newData)}
                                         </pre>
                                     </details>
@@ -267,8 +272,18 @@ export function AuditLogManager({ initialData }: { initialData: AuditLogResponse
                     ))}
                 </div>
 
-                <div className="flex flex-col gap-3 border-t border-zinc-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-sm text-zinc-500">
+                <DataPagination
+                    page={logPage.page}
+                    totalPages={logPage.totalPages}
+                    onPageChange={logPage.setPage}
+                    from={logPage.from}
+                    to={logPage.to}
+                    total={logPage.total}
+                    label="log entries"
+                />
+
+                <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-muted-foreground">
                         Page {data.pagination.page} of {data.pagination.totalPages}
                     </p>
                     <div className="flex gap-2">
@@ -277,6 +292,7 @@ export function AuditLogManager({ initialData }: { initialData: AuditLogResponse
                             disabled={data.pagination.page <= 1 || isPending}
                             onClick={() => updateFilters({ page: data.pagination.page - 1 })}
                         >
+                            <ChevronLeft aria-hidden />
                             Previous
                         </Button>
                         <Button
@@ -284,6 +300,7 @@ export function AuditLogManager({ initialData }: { initialData: AuditLogResponse
                             disabled={data.pagination.page >= data.pagination.totalPages || isPending}
                             onClick={() => updateFilters({ page: data.pagination.page + 1 })}
                         >
+                            <ChevronRight aria-hidden />
                             Next
                         </Button>
                     </div>

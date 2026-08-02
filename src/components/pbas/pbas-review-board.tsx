@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { X } from "lucide-react";
 
 type PbasReviewApplication = {
     _id: string;
@@ -278,43 +279,44 @@ export function PbasReviewBoard({
                                 {(mode === "review" || (mode === "scoped" && application.permissions?.canReview)) ? (
                                     <>
                                         <Button
+                                            loading={isPending}
                                             disabled={isPending}
                                             onClick={() => act(application._id, application.status === "Submitted" ? "Forward" : "Recommend")}
                                         >
-                                            {isPending ? <Spinner /> : null}
                                             {application.status === "Submitted" ? "Move To Under Review" : "Move To Committee Review"}
                                         </Button>
-                                        <Button disabled={isPending} variant="secondary" onClick={() => act(application._id, "Reject")}>
+                                        <Button loading={isPending} disabled={isPending} variant="secondary" onClick={() => act(application._id, "Reject")}>
+                                            <X aria-hidden />
                                             Reject
                                         </Button>
                                     </>
                                 ) : mode === "approve" || (mode === "scoped" && application.permissions?.canApprove) ? (
                                     <>
-                                        <Button disabled={isPending} onClick={() => act(application._id, "Approve")}>
-                                            {isPending ? <Spinner /> : null}
+                                        <Button loading={isPending} disabled={isPending} onClick={() => act(application._id, "Approve")}>
                                             Final Approve
                                         </Button>
-                                        <Button disabled={isPending} variant="secondary" onClick={() => act(application._id, "Reject")}>
+                                        <Button loading={isPending} disabled={isPending} variant="secondary" onClick={() => act(application._id, "Reject")}>
+                                            <X aria-hidden />
                                             Final Reject
                                         </Button>
                                     </>
                                 ) : (
-                                    <p className="text-sm text-zinc-500">
+                                    <p className="text-sm text-muted-foreground">
                                         Read-only in your current governance scope.
                                     </p>
                                 )}
                             </div>
 
                             {activeApplicationId === application._id ? (
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+                                <div className="rounded-lg border border-border bg-muted/50 p-4">
                                     {isEntryLoading[application._id] ? (
-                                        <p className="text-sm text-zinc-500">Loading indicator entries...</p>
+                                        <p className="text-sm text-muted-foreground">Loading indicator entries...</p>
                                     ) : (entriesByApplication[application._id] ?? []).length ? (
                                         <>
                                             <div className="overflow-x-auto">
                                                 <table className="min-w-full border-collapse text-sm">
                                                     <thead>
-                                                        <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-[0.08em] text-zinc-500">
+                                                        <tr className="border-b border-border text-left text-xs uppercase tracking-[0.08em] text-muted-foreground">
                                                             <th className="px-2 py-2">Indicator</th>
                                                             <th className="px-2 py-2 text-right">Claimed</th>
                                                             <th className="px-2 py-2 text-right">Approved</th>
@@ -322,12 +324,12 @@ export function PbasReviewBoard({
                                                     </thead>
                                                     <tbody>
                                                         {(entriesByApplication[application._id] ?? []).map((entry) => (
-                                                            <tr key={entry.indicatorId} className="border-b border-zinc-200">
+                                                            <tr key={entry.indicatorId} className="border-b border-border">
                                                                 <td className="px-2 py-2 align-top">
-                                                                    <p className="font-medium text-zinc-900">{entry.indicatorName}</p>
-                                                                    <p className="text-xs text-zinc-500">{entry.indicatorCode} • Max {entry.maxScore}</p>
+                                                                    <p className="font-medium text-foreground">{entry.indicatorName}</p>
+                                                                    <p className="text-xs text-muted-foreground">{entry.indicatorCode} • Max {entry.maxScore}</p>
                                                                 </td>
-                                                                <td className="px-2 py-2 text-right align-top text-zinc-700">{entry.claimedScore}</td>
+                                                                <td className="px-2 py-2 text-right align-top text-foreground">{entry.claimedScore}</td>
                                                                 <td className="px-2 py-2 text-right align-top">
                                                                     <input
                                                                         type="number"
@@ -342,7 +344,7 @@ export function PbasReviewBoard({
                                                                                 Number(event.target.value)
                                                                             )
                                                                         }
-                                                                        className="w-24 rounded border border-zinc-300 bg-white px-2 py-1 text-right"
+                                                                        className="w-24 rounded border border-border bg-card px-2 py-1 text-right"
                                                                     />
                                                                 </td>
                                                             </tr>
@@ -362,7 +364,7 @@ export function PbasReviewBoard({
                                             </div>
                                         </>
                                     ) : (
-                                        <p className="text-sm text-zinc-500">No indicator entries available for this PBAS form.</p>
+                                        <p className="text-sm text-muted-foreground">No indicator entries available for this PBAS form.</p>
                                     )}
                                 </div>
                             ) : null}
@@ -371,7 +373,7 @@ export function PbasReviewBoard({
                 ))
             ) : (
                 <Card>
-                    <CardContent className="p-6 text-sm text-zinc-500">
+                    <CardContent className="p-6 text-sm text-muted-foreground">
                         {items.length
                             ? "No PBAS records matched the current filters."
                             : "No PBAS records are available in your current governance scope."}
@@ -384,9 +386,9 @@ export function PbasReviewBoard({
 
 function Metric({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">{label}</p>
-            <p className="mt-2 font-semibold text-zinc-950">{value}</p>
+        <div className="rounded-lg border border-border bg-muted/50 p-4">
+            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+            <p className="mt-2 font-semibold text-foreground">{value}</p>
         </div>
     );
 }

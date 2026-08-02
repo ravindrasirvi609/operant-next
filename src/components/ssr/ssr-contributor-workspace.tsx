@@ -11,7 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MultiFileUpload } from "@/components/ui/file-upload";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import type { UploadedDocument } from "@/lib/upload/service";
+import { Save, Send } from "lucide-react";
 
 type AssignmentRecord = {
     _id: string;
@@ -240,17 +242,7 @@ export function SsrContributorWorkspace({
 
     return (
         <div className="space-y-6">
-            {message ? (
-                <div
-                    className={`rounded-lg border px-4 py-3 text-sm ${
-                        message.type === "success"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                            : "border-rose-200 bg-rose-50 text-rose-800"
-                    }`}
-                >
-                    {message.text}
-                </div>
-            ) : null}
+            <InlineAlert message={message} />
 
             <section className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
                 <Card className="h-fit">
@@ -268,8 +260,8 @@ export function SsrContributorWorkspace({
                                 onClick={() => setSelectedId(item._id)}
                                 className={`w-full rounded-xl border p-4 text-left transition ${
                                     item._id === selectedAssignment._id
-                                        ? "border-zinc-950 bg-zinc-950 text-white"
-                                        : "border-zinc-200 bg-white hover:border-zinc-300"
+                                        ? "border-border bg-primary text-primary-foreground"
+                                        : "border-border bg-card hover:border-border"
                                 }`}
                             >
                                 <div className="flex flex-wrap items-center gap-2">
@@ -281,7 +273,7 @@ export function SsrContributorWorkspace({
                                     </Badge>
                                 </div>
                                 <p className="mt-3 font-medium">{item.metricTitle}</p>
-                                <p className={`mt-1 text-xs ${item._id === selectedAssignment._id ? "text-white/75" : "text-zinc-500"}`}>
+                                <p className={`mt-1 text-xs ${item._id === selectedAssignment._id ? "text-primary-foreground/75" : "text-muted-foreground"}`}>
                                     {item.sectionTitle || "Whole metric"} · {item.criterionCode}
                                 </p>
                             </button>
@@ -318,7 +310,7 @@ export function SsrContributorWorkspace({
                         <CardHeader>
                             <CardTitle>Contribution Guidance</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-3 text-sm leading-6 text-zinc-600">
+                        <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
                             {selectedAssignment.metricDescription ? (
                                 <p>{selectedAssignment.metricDescription}</p>
                             ) : null}
@@ -326,20 +318,20 @@ export function SsrContributorWorkspace({
                                 <p>{selectedAssignment.metricInstructions}</p>
                             ) : null}
                             {selectedAssignment.sectionPrompt ? (
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                                    <p className="font-medium text-zinc-950">Section Prompt</p>
+                                <div className="rounded-lg border border-border bg-muted/50 p-4">
+                                    <p className="font-medium text-foreground">Section Prompt</p>
                                     <p className="mt-2">{selectedAssignment.sectionPrompt}</p>
                                 </div>
                             ) : null}
                             {selectedAssignment.sectionGuidance ? (
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                                    <p className="font-medium text-zinc-950">Section Guidance</p>
+                                <div className="rounded-lg border border-border bg-muted/50 p-4">
+                                    <p className="font-medium text-foreground">Section Guidance</p>
                                     <p className="mt-2">{selectedAssignment.sectionGuidance}</p>
                                 </div>
                             ) : null}
                             {selectedAssignment.notes ? (
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                                    <p className="font-medium text-zinc-950">Assignment Notes</p>
+                                <div className="rounded-lg border border-border bg-muted/50 p-4">
+                                    <p className="font-medium text-foreground">Assignment Notes</p>
                                     <p className="mt-2">{selectedAssignment.notes}</p>
                                 </div>
                             ) : null}
@@ -368,7 +360,7 @@ export function SsrContributorWorkspace({
                                         }
                                     />
                                     {selectedAssignment.wordLimitMin || selectedAssignment.wordLimitMax ? (
-                                        <p className="text-xs text-zinc-500">
+                                        <p className="text-xs text-muted-foreground">
                                             Word guidance:
                                             {selectedAssignment.wordLimitMin
                                                 ? ` min ${selectedAssignment.wordLimitMin}`
@@ -414,7 +406,7 @@ export function SsrContributorWorkspace({
 
                             {selectedAssignment.dataType === "Boolean" ? (
                                 <FieldBlock label="Boolean Value">
-                                    <label className="flex items-center gap-3 rounded-lg border border-zinc-200 px-3 py-2">
+                                    <label className="flex items-center gap-3 rounded-lg border border-border px-3 py-2">
                                         <Checkbox
                                             checked={form.metricValueBoolean}
                                             disabled={!isEditable || isPending}
@@ -503,6 +495,7 @@ export function SsrContributorWorkspace({
 
                             <div className="flex flex-wrap gap-3">
                                 <Button disabled={!isEditable || isPending} type="button" onClick={saveDraft}>
+                                    <Save aria-hidden />
                                     Save Draft
                                 </Button>
                                 <Button
@@ -511,12 +504,13 @@ export function SsrContributorWorkspace({
                                     variant="outline"
                                     onClick={submitResponse}
                                 >
+                                    <Send aria-hidden />
                                     Submit Response
                                 </Button>
                             </div>
 
                             {!isEditable ? (
-                                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                <div className="rounded-lg border border-warning-border bg-warning-muted px-4 py-3 text-sm text-warning-muted-foreground">
                                     This assignment is currently read-only because it is under review, approved, inactive, or the cycle is locked.
                                 </div>
                             ) : null}
@@ -545,9 +539,9 @@ function FieldBlock({
 
 function InfoRow({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3">
-            <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-sm font-medium text-zinc-950">{value}</p>
+        <div className="rounded-lg border border-border bg-muted/50 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+            <p className="mt-2 text-sm font-medium text-foreground">{value}</p>
         </div>
     );
 }

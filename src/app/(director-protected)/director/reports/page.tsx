@@ -20,14 +20,14 @@ export default async function DirectorReportsPage() {
 
     return (
         <div className="space-y-6">
-            <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div className="max-w-3xl">
                         <Badge>Leadership reports</Badge>
-                        <h1 className="mt-4 text-4xl font-semibold tracking-tight text-zinc-950">
+                        <h1 className="mt-4 text-4xl font-semibold tracking-tight text-foreground">
                             Scoped operational reporting
                         </h1>
-                        <p className="mt-4 text-base leading-8 text-zinc-500">
+                        <p className="mt-4 text-base leading-8 text-muted-foreground">
                             Export department and faculty summaries that reflect the same governance scope enforced by
                             the leadership portal and workflow engine.
                         </p>
@@ -133,9 +133,9 @@ export default async function DirectorReportsPage() {
 
 function Metric({ label, value }: { label: string; value: number }) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-2xl font-semibold text-zinc-950">{value}</p>
+        <div className="rounded-lg border border-border bg-muted/50 p-4">
+            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+            <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
         </div>
     );
 }

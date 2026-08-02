@@ -2,7 +2,7 @@
 
 import { type FormEvent, useMemo, useState, useTransition } from "react";
 
-import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ConfirmButton } from "@/components/ui/confirm-button";
+import { Pencil, RotateCcw, Trash2 } from "lucide-react";
 import {
     designationOptions,
     getAllowedCasPromotionTargets,
@@ -339,16 +341,17 @@ export function CasRuleManager({
                         </div>
 
                         <div className="flex flex-wrap gap-3">
-                            <Button disabled={isPending} type="submit">
-                                {isPending ? <Spinner /> : null}
+                            <Button loading={isPending} disabled={isPending} type="submit">
                                 {editingId ? "Update Rule" : "Create Rule"}
                             </Button>
                             <Button
+                                loading={isPending}
                                 disabled={isPending}
                                 type="button"
                                 variant="secondary"
                                 onClick={() => resetForm(form.currentDesignation)}
                             >
+                                <RotateCcw aria-hidden />
                                 Reset
                             </Button>
                         </div>
@@ -365,13 +368,13 @@ export function CasRuleManager({
                 </CardHeader>
                 <CardContent className="space-y-3">
                     {rules.length ? rules.map((rule) => (
-                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={rule._id}>
+                        <div className="rounded-lg border border-border bg-muted/50 p-4" key={rule._id}>
                             <div className="flex flex-wrap items-start justify-between gap-3">
                                 <div>
-                                    <p className="font-semibold text-zinc-950">
+                                    <p className="font-semibold text-foreground">
                                         {rule.currentDesignation} to {rule.targetDesignation}
                                     </p>
-                                    <p className="mt-1 text-sm text-zinc-600">
+                                    <p className="mt-1 text-sm text-muted-foreground">
                                         Experience {rule.minExperienceYears} years | API {rule.minApiScore}
                                     </p>
                                 </div>
@@ -379,33 +382,39 @@ export function CasRuleManager({
                                     {rule.isActive ? "Active" : "Inactive"}
                                 </Badge>
                             </div>
-                            <div className="mt-3 grid gap-2 text-sm text-zinc-600 md:grid-cols-3">
+                            <div className="mt-3 grid gap-2 text-sm text-muted-foreground md:grid-cols-3">
                                 <div>Teaching min: {rule.categoryMinimums?.teachingLearning ?? 0}</div>
                                 <div>Research min: {rule.categoryMinimums?.researchPublication ?? 0}</div>
                                 <div>Academic min: {rule.categoryMinimums?.academicContribution ?? 0}</div>
                             </div>
                             {rule.notes ? (
-                                <p className="mt-3 text-sm text-zinc-500">{rule.notes}</p>
+                                <p className="mt-3 text-sm text-muted-foreground">{rule.notes}</p>
                             ) : null}
                             <div className="mt-4 flex flex-wrap gap-3">
                                 <Button
+                                    loading={isPending}
                                     disabled={isPending}
                                     size="sm"
                                     type="button"
                                     variant="secondary"
                                     onClick={() => startEdit(rule)}
                                 >
+                                    <Pencil aria-hidden />
                                     Edit
                                 </Button>
-                                <Button
+                                <ConfirmButton
+                                    loading={isPending}
                                     disabled={isPending}
                                     size="sm"
                                     type="button"
-                                    variant="secondary"
-                                    onClick={() => handleDelete(rule._id)}
+                                    variant="destructive"
+                                    onConfirm={() => handleDelete(rule._id)}
+                                    title="Delete this CAS rule?"
+                                    description="The rule will be removed permanently. Existing CAS applications that referenced it keep their recorded scores."
                                 >
+                                    <Trash2 aria-hidden />
                                     Delete
-                                </Button>
+                                </ConfirmButton>
                             </div>
                         </div>
                     )) : (

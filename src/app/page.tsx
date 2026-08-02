@@ -78,14 +78,14 @@ export default async function Home() {
     : [];
 
   return (
-    <main className="min-h-screen bg-zinc-50">
+    <main className="min-h-screen bg-muted/50">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
+        <section className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
           <Badge>{user ? "Common Home" : "Public Landing Page"}</Badge>
-          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-zinc-950 sm:text-5xl">
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-5xl">
             Unified Management Information System
           </h1>
-          <p className="mt-4 max-w-3xl text-base leading-8 text-zinc-600">
+          <p className="mt-4 max-w-3xl text-base leading-8 text-muted-foreground">
             This is now the common home page for everyone. It can be opened without login,
             and signed-in users can continue to their role workspaces from here.
           </p>
@@ -128,15 +128,15 @@ export default async function Home() {
               {publicPortalLinks.map((portal) => (
                 <div
                   key={portal.href}
-                  className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                  className="rounded-lg border border-border bg-muted/50 p-4"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-zinc-900">{portal.label}</p>
+                    <p className="text-sm font-semibold text-foreground">{portal.label}</p>
                     <Button asChild size="sm" variant="outline">
                       <Link href={portal.href}>Open</Link>
                     </Button>
                   </div>
-                  <p className="mt-2 text-sm text-zinc-600">{portal.description}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{portal.description}</p>
                 </div>
               ))}
             </CardContent>
@@ -149,12 +149,12 @@ export default async function Home() {
                 Common visibility for guests and authenticated users.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-3 text-sm text-zinc-700">
-              <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+            <CardContent className="grid gap-3 text-sm text-foreground">
+              <div className="rounded-lg border border-border bg-muted/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                   Current State
                 </p>
-                <p className="mt-2 font-medium text-zinc-950">
+                <p className="mt-2 font-medium text-foreground">
                   {user ? "Authenticated session active" : "Guest mode (no login required)"}
                 </p>
               </div>
@@ -180,7 +180,7 @@ export default async function Home() {
                   />
                 </>
               )}
-              <div className="flex items-center gap-2 text-zinc-600">
+              <div className="flex items-center gap-2 text-muted-foreground">
                 {user ? <UserRound className="size-4" /> : <ShieldCheck className="size-4" />}
                 <span>{user ? "Signed-in user detected" : "Public access enabled"}</span>
               </div>
@@ -194,9 +194,9 @@ export default async function Home() {
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-      <p className="mt-1 font-medium text-zinc-950">{value}</p>
+    <div className="rounded-lg border border-border bg-muted/50 p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+      <p className="mt-1 font-medium text-foreground">{value}</p>
     </div>
   );
 }

@@ -11,6 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ListTree, Pencil, Plus, RotateCcw, Save, Users } from "lucide-react";
 
 type PlanRecord = {
     _id: string;
@@ -172,22 +176,6 @@ function formatDate(value?: string) {
         month: "short",
         year: "numeric",
     });
-}
-
-function statusBadge(status: string) {
-    if (status === "Approved" || status === "Active") {
-        return <Badge className="bg-emerald-100 text-emerald-700">{status}</Badge>;
-    }
-
-    if (status === "Rejected") {
-        return <Badge className="bg-rose-100 text-rose-700">{status}</Badge>;
-    }
-
-    if (["Submitted", "IQAC Review", "Leadership Review", "Governance Review", "Locked"].includes(status)) {
-        return <Badge className="bg-amber-100 text-amber-700">{status}</Badge>;
-    }
-
-    return <Badge variant="secondary">{status}</Badge>;
 }
 
 export function InstitutionalValuesBestPracticesManager({
@@ -412,20 +400,24 @@ export function InstitutionalValuesBestPracticesManager({
     return (
         <div className="space-y-6">
             <div className="flex flex-wrap items-center gap-3">
-                <Button
-                    onClick={() => setTab("plans")}
-                    type="button"
-                    variant={tab === "plans" ? "default" : "secondary"}
+                <ToggleGroup
+                    type="single"
+                    value={tab}
+                    onValueChange={(value) => {
+                        if (value) setTab(value as "plans" | "assignments");
+                    }}
+                    variant="outline"
+                    className="w-fit"
                 >
-                    Plans
-                </Button>
-                <Button
-                    onClick={() => setTab("assignments")}
-                    type="button"
-                    variant={tab === "assignments" ? "default" : "secondary"}
-                >
-                    Assignments
-                </Button>
+                    <ToggleGroupItem value="plans">
+                        <ListTree aria-hidden />
+                        Plans
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="assignments">
+                        <Users aria-hidden />
+                        Assignments
+                    </ToggleGroupItem>
+                </ToggleGroup>
                 <Input
                     className="max-w-sm"
                     onChange={(event) => setSearch(event.target.value)}
@@ -434,17 +426,7 @@ export function InstitutionalValuesBestPracticesManager({
                 />
             </div>
 
-            {message ? (
-                <div
-                    className={`rounded-lg border px-4 py-3 text-sm ${
-                        message.type === "success"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                            : "border-rose-200 bg-rose-50 text-rose-900"
-                    }`}
-                >
-                    {message.text}
-                </div>
-            ) : null}
+            <InlineAlert message={message} />
 
             {tab === "plans" ? (
                 <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
@@ -727,16 +709,19 @@ export function InstitutionalValuesBestPracticesManager({
                             </Field>
 
                             <div className="flex flex-wrap gap-3">
-                                <Button disabled={isPending} onClick={submitPlan} type="button">
+                                <Button loading={isPending} disabled={isPending} onClick={submitPlan} type="button">
+                                    {editingPlanId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                     {editingPlanId ? "Update plan" : "Create plan"}
                                 </Button>
                                 {(editingPlanId || planForm.title || planForm.overview) && (
                                     <Button
+                                        loading={isPending}
                                         disabled={isPending}
                                         onClick={resetPlanForm}
                                         type="button"
                                         variant="secondary"
                                     >
+                                        <RotateCcw aria-hidden />
                                         Reset
                                     </Button>
                                 )}
@@ -754,36 +739,37 @@ export function InstitutionalValuesBestPracticesManager({
                         <CardContent className="space-y-3">
                             {filteredPlans.length ? (
                                 filteredPlans.map((plan) => (
-                                    <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4" key={plan._id}>
+                                    <div className="rounded-xl border border-border bg-muted/50 p-4" key={plan._id}>
                                         <div className="flex flex-wrap items-start justify-between gap-3">
                                             <div>
-                                                <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">
+                                                <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
                                                     {plan.theme} · {plan.scopeType}
                                                 </p>
-                                                <h3 className="mt-2 text-base font-semibold text-zinc-950">
+                                                <h3 className="mt-2 text-base font-semibold text-foreground">
                                                     {plan.title}
                                                 </h3>
-                                                <p className="mt-1 text-sm text-zinc-500">
+                                                <p className="mt-1 text-sm text-muted-foreground">
                                                     {plan.departmentName || plan.institutionName || "Scope pending"} ·{" "}
                                                     {plan.academicYearLabel}
                                                 </p>
                                             </div>
                                             <div className="flex flex-wrap items-center gap-2">
-                                                {statusBadge(plan.status)}
+                                                <StatusBadge status={plan.status} />
                                                 <Button
                                                     onClick={() => setEditingPlanId(plan._id)}
                                                     size="sm"
                                                     type="button"
                                                     variant="secondary"
                                                 >
+                                                    <Pencil aria-hidden />
                                                     Edit
                                                 </Button>
                                             </div>
                                         </div>
                                         {plan.overview ? (
-                                            <p className="mt-3 text-sm leading-6 text-zinc-600">{plan.overview}</p>
+                                            <p className="mt-3 text-sm leading-6 text-muted-foreground">{plan.overview}</p>
                                         ) : null}
-                                        <p className="mt-3 text-xs text-zinc-500">
+                                        <p className="mt-3 text-xs text-muted-foreground">
                                             Targets: Env {plan.targetEnvironmentalRecords} · Inclusion{" "}
                                             {plan.targetInclusionRecords} · Ethics {plan.targetEthicsRecords} · Outreach{" "}
                                             {plan.targetOutreachPrograms} · Best Practices {plan.targetBestPractices} ·
@@ -881,7 +867,7 @@ export function InstitutionalValuesBestPracticesManager({
                             <div className="flex items-center gap-3">
                                 <input
                                     checked={assignmentForm.isActive}
-                                    className="h-4 w-4 rounded border-zinc-300"
+                                    className="h-4 w-4 rounded border-border"
                                     onChange={(event) =>
                                         setAssignmentForm((current) => ({
                                             ...current,
@@ -894,16 +880,19 @@ export function InstitutionalValuesBestPracticesManager({
                             </div>
 
                             <div className="flex flex-wrap gap-3">
-                                <Button disabled={isPending} onClick={submitAssignment} type="button">
+                                <Button loading={isPending} disabled={isPending} onClick={submitAssignment} type="button">
+                                    {editingAssignmentId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                     {editingAssignmentId ? "Update assignment" : "Create assignment"}
                                 </Button>
                                 {(editingAssignmentId || assignmentForm.planId || assignmentForm.assigneeUserId) && (
                                     <Button
+                                        loading={isPending}
                                         disabled={isPending}
                                         onClick={resetAssignmentForm}
                                         type="button"
                                         variant="secondary"
                                     >
+                                        <RotateCcw aria-hidden />
                                         Reset
                                     </Button>
                                 )}
@@ -922,20 +911,20 @@ export function InstitutionalValuesBestPracticesManager({
                             {filteredAssignments.length ? (
                                 filteredAssignments.map((assignment) => (
                                     <div
-                                        className="rounded-xl border border-zinc-200 bg-zinc-50 p-4"
+                                        className="rounded-xl border border-border bg-muted/50 p-4"
                                         key={assignment._id}
                                     >
                                         <div className="flex flex-wrap items-start justify-between gap-3">
                                             <div>
-                                                <h3 className="text-base font-semibold text-zinc-950">
+                                                <h3 className="text-base font-semibold text-foreground">
                                                     {assignment.planTitle}
                                                 </h3>
-                                                <p className="mt-1 text-sm text-zinc-500">
+                                                <p className="mt-1 text-sm text-muted-foreground">
                                                     {assignment.assigneeName} · {assignment.assigneeEmail}
                                                 </p>
                                             </div>
                                             <div className="flex flex-wrap items-center gap-2">
-                                                {statusBadge(assignment.status)}
+                                                <StatusBadge status={assignment.status} />
                                                 <Badge variant="secondary">
                                                     {assignment.isActive ? "Active" : "Inactive"}
                                                 </Badge>
@@ -945,11 +934,12 @@ export function InstitutionalValuesBestPracticesManager({
                                                     type="button"
                                                     variant="secondary"
                                                 >
+                                                    <Pencil aria-hidden />
                                                     Edit
                                                 </Button>
                                             </div>
                                         </div>
-                                        <p className="mt-3 text-sm text-zinc-600">
+                                        <p className="mt-3 text-sm text-muted-foreground">
                                             Due: {formatDate(assignment.dueDate)} {assignment.notes ? `· ${assignment.notes}` : ""}
                                         </p>
                                     </div>

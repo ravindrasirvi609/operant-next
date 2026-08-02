@@ -17,7 +17,12 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { DataPagination, useClientPagination } from "@/components/ui/data-pagination";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { LeadershipFacultyRecordsData, LeadershipFacultyRow } from "@/lib/director/dashboard";
+import { Users } from "lucide-react";
 
 type FacultyDialogTab = "overview" | "pbas" | "cas" | "aqar";
 
@@ -29,38 +34,6 @@ function formatStatus(status?: string, period?: string) {
     }
 
     return period ? `${status} (${period})` : status;
-}
-
-function statusTone(status?: string) {
-    if (status === "Approved" || status === "Verified") {
-        return "bg-emerald-100 text-emerald-700";
-    }
-
-    if (status === "Rejected") {
-        return "bg-rose-100 text-rose-700";
-    }
-
-    if (status === "Submitted" || status === "Under Review" || status === "Committee Review") {
-        return "bg-amber-100 text-amber-800";
-    }
-
-    return "bg-zinc-100 text-zinc-700";
-}
-
-function accountTone(status?: string) {
-    if (status === "Active") {
-        return "bg-emerald-100 text-emerald-700";
-    }
-
-    if (status === "PendingActivation") {
-        return "bg-amber-100 text-amber-800";
-    }
-
-    if (status === "Suspended") {
-        return "bg-rose-100 text-rose-700";
-    }
-
-    return "bg-zinc-100 text-zinc-700";
 }
 
 function formatDateTime(value?: string) {
@@ -114,14 +87,14 @@ function ProfileAvatar({
                 width={imageSize}
                 height={imageSize}
                 unoptimized
-                className={`${dimensions} rounded-full border border-zinc-200 object-cover shadow-sm`}
+                className={`${dimensions} rounded-full border border-border object-cover shadow-sm`}
             />
         );
     }
 
     return (
         <div
-            className={`${dimensions} flex items-center justify-center rounded-full border border-zinc-300 bg-gradient-to-br from-zinc-100 to-zinc-200 text-xs font-semibold text-zinc-700`}
+            className={`${dimensions} flex items-center justify-center rounded-full border border-border bg-gradient-to-br from-muted to-accent text-xs font-semibold text-foreground`}
         >
             {initials(name)}
         </div>
@@ -166,6 +139,10 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
                 .some((value) => String(value).toLowerCase().includes(query))
         );
     }, [deferredSearch, rows]);
+
+    // The roster arrives whole from the server; slice it for display so a
+    // few thousand rows do not all land in the DOM at once.
+    const rosterPage = useClientPagination(filteredRows, 25);
 
     const attentionCount = filteredRows.filter((row) => row.needsAttention).length;
     const selectedFacultyId = selectedFaculty?.facultyId;
@@ -328,7 +305,7 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
 
         if (!selectedRecords) {
             return (
-                <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-6 text-sm text-zinc-600">
+                <div className="rounded-xl border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                     Open a faculty profile to load records.
                 </div>
             );
@@ -348,7 +325,7 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
                 />
             </div>
 
-            <Card className="overflow-hidden border-zinc-200 shadow-sm">
+            <Card className="overflow-hidden border-border shadow-sm">
                 <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
                     <div>
                         <CardTitle>Faculty roster</CardTitle>
@@ -366,6 +343,7 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
                 </CardHeader>
                 <CardContent>
                     {filteredRows.length ? (
+                        <>
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
@@ -380,8 +358,8 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredRows.map((row) => (
-                                        <TableRow key={row.facultyId} className="hover:bg-zinc-50/80">
+                                    {rosterPage.pageItems.map((row) => (
+                                        <TableRow key={row.facultyId} className="hover:bg-muted/80">
                                             <TableCell className="align-top">
                                                 <div className="flex items-start gap-3">
                                                     <ProfileAvatar name={row.facultyName} photoURL={row.photoURL} />
@@ -389,25 +367,25 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
                                                         <button
                                                             type="button"
                                                             onClick={() => setSelectedFaculty(row)}
-                                                            className="cursor-pointer text-left text-sm font-semibold text-zinc-950 underline-offset-4 hover:text-zinc-700 hover:underline"
+                                                            className="cursor-pointer text-left text-sm font-semibold text-foreground underline-offset-4 hover:text-foreground hover:underline"
                                                         >
                                                             {row.facultyName}
                                                         </button>
-                                                        <div className="text-xs text-zinc-500">
+                                                        <div className="text-xs text-muted-foreground">
                                                             {row.employeeCode} • {row.designation}
                                                         </div>
                                                         {row.highestQualification ? (
-                                                            <div className="text-xs text-zinc-500">
+                                                            <div className="text-xs text-muted-foreground">
                                                                 Qualification: {row.highestQualification}
                                                             </div>
                                                         ) : null}
                                                         {row.email ? (
-                                                            <div className="max-w-[26ch] truncate text-xs text-zinc-500">{row.email}</div>
+                                                            <div className="max-w-[26ch] truncate text-xs text-muted-foreground">{row.email}</div>
                                                         ) : null}
                                                         <button
                                                             type="button"
                                                             onClick={() => setSelectedFaculty(row)}
-                                                            className="mt-1 cursor-pointer text-xs font-medium text-zinc-600 underline-offset-4 hover:text-zinc-900 hover:underline"
+                                                            className="mt-1 cursor-pointer text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                                                         >
                                                             View full profile
                                                         </button>
@@ -415,60 +393,65 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
                                                 </div>
                                             </TableCell>
                                             <TableCell className="align-top">
-                                                <div className="font-medium text-zinc-900">{row.departmentName ?? "-"}</div>
-                                                <div className="text-xs text-zinc-500">
+                                                <div className="font-medium text-foreground">{row.departmentName ?? "-"}</div>
+                                                <div className="text-xs text-muted-foreground">
                                                     {row.institutionName ?? "Institution not mapped"}
                                                 </div>
                                                 {row.needsAttention ? (
-                                                    <Badge className="mt-2 bg-amber-100 text-amber-800">
+                                                    <Badge className="mt-2 bg-warning-muted text-warning-muted-foreground">
                                                         Needs attention
                                                     </Badge>
                                                 ) : (
-                                                    <Badge className="mt-2 bg-emerald-100 text-emerald-700">
+                                                    <Badge className="mt-2 bg-success-muted text-success-muted-foreground">
                                                         Stable
                                                     </Badge>
                                                 )}
                                             </TableCell>
                                             <TableCell className="align-top">
-                                                <div className="text-sm text-zinc-700">
+                                                <div className="text-sm text-foreground">
                                                     {row.employmentType ?? "Employment type not set"}
                                                 </div>
-                                                <div className="text-xs text-zinc-500">
+                                                <div className="text-xs text-muted-foreground">
                                                     Experience: {typeof row.experienceYears === "number" ? `${row.experienceYears} year(s)` : "-"}
                                                 </div>
-                                                <div className="text-xs text-zinc-500">Contact: {row.mobile ?? "-"}</div>
+                                                <div className="text-xs text-muted-foreground">Contact: {row.mobile ?? "-"}</div>
                                             </TableCell>
                                             <TableCell className="align-top space-y-2">
-                                                <Badge className={statusTone(row.status)}>{row.status}</Badge>
+                                                <StatusBadge status={row.status} />
                                                 <br />
-                                                <Badge className={accountTone(row.accountStatus)}>
-                                                    {row.accountStatus ?? "Account status unavailable"}
-                                                </Badge>
+                                                <StatusBadge status={row.accountStatus} label={row.accountStatus ?? "Account status unavailable"} />
                                             </TableCell>
                                             <TableCell className="align-top">
-                                                <Badge className={statusTone(row.pbasStatus)}>
-                                                    {formatStatus(row.pbasStatus, row.pbasAcademicYear)}
-                                                </Badge>
+                                                <StatusBadge status={row.pbasStatus} label={formatStatus(row.pbasStatus, row.pbasAcademicYear)} />
                                             </TableCell>
                                             <TableCell className="align-top">
-                                                <Badge className={statusTone(row.casStatus)}>
-                                                    {formatStatus(row.casStatus, row.casApplicationYear)}
-                                                </Badge>
+                                                <StatusBadge status={row.casStatus} label={formatStatus(row.casStatus, row.casApplicationYear)} />
                                             </TableCell>
                                             <TableCell className="align-top">
-                                                <Badge className={statusTone(row.aqarStatus)}>
-                                                    {formatStatus(row.aqarStatus, row.aqarAcademicYear)}
-                                                </Badge>
+                                                <StatusBadge status={row.aqarStatus} label={formatStatus(row.aqarStatus, row.aqarAcademicYear)} />
                                             </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
                             </Table>
                         </div>
+                            <DataPagination
+                                page={rosterPage.page}
+                                totalPages={rosterPage.totalPages}
+                                onPageChange={rosterPage.setPage}
+                                from={rosterPage.from}
+                                to={rosterPage.to}
+                                total={rosterPage.total}
+                                label="faculty"
+                            />
+                        </>
                     ) : (
-                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
-                            No faculty records matched this search.
-                        </div>
+                        <EmptyState
+                            bordered
+                            icon={Users}
+                            title="No faculty found"
+                            description="No faculty records matched this search."
+                        />
                     )}
                 </CardContent>
             </Card>
@@ -482,8 +465,8 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
                 }}
             >
                 {selectedFaculty ? (
-                    <DialogContent className="h-[96vh] w-[98vw] max-w-[98vw] sm:max-w-[98vw] overflow-y-auto border-zinc-200 p-0">
-                        <div className="bg-gradient-to-r from-zinc-900 to-zinc-700 p-6 text-white">
+                    <DialogContent className="h-[96vh] w-[98vw] max-w-[98vw] sm:max-w-[98vw] overflow-y-auto border-border p-0">
+                        <div className="bg-gradient-to-r from-primary to-primary/80 p-6 text-primary-foreground">
                             <DialogHeader className="space-y-3 text-left">
                                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                                     <div className="flex items-center gap-4">
@@ -493,21 +476,17 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
                                             size="lg"
                                         />
                                         <div>
-                                            <DialogTitle className="text-2xl text-white">
+                                            <DialogTitle className="text-2xl text-primary-foreground">
                                                 {selectedFaculty.facultyName}
                                             </DialogTitle>
-                                            <DialogDescription className="text-zinc-200">
+                                            <DialogDescription className="text-primary-foreground/80">
                                                 {selectedFaculty.employeeCode} • {selectedFaculty.departmentName ?? "Department not mapped"}
                                             </DialogDescription>
                                         </div>
                                     </div>
                                     <div className="space-x-2">
-                                        <Badge className={statusTone(selectedFaculty.status)}>
-                                            {selectedFaculty.status}
-                                        </Badge>
-                                        <Badge className={accountTone(selectedFaculty.accountStatus)}>
-                                            {selectedFaculty.accountStatus ?? "Account status unavailable"}
-                                        </Badge>
+                                        <StatusBadge status={selectedFaculty.status} />
+                                        <StatusBadge status={selectedFaculty.accountStatus} label={selectedFaculty.accountStatus ?? "Account status unavailable"} />
                                     </div>
                                 </div>
                             </DialogHeader>
@@ -695,19 +674,12 @@ export function LeadershipFacultyRoster({ rows }: { rows: LeadershipFacultyRow[]
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {
-    return (
-        <Card>
-            <CardContent className="p-5">
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-                <p className="mt-2 text-3xl font-semibold text-zinc-950">{value}</p>
-            </CardContent>
-        </Card>
-    );
+    return <StatCard label={label} value={value} />;
 }
 
 function RecordsLoadingState() {
     return (
-        <div className="space-y-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+        <div className="space-y-3 rounded-xl border border-border bg-muted/50 p-4">
             <Skeleton className="h-5 w-40" />
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-[92%]" />
@@ -718,7 +690,7 @@ function RecordsLoadingState() {
 
 function RecordsErrorState({ message }: { message: string }) {
     return (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+        <div className="rounded-xl border border-destructive-border bg-destructive-muted p-4 text-sm text-destructive-muted-foreground">
             {message}
         </div>
     );
@@ -734,7 +706,7 @@ function SectionCard({
     children: ReactNode;
 }) {
     return (
-        <Card className="border-zinc-200 shadow-none">
+        <Card className="border-border shadow-none">
             <CardHeader>
                 <CardTitle className="text-base">{title}</CardTitle>
                 <CardDescription>{description}</CardDescription>
@@ -746,9 +718,9 @@ function SectionCard({
 
 function RecordMetric({ label, value }: { label: string; value: number }) {
     return (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-xl font-semibold text-zinc-950">{value}</p>
+        <div className="rounded-xl border border-border bg-muted/50 p-3">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+            <p className="mt-2 text-xl font-semibold text-foreground">{value}</p>
         </div>
     );
 }
@@ -756,7 +728,7 @@ function RecordMetric({ label, value }: { label: string; value: number }) {
 function EmptyTableRow({ colSpan }: { colSpan: number }) {
     return (
         <TableRow>
-            <TableCell className="py-6 text-center text-sm text-zinc-500" colSpan={colSpan}>
+            <TableCell className="py-6 text-center text-sm text-muted-foreground" colSpan={colSpan}>
                 No records found.
             </TableCell>
         </TableRow>
@@ -765,9 +737,9 @@ function EmptyTableRow({ colSpan }: { colSpan: number }) {
 
 function ProfileInfo({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-sm font-semibold text-zinc-900">{value}</p>
+        <div className="rounded-xl border border-border bg-muted/50 p-4">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+            <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
         </div>
     );
 }

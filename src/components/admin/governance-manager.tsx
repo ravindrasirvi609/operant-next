@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition, type ReactNode } from "react";
 
-import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
@@ -518,7 +518,7 @@ export function GovernanceManager({
                                 </Field>
                             </div>
 
-                            <label className="flex items-center gap-3 text-sm text-zinc-600">
+                            <label className="flex items-center gap-3 text-sm text-muted-foreground">
                                 <input
                                     checked={assignmentForm.isPrimary}
                                     onChange={(event) =>
@@ -533,8 +533,7 @@ export function GovernanceManager({
                             </label>
 
                             <div className="flex justify-end">
-                                <Button disabled={isPending} type="button" onClick={submitAssignment}>
-                                    {isPending ? <Spinner /> : null}
+                                <Button loading={isPending} disabled={isPending} type="button" onClick={submitAssignment}>
                                     Save Assignment
                                 </Button>
                             </div>
@@ -552,30 +551,31 @@ export function GovernanceManager({
                             {assignments.length ? (
                                 assignments.map((assignment) => (
                                     <div
-                                        className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                                        className="rounded-lg border border-border bg-muted/50 p-4"
                                         key={assignment._id}
                                     >
                                         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                             <div className="space-y-1">
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    <h3 className="text-base font-semibold text-zinc-950">
+                                                    <h3 className="text-base font-semibold text-foreground">
                                                         {assignment.userName}
                                                     </h3>
                                                     <Badge variant="secondary">{assignment.assignmentType}</Badge>
                                                     <Badge>{assignment.isActive ? "Active" : "Inactive"}</Badge>
                                                     {assignment.isPrimary ? <Badge>Primary</Badge> : null}
                                                 </div>
-                                                <p className="text-sm text-zinc-600">
+                                                <p className="text-sm text-muted-foreground">
                                                     {assignment.organizationName} ({assignment.organizationType})
                                                 </p>
-                                                <p className="text-sm text-zinc-500">
+                                                <p className="text-sm text-muted-foreground">
                                                     {assignment.userEmail || "-"}{assignment.userDesignation ? ` • ${assignment.userDesignation}` : ""}
                                                 </p>
                                                 {assignment.title ? (
-                                                    <p className="text-sm text-zinc-500">Title: {assignment.title}</p>
+                                                    <p className="text-sm text-muted-foreground">Title: {assignment.title}</p>
                                                 ) : null}
                                             </div>
                                             <Button
+                                                loading={isPending}
                                                 disabled={isPending}
                                                 onClick={() => toggleAssignment(assignment)}
                                                 type="button"
@@ -707,8 +707,7 @@ export function GovernanceManager({
                                 </Field>
 
                                 <div className="flex justify-end">
-                                    <Button disabled={isPending} type="button" onClick={submitCommittee}>
-                                        {isPending ? <Spinner /> : null}
+                                    <Button loading={isPending} disabled={isPending} type="button" onClick={submitCommittee}>
                                         Save Committee
                                     </Button>
                                 </div>
@@ -786,8 +785,7 @@ export function GovernanceManager({
                                 </Field>
 
                                 <div className="flex justify-end">
-                                    <Button disabled={isPending} type="button" onClick={submitMembership}>
-                                        {isPending ? <Spinner /> : null}
+                                    <Button loading={isPending} disabled={isPending} type="button" onClick={submitMembership}>
                                         Add Member
                                     </Button>
                                 </div>
@@ -806,31 +804,32 @@ export function GovernanceManager({
                             {committees.length ? (
                                 committees.map((committee) => (
                                     <div
-                                        className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                                        className="rounded-lg border border-border bg-muted/50 p-4"
                                         key={committee._id}
                                     >
                                         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                             <div className="space-y-2">
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    <h3 className="text-base font-semibold text-zinc-950">
+                                                    <h3 className="text-base font-semibold text-foreground">
                                                         {committee.name}
                                                     </h3>
                                                     <Badge variant="secondary">{committee.committeeType}</Badge>
                                                     <Badge>{committee.isActive ? "Active" : "Inactive"}</Badge>
                                                 </div>
-                                                <p className="text-sm text-zinc-600">
+                                                <p className="text-sm text-muted-foreground">
                                                     Scope: {committee.scopeType}
                                                     {committee.organizationName
                                                         ? ` • ${committee.organizationName}`
                                                         : ""}
                                                 </p>
                                                 {committee.description ? (
-                                                    <p className="text-sm text-zinc-500">
+                                                    <p className="text-sm text-muted-foreground">
                                                         {committee.description}
                                                     </p>
                                                 ) : null}
                                             </div>
                                             <Button
+                                                loading={isPending}
                                                 disabled={isPending}
                                                 onClick={() => toggleCommittee(committee)}
                                                 type="button"
@@ -844,14 +843,14 @@ export function GovernanceManager({
                                             {(membershipsByCommittee.get(committee._id) ?? []).length ? (
                                                 (membershipsByCommittee.get(committee._id) ?? []).map((membership) => (
                                                     <div
-                                                        className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-white p-3 md:flex-row md:items-center md:justify-between"
+                                                        className="flex flex-col gap-2 rounded-md border border-border bg-card p-3 md:flex-row md:items-center md:justify-between"
                                                         key={membership._id}
                                                     >
                                                         <div>
-                                                            <p className="text-sm font-medium text-zinc-900">
+                                                            <p className="text-sm font-medium text-foreground">
                                                                 {membership.userName}
                                                             </p>
-                                                            <p className="text-sm text-zinc-500">
+                                                            <p className="text-sm text-muted-foreground">
                                                                 {membership.memberRole}
                                                                 {membership.userDesignation
                                                                     ? ` • ${membership.userDesignation}`
@@ -859,6 +858,7 @@ export function GovernanceManager({
                                                             </p>
                                                         </div>
                                                         <Button
+                                                            loading={isPending}
                                                             disabled={isPending}
                                                             onClick={() => toggleMembership(membership)}
                                                             size="sm"
@@ -870,7 +870,7 @@ export function GovernanceManager({
                                                     </div>
                                                 ))
                                             ) : (
-                                                <p className="text-sm text-zinc-500">
+                                                <p className="text-sm text-muted-foreground">
                                                     No members assigned yet.
                                                 </p>
                                             )}

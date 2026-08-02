@@ -9,6 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { StatCard } from "@/components/ui/stat-card";
+import { InlineAlert } from "@/components/ui/inline-alert";
 
 type ReviewRecord = {
     _id: string;
@@ -151,22 +154,6 @@ function formatDateTime(value?: string) {
     });
 }
 
-function statusBadge(status: string) {
-    if (status === "Approved") {
-        return <Badge className="bg-emerald-100 text-emerald-700">{status}</Badge>;
-    }
-
-    if (status === "Rejected") {
-        return <Badge className="bg-rose-100 text-rose-700">{status}</Badge>;
-    }
-
-    if (["Submitted", "Board Review", "Under Review", "Committee Review"].includes(status)) {
-        return <Badge className="bg-amber-100 text-amber-700">{status}</Badge>;
-    }
-
-    return <Badge variant="secondary">{status}</Badge>;
-}
-
 export function CurriculumReviewBoard({
     records,
     summary,
@@ -272,17 +259,7 @@ export function CurriculumReviewBoard({
                 <MetricCard label="Approved" value={summary.approvedCount} />
             </section>
 
-            {message ? (
-                <div
-                    className={`rounded-lg border px-4 py-3 text-sm ${
-                        message.type === "success"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                            : "border-rose-200 bg-rose-50 text-rose-800"
-                    }`}
-                >
-                    {message.text}
-                </div>
-            ) : null}
+            <InlineAlert message={message} />
 
             <section className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
                 <Card className="h-fit">
@@ -315,12 +292,12 @@ export function CurriculumReviewBoard({
                                         onClick={() => setSelectedId(record._id)}
                                         className={`w-full rounded-xl border p-4 text-left transition ${
                                             record._id === selectedId
-                                                ? "border-zinc-950 bg-zinc-950 text-white"
-                                                : "border-zinc-200 bg-white hover:border-zinc-300"
+                                                ? "border-border bg-primary text-primary-foreground"
+                                                : "border-border bg-card hover:border-border"
                                         }`}
                                     >
                                         <div className="flex flex-wrap items-center gap-2">
-                                            {statusBadge(record.status)}
+                                            <StatusBadge status={record.status} />
                                             <Badge variant={record._id === selectedId ? "secondary" : "outline"}>
                                                 {record.courseCode}
                                             </Badge>
@@ -328,7 +305,7 @@ export function CurriculumReviewBoard({
                                         <p className="mt-3 font-medium">{record.courseTitle}</p>
                                         <p
                                             className={`mt-1 text-xs ${
-                                                record._id === selectedId ? "text-white/75" : "text-zinc-500"
+                                                record._id === selectedId ? "text-primary-foreground/75" : "text-muted-foreground"
                                             }`}
                                         >
                                             {record.curriculumTitle} · {record.contributorName}
@@ -336,7 +313,7 @@ export function CurriculumReviewBoard({
                                     </button>
                                 ))
                             ) : (
-                                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-center text-sm text-zinc-500">
+                                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-center text-sm text-muted-foreground">
                                     No curriculum records match the selected filter.
                                 </div>
                             )}
@@ -350,7 +327,7 @@ export function CurriculumReviewBoard({
                             <CardHeader>
                                 <div className="flex flex-wrap items-center gap-2">
                                     <Badge>{selectedRecord.regulationYear}</Badge>
-                                    {statusBadge(selectedRecord.status)}
+                                    <StatusBadge status={selectedRecord.status} />
                                     <Badge variant="outline">{selectedRecord.currentStageLabel}</Badge>
                                 </div>
                                 <CardTitle>
@@ -387,9 +364,9 @@ export function CurriculumReviewBoard({
                                         value={selectedRecord.syllabusVersion.assessmentStrategy}
                                     />
                                 </div>
-                                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                                    <p className="text-sm font-medium text-zinc-950">Reference Books</p>
-                                    <ul className="mt-3 space-y-2 text-sm text-zinc-600">
+                                <div className="rounded-lg border border-border bg-muted/50 p-4">
+                                    <p className="text-sm font-medium text-foreground">Reference Books</p>
+                                    <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
                                         {selectedRecord.syllabusVersion.referenceBooks.length ? (
                                             selectedRecord.syllabusVersion.referenceBooks.map((item) => (
                                                 <li key={item}>{item}</li>
@@ -412,7 +389,7 @@ export function CurriculumReviewBoard({
                                         selectedRecord.courseOutcomes.map((outcome) => (
                                             <div
                                                 key={outcome.id}
-                                                className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                                                className="rounded-lg border border-border bg-muted/50 p-4"
                                             >
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     <Badge variant="outline">{outcome.coCode}</Badge>
@@ -425,13 +402,13 @@ export function CurriculumReviewBoard({
                                                         </Badge>
                                                     ) : null}
                                                 </div>
-                                                <p className="mt-3 text-sm text-zinc-700">
+                                                <p className="mt-3 text-sm text-foreground">
                                                     {outcome.description}
                                                 </p>
                                             </div>
                                         ))
                                     ) : (
-                                        <p className="text-sm text-zinc-500">No course outcomes were captured.</p>
+                                        <p className="text-sm text-muted-foreground">No course outcomes were captured.</p>
                                     )}
                                 </CardContent>
                             </Card>
@@ -445,7 +422,7 @@ export function CurriculumReviewBoard({
                                         selectedRecord.mappings.map((mapping) => (
                                             <div
                                                 key={mapping.id}
-                                                className="rounded-lg border border-zinc-200 bg-zinc-50 p-4"
+                                                className="rounded-lg border border-border bg-muted/50 p-4"
                                             >
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     <Badge variant="outline">{mapping.courseOutcomeCode}</Badge>
@@ -459,7 +436,7 @@ export function CurriculumReviewBoard({
                                             </div>
                                         ))
                                     ) : (
-                                        <p className="text-sm text-zinc-500">No CO-PO/PSO mappings were captured.</p>
+                                        <p className="text-sm text-muted-foreground">No CO-PO/PSO mappings were captured.</p>
                                     )}
                                 </CardContent>
                             </Card>
@@ -482,8 +459,8 @@ export function CurriculumReviewBoard({
                                 </div>
 
                                 <div className="grid gap-4 md:grid-cols-2">
-                                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                                        <p className="text-sm font-medium text-zinc-950">Supporting Links</p>
+                                    <div className="rounded-lg border border-border bg-muted/50 p-4">
+                                        <p className="text-sm font-medium text-foreground">Supporting Links</p>
                                         <div className="mt-3 space-y-2">
                                             {selectedRecord.supportingLinks.length ? (
                                                 selectedRecord.supportingLinks.map((link) => (
@@ -492,33 +469,33 @@ export function CurriculumReviewBoard({
                                                         href={link}
                                                         target="_blank"
                                                         rel="noreferrer"
-                                                        className="block break-all text-sm text-blue-700 underline"
+                                                        className="block break-all text-sm text-info-muted-foreground underline"
                                                     >
                                                         {link}
                                                     </a>
                                                 ))
                                             ) : (
-                                                <p className="text-sm text-zinc-500">No supporting links added.</p>
+                                                <p className="text-sm text-muted-foreground">No supporting links added.</p>
                                             )}
                                         </div>
                                     </div>
 
-                                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                                        <p className="text-sm font-medium text-zinc-950">Supporting Documents</p>
+                                    <div className="rounded-lg border border-border bg-muted/50 p-4">
+                                        <p className="text-sm font-medium text-foreground">Supporting Documents</p>
                                         <div className="mt-3 space-y-2">
                                             {selectedRecord.documents.length ? (
                                                 selectedRecord.documents.map((document) => (
-                                                    <div key={document.id} className="rounded-md bg-white p-3 text-sm">
-                                                        <p className="font-medium text-zinc-950">
+                                                    <div key={document.id} className="rounded-md bg-card p-3 text-sm">
+                                                        <p className="font-medium text-foreground">
                                                             {document.fileName || document.id}
                                                         </p>
-                                                        <p className="mt-1 text-zinc-500">
+                                                        <p className="mt-1 text-muted-foreground">
                                                             Verification: {document.verificationStatus || "Pending"}
                                                         </p>
                                                     </div>
                                                 ))
                                             ) : (
-                                                <p className="text-sm text-zinc-500">No documents linked.</p>
+                                                <p className="text-sm text-muted-foreground">No documents linked.</p>
                                             )}
                                         </div>
                                     </div>
@@ -571,6 +548,7 @@ export function CurriculumReviewBoard({
 
                                         return (
                                             <Button
+                                                loading={isPending}
                                                 key={decision}
                                                 onClick={() => submitDecision(decision)}
                                                 disabled={isPending || !canClick}
@@ -591,30 +569,23 @@ export function CurriculumReviewBoard({
 }
 
 function MetricCard({ label, value }: { label: string; value: number }) {
-    return (
-        <Card>
-            <CardContent className="p-5">
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-                <p className="mt-2 text-3xl font-semibold text-zinc-950">{value}</p>
-            </CardContent>
-        </Card>
-    );
+    return <StatCard label={label} value={value} />;
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">{label}</p>
-            <p className="mt-2 text-sm font-medium text-zinc-950">{value}</p>
+        <div className="rounded-lg border border-border bg-muted/50 p-3">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+            <p className="mt-2 text-sm font-medium text-foreground">{value}</p>
         </div>
     );
 }
 
 function TextBlock({ label, value }: { label: string; value?: string }) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-sm font-medium text-zinc-950">{label}</p>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-600">
+        <div className="rounded-lg border border-border bg-muted/50 p-4">
+            <p className="text-sm font-medium text-foreground">{label}</p>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
                 {value?.trim() ? value : "Not provided."}
             </p>
         </div>
@@ -629,19 +600,19 @@ function TimelineCard({
     items: Array<{ title: string; subtitle: string; body?: string }>;
 }) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-sm font-medium text-zinc-950">{title}</p>
+        <div className="rounded-lg border border-border bg-muted/50 p-4">
+            <p className="text-sm font-medium text-foreground">{title}</p>
             <div className="mt-3 space-y-3">
                 {items.length ? (
                     items.map((item, index) => (
-                        <div key={`${item.title}-${index}`} className="rounded-md bg-white p-3 text-sm">
-                            <p className="font-medium text-zinc-950">{item.title}</p>
-                            <p className="mt-1 text-zinc-500">{item.subtitle}</p>
-                            {item.body ? <p className="mt-2 text-zinc-600">{item.body}</p> : null}
+                        <div key={`${item.title}-${index}`} className="rounded-md bg-card p-3 text-sm">
+                            <p className="font-medium text-foreground">{item.title}</p>
+                            <p className="mt-1 text-muted-foreground">{item.subtitle}</p>
+                            {item.body ? <p className="mt-2 text-muted-foreground">{item.body}</p> : null}
                         </div>
                     ))
                 ) : (
-                    <p className="text-sm text-zinc-500">No entries recorded yet.</p>
+                    <p className="text-sm text-muted-foreground">No entries recorded yet.</p>
                 )}
             </div>
         </div>

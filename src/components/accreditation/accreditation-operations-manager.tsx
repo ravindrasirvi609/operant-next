@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
-import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { InlineUpload } from "@/components/ui/file-upload";
 import type { UploadedDocument } from "@/lib/upload/service";
+import { Pencil, RefreshCw, RotateCcw } from "lucide-react";
 
 type Option = {
     id: string;
@@ -718,12 +719,13 @@ function EditBanner({
     onReset: () => void;
 }) {
     return (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning-border bg-warning-muted px-4 py-3">
             <div className="min-w-0">
-                <div className="text-sm font-semibold text-amber-950">Editing existing record</div>
-                <div className="text-xs text-amber-800">{label}</div>
+                <div className="text-sm font-semibold text-warning-muted-foreground">Editing existing record</div>
+                <div className="text-xs text-warning-muted-foreground">{label}</div>
             </div>
             <Button onClick={onReset} type="button" variant="outline">
+                <RefreshCw aria-hidden />
                 Switch to new record
             </Button>
         </div>
@@ -1344,7 +1346,7 @@ export function AccreditationOperationsManager({
                                 </div>
                                 <div className="grid gap-2">
                                     <Label>Eligible cohort hints</Label>
-                                    <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+                                    <div className="rounded-xl border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                                         {filteredStudentOptions.length} active students match the selected institution. Leave the field below empty to auto-assign the live active cohort.
                                     </div>
                                 </div>
@@ -1359,19 +1361,19 @@ export function AccreditationOperationsManager({
                                 <div className="grid gap-2 md:col-span-2">
                                     <Label>Eligible student IDs</Label>
                                     <Textarea rows={4} value={sssForm.eligibleStudentIdsText} onChange={(event) => setSssForm((current) => ({ ...current, eligibleStudentIdsText: event.target.value }))} />
-                                    <p className="text-xs text-zinc-500">One id per line or comma-separated. Leave blank to auto-populate the active student pool for the selected institution.</p>
+                                    <p className="text-xs text-muted-foreground">One id per line or comma-separated. Leave blank to auto-populate the active student pool for the selected institution.</p>
                                 </div>
                                 <div className="grid gap-2 md:col-span-2">
                                     <Label>Question lines</Label>
                                     <Textarea rows={7} value={sssForm.questionLines} onChange={(event) => setSssForm((current) => ({ ...current, questionLines: event.target.value }))} />
-                                    <p className="text-xs text-zinc-500">Format: `Bucket | Question text | Rating scale max | yes/no mandatory`</p>
+                                    <p className="text-xs text-muted-foreground">Format: `Bucket | Question text | Rating scale max | yes/no mandatory`</p>
                                 </div>
                                 <div className="flex flex-wrap gap-3 md:col-span-2">
-                                    <Button disabled={isPending} type="submit">
-                                        {isPending ? <Spinner className="mr-2 size-4" /> : null}
+                                    <Button loading={isPending} disabled={isPending} type="submit">
                                         {editingSssSurveyId ? "Update SSS survey" : "Create SSS survey"}
                                     </Button>
-                                    <Button disabled={isPending} onClick={resetSssForm} type="button" variant="outline">
+                                    <Button loading={isPending} disabled={isPending} onClick={resetSssForm} type="button" variant="outline">
+                                        <RotateCcw aria-hidden />
                                         Reset form
                                     </Button>
                                 </div>
@@ -1400,7 +1402,7 @@ export function AccreditationOperationsManager({
                                         <TableRow key={survey._id}>
                                             <TableCell>
                                                 <div className="font-medium">{survey.surveyTitle}</div>
-                                                <div className="text-xs text-zinc-500">{formatDate(survey.startDate)} to {formatDate(survey.endDate)}</div>
+                                                <div className="text-xs text-muted-foreground">{formatDate(survey.startDate)} to {formatDate(survey.endDate)}</div>
                                             </TableCell>
                                             <TableCell><Badge variant="secondary">{survey.surveyStatus}</Badge></TableCell>
                                             <TableCell>{survey.questionCount}</TableCell>
@@ -1416,6 +1418,7 @@ export function AccreditationOperationsManager({
                                                     type="button"
                                                     variant="outline"
                                                 >
+                                                    <Pencil aria-hidden />
                                                     Edit
                                                 </Button>
                                             </TableCell>
@@ -1522,16 +1525,16 @@ export function AccreditationOperationsManager({
                                 <NumberField label="Campus area (acres)" value={aisheForm.campusAreaAcres} onChange={(value) => setAisheForm((current) => ({ ...current, campusAreaAcres: value }))} />
                                 <NumberField label="Built-up area (sq ft)" value={aisheForm.totalBuiltupAreaSqft} onChange={(value) => setAisheForm((current) => ({ ...current, totalBuiltupAreaSqft: value }))} />
 
-                                <div className="md:col-span-2 grid gap-4 rounded-xl border border-zinc-200 p-4 lg:grid-cols-4">
-                                    <div className="lg:col-span-4 text-sm font-semibold text-zinc-900">Staff statistics</div>
+                                <div className="md:col-span-2 grid gap-4 rounded-xl border border-border p-4 lg:grid-cols-4">
+                                    <div className="lg:col-span-4 text-sm font-semibold text-foreground">Staff statistics</div>
                                     <NumberField label="Administrative staff" value={aisheForm.staffAdminCount} onChange={(value) => setAisheForm((current) => ({ ...current, staffAdminCount: value }))} />
                                     <NumberField label="Technical staff" value={aisheForm.staffTechnicalCount} onChange={(value) => setAisheForm((current) => ({ ...current, staffTechnicalCount: value }))} />
                                     <NumberField label="Library staff" value={aisheForm.staffLibraryCount} onChange={(value) => setAisheForm((current) => ({ ...current, staffLibraryCount: value }))} />
                                     <NumberField label="Support staff" value={aisheForm.staffSupportCount} onChange={(value) => setAisheForm((current) => ({ ...current, staffSupportCount: value }))} />
                                 </div>
 
-                                <div className="md:col-span-2 grid gap-4 rounded-xl border border-zinc-200 p-4 lg:grid-cols-5">
-                                    <div className="lg:col-span-5 text-sm font-semibold text-zinc-900">Infrastructure statistics</div>
+                                <div className="md:col-span-2 grid gap-4 rounded-xl border border-border p-4 lg:grid-cols-5">
+                                    <div className="lg:col-span-5 text-sm font-semibold text-foreground">Infrastructure statistics</div>
                                     <NumberField label="Classrooms" value={aisheForm.totalClassrooms} onChange={(value) => setAisheForm((current) => ({ ...current, totalClassrooms: value }))} />
                                     <NumberField label="Laboratories" value={aisheForm.totalLaboratories} onChange={(value) => setAisheForm((current) => ({ ...current, totalLaboratories: value }))} />
                                     <NumberField label="Seminar halls" value={aisheForm.totalSeminarHalls} onChange={(value) => setAisheForm((current) => ({ ...current, totalSeminarHalls: value }))} />
@@ -1544,8 +1547,8 @@ export function AccreditationOperationsManager({
                                     <NumberField label="Sports facilities" value={aisheForm.sportsFacilitiesCount} onChange={(value) => setAisheForm((current) => ({ ...current, sportsFacilitiesCount: value }))} />
                                 </div>
 
-                                <div className="md:col-span-2 grid gap-4 rounded-xl border border-zinc-200 p-4 lg:grid-cols-4">
-                                    <div className="lg:col-span-4 text-sm font-semibold text-zinc-900">Financial statistics</div>
+                                <div className="md:col-span-2 grid gap-4 rounded-xl border border-border p-4 lg:grid-cols-4">
+                                    <div className="lg:col-span-4 text-sm font-semibold text-foreground">Financial statistics</div>
                                     <NumberField label="Salary expenditure" value={aisheForm.salaryExpenditure} onChange={(value) => setAisheForm((current) => ({ ...current, salaryExpenditure: value }))} />
                                     <NumberField label="Infrastructure expenditure" value={aisheForm.infrastructureExpenditure} onChange={(value) => setAisheForm((current) => ({ ...current, infrastructureExpenditure: value }))} />
                                     <NumberField label="Research expenditure" value={aisheForm.researchExpenditure} onChange={(value) => setAisheForm((current) => ({ ...current, researchExpenditure: value }))} />
@@ -1555,8 +1558,8 @@ export function AccreditationOperationsManager({
                                     <NumberField label="Grants received" value={aisheForm.totalGrantsReceived} onChange={(value) => setAisheForm((current) => ({ ...current, totalGrantsReceived: value }))} />
                                 </div>
 
-                                <div className="md:col-span-2 grid gap-4 rounded-xl border border-zinc-200 p-4 lg:grid-cols-4">
-                                    <div className="lg:col-span-4 text-sm font-semibold text-zinc-900">Student support statistics</div>
+                                <div className="md:col-span-2 grid gap-4 rounded-xl border border-border p-4 lg:grid-cols-4">
+                                    <div className="lg:col-span-4 text-sm font-semibold text-foreground">Student support statistics</div>
                                     <NumberField label="Scholarship recipients" value={aisheForm.studentsReceivedScholarship} onChange={(value) => setAisheForm((current) => ({ ...current, studentsReceivedScholarship: value }))} />
                                     <NumberField label="Fee reimbursement" value={aisheForm.studentsReceivedFeeReimbursement} onChange={(value) => setAisheForm((current) => ({ ...current, studentsReceivedFeeReimbursement: value }))} />
                                     <NumberField label="Hostel residents" value={aisheForm.studentsHostelResidents} onChange={(value) => setAisheForm((current) => ({ ...current, studentsHostelResidents: value }))} />
@@ -1566,34 +1569,34 @@ export function AccreditationOperationsManager({
                                 <div className="grid gap-2 md:col-span-2">
                                     <Label>Program statistics lines</Label>
                                     <Textarea rows={4} value={aisheForm.programStatisticsLines} onChange={(event) => setAisheForm((current) => ({ ...current, programStatisticsLines: event.target.value }))} />
-                                    <p className="text-xs text-zinc-500">Format: `programId | intake | enrolled | passed | placed | higher studies | dropout`</p>
+                                    <p className="text-xs text-muted-foreground">Format: `programId | intake | enrolled | passed | placed | higher studies | dropout`</p>
                                 </div>
                                 <div className="grid gap-2 md:col-span-2">
                                     <Label>Student enrollment lines</Label>
                                     <Textarea rows={4} value={aisheForm.studentEnrollmentLines} onChange={(event) => setAisheForm((current) => ({ ...current, studentEnrollmentLines: event.target.value }))} />
-                                    <p className="text-xs text-zinc-500">Format: `programId | male | female | transgender | sc | st | obc | general | pwd | foreign`</p>
+                                    <p className="text-xs text-muted-foreground">Format: `programId | male | female | transgender | sc | st | obc | general | pwd | foreign`</p>
                                 </div>
                                 <div className="grid gap-2 md:col-span-2">
                                     <Label>Faculty statistics lines</Label>
                                     <Textarea rows={4} value={aisheForm.facultyStatisticsLines} onChange={(event) => setAisheForm((current) => ({ ...current, facultyStatisticsLines: event.target.value }))} />
-                                    <p className="text-xs text-zinc-500">Format: `departmentId | total | male | female | phd | pg | ug | professors | associate | assistant | contract`</p>
+                                    <p className="text-xs text-muted-foreground">Format: `departmentId | total | male | female | phd | pg | ug | professors | associate | assistant | contract`</p>
                                 </div>
                                 <div className="grid gap-2 md:col-span-2">
                                     <Label>Submission logs</Label>
                                     <Textarea rows={4} value={aisheForm.submissionLogLines} onChange={(event) => setAisheForm((current) => ({ ...current, submissionLogLines: event.target.value }))} />
-                                    <p className="text-xs text-zinc-500">Format: `submittedByUserId | submissionDate | referenceNo | status | remarks`</p>
+                                    <p className="text-xs text-muted-foreground">Format: `submittedByUserId | submissionDate | referenceNo | status | remarks`</p>
                                 </div>
                                 <div className="grid gap-2 md:col-span-2">
                                     <Label>Supporting documents</Label>
                                     <Textarea rows={4} value={aisheForm.supportingDocumentLines} onChange={(event) => setAisheForm((current) => ({ ...current, supportingDocumentLines: event.target.value }))} />
-                                    <p className="text-xs text-zinc-500">Format: `documentId | category | uploadedAt`</p>
+                                    <p className="text-xs text-muted-foreground">Format: `documentId | category | uploadedAt`</p>
                                 </div>
                                 <div className="flex flex-wrap gap-3 md:col-span-2">
-                                    <Button disabled={isPending} type="submit">
-                                        {isPending ? <Spinner className="mr-2 size-4" /> : null}
+                                    <Button loading={isPending} disabled={isPending} type="submit">
                                         {editingAisheCycleId ? "Update AISHE cycle" : "Create AISHE cycle"}
                                     </Button>
-                                    <Button disabled={isPending} onClick={resetAisheForm} type="button" variant="outline">
+                                    <Button loading={isPending} disabled={isPending} onClick={resetAisheForm} type="button" variant="outline">
+                                        <RotateCcw aria-hidden />
                                         Reset form
                                     </Button>
                                 </div>
@@ -1631,6 +1634,7 @@ export function AccreditationOperationsManager({
                                                     type="button"
                                                     variant="outline"
                                                 >
+                                                    <Pencil aria-hidden />
                                                     Edit
                                                 </Button>
                                             </TableCell>
@@ -1714,34 +1718,34 @@ export function AccreditationOperationsManager({
                                 <div className="grid gap-2 md:col-span-2">
                                     <Label>Metric lines</Label>
                                     <Textarea rows={8} value={nirfForm.metricsLines} onChange={(event) => setNirfForm((current) => ({ ...current, metricsLines: event.target.value }))} />
-                                    <p className="text-xs text-zinc-500">Format: `parameterCode | metricCode | metricName | maxScore | value/text | normalizedScore | yes/no verified | obtainedScore | comma-separated documentIds`</p>
+                                    <p className="text-xs text-muted-foreground">Format: `parameterCode | metricCode | metricName | maxScore | value/text | normalizedScore | yes/no verified | obtainedScore | comma-separated documentIds`</p>
                                 </div>
                                 <div className="grid gap-2 md:col-span-2">
                                     <Label>Benchmark lines</Label>
                                     <Textarea rows={4} value={nirfForm.benchmarkLines} onChange={(event) => setNirfForm((current) => ({ ...current, benchmarkLines: event.target.value }))} />
-                                    <p className="text-xs text-zinc-500">Format: `institutionName | parameterCode | parameterScore | overallScore | rankPosition | dataSource`</p>
+                                    <p className="text-xs text-muted-foreground">Format: `institutionName | parameterCode | parameterScore | overallScore | rankPosition | dataSource`</p>
                                 </div>
                                 <div className="grid gap-2 md:col-span-2">
                                     <Label>Department contribution lines</Label>
                                     <Textarea rows={4} value={nirfForm.departmentContributionLines} onChange={(event) => setNirfForm((current) => ({ ...current, departmentContributionLines: event.target.value }))} />
-                                    <p className="text-xs text-zinc-500">Format: `departmentId | parameterCode | contributionScore | remarks`</p>
+                                    <p className="text-xs text-muted-foreground">Format: `departmentId | parameterCode | contributionScore | remarks`</p>
                                 </div>
                                 <div className="grid gap-2 md:col-span-2">
                                     <Label>Trend lines</Label>
                                     <Textarea rows={4} value={nirfForm.trendLines} onChange={(event) => setNirfForm((current) => ({ ...current, trendLines: event.target.value }))} />
-                                    <p className="text-xs text-zinc-500">Format: `institutionId | year | framework | overallRank | overallScore | trendDirection`</p>
+                                    <p className="text-xs text-muted-foreground">Format: `institutionId | year | framework | overallRank | overallScore | trendDirection`</p>
                                 </div>
                                 <div className="grid gap-2 md:col-span-2">
                                     <Label>Submission logs</Label>
                                     <Textarea rows={4} value={nirfForm.submissionLogLines} onChange={(event) => setNirfForm((current) => ({ ...current, submissionLogLines: event.target.value }))} />
-                                    <p className="text-xs text-zinc-500">Format: `submittedByUserId | referenceNo | submissionDate | status | remarks`</p>
+                                    <p className="text-xs text-muted-foreground">Format: `submittedByUserId | referenceNo | submissionDate | status | remarks`</p>
                                 </div>
                                 <div className="flex flex-wrap gap-3 md:col-span-2">
-                                    <Button disabled={isPending} type="submit">
-                                        {isPending ? <Spinner className="mr-2 size-4" /> : null}
+                                    <Button loading={isPending} disabled={isPending} type="submit">
                                         {editingNirfCycleId ? "Update NIRF cycle" : "Create NIRF cycle"}
                                     </Button>
-                                    <Button disabled={isPending} onClick={resetNirfForm} type="button" variant="outline">
+                                    <Button loading={isPending} disabled={isPending} onClick={resetNirfForm} type="button" variant="outline">
+                                        <RotateCcw aria-hidden />
                                         Reset form
                                     </Button>
                                 </div>
@@ -1779,6 +1783,7 @@ export function AccreditationOperationsManager({
                                                     type="button"
                                                     variant="outline"
                                                 >
+                                                    <Pencil aria-hidden />
                                                     Edit
                                                 </Button>
                                             </TableCell>
@@ -1799,21 +1804,21 @@ export function AccreditationOperationsManager({
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="grid gap-6 xl:grid-cols-2">
-                            <form className="space-y-4 rounded-xl border border-zinc-200 p-4" onSubmit={handleBodySubmit}>
+                            <form className="space-y-4 rounded-xl border border-border p-4" onSubmit={handleBodySubmit}>
                                 {editingBodyId ? <EditBanner label={regulatoryBodies.find((item) => item._id === editingBodyId)?.bodyName ?? "Selected regulatory body"} onReset={resetBodyForm} /> : null}
-                                <div className="font-semibold text-zinc-900">Regulatory body</div>
+                                <div className="font-semibold text-foreground">Regulatory body</div>
                                 <div className="grid gap-2"><Label>Name</Label><Input value={bodyForm.bodyName} onChange={(event) => setBodyForm((current) => ({ ...current, bodyName: event.target.value }))} /></div>
                                 <div className="grid gap-2"><Label>Jurisdiction</Label><Input value={bodyForm.jurisdiction} onChange={(event) => setBodyForm((current) => ({ ...current, jurisdiction: event.target.value }))} /></div>
                                 <div className="grid gap-2"><Label>Website</Label><Input value={bodyForm.websiteUrl} onChange={(event) => setBodyForm((current) => ({ ...current, websiteUrl: event.target.value }))} /></div>
                                 <div className="flex flex-wrap gap-3">
-                                    <Button disabled={isPending} type="submit" variant="outline">{isPending ? <Spinner className="mr-2 size-4" /> : null}{editingBodyId ? "Update body" : "Create body"}</Button>
-                                    <Button disabled={isPending} onClick={resetBodyForm} type="button" variant="ghost">Reset</Button>
+                                    <Button loading={isPending} disabled={isPending} type="submit" variant="outline">{editingBodyId ? "Update body" : "Create body"}</Button>
+                                    <Button loading={isPending} disabled={isPending} onClick={resetBodyForm} type="button" variant="ghost"><RotateCcw aria-hidden />Reset</Button>
                                 </div>
                             </form>
 
-                            <form className="space-y-4 rounded-xl border border-zinc-200 p-4" onSubmit={handleApprovalSubmit}>
+                            <form className="space-y-4 rounded-xl border border-border p-4" onSubmit={handleApprovalSubmit}>
                                 {editingApprovalId ? <EditBanner label={approvals.find((item) => item._id === editingApprovalId)?.approvalType ?? "Selected approval"} onReset={resetApprovalForm} /> : null}
-                                <div className="font-semibold text-zinc-900">Institutional approval</div>
+                                <div className="font-semibold text-foreground">Institutional approval</div>
                                 <div className="grid gap-2"><Label>Institution</Label><Select value={approvalForm.institutionId} onValueChange={(value) => setApprovalForm((current) => ({ ...current, institutionId: value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{institutionOptions.map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
                                 <div className="grid gap-2"><Label>Regulatory body</Label><Select value={approvalForm.regulatoryBodyId} onValueChange={(value) => setApprovalForm((current) => ({ ...current, regulatoryBodyId: value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{bodyOptions.map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
                                 <div className="grid gap-2"><Label>Approval type</Label><Input value={approvalForm.approvalType} onChange={(event) => setApprovalForm((current) => ({ ...current, approvalType: event.target.value }))} /></div>
@@ -1832,14 +1837,14 @@ export function AccreditationOperationsManager({
                                     />
                                 </div>
                                 <div className="flex flex-wrap gap-3">
-                                    <Button disabled={isPending} type="submit" variant="outline">{isPending ? <Spinner className="mr-2 size-4" /> : null}{editingApprovalId ? "Update approval" : "Create approval"}</Button>
-                                    <Button disabled={isPending} onClick={resetApprovalForm} type="button" variant="ghost">Reset</Button>
+                                    <Button loading={isPending} disabled={isPending} type="submit" variant="outline">{editingApprovalId ? "Update approval" : "Create approval"}</Button>
+                                    <Button loading={isPending} disabled={isPending} onClick={resetApprovalForm} type="button" variant="ghost"><RotateCcw aria-hidden />Reset</Button>
                                 </div>
                             </form>
 
-                            <form className="space-y-4 rounded-xl border border-zinc-200 p-4" onSubmit={handleReportSubmit}>
+                            <form className="space-y-4 rounded-xl border border-border p-4" onSubmit={handleReportSubmit}>
                                 {editingReportId ? <EditBanner label={reports.find((item) => item._id === editingReportId)?.reportTitle ?? "Selected report"} onReset={resetReportForm} /> : null}
-                                <div className="font-semibold text-zinc-900">Statutory report</div>
+                                <div className="font-semibold text-foreground">Statutory report</div>
                                 <div className="grid gap-2"><Label>Institution</Label><Select value={reportForm.institutionId} onValueChange={(value) => setReportForm((current) => ({ ...current, institutionId: value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{institutionOptions.map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
                                 <div className="grid gap-2"><Label>Submitted to body</Label><Select value={reportForm.submittedToBodyId || "__none__"} onValueChange={(value) => setReportForm((current) => ({ ...current, submittedToBodyId: value === "__none__" ? "" : value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="__none__">Not linked</SelectItem>{bodyOptions.map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
                                 <div className="grid gap-2"><Label>Report title</Label><Input value={reportForm.reportTitle} onChange={(event) => setReportForm((current) => ({ ...current, reportTitle: event.target.value }))} /></div>
@@ -1857,14 +1862,14 @@ export function AccreditationOperationsManager({
                                     />
                                 </div>
                                 <div className="flex flex-wrap gap-3">
-                                    <Button disabled={isPending} type="submit" variant="outline">{isPending ? <Spinner className="mr-2 size-4" /> : null}{editingReportId ? "Update report" : "Create report"}</Button>
-                                    <Button disabled={isPending} onClick={resetReportForm} type="button" variant="ghost">Reset</Button>
+                                    <Button loading={isPending} disabled={isPending} type="submit" variant="outline">{editingReportId ? "Update report" : "Create report"}</Button>
+                                    <Button loading={isPending} disabled={isPending} onClick={resetReportForm} type="button" variant="ghost"><RotateCcw aria-hidden />Reset</Button>
                                 </div>
                             </form>
 
-                            <form className="space-y-4 rounded-xl border border-zinc-200 p-4" onSubmit={handleInspectionSubmit}>
+                            <form className="space-y-4 rounded-xl border border-border p-4" onSubmit={handleInspectionSubmit}>
                                 {editingInspectionId ? <EditBanner label={inspections.find((item) => item._id === editingInspectionId)?.inspectionType ?? "Selected inspection"} onReset={resetInspectionForm} /> : null}
-                                <div className="font-semibold text-zinc-900">Inspection visit</div>
+                                <div className="font-semibold text-foreground">Inspection visit</div>
                                 <div className="grid gap-2"><Label>Institution</Label><Select value={inspectionForm.institutionId} onValueChange={(value) => setInspectionForm((current) => ({ ...current, institutionId: value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{institutionOptions.map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
                                 <div className="grid gap-2"><Label>Regulatory body</Label><Select value={inspectionForm.regulatoryBodyId} onValueChange={(value) => setInspectionForm((current) => ({ ...current, regulatoryBodyId: value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{bodyOptions.map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
                                 <div className="grid gap-2"><Label>Inspection type</Label><Input value={inspectionForm.inspectionType} onChange={(event) => setInspectionForm((current) => ({ ...current, inspectionType: event.target.value }))} /></div>
@@ -1881,16 +1886,16 @@ export function AccreditationOperationsManager({
                                         mode="document"
                                     />
                                 </div>
-                                <div className="grid gap-2"><Label>Action lines</Label><Textarea rows={5} value={inspectionForm.actionLines} onChange={(event) => setInspectionForm((current) => ({ ...current, actionLines: event.target.value }))} /><p className="text-xs text-zinc-500">Format: `title | assignedToUserId | targetDate | status | description | completionDocumentId`</p></div>
+                                <div className="grid gap-2"><Label>Action lines</Label><Textarea rows={5} value={inspectionForm.actionLines} onChange={(event) => setInspectionForm((current) => ({ ...current, actionLines: event.target.value }))} /><p className="text-xs text-muted-foreground">Format: `title | assignedToUserId | targetDate | status | description | completionDocumentId`</p></div>
                                 <div className="flex flex-wrap gap-3">
-                                    <Button disabled={isPending} type="submit" variant="outline">{isPending ? <Spinner className="mr-2 size-4" /> : null}{editingInspectionId ? "Update inspection" : "Create inspection"}</Button>
-                                    <Button disabled={isPending} onClick={resetInspectionForm} type="button" variant="ghost">Reset</Button>
+                                    <Button loading={isPending} disabled={isPending} type="submit" variant="outline">{editingInspectionId ? "Update inspection" : "Create inspection"}</Button>
+                                    <Button loading={isPending} disabled={isPending} onClick={resetInspectionForm} type="button" variant="ghost"><RotateCcw aria-hidden />Reset</Button>
                                 </div>
                             </form>
 
-                            <form className="space-y-4 rounded-xl border border-zinc-200 p-4" onSubmit={handleActionSubmit}>
+                            <form className="space-y-4 rounded-xl border border-border p-4" onSubmit={handleActionSubmit}>
                                 {editingActionId ? <EditBanner label={actionItems.find((item) => item._id === editingActionId)?.actionTitle ?? "Selected action"} onReset={resetActionForm} /> : null}
-                                <div className="font-semibold text-zinc-900">Direct action register editor</div>
+                                <div className="font-semibold text-foreground">Direct action register editor</div>
                                 <div className="grid gap-2"><Label>Inspection</Label><Select value={actionForm.inspectionId} onValueChange={(value) => setActionForm((current) => ({ ...current, inspectionId: value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{inspectionOptions.map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
                                 <div className="grid gap-2"><Label>Action title</Label><Input value={actionForm.actionTitle} onChange={(event) => setActionForm((current) => ({ ...current, actionTitle: event.target.value }))} /></div>
                                 <div className="grid gap-2"><Label>Assigned to</Label><Select value={actionForm.assignedToUserId || "__none__"} onValueChange={(value) => setActionForm((current) => ({ ...current, assignedToUserId: value === "__none__" ? "" : value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="__none__">Unassigned</SelectItem>{userOptions.map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}</SelectContent></Select></div>
@@ -1908,8 +1913,8 @@ export function AccreditationOperationsManager({
                                 </div>
                                 <div className="grid gap-2"><Label>Description</Label><Textarea rows={4} value={actionForm.actionDescription} onChange={(event) => setActionForm((current) => ({ ...current, actionDescription: event.target.value }))} /></div>
                                 <div className="flex flex-wrap gap-3">
-                                    <Button disabled={isPending} type="submit" variant="outline">{isPending ? <Spinner className="mr-2 size-4" /> : null}{editingActionId ? "Update action" : "Create action"}</Button>
-                                    <Button disabled={isPending} onClick={resetActionForm} type="button" variant="ghost">Reset</Button>
+                                    <Button loading={isPending} disabled={isPending} type="submit" variant="outline">{editingActionId ? "Update action" : "Create action"}</Button>
+                                    <Button loading={isPending} disabled={isPending} onClick={resetActionForm} type="button" variant="ghost"><RotateCcw aria-hidden />Reset</Button>
                                 </div>
                             </form>
                         </CardContent>
@@ -1934,7 +1939,7 @@ export function AccreditationOperationsManager({
                                                 <TableCell>{item.bodyName}</TableCell>
                                                 <TableCell>{item.jurisdiction ?? "-"}</TableCell>
                                                 <TableCell className="max-w-[28ch] truncate">{item.websiteUrl ?? "-"}</TableCell>
-                                                <TableCell><Button onClick={() => { setEditingBodyId(item._id); setBodyForm(mapBodyRecordToForm(item)); }} size="sm" type="button" variant="outline">Edit</Button></TableCell>
+                                                <TableCell><Button onClick={() => { setEditingBodyId(item._id); setBodyForm(mapBodyRecordToForm(item)); }} size="sm" type="button" variant="outline"><Pencil aria-hidden />Edit</Button></TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -1962,7 +1967,7 @@ export function AccreditationOperationsManager({
                                                 <TableCell><Badge variant="secondary">{item.status}</Badge></TableCell>
                                                 <TableCell>{item.approvalReferenceNo ?? "-"}</TableCell>
                                                 <TableCell>{formatDate(item.approvalEndDate)}</TableCell>
-                                                <TableCell><Button onClick={() => { setEditingApprovalId(item._id); setApprovalForm(mapApprovalRecordToForm(item, defaultApprovalForm)); }} size="sm" type="button" variant="outline">Edit</Button></TableCell>
+                                                <TableCell><Button onClick={() => { setEditingApprovalId(item._id); setApprovalForm(mapApprovalRecordToForm(item, defaultApprovalForm)); }} size="sm" type="button" variant="outline"><Pencil aria-hidden />Edit</Button></TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -1988,7 +1993,7 @@ export function AccreditationOperationsManager({
                                                 <TableCell>{item.reportTitle}</TableCell>
                                                 <TableCell>{item.reportYear}</TableCell>
                                                 <TableCell><Badge variant="secondary">{item.complianceStatus}</Badge></TableCell>
-                                                <TableCell><Button onClick={() => { setEditingReportId(item._id); setReportForm(mapReportRecordToForm(item, defaultReportForm)); }} size="sm" type="button" variant="outline">Edit</Button></TableCell>
+                                                <TableCell><Button onClick={() => { setEditingReportId(item._id); setReportForm(mapReportRecordToForm(item, defaultReportForm)); }} size="sm" type="button" variant="outline"><Pencil aria-hidden />Edit</Button></TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -2016,7 +2021,7 @@ export function AccreditationOperationsManager({
                                                 <TableCell><Badge variant="secondary">{item.status}</Badge></TableCell>
                                                 <TableCell>{formatDate(item.visitDate)}</TableCell>
                                                 <TableCell>{item.actionItems?.length ?? 0}</TableCell>
-                                                <TableCell><Button onClick={() => { setEditingInspectionId(item._id); setInspectionForm(mapInspectionRecordToForm(item, defaultInspectionForm)); }} size="sm" type="button" variant="outline">Edit</Button></TableCell>
+                                                <TableCell><Button onClick={() => { setEditingInspectionId(item._id); setInspectionForm(mapInspectionRecordToForm(item, defaultInspectionForm)); }} size="sm" type="button" variant="outline"><Pencil aria-hidden />Edit</Button></TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -2043,7 +2048,7 @@ export function AccreditationOperationsManager({
                                             <TableCell>{item.actionTitle}</TableCell>
                                             <TableCell><Badge variant="secondary">{item.completionStatus}</Badge></TableCell>
                                             <TableCell>{formatDate(item.targetCompletionDate)}</TableCell>
-                                            <TableCell><Button onClick={() => { setEditingActionId(item._id); setActionForm(mapActionRecordToForm(item, defaultActionForm)); }} size="sm" type="button" variant="outline">Edit</Button></TableCell>
+                                            <TableCell><Button onClick={() => { setEditingActionId(item._id); setActionForm(mapActionRecordToForm(item, defaultActionForm)); }} size="sm" type="button" variant="outline"><Pencil aria-hidden />Edit</Button></TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -2081,12 +2086,12 @@ function ReferenceList({
 }) {
     return (
         <div className="space-y-3">
-            <p className="text-sm font-semibold text-zinc-900">{title}</p>
-            <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl border border-zinc-200 p-3">
+            <p className="text-sm font-semibold text-foreground">{title}</p>
+            <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl border border-border p-3">
                 {options.map((option) => (
-                    <div key={option.id} className="rounded-lg border border-zinc-100 bg-zinc-50 p-2">
-                        <div className="text-xs font-medium text-zinc-900">{option.label}</div>
-                        <div className="mt-1 break-all font-mono text-[11px] text-zinc-500">{option.id}</div>
+                    <div key={option.id} className="rounded-lg border border-border bg-muted/50 p-2">
+                        <div className="text-xs font-medium text-foreground">{option.label}</div>
+                        <div className="mt-1 break-all font-mono text-[11px] text-muted-foreground">{option.id}</div>
                     </div>
                 ))}
             </div>

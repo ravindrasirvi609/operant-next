@@ -4,17 +4,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowRight, MailCheck } from "lucide-react";
+import { ArrowRight, AtSign, IdCard, MailCheck } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 
-import { FieldError, FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FieldError, FormMessage } from "@/components/auth/auth-helpers";
 import { PasswordChecklist } from "@/components/auth/password-checklist";
 import { PasswordInput } from "@/components/auth/password-input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import {
     facultyActivationSchema,
     forgotPasswordSchema,
@@ -61,13 +61,13 @@ function AuthCard({
     footer?: React.ReactNode;
 }) {
     return (
-        <Card className="overflow-hidden rounded-[28px] border border-white/80 bg-white/95 shadow-[0_24px_60px_-32px_rgba(15,23,42,0.35)] backdrop-blur">
-            <CardHeader className="gap-2 border-b border-zinc-100/80 bg-zinc-50/70 px-6 py-5">
-                <CardTitle className="text-xl text-zinc-950">{title}</CardTitle>
-                <CardDescription className="text-sm leading-6 text-zinc-500">{description}</CardDescription>
+        <Card className="overflow-hidden rounded-[28px] border border-border/80 bg-card/95 shadow-[0_24px_60px_-32px_color-mix(in_oklch,var(--foreground)_35%,transparent)] backdrop-blur">
+            <CardHeader className="gap-2 border-b border-border/80 bg-muted/70 px-6 py-5">
+                <CardTitle className="text-xl text-foreground">{title}</CardTitle>
+                <CardDescription className="text-sm leading-6 text-muted-foreground">{description}</CardDescription>
             </CardHeader>
             <CardContent className="px-6 py-6">{children}</CardContent>
-            {footer ? <CardFooter className="border-t border-zinc-100/80 bg-zinc-50/50 px-6 py-5">{footer}</CardFooter> : null}
+            {footer ? <CardFooter className="border-t border-border/80 bg-muted/50 px-6 py-5">{footer}</CardFooter> : null}
         </Card>
     );
 }
@@ -121,13 +121,13 @@ export function LoginForm({
                 title="Sign in to UMIS"
                 description="Continue to the Operant Next University portal with your institutional email or your enrollment number after first-time activation."
                 footer={
-                    <div className="text-sm text-zinc-500">
+                    <div className="text-sm text-muted-foreground">
                         First time student?{" "}
-                        <Link href="/activate-student" className="font-medium text-zinc-950">
+                        <Link href="/activate-student" className="font-medium text-foreground">
                             Activate your account
                         </Link>
                         {" · "}
-                        <Link href="/activate-faculty" className="font-medium text-zinc-950">
+                        <Link href="/activate-faculty" className="font-medium text-foreground">
                             Faculty first-time setup
                         </Link>
                     </div>
@@ -141,12 +141,17 @@ export function LoginForm({
 
                     <div className="grid gap-2">
                         <Label htmlFor="login-email">Institutional email or enrollment number</Label>
-                        <Input
-                            id="login-email"
-                            placeholder="you@university.edu or 24CSE001"
-                            {...form.register("email")}
-                        />
-                        <p className="text-sm leading-6 text-zinc-500">
+                        <InputGroup>
+                            <InputGroupAddon>
+                                <AtSign aria-hidden />
+                            </InputGroupAddon>
+                            <InputGroupInput
+                                id="login-email"
+                                placeholder="you@university.edu or 24CSE001"
+                                {...form.register("email")}
+                            />
+                        </InputGroup>
+                        <p className="text-sm leading-6 text-muted-foreground">
                             Use the identifier linked to your university record.
                         </p>
                         <FieldError message={form.formState.errors.email?.message} />
@@ -157,7 +162,7 @@ export function LoginForm({
                             <Label htmlFor="login-password">Password</Label>
                             <Link
                                 href="/forgot-password"
-                                className="text-sm font-medium text-zinc-950"
+                                className="text-sm font-medium text-foreground"
                             >
                                 Forgot password?
                             </Link>
@@ -170,8 +175,8 @@ export function LoginForm({
                         <FieldError message={form.formState.errors.password?.message} />
                     </div>
 
-                    <Button className="w-full" size="lg" disabled={isPending} type="submit">
-                        {isPending ? <Spinner /> : <ArrowRight className="size-4" />}
+                    <Button loading={isPending} className="w-full" size="lg" disabled={isPending} type="submit">
+                        <ArrowRight aria-hidden />
                         Sign In
                     </Button>
                 </form>
@@ -193,19 +198,19 @@ export function RegisterForm({
             title="Institutional onboarding only"
             description="Faculty accounts are now provisioned by the institution. If your profile is already created, complete first-time setup instead of registering."
             footer={
-                <div className="text-sm text-zinc-500">
+                <div className="text-sm text-muted-foreground">
                     Need access?{" "}
-                    <Link href="/activate-faculty" className="font-medium text-zinc-950">
+                    <Link href="/activate-faculty" className="font-medium text-foreground">
                         Activate faculty account
                     </Link>
                     {" · "}
-                    <Link href="/activate-student" className="font-medium text-zinc-950">
+                    <Link href="/activate-student" className="font-medium text-foreground">
                         Activate student account
                     </Link>
                 </div>
             }
         >
-            <div className="grid gap-4 text-sm text-zinc-600">
+            <div className="grid gap-4 text-sm text-muted-foreground">
                 <p>
                     Faculty identities are created by Admin, HR, or IQAC. Public self-registration is disabled to keep institutional mapping and accreditation data accurate.
                 </p>
@@ -273,9 +278,9 @@ export function StudentActivationForm() {
             title="First Time Student Login Setup"
             description="Use your pre-provisioned institutional record to verify your identity and set your password."
             footer={
-                <div className="text-sm text-zinc-500">
+                <div className="text-sm text-muted-foreground">
                     Already activated?{" "}
-                    <Link href="/login" className="font-medium text-zinc-950">
+                    <Link href="/login" className="font-medium text-foreground">
                         Sign in here
                     </Link>
                 </div>
@@ -286,11 +291,21 @@ export function StudentActivationForm() {
                 {errorMessage ? <FormMessage message={errorMessage} type="error" /> : null}
 
                 <Field label="Enrollment number" id="activate-enrollment" error={form.formState.errors.enrollmentNo?.message}>
-                    <Input id="activate-enrollment" placeholder="CSE2024001" {...form.register("enrollmentNo")} />
+                    <InputGroup>
+                            <InputGroupAddon>
+                                <IdCard aria-hidden />
+                            </InputGroupAddon>
+                            <InputGroupInput id="activate-enrollment" placeholder="CSE2024001" {...form.register("enrollmentNo")} />
+                        </InputGroup>
                 </Field>
 
                 <Field label="Registered email or mobile" id="activate-verification" error={form.formState.errors.verificationValue?.message}>
-                    <Input id="activate-verification" placeholder="ravi@college.edu or 9876543210" {...form.register("verificationValue")} />
+                    <InputGroup>
+                            <InputGroupAddon>
+                                <AtSign aria-hidden />
+                            </InputGroupAddon>
+                            <InputGroupInput id="activate-verification" placeholder="ravi@college.edu or 9876543210" {...form.register("verificationValue")} />
+                        </InputGroup>
                 </Field>
 
                 <div className="grid gap-5 sm:grid-cols-2">
@@ -304,8 +319,8 @@ export function StudentActivationForm() {
 
                 <PasswordChecklist password={password ?? ""} />
 
-                <Button className="w-full" size="lg" disabled={isPending} type="submit">
-                    {isPending ? <Spinner /> : <ArrowRight className="size-4" />}
+                <Button loading={isPending} className="w-full" size="lg" disabled={isPending} type="submit">
+                    <ArrowRight aria-hidden />
                     Activate Student Account
                 </Button>
             </form>
@@ -361,9 +376,9 @@ export function FacultyActivationForm() {
             title="First Time Faculty Login Setup"
             description="Use your pre-provisioned institutional faculty record to verify your identity and set your password."
             footer={
-                <div className="text-sm text-zinc-500">
+                <div className="text-sm text-muted-foreground">
                     Already activated?{" "}
-                    <Link href="/login" className="font-medium text-zinc-950">
+                    <Link href="/login" className="font-medium text-foreground">
                         Sign in here
                     </Link>
                 </div>
@@ -375,10 +390,20 @@ export function FacultyActivationForm() {
 
                 <div className="grid gap-5 sm:grid-cols-2">
                     <Field label="Employee code" id="activate-faculty-code" error={form.formState.errors.employeeCode?.message}>
-                        <Input id="activate-faculty-code" placeholder="CSE-FAC-001" {...form.register("employeeCode")} />
+                        <InputGroup>
+                            <InputGroupAddon>
+                                <IdCard aria-hidden />
+                            </InputGroupAddon>
+                            <InputGroupInput id="activate-faculty-code" placeholder="CSE-FAC-001" {...form.register("employeeCode")} />
+                        </InputGroup>
                     </Field>
                     <Field label="Institution email" id="activate-faculty-email" error={form.formState.errors.email?.message}>
-                        <Input id="activate-faculty-email" type="email" placeholder="faculty@college.edu" {...form.register("email")} />
+                        <InputGroup>
+                            <InputGroupAddon>
+                                <AtSign aria-hidden />
+                            </InputGroupAddon>
+                            <InputGroupInput id="activate-faculty-email" type="email" placeholder="faculty@college.edu" {...form.register("email")} />
+                        </InputGroup>
                     </Field>
                 </div>
 
@@ -393,8 +418,8 @@ export function FacultyActivationForm() {
 
                 <PasswordChecklist password={password ?? ""} />
 
-                <Button className="w-full" size="lg" disabled={isPending} type="submit">
-                    {isPending ? <Spinner /> : <ArrowRight className="size-4" />}
+                <Button loading={isPending} className="w-full" size="lg" disabled={isPending} type="submit">
+                    <ArrowRight aria-hidden />
                     Activate Faculty Account
                 </Button>
             </form>
@@ -441,18 +466,23 @@ export function ForgotPasswordForm() {
                 {errorMessage ? <FormMessage message={errorMessage} type="error" /> : null}
 
                 <Field label="UMIS email" id="forgot-email" error={form.formState.errors.email?.message}>
-                    <Input id="forgot-email" type="email" placeholder="student@university.edu" {...form.register("email")} />
+                    <InputGroup>
+                            <InputGroupAddon>
+                                <AtSign aria-hidden />
+                            </InputGroupAddon>
+                            <InputGroupInput id="forgot-email" type="email" placeholder="student@university.edu" {...form.register("email")} />
+                        </InputGroup>
                 </Field>
 
-                <Button className="w-full" disabled={isPending} type="submit">
-                    {isPending ? <Spinner /> : <MailCheck className="size-4" />}
+                <Button loading={isPending} className="w-full" disabled={isPending} type="submit">
+                    <MailCheck aria-hidden />
                     Send Reset Link
                 </Button>
             </form>
 
-            <div className="mt-5 text-sm text-zinc-500">
+            <div className="mt-5 text-sm text-muted-foreground">
                 Remembered it?{" "}
-                <Link href="/login" className="font-medium text-zinc-950">
+                <Link href="/login" className="font-medium text-foreground">
                     Back to sign in
                 </Link>
             </div>
@@ -528,8 +558,8 @@ export function ResetPasswordForm({ token }: { token: string }) {
                     />
                 </Field>
 
-                <Button className="w-full" disabled={isPending} type="submit">
-                    {isPending ? <Spinner /> : <ArrowRight className="size-4" />}
+                <Button loading={isPending} className="w-full" disabled={isPending} type="submit">
+                    <ArrowRight aria-hidden />
                     Update Password
                 </Button>
             </form>
@@ -568,7 +598,7 @@ export function ResendVerificationForm({ defaultEmail = "" }: { defaultEmail?: s
     }
 
     return (
-        <Card className="border-dashed bg-white/85">
+        <Card className="border-dashed bg-card/85">
             <CardHeader>
                 <CardTitle className="text-xl">Need a fresh verification email?</CardTitle>
                 <CardDescription>
@@ -579,11 +609,15 @@ export function ResendVerificationForm({ defaultEmail = "" }: { defaultEmail?: s
                 <form className="grid gap-4 sm:grid-cols-[1fr_auto]" onSubmit={form.handleSubmit(onSubmit)}>
                     <div className="grid gap-2">
                         <Label htmlFor="resend-email">Email</Label>
-                        <Input id="resend-email" type="email" placeholder="you@university.edu" {...form.register("email")} />
+                        <InputGroup>
+                            <InputGroupAddon>
+                                <AtSign aria-hidden />
+                            </InputGroupAddon>
+                            <InputGroupInput id="resend-email" type="email" placeholder="you@university.edu" {...form.register("email")} />
+                        </InputGroup>
                         <FieldError message={form.formState.errors.email?.message} />
                     </div>
-                    <Button className="sm:self-end" disabled={isPending} type="submit">
-                        {isPending ? <Spinner /> : null}
+                    <Button loading={isPending} className="sm:self-end" disabled={isPending} type="submit">
                         Resend Link
                     </Button>
                 </form>

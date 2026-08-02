@@ -10,6 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { StatCard } from "@/components/ui/stat-card";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { Send } from "lucide-react";
 
 type DocumentRecord = {
     id: string;
@@ -190,27 +194,11 @@ function formatDateTime(value?: string) {
     });
 }
 
-function statusBadge(status: string) {
-    if (status === "Approved") {
-        return <Badge className="bg-emerald-100 text-emerald-700">{status}</Badge>;
-    }
-
-    if (status === "Rejected") {
-        return <Badge className="bg-rose-100 text-rose-700">{status}</Badge>;
-    }
-
-    if (["Submitted", "IQAC Review", "Leadership Review", "Governance Review"].includes(status)) {
-        return <Badge className="bg-amber-100 text-amber-700">{status}</Badge>;
-    }
-
-    return <Badge variant="secondary">{status}</Badge>;
-}
-
 function renderNarrative(title: string, value?: string) {
     return (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-sm font-semibold text-zinc-950">{title}</p>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-600">
+        <div className="rounded-lg border border-border bg-muted/50 p-4">
+            <p className="text-sm font-semibold text-foreground">{title}</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
                 {value?.trim() || "Not provided."}
             </p>
         </div>
@@ -225,12 +213,12 @@ function EvidenceLink({
     document?: DocumentRecord | null;
 }) {
     if (!document?.fileUrl) {
-        return <p className="mt-2 text-xs text-zinc-500">{label}: no linked file available.</p>;
+        return <p className="mt-2 text-xs text-muted-foreground">{label}: no linked file available.</p>;
     }
 
     return (
         <a
-            className="mt-2 inline-block text-xs font-medium text-zinc-900 underline"
+            className="mt-2 inline-block text-xs font-medium text-foreground underline"
             href={document.fileUrl}
             rel="noreferrer"
             target="_blank"
@@ -343,17 +331,7 @@ export function InstitutionalValuesBestPracticesReviewBoard({
                 value={search}
             />
 
-            {message ? (
-                <div
-                    className={`rounded-lg border px-4 py-3 text-sm ${
-                        message.type === "success"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                            : "border-rose-200 bg-rose-50 text-rose-900"
-                    }`}
-                >
-                    {message.text}
-                </div>
-            ) : null}
+            <InlineAlert message={message} />
 
             <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
                 <div className="space-y-3">
@@ -365,8 +343,8 @@ export function InstitutionalValuesBestPracticesReviewBoard({
                                 <button
                                     className={`w-full rounded-xl border p-4 text-left transition ${
                                         active
-                                            ? "border-zinc-900 bg-zinc-900 text-white"
-                                            : "border-zinc-200 bg-zinc-50 text-zinc-900 hover:border-zinc-300 hover:bg-zinc-100"
+                                            ? "border-border bg-primary text-primary-foreground"
+                                            : "border-border bg-muted/50 text-foreground hover:border-border hover:bg-muted"
                                     }`}
                                     key={record._id}
                                     onClick={() => setSelectedId(record._id)}
@@ -384,7 +362,7 @@ export function InstitutionalValuesBestPracticesReviewBoard({
                                                 {record.unitLabel} · {record.assigneeName}
                                             </p>
                                         </div>
-                                        <div>{statusBadge(record.status)}</div>
+                                        <div><StatusBadge status={record.status} /></div>
                                     </div>
                                     <p className="mt-3 text-xs opacity-80">
                                         {record.currentStageLabel} · {record.valueSummary}
@@ -393,7 +371,7 @@ export function InstitutionalValuesBestPracticesReviewBoard({
                             );
                         })
                     ) : (
-                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-6 text-sm text-zinc-500">
+                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
                             No records matched your search.
                         </div>
                     )}
@@ -412,12 +390,12 @@ export function InstitutionalValuesBestPracticesReviewBoard({
                                         </CardDescription>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                        {statusBadge(selectedRecord.status)}
+                                        <StatusBadge status={selectedRecord.status} />
                                         <Badge variant="secondary">{selectedRecord.currentStageLabel}</Badge>
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="space-y-3 text-sm text-zinc-600">
+                            <CardContent className="space-y-3 text-sm text-muted-foreground">
                                 {selectedRecord.planOverview ? <p>{selectedRecord.planOverview}</p> : null}
                                 {selectedRecord.planStrategicPriorities ? (
                                     <p>{selectedRecord.planStrategicPriorities}</p>
@@ -461,7 +439,7 @@ export function InstitutionalValuesBestPracticesReviewBoard({
                                     <CardContent className="space-y-3">
                                         {rows.length ? (
                                             rows.map((row, index) => (
-                                                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4" key={`${section.key}-${index}`}>
+                                                <div className="rounded-xl border border-border bg-muted/50 p-4" key={`${section.key}-${index}`}>
                                                     <div className="grid gap-2 md:grid-cols-2">
                                                         {Object.entries(row)
                                                             .filter(
@@ -473,10 +451,10 @@ export function InstitutionalValuesBestPracticesReviewBoard({
                                                             )
                                                             .map(([key, value]) => (
                                                                 <div key={key}>
-                                                                    <p className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">
+                                                                    <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
                                                                         {key}
                                                                     </p>
-                                                                    <p className="mt-1 text-sm text-zinc-700">
+                                                                    <p className="mt-1 text-sm text-foreground">
                                                                         {typeof value === "string" &&
                                                                         /^\d{4}-\d{2}-\d{2}T/.test(value)
                                                                             ? formatDate(value)
@@ -492,7 +470,7 @@ export function InstitutionalValuesBestPracticesReviewBoard({
                                                 </div>
                                             ))
                                         ) : (
-                                            <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                                            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                                 No rows recorded in this section.
                                             </div>
                                         )}
@@ -508,15 +486,15 @@ export function InstitutionalValuesBestPracticesReviewBoard({
                             <CardContent className="space-y-3">
                                 {selectedRecord.documents.length ? (
                                     selectedRecord.documents.map((document) => (
-                                        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={document.id}>
-                                            <p className="text-sm font-medium text-zinc-950">
+                                        <div className="rounded-lg border border-border bg-muted/50 p-4" key={document.id}>
+                                            <p className="text-sm font-medium text-foreground">
                                                 {document.fileName || document.id}
                                             </p>
-                                            <p className="mt-1 text-xs text-zinc-500">
+                                            <p className="mt-1 text-xs text-muted-foreground">
                                                 {document.verificationStatus || "Unverified"}
                                             </p>
                                             {document.verificationRemarks ? (
-                                                <p className="mt-2 text-xs text-zinc-500">
+                                                <p className="mt-2 text-xs text-muted-foreground">
                                                     {document.verificationRemarks}
                                                 </p>
                                             ) : null}
@@ -524,18 +502,18 @@ export function InstitutionalValuesBestPracticesReviewBoard({
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                                    <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                         No manual evidence files are linked.
                                     </div>
                                 )}
 
                                 {selectedRecord.supportingLinks.length ? (
-                                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                                        <p className="text-sm font-medium text-zinc-950">Supporting links</p>
+                                    <div className="rounded-lg border border-border bg-muted/50 p-4">
+                                        <p className="text-sm font-medium text-foreground">Supporting links</p>
                                         <div className="mt-3 flex flex-col gap-2">
                                             {selectedRecord.supportingLinks.map((link) => (
                                                 <a
-                                                    className="text-sm font-medium text-zinc-900 underline"
+                                                    className="text-sm font-medium text-foreground underline"
                                                     href={link}
                                                     key={link}
                                                     rel="noreferrer"
@@ -558,19 +536,19 @@ export function InstitutionalValuesBestPracticesReviewBoard({
                                 <CardContent className="space-y-3">
                                     {selectedRecord.statusLogs.length ? (
                                         selectedRecord.statusLogs.map((entry, index) => (
-                                            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={`${entry.status}-${index}`}>
-                                                <p className="text-sm font-medium text-zinc-950">{entry.status}</p>
-                                                <p className="mt-1 text-xs text-zinc-500">
+                                            <div className="rounded-lg border border-border bg-muted/50 p-4" key={`${entry.status}-${index}`}>
+                                                <p className="text-sm font-medium text-foreground">{entry.status}</p>
+                                                <p className="mt-1 text-xs text-muted-foreground">
                                                     {entry.actorName || "System"} · {entry.actorRole || "Workflow"} ·{" "}
                                                     {formatDateTime(entry.changedAt)}
                                                 </p>
                                                 {entry.remarks ? (
-                                                    <p className="mt-2 text-sm text-zinc-600">{entry.remarks}</p>
+                                                    <p className="mt-2 text-sm text-muted-foreground">{entry.remarks}</p>
                                                 ) : null}
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                             No workflow history available.
                                         </div>
                                     )}
@@ -584,21 +562,21 @@ export function InstitutionalValuesBestPracticesReviewBoard({
                                 <CardContent className="space-y-3">
                                     {selectedRecord.reviewHistory.length ? (
                                         selectedRecord.reviewHistory.map((entry, index) => (
-                                            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4" key={`${entry.stage}-${index}`}>
-                                                <p className="text-sm font-medium text-zinc-950">
+                                            <div className="rounded-lg border border-border bg-muted/50 p-4" key={`${entry.stage}-${index}`}>
+                                                <p className="text-sm font-medium text-foreground">
                                                     {entry.stage} · {entry.decision}
                                                 </p>
-                                                <p className="mt-1 text-xs text-zinc-500">
+                                                <p className="mt-1 text-xs text-muted-foreground">
                                                     {entry.reviewerName || "Reviewer"} · {entry.reviewerRole || "Leadership"} ·{" "}
                                                     {formatDateTime(entry.reviewedAt)}
                                                 </p>
                                                 {entry.remarks ? (
-                                                    <p className="mt-2 text-sm text-zinc-600">{entry.remarks}</p>
+                                                    <p className="mt-2 text-sm text-muted-foreground">{entry.remarks}</p>
                                                 ) : null}
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500">
+                                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                                             No review actions recorded yet.
                                         </div>
                                     )}
@@ -640,10 +618,12 @@ export function InstitutionalValuesBestPracticesReviewBoard({
                                         />
                                     </div>
                                     <Button
+                                        loading={isPending}
                                         disabled={isPending || !decision || remarks.trim().length < 2}
                                         onClick={submitReview}
                                         type="button"
                                     >
+                                        <Send aria-hidden />
                                         Submit review
                                     </Button>
                                 </CardContent>
@@ -657,12 +637,5 @@ export function InstitutionalValuesBestPracticesReviewBoard({
 }
 
 function SummaryCard({ label, value }: { label: string; value: number }) {
-    return (
-        <Card>
-            <CardContent className="p-5">
-                <p className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-                <p className="mt-2 text-3xl font-semibold text-zinc-950">{value}</p>
-            </CardContent>
-        </Card>
-    );
+    return <StatCard label={label} value={value} />;
 }

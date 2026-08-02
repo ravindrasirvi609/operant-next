@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { StatCard } from "@/components/ui/stat-card";
 import { requireDirector } from "@/lib/auth/user";
 import { getAccreditationLeadershipDashboard } from "@/lib/accreditation/service";
 
@@ -20,14 +21,14 @@ export default async function DirectorAccreditationPage() {
 
     return (
         <div className="space-y-6">
-            <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div className="max-w-3xl">
                         <Badge>Leadership accreditation</Badge>
-                        <h1 className="mt-4 text-4xl font-semibold tracking-tight text-zinc-950">
+                        <h1 className="mt-4 text-4xl font-semibold tracking-tight text-foreground">
                             Source-module visibility for accreditation operations
                         </h1>
-                        <p className="mt-4 text-base leading-8 text-zinc-500">
+                        <p className="mt-4 text-base leading-8 text-muted-foreground">
                             Review SSS, AISHE, NIRF, and compliance records that feed the NAAC warehouse, filtered by your active leadership scope where institutional or departmental mapping exists.
                         </p>
                     </div>
@@ -188,12 +189,5 @@ export default async function DirectorAccreditationPage() {
 }
 
 function MetricCard({ label, value }: { label: string; value: number }) {
-    return (
-        <Card>
-            <CardHeader className="pb-2">
-                <CardDescription>{label}</CardDescription>
-                <CardTitle className="text-lg">{value}</CardTitle>
-            </CardHeader>
-        </Card>
-    );
+    return <StatCard label={label} value={value} />;
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
 
-import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
+import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { Eye, FolderOpen, Sparkles } from "lucide-react";
 
 type AcademicYearOption = {
     id: string;
@@ -132,22 +134,6 @@ function formatDateTime(value?: string) {
     }
 
     return parsed.toLocaleString();
-}
-
-function statusBadgeClass(status: string) {
-    if (status === "Reviewed") {
-        return "bg-emerald-100 text-emerald-700 hover:bg-emerald-100";
-    }
-
-    if (status === "Overridden") {
-        return "bg-amber-100 text-amber-800 hover:bg-amber-100";
-    }
-
-    if (status === "Generated") {
-        return "bg-sky-100 text-sky-700 hover:bg-sky-100";
-    }
-
-    return "bg-zinc-100 text-zinc-700 hover:bg-zinc-100";
 }
 
 async function requestJson<T>(url: string, options?: RequestInit) {
@@ -490,8 +476,7 @@ export function NaacMetricWarehouseManager({
                                             }
                                         />
                                     </div>
-                                    <Button disabled={isPending || !createForm.academicYearId} type="submit">
-                                        {isPending ? <Spinner className="mr-2 size-4" /> : null}
+                                    <Button loading={isPending} disabled={isPending || !createForm.academicYearId} type="submit">
                                         Create cycle
                                     </Button>
                                 </form>
@@ -521,11 +506,11 @@ export function NaacMetricWarehouseManager({
                                             cycles.map((cycle) => (
                                                 <TableRow key={cycle._id}>
                                                     <TableCell>
-                                                        <div className="font-medium text-zinc-900">{cycle.academicYearLabel}</div>
-                                                        <div className="text-xs text-zinc-500">{cycle.title}</div>
+                                                        <div className="font-medium text-foreground">{cycle.academicYearLabel}</div>
+                                                        <div className="text-xs text-muted-foreground">{cycle.title}</div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Badge className={statusBadgeClass(cycle.status)}>{cycle.status}</Badge>
+                                                        <StatusBadge status={cycle.status} />
                                                     </TableCell>
                                                     <TableCell>{cycle.generatedMetricCount}</TableCell>
                                                     <TableCell>{cycle.reviewedMetricCount + cycle.overriddenMetricCount}</TableCell>
@@ -550,6 +535,7 @@ export function NaacMetricWarehouseManager({
                                                                     })
                                                                 }
                                                             >
+                                                                <FolderOpen aria-hidden />
                                                                 Load
                                                             </Button>
                                                             <Button
@@ -559,6 +545,7 @@ export function NaacMetricWarehouseManager({
                                                                     handleGenerate();
                                                                 }}
                                                             >
+                                                                <Sparkles aria-hidden />
                                                                 Generate
                                                             </Button>
                                                         </div>
@@ -606,15 +593,15 @@ export function NaacMetricWarehouseManager({
                                     {definitions.map((definition) => (
                                         <TableRow key={definition._id}>
                                             <TableCell>
-                                                <div className="font-medium text-zinc-900">{definition.label}</div>
-                                                <div className="text-xs text-zinc-500">{definition.metricCode}</div>
+                                                <div className="font-medium text-foreground">{definition.label}</div>
+                                                <div className="text-xs text-muted-foreground">{definition.metricCode}</div>
                                             </TableCell>
                                             <TableCell>
                                                 {definition.criteriaCode} · {definition.criteriaName}
                                             </TableCell>
                                             <TableCell>
                                                 <div>{definition.sourceLabel}</div>
-                                                <div className="text-xs text-zinc-500">
+                                                <div className="text-xs text-muted-foreground">
                                                     {definition.tableName}.{definition.fieldReference}
                                                 </div>
                                             </TableCell>
@@ -655,6 +642,7 @@ export function NaacMetricWarehouseManager({
                                     </Select>
                                 </div>
                                 <Button
+                                    loading={isPending}
                                     disabled={isPending || !selectedCycleId}
                                     variant="outline"
                                     onClick={() =>
@@ -673,10 +661,10 @@ export function NaacMetricWarehouseManager({
                                         })
                                     }
                                 >
+                                    <FolderOpen aria-hidden />
                                     Load workspace
                                 </Button>
-                                <Button disabled={isPending || !selectedCycleId} onClick={handleGenerate}>
-                                    {isPending ? <Spinner className="mr-2 size-4" /> : null}
+                                <Button loading={isPending} disabled={isPending || !selectedCycleId} onClick={handleGenerate}>
                                     Generate snapshot
                                 </Button>
                             </div>
@@ -740,15 +728,13 @@ export function NaacMetricWarehouseManager({
                                                             workspace.values.map((value) => (
                                                                 <TableRow key={value._id}>
                                                                     <TableCell>
-                                                                        <div className="font-medium text-zinc-900">{value.label}</div>
-                                                                        <div className="text-xs text-zinc-500">
+                                                                        <div className="font-medium text-foreground">{value.label}</div>
+                                                                        <div className="text-xs text-muted-foreground">
                                                                             {value.criteriaCode} · {value.metricCode}
                                                                         </div>
                                                                     </TableCell>
                                                                     <TableCell>
-                                                                        <Badge className={statusBadgeClass(value.status)}>
-                                                                            {value.status}
-                                                                        </Badge>
+                                                                        <StatusBadge status={value.status} />
                                                                     </TableCell>
                                                                     <TableCell>{value.sourceMode}</TableCell>
                                                                     <TableCell>{value.effectiveValueText || "-"}</TableCell>
@@ -759,6 +745,7 @@ export function NaacMetricWarehouseManager({
                                                                             variant="outline"
                                                                             onClick={() => setSelectedMetricId(value._id)}
                                                                         >
+                                                                            <Eye aria-hidden />
                                                                             Inspect
                                                                         </Button>
                                                                     </TableCell>
@@ -766,7 +753,7 @@ export function NaacMetricWarehouseManager({
                                                             ))
                                                         ) : (
                                                             <TableRow>
-                                                                <TableCell className="text-sm text-zinc-500" colSpan={6}>
+                                                                <TableCell className="text-sm text-muted-foreground" colSpan={6}>
                                                                     Generate the cycle snapshot to materialize metric values.
                                                                 </TableCell>
                                                             </TableRow>
@@ -788,14 +775,12 @@ export function NaacMetricWarehouseManager({
                                                     <>
                                                         <div className="space-y-1">
                                                             <div className="flex items-center gap-2">
-                                                                <h3 className="text-lg font-semibold text-zinc-900">
+                                                                <h3 className="text-lg font-semibold text-foreground">
                                                                     {selectedMetric.label}
                                                                 </h3>
-                                                                <Badge className={statusBadgeClass(selectedMetric.status)}>
-                                                                    {selectedMetric.status}
-                                                                </Badge>
+                                                                <StatusBadge status={selectedMetric.status} />
                                                             </div>
-                                                            <p className="text-sm text-zinc-500">
+                                                            <p className="text-sm text-muted-foreground">
                                                                 {selectedMetric.criteriaCode} · {selectedMetric.metricCode} ·{" "}
                                                                 {selectedMetric.tableName}.{selectedMetric.fieldReference}
                                                             </p>
@@ -805,12 +790,12 @@ export function NaacMetricWarehouseManager({
                                                                     <Badge variant="secondary">{selectedMetric.moduleKey}</Badge>
                                                                 ) : null}
                                                             </div>
-                                                            <p className="text-sm text-zinc-700">
+                                                            <p className="text-sm text-foreground">
                                                                 Effective value:{" "}
                                                                 <span className="font-semibold">{selectedMetric.effectiveValueText || "-"}</span>
                                                             </p>
                                                             {selectedMetric.guidance ? (
-                                                                <p className="text-sm text-zinc-500">{selectedMetric.guidance}</p>
+                                                                <p className="text-sm text-muted-foreground">{selectedMetric.guidance}</p>
                                                             ) : null}
                                                         </div>
 
@@ -819,15 +804,15 @@ export function NaacMetricWarehouseManager({
                                                             <div className="space-y-2">
                                                                 {selectedMetric.sourceSnapshots.map((snapshot, index) => (
                                                                     <div
-                                                                        className="rounded-xl border border-zinc-200 bg-zinc-50 p-3"
+                                                                        className="rounded-xl border border-border bg-muted/50 p-3"
                                                                         key={`${snapshot.collectionName}-${index}`}
                                                                     >
                                                                         <div className="flex items-center justify-between gap-3">
                                                                             <div className="min-w-0">
-                                                                                <p className="font-medium text-zinc-900">
+                                                                                <p className="font-medium text-foreground">
                                                                                     {snapshot.label}
                                                                                 </p>
-                                                                                <p className="text-xs text-zinc-500">
+                                                                                <p className="text-xs text-muted-foreground">
                                                                                     {snapshot.collectionName} · {snapshot.sourceType}
                                                                                 </p>
                                                                             </div>
@@ -835,7 +820,7 @@ export function NaacMetricWarehouseManager({
                                                                                 {snapshot.count ?? snapshot.value ?? 0}
                                                                             </Badge>
                                                                         </div>
-                                                                        <p className="mt-2 text-xs text-zinc-500">
+                                                                        <p className="mt-2 text-xs text-muted-foreground">
                                                                             Stored lineage sample: {snapshot.recordIds.length} record id(s)
                                                                         </p>
                                                                     </div>
@@ -845,11 +830,11 @@ export function NaacMetricWarehouseManager({
 
                                                         {selectedMetric.sourceMode === "MANUAL" ? (
                                                             <form className="space-y-4" onSubmit={handleManualSave}>
-                                                                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
-                                                                    <p className="text-sm font-medium text-zinc-900">
+                                                                <div className="rounded-xl border border-border bg-muted/50 p-4">
+                                                                    <p className="text-sm font-medium text-foreground">
                                                                         Manual warehouse capture
                                                                     </p>
-                                                                    <p className="mt-1 text-sm text-zinc-500">
+                                                                    <p className="mt-1 text-sm text-muted-foreground">
                                                                         Use this for SSS, AISHE, NIRF, and compliance values that are not yet sourced from live transactional modules.
                                                                     </p>
                                                                 </div>
@@ -893,8 +878,7 @@ export function NaacMetricWarehouseManager({
                                                                         }
                                                                     />
                                                                 </div>
-                                                                <Button disabled={isPending} type="submit" variant="outline">
-                                                                    {isPending ? <Spinner className="mr-2 size-4" /> : null}
+                                                                <Button loading={isPending} disabled={isPending} type="submit" variant="outline">
                                                                     Save manual value
                                                                 </Button>
                                                             </form>
@@ -981,14 +965,13 @@ export function NaacMetricWarehouseManager({
                                                                 </>
                                                             ) : null}
 
-                                                            <Button disabled={isPending} type="submit">
-                                                                {isPending ? <Spinner className="mr-2 size-4" /> : null}
+                                                            <Button loading={isPending} disabled={isPending} type="submit">
                                                                 {reviewForm.status === "Overridden" ? "Save override" : "Mark reviewed"}
                                                             </Button>
                                                         </form>
                                                     </>
                                                 ) : (
-                                                    <p className="text-sm text-zinc-500">
+                                                    <p className="text-sm text-muted-foreground">
                                                         Select a metric value from the table to inspect lineage and review it.
                                                     </p>
                                                 )}
@@ -997,7 +980,7 @@ export function NaacMetricWarehouseManager({
                                     </div>
                                 </>
                             ) : (
-                                <p className="text-sm text-zinc-500">
+                                <p className="text-sm text-muted-foreground">
                                     Create or load a warehouse cycle to start materializing NAAC metric values.
                                 </p>
                             )}

@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { Pencil, Plus, Save, X } from "lucide-react";
 
 type Option = {
     id: string;
@@ -654,17 +656,7 @@ export function SsrManager({
 
     return (
         <div className="space-y-6">
-            {message ? (
-                <div
-                    className={`rounded-lg border px-4 py-3 text-sm ${
-                        message.type === "success"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                            : "border-rose-200 bg-rose-50 text-rose-800"
-                    }`}
-                >
-                    {message.text}
-                </div>
-            ) : null}
+            <InlineAlert message={message} />
 
             <Tabs defaultValue="cycles" className="space-y-6">
                 <TabsList className="flex w-full flex-wrap justify-start gap-2">
@@ -818,11 +810,13 @@ export function SsrManager({
                                     />
                                 </div>
                                 <div className="flex gap-3 md:col-span-2">
-                                    <Button disabled={isPending} type="submit">
+                                    <Button loading={isPending} disabled={isPending} type="submit">
+                                        {editingCycleId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                         {editingCycleId ? "Update Cycle" : "Create Cycle"}
                                     </Button>
                                     {editingCycleId ? (
                                         <Button type="button" variant="outline" onClick={resetCycleForm}>
+                                            <X aria-hidden />
                                             Cancel
                                         </Button>
                                     ) : null}
@@ -854,7 +848,7 @@ export function SsrManager({
                                         <TableRow key={item._id}>
                                             <TableCell>
                                                 <div className="font-medium">{item.title}</div>
-                                                <div className="text-xs text-zinc-500">{item.code}</div>
+                                                <div className="text-xs text-muted-foreground">{item.code}</div>
                                             </TableCell>
                                             <TableCell>
                                                 <Badge variant="outline">{item.status}</Badge>
@@ -863,6 +857,7 @@ export function SsrManager({
                                             <TableCell>{item.academicYearLabel || "Not linked"}</TableCell>
                                             <TableCell>
                                                 <Button size="sm" variant="outline" onClick={() => editCycle(item)}>
+                                                    <Pencil aria-hidden />
                                                     Edit
                                                 </Button>
                                             </TableCell>
@@ -973,11 +968,13 @@ export function SsrManager({
                                     />
                                 </div>
                                 <div className="flex gap-3 md:col-span-2">
-                                    <Button disabled={isPending} type="submit">
+                                    <Button loading={isPending} disabled={isPending} type="submit">
+                                        {editingCriterionId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                         {editingCriterionId ? "Update Criterion" : "Create Criterion"}
                                     </Button>
                                     {editingCriterionId ? (
                                         <Button type="button" variant="outline" onClick={resetCriterionForm}>
+                                            <X aria-hidden />
                                             Cancel
                                         </Button>
                                     ) : null}
@@ -1227,7 +1224,7 @@ export function SsrManager({
                                         {contributorRoleOptions.map((role) => (
                                             <label
                                                 key={role}
-                                                className="flex items-center gap-3 rounded-lg border border-zinc-200 px-3 py-2"
+                                                className="flex items-center gap-3 rounded-lg border border-border px-3 py-2"
                                             >
                                                 <Checkbox
                                                     checked={metricForm.allowedContributorRoles.includes(role)}
@@ -1241,11 +1238,13 @@ export function SsrManager({
                                     </div>
                                 </div>
                                 <div className="flex gap-3 md:col-span-2">
-                                    <Button disabled={isPending} type="submit">
+                                    <Button loading={isPending} disabled={isPending} type="submit">
+                                        {editingMetricId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                         {editingMetricId ? "Update Metric" : "Create Metric"}
                                     </Button>
                                     {editingMetricId ? (
                                         <Button type="button" variant="outline" onClick={resetMetricForm}>
+                                            <X aria-hidden />
                                             Cancel
                                         </Button>
                                     ) : null}
@@ -1263,16 +1262,17 @@ export function SsrManager({
                                 {criteria.map((item) => (
                                     <div
                                         key={item._id}
-                                        className="rounded-lg border border-zinc-200 p-4"
+                                        className="rounded-lg border border-border p-4"
                                     >
                                         <div className="flex flex-wrap items-center justify-between gap-3">
                                             <div className="min-w-0">
-                                                <p className="font-medium text-zinc-950">
+                                                <p className="font-medium text-foreground">
                                                     {item.criterionCode} · {item.title}
                                                 </p>
-                                                <p className="text-sm text-zinc-500">{item.cycleTitle}</p>
+                                                <p className="text-sm text-muted-foreground">{item.cycleTitle}</p>
                                             </div>
                                             <Button size="sm" variant="outline" onClick={() => editCriterion(item)}>
+                                                <Pencil aria-hidden />
                                                 Edit
                                             </Button>
                                         </div>
@@ -1297,7 +1297,7 @@ export function SsrManager({
                                                 <div className="font-medium">
                                                     {item.metricCode} · {item.title}
                                                 </div>
-                                                <div className="text-xs text-zinc-500">
+                                                <div className="text-xs text-muted-foreground">
                                                     {item.criterionCode} · {item.criterionTitle}
                                                 </div>
                                             </TableCell>
@@ -1306,6 +1306,7 @@ export function SsrManager({
                                             <TableCell>{item.evidenceMode}</TableCell>
                                             <TableCell>
                                                 <Button size="sm" variant="outline" onClick={() => editMetric(item)}>
+                                                    <Pencil aria-hidden />
                                                     Edit
                                                 </Button>
                                             </TableCell>
@@ -1481,11 +1482,13 @@ export function SsrManager({
                                     />
                                 </div>
                                 <div className="flex gap-3 md:col-span-2">
-                                    <Button disabled={isPending} type="submit">
+                                    <Button loading={isPending} disabled={isPending} type="submit">
+                                        {editingSectionId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                         {editingSectionId ? "Update Section" : "Create Section"}
                                     </Button>
                                     {editingSectionId ? (
                                         <Button type="button" variant="outline" onClick={resetSectionForm}>
+                                            <X aria-hidden />
                                             Cancel
                                         </Button>
                                     ) : null}
@@ -1648,11 +1651,13 @@ export function SsrManager({
                                     />
                                 </div>
                                 <div className="flex gap-3 md:col-span-2">
-                                    <Button disabled={isPending} type="submit">
+                                    <Button loading={isPending} disabled={isPending} type="submit">
+                                        {editingAssignmentId ? <Save aria-hidden /> : <Plus aria-hidden />}
                                         {editingAssignmentId ? "Update Assignment" : "Create Assignment"}
                                     </Button>
                                     {editingAssignmentId ? (
                                         <Button type="button" variant="outline" onClick={resetAssignmentForm}>
+                                            <X aria-hidden />
                                             Cancel
                                         </Button>
                                     ) : null}
@@ -1679,13 +1684,14 @@ export function SsrManager({
                                         <TableRow key={item._id}>
                                             <TableCell>
                                                 <div className="font-medium">{item.title}</div>
-                                                <div className="text-xs text-zinc-500">{item.sectionKey}</div>
+                                                <div className="text-xs text-muted-foreground">{item.sectionKey}</div>
                                             </TableCell>
                                             <TableCell>
                                                 {item.metricCode} · {item.metricTitle}
                                             </TableCell>
                                             <TableCell>
                                                 <Button size="sm" variant="outline" onClick={() => editSection(item)}>
+                                                    <Pencil aria-hidden />
                                                     Edit
                                                 </Button>
                                             </TableCell>
@@ -1711,7 +1717,7 @@ export function SsrManager({
                                                 <div className="font-medium">
                                                     {item.metricCode} · {item.metricTitle}
                                                 </div>
-                                                <div className="text-xs text-zinc-500">
+                                                <div className="text-xs text-muted-foreground">
                                                     {item.sectionTitle || "Whole metric"} · {item.criterionCode}
                                                 </div>
                                             </TableCell>
@@ -1720,11 +1726,12 @@ export function SsrManager({
                                             </TableCell>
                                             <TableCell>
                                                 <div>{item.assigneeName}</div>
-                                                <div className="text-xs text-zinc-500">{item.assigneeRole}</div>
+                                                <div className="text-xs text-muted-foreground">{item.assigneeRole}</div>
                                             </TableCell>
                                             <TableCell>{normalizeDateInput(item.dueDate) || "Not set"}</TableCell>
                                             <TableCell>
                                                 <Button size="sm" variant="outline" onClick={() => editAssignment(item)}>
+                                                    <Pencil aria-hidden />
                                                     Edit
                                                 </Button>
                                             </TableCell>
@@ -1744,7 +1751,7 @@ export function SsrManager({
                                 Use this tab for a quick submission register. The full reviewer workspace on the admin SSR page includes the complete narrative, evidence, and workflow history needed for production review decisions.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="text-sm leading-6 text-zinc-500">
+                        <CardContent className="text-sm leading-6 text-muted-foreground">
                             Review actions are intentionally handled in the dedicated reviewer workspace below this manager so approvers can inspect the actual response payload, supporting links, and uploaded documents before moving the workflow.
                         </CardContent>
                     </Card>
@@ -1771,14 +1778,14 @@ export function SsrManager({
                                                 <div className="font-medium">
                                                     {item.metricCode} · {item.metricTitle}
                                                 </div>
-                                                <div className="text-xs text-zinc-500">
+                                                <div className="text-xs text-muted-foreground">
                                                     {item.cycleTitle} · {item.criterionCode}
                                                     {item.sectionTitle ? ` · ${item.sectionTitle}` : ""}
                                                 </div>
                                             </TableCell>
                                             <TableCell>
                                                 <div>{item.contributorName}</div>
-                                                <div className="text-xs text-zinc-500">{item.contributorRole}</div>
+                                                <div className="text-xs text-muted-foreground">{item.contributorRole}</div>
                                             </TableCell>
                                             <TableCell>
                                                 <Badge variant="outline">{item.status}</Badge>

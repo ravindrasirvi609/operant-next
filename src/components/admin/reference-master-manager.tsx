@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { StatCard } from "@/components/ui/stat-card";
+import { Plus } from "lucide-react";
 
 const AWARD_CATEGORY_OPTIONS_ID = "award-category-options";
 const AWARD_ORGANIZING_BODY_OPTIONS_ID = "award-organizing-body-options";
@@ -119,8 +121,8 @@ function StatusBadge({ active }: { active?: boolean }) {
         <Badge
             className={
                 active === false
-                    ? "border-rose-200 bg-rose-50 text-rose-700"
-                    : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    ? "border-destructive-border bg-destructive-muted text-destructive-muted-foreground"
+                    : "border-success-border bg-success-muted text-success-muted-foreground"
             }
         >
             {active === false ? "Inactive" : "Active"}
@@ -291,7 +293,7 @@ export function ReferenceMasterManager({ initialData }: { initialData: Reference
                                 <option key={option} value={option} />
                             ))}
                         </datalist>
-                        <Button disabled={isPending} onClick={() => create("award", awardForm, () => setAwardForm({ title: "", category: "", organizingBody: "", level: "College" }))}>Add award</Button>
+                        <Button loading={isPending} disabled={isPending} onClick={() => create("award", awardForm, () => setAwardForm({ title: "", category: "", organizingBody: "", level: "College" }))}><Plus aria-hidden />Add award</Button>
                         <ListTable rows={data.awards.map((item) => ({ id: item._id, title: item.title, detail: [item.category, item.organizingBody, item.level].filter(Boolean).join(" | "), active: item.isActive !== false, kind: "award" }))} onToggle={toggle} />
                     </ReferenceSection>
                 </TabsContent>
@@ -307,7 +309,7 @@ export function ReferenceMasterManager({ initialData }: { initialData: Reference
                                 </Select>
                             </Field>
                         </div>
-                        <Button disabled={isPending} onClick={() => create("skill", skillForm, () => setSkillForm({ name: "", category: "Technical" }))}>Add skill</Button>
+                        <Button loading={isPending} disabled={isPending} onClick={() => create("skill", skillForm, () => setSkillForm({ name: "", category: "Technical" }))}><Plus aria-hidden />Add skill</Button>
                         <ListTable rows={data.skills.map((item) => ({ id: item._id, title: item.name, detail: item.category, active: item.isActive !== false, kind: "skill" }))} onToggle={toggle} />
                     </ReferenceSection>
                 </TabsContent>
@@ -315,7 +317,7 @@ export function ReferenceMasterManager({ initialData }: { initialData: Reference
                 <TabsContent value="sport">
                     <ReferenceSection description="Govern sports names used in student records." title="Sports">
                         <Field label="Sport name"><Input value={sportForm.sportName} onChange={(event) => setSportForm({ sportName: event.target.value })} /></Field>
-                        <Button disabled={isPending} onClick={() => create("sport", sportForm, () => setSportForm({ sportName: "" }))}>Add sport</Button>
+                        <Button loading={isPending} disabled={isPending} onClick={() => create("sport", sportForm, () => setSportForm({ sportName: "" }))}><Plus aria-hidden />Add sport</Button>
                         <ListTable rows={data.sports.map((item) => ({ id: item._id, title: item.sportName, detail: "", active: item.isActive !== false, kind: "sport" }))} onToggle={toggle} />
                     </ReferenceSection>
                 </TabsContent>
@@ -326,7 +328,7 @@ export function ReferenceMasterManager({ initialData }: { initialData: Reference
                             <Field label="Name"><Input value={culturalForm.name} onChange={(event) => setCulturalForm((current) => ({ ...current, name: event.target.value }))} /></Field>
                             <Field label="Category"><Input value={culturalForm.category} onChange={(event) => setCulturalForm((current) => ({ ...current, category: event.target.value }))} /></Field>
                         </div>
-                        <Button disabled={isPending} onClick={() => create("cultural-activity", culturalForm, () => setCulturalForm({ name: "", category: "" }))}>Add cultural activity</Button>
+                        <Button loading={isPending} disabled={isPending} onClick={() => create("cultural-activity", culturalForm, () => setCulturalForm({ name: "", category: "" }))}><Plus aria-hidden />Add cultural activity</Button>
                         <ListTable rows={data.culturalActivities.map((item) => ({ id: item._id, title: item.name, detail: item.category ?? "", active: item.isActive !== false, kind: "cultural-activity" }))} onToggle={toggle} />
                     </ReferenceSection>
                 </TabsContent>
@@ -343,7 +345,7 @@ export function ReferenceMasterManager({ initialData }: { initialData: Reference
                             </Field>
                         </div>
                         <Field label="Description"><Textarea value={socialForm.description} onChange={(event) => setSocialForm((current) => ({ ...current, description: event.target.value }))} /></Field>
-                        <Button disabled={isPending} onClick={() => create("social-program", socialForm, () => setSocialForm({ name: "", type: "Social", description: "" }))}>Add social programme</Button>
+                        <Button loading={isPending} disabled={isPending} onClick={() => create("social-program", socialForm, () => setSocialForm({ name: "", type: "Social", description: "" }))}><Plus aria-hidden />Add social programme</Button>
                         <ListTable rows={data.socialPrograms.map((item) => ({ id: item._id, title: item.name, detail: [item.type, item.description].filter(Boolean).join(" | "), active: item.isActive !== false, kind: "social-program" }))} onToggle={toggle} />
                     </ReferenceSection>
                 </TabsContent>
@@ -369,7 +371,7 @@ export function ReferenceMasterManager({ initialData }: { initialData: Reference
                             <Field label="End date"><Input type="date" value={eventForm.endDate} onChange={(event) => setEventForm((current) => ({ ...current, endDate: event.target.value }))} /></Field>
                         </div>
                         <Field label="Location"><Input value={eventForm.location} onChange={(event) => setEventForm((current) => ({ ...current, location: event.target.value }))} /></Field>
-                        <Button disabled={isPending} onClick={() => create("event", eventForm, () => setEventForm({ title: "", eventType: "Other", organizedBy: "", level: "College", location: "", startDate: "", endDate: "" }))}>Add event</Button>
+                        <Button loading={isPending} disabled={isPending} onClick={() => create("event", eventForm, () => setEventForm({ title: "", eventType: "Other", organizedBy: "", level: "College", location: "", startDate: "", endDate: "" }))}><Plus aria-hidden />Add event</Button>
                         <ListTable rows={data.events.map((item) => ({ id: item._id, title: item.title, detail: [item.eventType, item.organizedBy, item.level, item.location].filter(Boolean).join(" | "), active: item.isActive !== false, kind: "event" }))} onToggle={toggle} />
                     </ReferenceSection>
                 </TabsContent>
@@ -379,14 +381,7 @@ export function ReferenceMasterManager({ initialData }: { initialData: Reference
 }
 
 function SummaryCard({ label, value }: { label: string; value: number }) {
-    return (
-        <Card>
-            <CardContent className="p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-                <p className="mt-2 text-2xl font-semibold text-zinc-950">{value}</p>
-            </CardContent>
-        </Card>
-    );
+    return <StatCard label={label} value={value} />;
 }
 
 function ReferenceSection({
@@ -429,13 +424,13 @@ function ListTable({
         <div className="grid gap-3">
             {rows.length ? (
                 rows.map((row) => (
-                    <div key={row.id} className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4 md:flex-row md:items-center md:justify-between">
+                    <div key={row.id} className="flex flex-col gap-3 rounded-xl border border-border bg-muted/50 p-4 md:flex-row md:items-center md:justify-between">
                         <div>
                             <div className="flex items-center gap-2">
-                                <p className="font-semibold text-zinc-950">{row.title}</p>
+                                <p className="font-semibold text-foreground">{row.title}</p>
                                 <StatusBadge active={row.active} />
                             </div>
-                            {row.detail ? <p className="mt-1 text-sm text-zinc-500">{row.detail}</p> : null}
+                            {row.detail ? <p className="mt-1 text-sm text-muted-foreground">{row.detail}</p> : null}
                         </div>
                         <Button onClick={() => onToggle(row.kind, row.id, !row.active)} size="sm" variant="secondary">
                             {row.active ? "Deactivate" : "Activate"}
