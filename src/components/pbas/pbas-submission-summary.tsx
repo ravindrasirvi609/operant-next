@@ -1,21 +1,36 @@
-import { Badge } from "@/components/ui/badge";
+"use client";
+
+import { Download } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { StatTile } from "@/components/ui/stat-card";
+import { SectionHeader } from "@/components/ui/page-header";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { DetailList } from "@/components/workspace/detail-list";
 import { PBASScoreCalculator } from "@/components/pbas/pbas-score-calculator";
-import { PBASStatusTimeline } from "@/components/pbas/pbas-status-timeline";
 import { PbasIndicatorTotalsTable } from "@/components/pbas/pbas-indicator-totals-table";
 import { PbasRevisionHistory } from "@/components/pbas/pbas-revision-history";
-import { ReadonlySourceTable } from "@/components/pbas/pbas-source-table";
-import { TeachingSnapshotCard } from "@/components/pbas/steps/pbas-step-teaching-sources";
-import { ResearchSnapshotCard } from "@/components/pbas/steps/pbas-step-research-sources";
-import { InstitutionalSnapshotCard } from "@/components/pbas/steps/pbas-step-institutional-sources";
+import { PbasSourceGroup, PbasSourceLoadingSkeleton } from "@/components/pbas/pbas-source-table";
+import { pbasSourceSteps } from "@/lib/pbas/source-config";
+import { formatDateRange, formatTimestamp } from "@/lib/ui/dates";
 import type { PbasSnapshot } from "@/lib/pbas/validators";
-import type { IndicatorEntry, PbasApp, PbasRevisionSummary, PbasSourceTables } from "@/components/pbas/pbas-types";
+import type {
+    IndicatorEntry,
+    PbasApp,
+    PbasRevisionSummary,
+    PbasSourceTables,
+    PbasSummary,
+} from "@/components/pbas/pbas-types";
 
 /**
- * Read-only "submission record" view rendered instead of the Stepper+form
- * whenever the application can no longer be edited (any status other than
- * Draft/Rejected).
+ * Read-only record, shown instead of the wizard once the application leaves
+ * Draft/Rejected.
+ *
+ * The status badge and the timeline both moved out: the badge is in the workspace
+ * header (where it applies to the whole view) and the timeline is in the rail. The
+ * original rendered both here *and* in the sidebar simultaneously, so a submitted
+ * PBAS form showed its status twice and its full timeline twice on one screen.
  */
 export function PbasSubmissionSummary({
     application,
@@ -24,6 +39,7 @@ export function PbasSubmissionSummary({
     sourcesLoading,
     sourcesError,
     snapshot,
+    caps,
     entries,
     entryLoading,
     entryError,
@@ -35,6 +51,7 @@ export function PbasSubmissionSummary({
     sourcesLoading: boolean;
     sourcesError: string | null;
     snapshot: PbasSnapshot;
+    caps?: PbasSummary["scoringWeights"]["caps"];
     entries: IndicatorEntry[];
     entryLoading: boolean;
     entryError: string | null;
@@ -42,80 +59,88 @@ export function PbasSubmissionSummary({
 }) {
     return (
         <div className="space-y-6">
-            <Card>
-                <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0">
-                    <div className="space-y-1.5">
-                        <div className="flex items-center gap-2">
-                            <CardTitle>PBAS Submission Record</CardTitle>
-                            <Badge variant="secondary">{application.status}</Badge>
-                        </div>
-                        <CardDescription>
-                            {submittedAt
-                                ? `Submitted ${new Date(submittedAt).toLocaleString()}`
-                                : "Submission date unavailable"}
-                            {" • "}
-                            Last updated {new Date(application.updatedAt).toLocaleString()}
-                        </CardDescription>
-                    </div>
-                </CardHeader>
-                <CardContent className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-lg border border-border bg-muted/50 p-4">
-                        <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Academic Year</p>
-                        <p className="mt-2 font-semibold text-foreground">{application.academicYear}</p>
-                    </div>
-                    <div className="rounded-lg border border-border bg-muted/50 p-4">
-                        <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Designation</p>
-                        <p className="mt-2 font-semibold text-foreground">{application.currentDesignation}</p>
-                    </div>
-                    <div className="rounded-lg border border-border bg-muted/50 p-4">
-                        <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Appraisal Period</p>
-                        <p className="mt-2 font-semibold text-foreground">
-                            {application.appraisalPeriod.fromDate} — {application.appraisalPeriod.toDate}
-                        </p>
-                    </div>
-                </CardContent>
-            </Card>
+            <SectionHeader
+                title="Submission record"
+                description="This application is locked while it moves through review."
+                actions={
+                    <Button asChild type="button" variant="outline" size="sm">
+                        <a href={`/api/pbas/${application._id}/report`}>
+                            <Download aria-hidden />
+                            Download PDF
+                        </a>
+                    </Button>
+                }
+            />
 
-            <PBASScoreCalculator score={application.apiScore} />
-            <Separator />
+            <DetailList
+                columns={2}
+                items={[
+                    { label: "Academic year", value: application.academicYear },
+                    { label: "Designation", value: application.currentDesignation },
+                    {
+                        label: "Appraisal period",
+                        value: formatDateRange(
+                            application.appraisalPeriod.fromDate,
+                            application.appraisalPeriod.toDate
+                        ),
+                    },
+                    { label: "Submitted", value: formatTimestamp(submittedAt) },
+                    { label: "Last updated", value: formatTimestamp(application.updatedAt), wide: true },
+                ]}
+            />
 
-            <div className="grid gap-4 lg:grid-cols-3">
-                <TeachingSnapshotCard snapshot={snapshot.category1} />
-                <ResearchSnapshotCard snapshot={snapshot.category2} />
-                <InstitutionalSnapshotCard snapshot={snapshot.category3} />
-            </div>
+            <PBASScoreCalculator score={application.apiScore} caps={caps} />
 
-            {sourcesLoading ? null : sourcesError ? (
-                <div className="rounded-lg border border-destructive-border bg-destructive-muted p-4 text-sm text-destructive-muted-foreground">
-                    {sourcesError}
-                </div>
-            ) : sourceTables ? (
-                <div className="space-y-4">
-                    {(["teaching", "research", "institutional"] as const).map((stepKey) => (
-                        <div key={stepKey} className="grid gap-4">
-                            {sourceTables[stepKey].groups.map((group) => (
-                                <ReadonlySourceTable
-                                    key={`${stepKey}-${group.title}`}
-                                    title={group.title}
-                                    rows={group.rows}
-                                    canEdit={false}
-                                    onRemove={() => undefined}
-                                    readOnly
-                                />
+            {pbasSourceSteps.map((step) => (
+                <Card key={step.key}>
+                    <CardHeader>
+                        <CardTitle>{step.snapshotTitle}</CardTitle>
+                        <CardDescription>{step.descriptionFor("default")}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+                            {step.snapshotTiles(snapshot).map((tile) => (
+                                <StatTile key={tile.label} label={tile.label} value={tile.value} />
                             ))}
                         </div>
-                    ))}
-                </div>
-            ) : null}
+
+                        {sourcesLoading ? (
+                            <PbasSourceLoadingSkeleton />
+                        ) : sourcesError ? (
+                            <InlineAlert message={{ type: "error", text: sourcesError }} />
+                        ) : sourceTables ? (
+                            <div className="space-y-3">
+                                {sourceTables[step.key].groups
+                                    // Excluded records are noise in a read-only
+                                    // record; the original listed every candidate,
+                                    // included or not, across all nineteen groups.
+                                    .map((group) => ({
+                                        ...group,
+                                        rows: group.rows.filter((row) => row.included),
+                                    }))
+                                    .filter((group) => group.rows.length > 0)
+                                    .map((group) => (
+                                        <PbasSourceGroup
+                                            key={`${step.key}-${group.title}`}
+                                            title={group.title}
+                                            rows={group.rows}
+                                            canEdit={false}
+                                            onToggle={() => undefined}
+                                            readOnly
+                                        />
+                                    ))}
+                            </div>
+                        ) : null}
+                    </CardContent>
+                </Card>
+            ))}
 
             <Card>
                 <CardHeader>
-                    <CardTitle>PBAS Indicator Totals</CardTitle>
-                    <CardDescription>
-                        Evidence-linked indicator totals for the submitted PBAS form.
-                    </CardDescription>
+                    <CardTitle>Indicator totals</CardTitle>
+                    <CardDescription>Evidence-linked totals as submitted.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent>
                     <PbasIndicatorTotalsTable
                         entries={entries}
                         loading={entryLoading}
@@ -126,16 +151,6 @@ export function PbasSubmissionSummary({
             </Card>
 
             <PbasRevisionHistory revisions={revisionHistory} />
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Status Timeline</CardTitle>
-                    <CardDescription>Every PBAS status transition is logged here.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <PBASStatusTimeline logs={application.statusLogs} />
-                </CardContent>
-            </Card>
         </div>
     );
 }

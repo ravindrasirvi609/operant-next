@@ -1,67 +1,54 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { format, isValid, parseISO } from "date-fns";
-import { ArrowRight, BookOpenText, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, FileText, FolderKanban, GraduationCap, Layers3, Plus, Sparkles, Trash2, Trophy, type LucideIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from "react";
-import { Controller, useFieldArray, useForm, useWatch, type FieldErrors, type UseFormReturn } from "react-hook-form";
+import { CheckCircle2, Plus, Trash2 } from "lucide-react";
+import { useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 
-import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
-import { Calendar } from "@/components/ui/calendar";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { StatTile } from "@/components/ui/stat-card";
+import { RepeatableSection } from "@/components/forms/repeatable-section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-    SelectContent,
-    SelectItem,
-    Select,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getAcademicYearReportingPeriod } from "@/lib/academic-year";
-import { aqarApplicationSchema } from "@/lib/aqar/validators";
-import { InlineUpload } from "@/components/ui/file-upload";
 import { ConfirmButton } from "@/components/ui/confirm-button";
-import { cn } from "@/lib/utils";
-import { resolveStatus } from "@/lib/ui/status";
-import { TONE_CLASSES } from "@/lib/ui/tone";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Form } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { StatCard } from "@/components/ui/stat-card";
+import { AutosaveIndicator } from "@/components/workspace/autosave-indicator";
+import { DetailList } from "@/components/workspace/detail-list";
+import { RecordCard } from "@/components/workspace/record-card";
+import { RecordGrid, WorkspaceDetail, WorkspaceIndex } from "@/components/workspace/record-workspace";
+import { StatusTimeline } from "@/components/workspace/status-timeline";
+import { Wizard, useWizardSteps } from "@/components/workspace/wizard";
+import { AqarContributionTables } from "@/components/aqar/aqar-contribution-tables";
+import { AqarStepOverview, type AqarYearOption } from "@/components/aqar/aqar-step-overview";
+import { AqarStepReview } from "@/components/aqar/aqar-step-review";
+import { getAcademicYearReportingPeriod } from "@/lib/academic-year";
+import {
+    aqarSections,
+    aqarStepFieldPaths,
+    aqarSteps,
+    reviewChecklistItems,
+} from "@/lib/aqar/form-config";
+import { computeAqarMetrics, computeAqarReadiness } from "@/lib/aqar/metrics";
+import { aqarApplicationSchema } from "@/lib/aqar/validators";
+import { hasErrorsForPaths } from "@/lib/forms/has-errors-for-paths";
+import { useAutosaveDraft, useUnsavedChangesWarning } from "@/lib/hooks/use-autosave-draft";
+import { useRecordWorkspace } from "@/lib/hooks/use-record-workspace";
+import { requestJson, toErrorMessage } from "@/lib/http/request-json";
+import { formatDateRange, formatTimestamp } from "@/lib/ui/dates";
 
 type AqarFormValues = z.input<typeof aqarApplicationSchema>;
 type AqarResolvedValues = z.output<typeof aqarApplicationSchema>;
-type AqarFormApi = UseFormReturn<AqarFormValues, unknown, AqarResolvedValues>;
+type AqarContribution = AqarResolvedValues["facultyContribution"];
 
-type AqarApp = {
+export type AqarApp = {
     _id: string;
     academicYearId?: string;
     academicYear: string;
-    reportingPeriod: {
-        fromDate: string;
-        toDate: string;
-    };
-    facultyContribution: AqarResolvedValues["facultyContribution"];
-    metrics: {
-        researchPaperCount: number;
-        seedMoneyProjectCount: number;
-        awardRecognitionCount: number;
-        fellowshipCount: number;
-        researchFellowCount: number;
-        patentCount: number;
-        phdAwardCount: number;
-        bookChapterCount: number;
-        eContentCount: number;
-        consultancyCount: number;
-        financialSupportCount: number;
-        fdpCount: number;
-        totalContributionIndex: number;
-    };
+    reportingPeriod: { fromDate: string; toDate: string };
+    facultyContribution: AqarContribution;
+    metrics: Record<string, number> & { totalContributionIndex: number };
     status: string;
     statusLogs: Array<{
         _id?: string;
@@ -76,150 +63,34 @@ type AqarApp = {
     submittedAt?: string;
 };
 
-type StepConfig = {
-    id: string;
-    title: string;
-    description: string;
-    icon: LucideIcon;
-    fields: string[];
-};
+const EDITABLE_STATUSES = ["Draft", "Rejected"];
 
-type Option = {
-    label: string;
-    value: string;
-};
-
-type AcademicYearOption = {
-    id: string;
-    label: string;
-    isActive?: boolean;
-};
-
-const editableStatuses = new Set(["Draft", "Rejected"]);
-
-const steps: StepConfig[] = [
-    {
-        id: "overview",
-        title: "Overview",
-        description: "Academic year and reporting period.",
-        icon: Sparkles,
-        fields: ["academicYear", "reportingPeriod.fromDate", "reportingPeriod.toDate"],
-    },
-    {
-        id: "research-papers",
-        title: "Research Papers",
-        description: "UGC-notified journal output.",
-        icon: BookOpenText,
-        fields: ["facultyContribution.researchPapers"],
-    },
-    {
-        id: "projects",
-        title: "Seed Money Projects",
-        description: "Institution-supported projects.",
-        icon: FolderKanban,
-        fields: ["facultyContribution.seedMoneyProjects"],
-    },
-    {
-        id: "awards",
-        title: "Awards and Fellows",
-        description: "Awards, fellowships, research fellows.",
-        icon: Trophy,
-        fields: [
-            "facultyContribution.awardsRecognition",
-            "facultyContribution.fellowships",
-            "facultyContribution.researchFellows",
-        ],
-    },
-    {
-        id: "ip-phd",
-        title: "Patents and PhD",
-        description: "Patents and doctoral outcomes.",
-        icon: GraduationCap,
-        fields: ["facultyContribution.patents", "facultyContribution.phdAwards"],
-    },
-    {
-        id: "knowledge-transfer",
-        title: "Books and Outreach",
-        description: "Books, e-content, consultancy, support, FDP.",
-        icon: Layers3,
-        fields: [
-            "facultyContribution.booksChapters",
-            "facultyContribution.eContentDeveloped",
-            "facultyContribution.consultancyServices",
-            "facultyContribution.financialSupport",
-            "facultyContribution.facultyDevelopmentProgrammes",
-        ],
-    },
-    {
-        id: "review",
-        title: "Review and Submit",
-        description: "Final checks and submission.",
-        icon: ClipboardCheck,
-        fields: [],
-    },
-];
-
-const fundingAgencyOptions: Option[] = [
-    { label: "Government", value: "Government" },
-    { label: "Non-Government", value: "Non-Government" },
-];
-
-const projectCategoryOptions: Option[] = [
-    { label: "Major", value: "Major" },
-    { label: "Minor", value: "Minor" },
-];
-
-const awardLevelOptions: Option[] = [
-    { label: "State", value: "State" },
-    { label: "National", value: "National" },
-    { label: "International", value: "International" },
-];
-
-const levelOptions: Option[] = [
-    { label: "National", value: "National" },
-    { label: "International", value: "International" },
-];
-
-const phdStatusOptions: Option[] = [
-    { label: "Awarded", value: "Awarded" },
-    { label: "Submitted", value: "Submitted" },
-];
-
-const reviewChecklistItems = [
-    "I verified dates, academic years, and faculty names across all AQAR sections.",
-    "I confirmed the evidence references, links, and proof notes are ready for NAAC review.",
-    "I reviewed the summary counts and I am ready to submit this AQAR contribution.",
-] as const;
+/**
+ * Empty value for every contribution array, derived from the section config
+ * rather than written out as twelve literal `[]`s.
+ *
+ * `Object.fromEntries` erases the key names, so TypeScript cannot see that this
+ * produces exactly the twelve keys `AqarContribution` requires. The
+ * `form-config.test.ts` case "covers every facultyContribution array in the
+ * schema" is what actually holds the two in sync.
+ */
+function emptyContribution(): AqarContribution {
+    return Object.fromEntries(
+        Object.values(aqarSections).map((section) => [section.arrayName.split(".")[1], []])
+    ) as unknown as AqarContribution;
+}
 
 function emptyForm(defaultAcademicYear = ""): AqarFormValues {
-    const defaultPeriod = getAcademicYearReportingPeriod(defaultAcademicYear);
+    const period = getAcademicYearReportingPeriod(defaultAcademicYear);
 
     return {
         academicYear: defaultAcademicYear,
-        reportingPeriod: {
-            fromDate: defaultPeriod?.fromDate ?? "",
-            toDate: defaultPeriod?.toDate ?? "",
-        },
-        facultyContribution: {
-            researchPapers: [],
-            seedMoneyProjects: [],
-            awardsRecognition: [],
-            fellowships: [],
-            researchFellows: [],
-            patents: [],
-            phdAwards: [],
-            booksChapters: [],
-            eContentDeveloped: [],
-            consultancyServices: [],
-            financialSupport: [],
-            facultyDevelopmentProgrammes: [],
-        },
+        reportingPeriod: { fromDate: period?.fromDate ?? "", toDate: period?.toDate ?? "" },
+        facultyContribution: emptyContribution(),
     };
 }
 
-function toFormValues(application?: AqarApp): AqarFormValues {
-    if (!application) return emptyForm();
-
+function toFormValues(application: AqarApp): AqarFormValues {
     return {
         academicYearId: application.academicYearId,
         academicYear: application.academicYear,
@@ -228,132 +99,18 @@ function toFormValues(application?: AqarApp): AqarFormValues {
     };
 }
 
-function computeMetrics(values: AqarResolvedValues) {
-    const facultyContribution = values.facultyContribution;
-
-    return {
-        researchPaperCount: facultyContribution.researchPapers.length,
-        seedMoneyProjectCount: facultyContribution.seedMoneyProjects.length,
-        awardRecognitionCount: facultyContribution.awardsRecognition.length,
-        fellowshipCount: facultyContribution.fellowships.length,
-        researchFellowCount: facultyContribution.researchFellows.length,
-        patentCount: facultyContribution.patents.length,
-        phdAwardCount: facultyContribution.phdAwards.length,
-        bookChapterCount: facultyContribution.booksChapters.length,
-        eContentCount: facultyContribution.eContentDeveloped.length,
-        consultancyCount: facultyContribution.consultancyServices.length,
-        financialSupportCount: facultyContribution.financialSupport.length,
-        fdpCount: facultyContribution.facultyDevelopmentProgrammes.length,
-        totalContributionIndex:
-            facultyContribution.researchPapers.length * 5 +
-            facultyContribution.seedMoneyProjects.length * 5 +
-            facultyContribution.awardsRecognition.length * 4 +
-            facultyContribution.fellowships.length * 4 +
-            facultyContribution.researchFellows.length * 4 +
-            facultyContribution.patents.length * 6 +
-            facultyContribution.phdAwards.length * 5 +
-            facultyContribution.booksChapters.length * 4 +
-            facultyContribution.eContentDeveloped.length * 3 +
-            facultyContribution.consultancyServices.length * 4 +
-            facultyContribution.financialSupport.length * 2 +
-            facultyContribution.facultyDevelopmentProgrammes.length * 2,
-    };
-}
-
-function getValueAtPath(source: unknown, path: string): unknown {
-    return path.split(".").reduce<unknown>((current, key) => {
-        if (current === null || current === undefined) return undefined;
-        if (Array.isArray(current)) {
-            const index = Number(key);
-            return Number.isNaN(index) ? undefined : current[index];
-        }
-
-        if (typeof current === "object") {
-            return (current as Record<string, unknown>)[key];
-        }
-
-        return undefined;
-    }, source);
-}
-
-function getErrorMessage(errors: FieldErrors<AqarFormValues>, path: string) {
-    const value = getValueAtPath(errors, path);
-
-    if (value && typeof value === "object" && "message" in (value as Record<string, unknown>)) {
-        return (value as { message?: string }).message;
-    }
-
-    return undefined;
-}
-
-function hasErrorsForPaths(errors: FieldErrors<AqarFormValues>, paths: string[]) {
-    return paths.some((path) => {
-        const value = getValueAtPath(errors, path);
-
-        if (!value) return false;
-        if (Array.isArray(value)) return value.length > 0;
-        return true;
-    });
-}
-
-function parseDateValue(value?: string) {
-    if (!value) return undefined;
-
-    const parsed = parseISO(value);
-    return isValid(parsed) ? parsed : undefined;
-}
-
-function formatDateLabel(value?: string) {
-    const parsed = parseDateValue(value);
-    return parsed ? format(parsed, "PPP") : "Select date";
-}
-
-function toDateInputValue(value?: Date) {
-    return value ? format(value, "yyyy-MM-dd") : "";
-}
-
-function formatTimestamp(value?: string) {
-    if (!value) return "No activity yet";
-
-    const parsed = parseDateValue(value) ?? new Date(value);
-    if (!isValid(parsed)) return "No activity yet";
-
-    return parsed.toLocaleString();
-}
-
-function parseAcademicYearLabel(value?: string) {
-    const trimmed = String(value ?? "").trim();
-    const match = trimmed.match(/^(\d{4})\D+(\d{4})$/);
-
-    if (!match) return null;
-
-    const startYear = Number(match[1]);
-    const endYear = Number(match[2]);
-
-    if (!Number.isFinite(startYear) || !Number.isFinite(endYear)) {
-        return null;
-    }
-
-    return { startYear, endYear };
-}
-
-function getLastActivity(application: AqarApp) {
-    const statusDates = application.statusLogs.map((log) => log.changedAt).filter(Boolean);
-    const candidates = [application.updatedAt, application.submittedAt, application.createdAt, ...statusDates].filter(Boolean) as string[];
+/** Most recent timestamp on the record, for the "last activity" line. */
+function getLastActivity(application: AqarApp): string | undefined {
+    const candidates = [
+        application.updatedAt,
+        application.submittedAt,
+        application.createdAt,
+        ...application.statusLogs.map((log) => log.changedAt),
+    ].filter(Boolean) as string[];
 
     if (!candidates.length) return undefined;
 
     return candidates.sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0];
-}
-
-/**
- * Tone classes for an AQAR status, from the shared resolver. Kept as a
- * class-returning helper (rather than swapping every call site to
- * <StatusBadge />) because one of the two call sites composes it with an
- * "active row" override via cn().
- */
-function getStatusBadgeClass(status: string) {
-    return TONE_CLASSES[resolveStatus(status).tone].badge;
 }
 
 export function AqarDashboard({
@@ -366,2506 +123,473 @@ export function AqarDashboard({
     initialApplications: AqarApp[];
     facultyName: string;
     facultyId: string;
-    academicYearOptions: AcademicYearOption[];
-    evidenceDefaults: AqarFormValues["facultyContribution"];
+    academicYearOptions: AqarYearOption[];
+    evidenceDefaults: AqarContribution;
 }) {
-    const formSectionRef = useRef<HTMLElement | null>(null);
-    const lastSavedPayloadRef = useRef<string>("");
-    const [applications, setApplications] = useState(initialApplications);
-    const [selectedId, setSelectedId] = useState<string | null>(initialApplications[0]?._id ?? null);
-    const [currentStep, setCurrentStep] = useState(0);
-    const [visitedSteps, setVisitedSteps] = useState<number[]>([0]);
-    const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-    const [isPending, startTransition] = useTransition();
-    const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved">("idle");
-    const [reviewChecks, setReviewChecks] = useState<boolean[]>(() => reviewChecklistItems.map(() => false));
-    const defaultAcademicYear =
-        academicYearOptions.find((item) => item.isActive)?.label ?? academicYearOptions[0]?.label ?? "";
-    const defaultAcademicYearId =
-        academicYearOptions.find((item) => item.isActive)?.id ??
-        academicYearOptions.find((item) => item.label === defaultAcademicYear)?.id ??
-        "";
+    const workspace = useRecordWorkspace<AqarApp>({
+        initialRecords: initialApplications,
+        endpoint: "/api/aqar",
+        recordKey: "application",
+        labels: { noun: "AQAR application" },
+    });
+    const { records: applications, selected, selectedId } = workspace;
+
     const [prefillDefaults, setPrefillDefaults] = useState(evidenceDefaults);
-    const [prefillYear, setPrefillYear] = useState(
-        initialApplications[0]?.academicYear ?? defaultAcademicYear
-    );
+    const [prefillYear, setPrefillYear] = useState(initialApplications[0]?.academicYear ?? "");
     const [isPrefillLoading, setIsPrefillLoading] = useState(false);
+    const [checks, setChecks] = useState<boolean[]>(() => reviewChecklistItems.map(() => false));
 
-    const selected = applications.find((item) => item._id === selectedId);
-    const academicYearSelectOptions = useMemo(() => {
-        const options = academicYearOptions.map((item) => ({
-            label: item.isActive ? `${item.label} (Active)` : item.label,
-            value: item.id,
-            yearLabel: item.label,
-        }));
-        const selectedYear = String(selected?.academicYear ?? prefillYear ?? "").trim();
+    const editable = !selected || EDITABLE_STATUSES.includes(selected.status);
 
-        if (selectedYear && !options.some((item) => item.yearLabel === selectedYear)) {
-            options.unshift({
-                label: `${selectedYear} (Current record)`,
-                value: selected?.academicYearId ?? selectedYear,
-                yearLabel: selectedYear,
-            });
+    const activeYear = useMemo(
+        () => academicYearOptions.find((option) => option.isActive) ?? academicYearOptions[0],
+        [academicYearOptions]
+    );
+
+    /**
+     * Year options, plus the selected record's own year when it predates the
+     * academic-year collection — otherwise the Select would show a blank trigger
+     * for a legitimately saved record.
+     */
+    const yearOptions = useMemo<AqarYearOption[]>(() => {
+        const options = [...academicYearOptions];
+        const recordYear = String(selected?.academicYear ?? "").trim();
+
+        if (recordYear && !options.some((option) => option.label === recordYear)) {
+            options.unshift({ id: selected?.academicYearId ?? recordYear, label: recordYear });
         }
 
         return options;
-    }, [academicYearOptions, prefillYear, selected?.academicYear, selected?.academicYearId]);
-    const initialValues = useMemo(
-        () =>
-            selected
-                ? toFormValues(selected)
-                : {
-                      academicYearId: defaultAcademicYearId,
-                      ...emptyForm(defaultAcademicYear),
-                      facultyContribution: {
-                          ...emptyForm(defaultAcademicYear).facultyContribution,
-                          ...prefillDefaults,
-                      },
-                  },
-        [defaultAcademicYear, defaultAcademicYearId, selected, prefillDefaults]
-    );
+    }, [academicYearOptions, selected?.academicYear, selected?.academicYearId]);
+
+    const defaultValues = useMemo<AqarFormValues>(() => {
+        if (selected) {
+            return toFormValues(selected);
+        }
+
+        const base = emptyForm(activeYear?.label ?? "");
+        return {
+            ...base,
+            academicYearId: activeYear?.id,
+            facultyContribution: { ...base.facultyContribution, ...prefillDefaults },
+        };
+    }, [selected, activeYear, prefillDefaults]);
 
     const form = useForm<AqarFormValues, unknown, AqarResolvedValues>({
         resolver: zodResolver(aqarApplicationSchema),
-        defaultValues: initialValues,
-    });
-
-    const researchPaperFields = useFieldArray({ control: form.control, name: "facultyContribution.researchPapers" });
-    const seedMoneyFields = useFieldArray({ control: form.control, name: "facultyContribution.seedMoneyProjects" });
-    const awardFields = useFieldArray({ control: form.control, name: "facultyContribution.awardsRecognition" });
-    const fellowshipFields = useFieldArray({ control: form.control, name: "facultyContribution.fellowships" });
-    const fellowFields = useFieldArray({ control: form.control, name: "facultyContribution.researchFellows" });
-    const patentFields = useFieldArray({ control: form.control, name: "facultyContribution.patents" });
-    const phdAwardFields = useFieldArray({ control: form.control, name: "facultyContribution.phdAwards" });
-    const bookChapterFields = useFieldArray({ control: form.control, name: "facultyContribution.booksChapters" });
-    const eContentFields = useFieldArray({ control: form.control, name: "facultyContribution.eContentDeveloped" });
-    const consultancyFields = useFieldArray({ control: form.control, name: "facultyContribution.consultancyServices" });
-    const financialSupportFields = useFieldArray({ control: form.control, name: "facultyContribution.financialSupport" });
-    const fdpFields = useFieldArray({
-        control: form.control,
-        name: "facultyContribution.facultyDevelopmentProgrammes",
+        defaultValues,
     });
 
     useEffect(() => {
-        form.reset(initialValues);
-        lastSavedPayloadRef.current = selected ? JSON.stringify(toFormValues(selected)) : "";
-    }, [form, initialValues, selected]);
+        form.reset(defaultValues);
+    }, [form, defaultValues]);
 
-    useEffect(() => {
-        if (selected) {
-            return;
-        }
+    const watched = useWatch({ control: form.control });
+    const parsed = aqarApplicationSchema.safeParse(watched);
 
-        let cancelled = false;
+    // Metrics come off the raw watched values rather than a parsed copy: a draft
+    // with one half-typed entry does not parse, and the counts should still update.
+    const contribution = (watched.facultyContribution ?? {}) as unknown as Record<string, unknown[]>;
+    const liveMetrics = useMemo(() => computeAqarMetrics(contribution), [contribution]);
+    const readiness = useMemo(() => computeAqarReadiness(contribution), [contribution]);
 
-        const loadDefaults = async () => {
+    const autosave = useAutosaveDraft<AqarResolvedValues, AqarApp>({
+        url: selectedId && editable ? `/api/aqar/${selectedId}` : null,
+        values: parsed.success ? parsed.data : null,
+        isDirty: form.formState.isDirty,
+        enabled: Boolean(selectedId) && editable,
+        recordKey: "application",
+        onSaved: workspace.upsert,
+    });
+    useUnsavedChangesWarning(autosave.hasUnsavedChanges);
+
+    const { currentIndex, visitedSteps, goToStep } = useWizardSteps(selectedId);
+
+    // --- profile prefill ----------------------------------------------------
+
+    const loadYearPrefill = useCallback(
+        async (academicYear: string, options?: { announce?: boolean }) => {
+            const year = academicYear.trim();
+            if (!year) return;
+
+            setIsPrefillLoading(true);
+
             try {
-                const response = await fetch(
-                    `/api/faculty/report-defaults?academicYear=${encodeURIComponent(form.getValues("academicYear") ?? "")}`,
-                    { cache: "no-store" }
-                );
-                if (!response.ok) return;
-                const data = (await response.json()) as {
-                    defaults?: { aqar?: AqarFormValues["facultyContribution"] };
-                };
-                if (cancelled || form.formState.isDirty || !data.defaults?.aqar) return;
-                setPrefillDefaults(data.defaults.aqar);
-                setPrefillYear(form.getValues("academicYear") ?? "");
-            } catch {
-                // Ignore prefill refresh failures; keep initial server defaults.
+                const payload = await requestJson<{
+                    defaults?: { aqar?: AqarContribution };
+                }>(`/api/faculty/report-defaults?academicYear=${encodeURIComponent(year)}`, {
+                    cache: "no-store",
+                    fallbackMessage: `Unable to load your ${year} records.`,
+                });
+
+                if (!payload.defaults?.aqar) {
+                    throw new Error(`No profile records found for ${year}.`);
+                }
+
+                setPrefillDefaults(payload.defaults.aqar);
+                setPrefillYear(year);
+                form.setValue("facultyContribution", payload.defaults.aqar, {
+                    shouldDirty: Boolean(selectedId),
+                    shouldTouch: true,
+                });
+
+                if (options?.announce ?? true) {
+                    workspace.setMessage({
+                        type: "success",
+                        text: `Loaded your ${year} records from your faculty profile.`,
+                    });
+                }
+            } catch (cause) {
+                workspace.setMessage({
+                    type: "error",
+                    text: toErrorMessage(cause, `Unable to load your ${year} records.`),
+                });
+            } finally {
+                setIsPrefillLoading(false);
             }
-        };
-
-        loadDefaults();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [selected]);
-
-    const watchedValues = useWatch({ control: form.control });
-    const watchedAcademicYear = useWatch({ control: form.control, name: "academicYear" });
-    const resolved = aqarApplicationSchema.safeParse(watchedValues);
-    const normalizedValues = resolved.success ? resolved.data : aqarApplicationSchema.parse(emptyForm());
-    const liveMetrics = computeMetrics(normalizedValues);
-    const dashboardMetrics = selected?.metrics ?? liveMetrics;
-    const editable = !selected || editableStatuses.has(selected.status);
-    const reviewReady = reviewChecks.every(Boolean);
-
-    useEffect(() => {
-        const selectedYear = String(watchedAcademicYear ?? "").trim();
-        if (!selectedYear) {
-            return;
-        }
-
-        const matchingOption = academicYearSelectOptions.find((option) => option.yearLabel === selectedYear);
-        if (!matchingOption) {
-            return;
-        }
-
-        if (form.getValues("academicYearId") === matchingOption.value) {
-            return;
-        }
-
-        form.setValue("academicYearId", matchingOption.value, { shouldDirty: false });
-    }, [academicYearSelectOptions, form, watchedAcademicYear]);
-
-    const summarySections = useMemo(
-        () => [
-            { label: "Research papers", count: normalizedValues.facultyContribution.researchPapers.length },
-            { label: "Seed money projects", count: normalizedValues.facultyContribution.seedMoneyProjects.length },
-            {
-                label: "Awards, fellowships, research fellows",
-                count:
-                    normalizedValues.facultyContribution.awardsRecognition.length +
-                    normalizedValues.facultyContribution.fellowships.length +
-                    normalizedValues.facultyContribution.researchFellows.length,
-            },
-            {
-                label: "Patents and PhD awards",
-                count:
-                    normalizedValues.facultyContribution.patents.length +
-                    normalizedValues.facultyContribution.phdAwards.length,
-            },
-            {
-                label: "Books and outreach records",
-                count:
-                    normalizedValues.facultyContribution.booksChapters.length +
-                    normalizedValues.facultyContribution.eContentDeveloped.length +
-                    normalizedValues.facultyContribution.consultancyServices.length +
-                    normalizedValues.facultyContribution.financialSupport.length +
-                    normalizedValues.facultyContribution.facultyDevelopmentProgrammes.length,
-            },
-        ],
-        [normalizedValues]
+        },
+        [form, selectedId, workspace]
     );
 
-    const reviewWarnings = summarySections.filter((section) => section.count === 0);
+    const watchedYear = String(watched.academicYear ?? "");
 
-    async function loadYearPrefill(academicYear: string, options?: { announce?: boolean }) {
-        const normalizedYear = academicYear.trim();
-        if (!normalizedYear) {
-            return;
-        }
-
-        setIsPrefillLoading(true);
-
-        try {
-            const response = await fetch(
-                `/api/faculty/report-defaults?academicYear=${encodeURIComponent(normalizedYear)}`,
-                { cache: "no-store" }
-            );
-            const data = (await response.json()) as {
-                defaults?: { aqar?: AqarFormValues["facultyContribution"] };
-                message?: string;
-            };
-
-            if (!response.ok || !data.defaults?.aqar) {
-                throw new Error(data.message ?? "Unable to load AQAR defaults for the selected year.");
-            }
-
-            setPrefillDefaults(data.defaults.aqar);
-            setPrefillYear(normalizedYear);
-            form.setValue("facultyContribution", data.defaults.aqar, {
-                shouldDirty: Boolean(selectedId),
-                shouldTouch: true,
-            });
-
-            if (options?.announce ?? true) {
-                setMessage({
-                    type: "success",
-                    text: `AQAR records for ${normalizedYear} were loaded from your faculty profile.`,
-                });
-            }
-        } catch (error) {
-            setMessage({
-                type: "error",
-                text: error instanceof Error ? error.message : "Unable to load selected-year AQAR data.",
-            });
-        } finally {
-            setIsPrefillLoading(false);
-        }
-    }
-
+    // Auto-prefill an untouched new draft when its year changes. Guarded on "no
+    // rows yet" so it can never clobber typed-in entries.
     useEffect(() => {
-        if (selected || !editable) {
+        if (selected || !editable || !watchedYear || prefillYear === watchedYear) {
             return;
         }
 
-        const hasExistingRows = Object.values(form.getValues("facultyContribution")).some(
+        const hasRows = Object.values(form.getValues("facultyContribution") ?? {}).some(
             (value) => Array.isArray(value) && value.length > 0
         );
+        if (hasRows) return;
 
-        if (hasExistingRows || prefillYear === (normalizedValues.academicYear ?? "")) {
-            return;
+        void loadYearPrefill(watchedYear, { announce: false });
+    }, [selected, editable, watchedYear, prefillYear, form, loadYearPrefill]);
+
+    // --- actions ------------------------------------------------------------
+
+    const reviewReady = checks.every(Boolean);
+
+    async function handleCreate() {
+        const created = await workspace.create(form.getValues());
+        if (created) {
+            setChecks(reviewChecklistItems.map(() => false));
+            goToStep(0);
         }
-
-        void loadYearPrefill(normalizedValues.academicYear ?? "", { announce: false });
-    }, [editable, form, normalizedValues.academicYear, prefillYear, selected]);
-
-    useEffect(() => {
-        if (!selectedId || !selected || !editable || !form.formState.isDirty || !resolved.success) return;
-
-        const payload = JSON.stringify(resolved.data);
-        if (payload === lastSavedPayloadRef.current) {
-            return;
-        }
-
-        const timer = window.setTimeout(async () => {
-            setAutoSaveState("saving");
-
-            const response = await fetch(`/api/aqar/${selectedId}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: payload,
-            });
-
-            const data = (await response.json()) as { application?: AqarApp };
-
-            if (response.ok && data.application) {
-                lastSavedPayloadRef.current = payload;
-                setApplications((current) => current.map((item) => (item._id === selectedId ? data.application! : item)));
-                form.reset(resolved.data);
-                setAutoSaveState("saved");
-                return;
-            }
-
-            setAutoSaveState("idle");
-        }, 1200);
-
-        return () => window.clearTimeout(timer);
-    }, [editable, form, resolved, selected, selectedId]);
-
-    function markVisited(...indexes: number[]) {
-        setVisitedSteps((current) => Array.from(new Set([...current, ...indexes])));
     }
 
-    function focusFormWorkspace() {
-        formSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-
-    async function goToStep(targetStep: number) {
-        if (targetStep === currentStep) return;
-
-        if (targetStep < currentStep) {
-            markVisited(targetStep);
-            setCurrentStep(targetStep);
-            return;
-        }
-
-        for (let index = currentStep; index < targetStep; index += 1) {
-            const valid = await form.trigger(steps[index].fields as never, { shouldFocus: true });
-            markVisited(index);
-
-            if (!valid) {
-                setCurrentStep(index);
-                return;
-            }
-        }
-
-        markVisited(targetStep);
-        setCurrentStep(targetStep);
-    }
-
-    async function handleNext() {
-        if (currentStep >= steps.length - 1) return;
-        await goToStep(currentStep + 1);
-    }
-
-    function handlePrevious() {
-        if (currentStep === 0) return;
-        goToStep(currentStep - 1);
-    }
-
-    function selectApplication(applicationId: string) {
-        setSelectedId(applicationId);
-        setMessage(null);
-        setReviewChecks(reviewChecklistItems.map(() => false));
-        setCurrentStep(0);
-        setVisitedSteps([0]);
-        setAutoSaveState("idle");
-    }
-
-    function handleApplicationKeyDown(event: KeyboardEvent<HTMLDivElement>, applicationId: string) {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        selectApplication(applicationId);
-    }
-
-    function createDraft() {
-        setMessage(null);
-
-        startTransition(async () => {
-            const response = await fetch("/api/aqar", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(form.getValues()),
-            });
-
-            const data = (await response.json()) as { message?: string; application?: AqarApp };
-
-            if (!response.ok || !data.application) {
-                setMessage({ type: "error", text: data.message ?? "Unable to create AQAR draft." });
-                return;
-            }
-
-            setApplications((current) => [data.application!, ...current]);
-            setSelectedId(data.application._id);
-            setMessage({ type: "success", text: data.message ?? "AQAR draft created." });
-            setReviewChecks(reviewChecklistItems.map(() => false));
-            setCurrentStep(0);
-            setVisitedSteps([0]);
-            setAutoSaveState("idle");
-            requestAnimationFrame(() => focusFormWorkspace());
-        });
-    }
-
-    function deleteApplication(applicationId: string) {
-        setMessage(null);
-
-        startTransition(async () => {
-            const response = await fetch(`/api/aqar/${applicationId}`, { method: "DELETE" });
-            const data = (await response.json()) as { message?: string };
-
-            if (!response.ok) {
-                setMessage({ type: "error", text: data.message ?? "Unable to delete AQAR application." });
-                return;
-            }
-
-            setApplications((current) => {
-                const remaining = current.filter((item) => item._id !== applicationId);
-                if (selectedId === applicationId) {
-                    const nextId = remaining[0]?._id ?? null;
-                    setSelectedId(nextId);
-                    setReviewChecks(reviewChecklistItems.map(() => false));
-                    setCurrentStep(0);
-                    setVisitedSteps([0]);
-                    setAutoSaveState("idle");
-                }
-                return remaining;
-            });
-
-            setMessage({ type: "success", text: data.message ?? "AQAR application deleted." });
-        });
-    }
-
-    function submitApplication() {
-        if (!selectedId) {
-            setMessage({ type: "error", text: "Create a draft before submitting." });
-            return;
-        }
+    async function handleSubmit() {
+        if (!selectedId) return;
 
         if (!reviewReady) {
-            setMessage({ type: "error", text: "Complete the final review checklist before submission." });
+            workspace.setMessage({
+                type: "error",
+                text: "Confirm all three checklist items before submitting.",
+            });
             return;
         }
 
-        startTransition(async () => {
-            const response = await fetch(`/api/aqar/${selectedId}/submit`, { method: "POST" });
-            const data = (await response.json()) as { message?: string; application?: AqarApp };
-
-            if (!response.ok || !data.application) {
-                setMessage({ type: "error", text: data.message ?? "Unable to submit AQAR application." });
+        if (autosave.hasUnsavedChanges) {
+            const saved = await autosave.save();
+            if (!saved) {
+                workspace.setMessage({
+                    type: "error",
+                    text: "Your latest changes could not be saved, so the application was not submitted.",
+                });
                 return;
             }
+        }
 
-            setApplications((current) => current.map((item) => (item._id === selectedId ? data.application! : item)));
-            setMessage({ type: "success", text: data.message ?? "AQAR application submitted." });
-        });
+        await workspace.submit(selectedId);
     }
 
-    return (
-        <div className="space-y-8">
-            <section className="space-y-6">
-                <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-                    <Card className="overflow-hidden border-border bg-gradient-to-br from-white via-white to-amber-50/70">
-                        <CardHeader className="gap-4">
-                            <div className="flex flex-wrap items-start justify-between gap-4">
-                                <div className="space-y-3">
-                                    <Badge className="bg-primary text-primary-foreground">AQAR Faculty Dashboard</Badge>
-                                    <div className="space-y-2">
-                                        <CardTitle className="text-3xl">Modern AQAR workspace for {facultyName}</CardTitle>
-                                        <CardDescription className="max-w-2xl text-base text-muted-foreground">
-                                            Keep the dashboard and form workspace separate while managing every AQAR contribution from one full-width faculty module.
-                                        </CardDescription>
-                                    </div>
-                                </div>
-                                <div className="rounded-2xl border border-border bg-card/90 px-4 py-3 shadow-sm">
-                                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Active Year</p>
-                                    <p className="mt-2 text-lg font-semibold text-foreground">
-                                        {selected?.academicYear ?? normalizedValues.academicYear}
-                                    </p>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        Status {selected ? selected.status : "Unsaved workspace"}
-                                    </p>
-                                </div>
-                            </div>
+    function stepHasErrors(index: number) {
+        const step = aqarSteps[index];
+        return step ? hasErrorsForPaths(form.formState.errors, aqarStepFieldPaths(step)) : false;
+    }
 
-                            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                <DashboardStat
-                                    label="AQAR applications"
-                                    value={String(applications.length)}
-                                    detail="Drafts and submitted annual records"
-                                />
-                                <DashboardStat
-                                    label="Contribution index"
-                                    value={String(dashboardMetrics.totalContributionIndex)}
-                                    detail="Live summary of AQAR contribution weight"
-                                />
-                                <DashboardStat
-                                    label="Research and IP"
-                                    value={String(dashboardMetrics.researchPaperCount + dashboardMetrics.patentCount)}
-                                    detail="Combined research papers and patents"
-                                />
-                                <DashboardStat
-                                    label="Autosave"
-                                    value={selectedId ? autoSaveState : "Inactive"}
-                                    detail={
-                                        editable
-                                            ? "Draft edits are stored automatically"
-                                            : "Submission is locked for review"
-                                    }
-                                />
-                            </div>
+    /**
+     * Advancing validates the fields of every step being skipped over, which is
+     * how the original `goToStep` behaved. Going back never validates — being
+     * unable to return to a previous step to fix something would be a trap.
+     */
+    async function handleStepChange(target: number) {
+        if (target <= currentIndex) {
+            goToStep(target);
+            return;
+        }
 
-                            <div className="flex flex-wrap gap-3">
-                                <Button loading={isPending} type="button" size="lg" onClick={createDraft} disabled={isPending}>
-                                    <Plus className="h-4 w-4" aria-hidden />
-                                    {selectedId ? "Create New AQAR Draft" : "Start AQAR Draft"}
-                                </Button>
-                                <Button type="button" variant="outline" size="lg" onClick={focusFormWorkspace}>
-                                    Continue in Form Workspace
-                                    <ArrowRight className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </CardHeader>
-                    </Card>
+        for (let index = currentIndex; index < target; index += 1) {
+            const step = aqarSteps[index];
+            const valid = await form.trigger(aqarStepFieldPaths(step) as never, { shouldFocus: true });
 
-                    <Card className="border-border">
-                        <CardHeader>
-                            <CardTitle className="text-xl">Selected AQAR Snapshot</CardTitle>
-                            <CardDescription>
-                                Quick status, timeline, and readiness context for the currently active AQAR record.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <SummaryTile
-                                    label="Last activity"
-                                    value={formatTimestamp(selected ? getLastActivity(selected) : undefined)}
-                                />
-                                <SummaryTile
-                                    label="Reporting period"
-                                    value={`${formatDateLabel(normalizedValues.reportingPeriod.fromDate)} to ${formatDateLabel(normalizedValues.reportingPeriod.toDate)}`}
-                                />
-                            </div>
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <MetricCard label="Awards" value={String(dashboardMetrics.awardRecognitionCount)} />
-                                <MetricCard label="FDP records" value={String(dashboardMetrics.fdpCount)} />
-                                <MetricCard label="Consultancy" value={String(dashboardMetrics.consultancyCount)} />
-                                <MetricCard label="Books and chapters" value={String(dashboardMetrics.bookChapterCount)} />
-                            </div>
-                            {!editable && selected ? (
-                                <div className="rounded-2xl border border-warning-border bg-warning-muted px-4 py-3 text-sm text-warning-muted-foreground">
-                                    This AQAR application is in <strong>{selected.status}</strong> state. The form stays view-only until it returns to Draft or Rejected.
-                                </div>
-                            ) : (
-                                <div className="rounded-2xl border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
-                                    {selectedId
-                                        ? "Draft edits are auto-saved while you stay in an editable AQAR status."
-                                        : "The form is prefilled from faculty category records. Create a draft to enable autosave and workflow tracking."}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
+            if (!valid) {
+                goToStep(index);
+                return;
+            }
+        }
 
-                <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
-                    <Card className="border-border">
-                        <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                            <div>
-                                <CardTitle className="text-xl">AQAR Applications</CardTitle>
-                                <CardDescription>
-                                    Select an AQAR record to continue editing or review its workflow status.
-                                </CardDescription>
-                            </div>
-                            <Badge className="bg-muted text-foreground">{applications.length} records</Badge>
-                        </CardHeader>
-                        <CardContent>
-                            {applications.length ? (
-                                <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                                    {applications.map((application) => {
-                                        const isActive = selectedId === application._id;
-                                        const lastActivity = getLastActivity(application);
+        goToStep(target);
+    }
 
-                                        return (
-                                            <div
-                                                key={application._id}
-                                                role="button"
-                                                tabIndex={0}
-                                                onClick={() => selectApplication(application._id)}
-                                                onKeyDown={(event) => handleApplicationKeyDown(event, application._id)}
-                                                className={cn(
-                                                    "rounded-2xl border p-5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border/30",
-                                                    isActive
-                                                        ? "border-border bg-primary text-primary-foreground shadow-lg"
-                                                        : "border-border bg-muted/80 text-foreground hover:border-border hover:bg-card"
-                                                )}
-                                            >
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div>
-                                                        <p className="text-xs uppercase tracking-[0.18em] text-current/60">
-                                                            Academic year
-                                                        </p>
-                                                        <p className="mt-2 text-lg font-semibold">{application.academicYear}</p>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        {editableStatuses.has(application.status) ? (
-                                                            <ConfirmButton
-                                                                loading={isPending}
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className={cn(
-                                                                    "h-9 w-9",
-                                                                    isActive
-                                                                        ? "text-primary-foreground/90 hover:bg-primary-foreground/10 hover:text-primary-foreground"
-                                                                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                                                                )}
-                                                                // The card itself is clickable, so the trigger must not
-                                                                // also select this application while opening the dialog.
-                                                                onClick={(event) => event.stopPropagation()}
-                                                                onConfirm={() => deleteApplication(application._id)}
-                                                                title="Delete this AQAR draft?"
-                                                                description={`The ${application.academicYear} draft and its unsaved contributions will be removed permanently.`}
-                                                                aria-label="Delete AQAR draft"
-                                                                disabled={isPending}
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </ConfirmButton>
-                                                        ) : null}
-                                                        <Badge className={cn("shrink-0", isActive ? "bg-primary-foreground/15 text-primary-foreground" : getStatusBadgeClass(application.status))}>
-                                                            {application.status}
-                                                        </Badge>
-                                                    </div>
-                                                </div>
-                                                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                                                    <SummaryChip
-                                                        label="Contribution index"
-                                                        value={String(application.metrics.totalContributionIndex)}
-                                                        inverse={isActive}
-                                                    />
-                                                    <SummaryChip
-                                                        label="Last activity"
-                                                        value={formatTimestamp(lastActivity)}
-                                                        inverse={isActive}
-                                                    />
-                                                </div>
-                                                <div className="mt-4 flex items-center gap-2 text-sm font-medium">
-                                                    {isActive ? "Currently selected" : "Select this AQAR"}
-                                                    <ChevronRight className="h-4 w-4" />
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <EmptyState
-                                    title="No AQAR drafts yet"
-                                    description="Start your first AQAR draft to turn the prefilled workspace into a tracked faculty submission."
-                                    actionLabel="Create AQAR Draft"
-                                    onAction={createDraft}
-                                />
-                            )}
-                        </CardContent>
-                    </Card>
+    // --- index view ---------------------------------------------------------
 
-                    <Card className="border-border">
-                        <CardHeader>
-                            <CardTitle className="text-xl">Status Timeline</CardTitle>
-                            <CardDescription>Every AQAR workflow transition for the selected record is listed here.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <AQARStatusTimeline logs={selected?.statusLogs ?? []} />
-                        </CardContent>
-                    </Card>
-                </div>
-            </section>
-
-            <section ref={formSectionRef} className="rounded-[2rem] border border-border bg-card p-4 shadow-sm sm:p-6 xl:p-8">
-                <div className="space-y-6">
-                    <div className="space-y-4">
-                        <div className="flex flex-wrap items-start justify-between gap-4">
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <Badge className="bg-muted text-foreground">Form Workspace</Badge>
-                                    <Badge className={getStatusBadgeClass(selected?.status ?? "Draft")}>
-                                        {selected?.status ?? "Prepared"}
-                                    </Badge>
-                                </div>
-                                <h2 className="text-3xl font-semibold tracking-tight text-foreground">
-                                    AQAR Faculty Contribution Form
-                                </h2>
-                                <p className="max-w-3xl text-sm text-muted-foreground">
-                                    Complete the AQAR contribution in guided steps. The dashboard stays above for context, while this workspace stays focused on data entry and review.
-                                </p>
-                            </div>
-                            <div className="grid gap-2 rounded-2xl border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
-                                <div className="flex items-center gap-2">
-                                    <CalendarClock className="h-4 w-4" />
-                                    Academic year {normalizedValues.academicYear}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <FileText className="h-4 w-4" />
-                                    {editable
-                                        ? selectedId
-                                            ? `Autosave ${autoSaveState}`
-                                            : "Create a draft to enable autosave"
-                                        : "View-only workflow state"}
-                                </div>
-                            </div>
-                        </div>
-
-                        {message ? <FormMessage message={message.text} type={message.type} /> : null}
-
-                        <div className="sticky top-4 z-20 rounded-[1.5rem] border border-border bg-card/95 p-4 shadow-lg backdrop-blur">
-                            <div className="flex flex-wrap items-center justify-between gap-4">
-                                <div>
-                                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                                        Step {currentStep + 1} of {steps.length}
-                                    </p>
-                                    <p className="mt-1 text-lg font-semibold text-foreground">{steps[currentStep].title}</p>
-                                    <p className="text-sm text-muted-foreground">{steps[currentStep].description}</p>
-                                </div>
-                                <div className="flex flex-wrap gap-3">
-                                    <Button type="button" variant="outline" onClick={handlePrevious} disabled={currentStep === 0}>
-                                        <ChevronLeft aria-hidden />
-                                        Previous
-                                    </Button>
-                                    {currentStep === steps.length - 1 ? (
-                                        <Button
-                                            loading={isPending}
-                                            type="button"
-                                            onClick={submitApplication}
-                                            disabled={isPending || !selectedId || !reviewReady}
-                                        >
-                                            Submit AQAR Application
-                                        </Button>
-                                    ) : (
-                                        <Button type="button" onClick={handleNext}>
-                                            Next Step
-                                            <ArrowRight className="h-4 w-4" />
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-                            <AQARProgressStepper
-                                currentStep={currentStep}
-                                visitedSteps={visitedSteps}
-                                errors={form.formState.errors}
-                                onStepChange={goToStep}
-                            />
-                        </div>
-                    </div>
-
-                    <AQARDataTables values={normalizedValues} />
-
-                    {currentStep === 0 ? (
-                        <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-                            <SectionCard
-                                title="Reporting Overview"
-                                description="Set the annual AQAR context before adding detailed faculty contribution records."
-                            >
-                                <div className="grid gap-4 md:grid-cols-3">
-                                    <SelectField
-                                        form={form}
-                                        name="academicYearId"
-                                        label="Academic year"
-                                        options={academicYearSelectOptions}
-                                        placeholder="Select academic year"
-                                        disabled={!editable}
-                                        onValueChange={(value) => {
-                                            const selectedOption = academicYearSelectOptions.find((option) => option.value === value);
-                                            if (!selectedOption) {
-                                                return;
-                                            }
-
-                                            form.setValue("academicYear", selectedOption.yearLabel, {
-                                                shouldDirty: true,
-                                                shouldTouch: true,
-                                                shouldValidate: true,
-                                            });
-
-                                            const range = parseAcademicYearLabel(selectedOption.yearLabel);
-                                            if (!range) return;
-
-                                            form.setValue("reportingPeriod.fromDate", `${range.startYear}-06-01`, {
-                                                shouldDirty: true,
-                                                shouldTouch: true,
-                                            });
-                                            form.setValue("reportingPeriod.toDate", `${range.endYear}-05-31`, {
-                                                shouldDirty: true,
-                                                shouldTouch: true,
-                                            });
-                                        }}
-                                    />
-                                    <DatePickerField form={form} name="reportingPeriod.fromDate" label="Reporting from" disabled={!editable} />
-                                    <DatePickerField form={form} name="reportingPeriod.toDate" label="Reporting to" disabled={!editable} />
-                                </div>
-                                <div className="flex flex-wrap gap-3">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => void loadYearPrefill(normalizedValues.academicYear ?? "")}
-                                        disabled={!editable || isPrefillLoading}
-                                    >
-                                        {isPrefillLoading ? <Spinner /> : <Sparkles className="h-4 w-4" />}
-                                        Autofill selected year
-                                    </Button>
-                                    <Badge variant="secondary">
-                                        Profile data mapped for {prefillYear}
-                                    </Badge>
-                                </div>
-                                <div className="rounded-2xl border border-border bg-muted/50 p-5 text-sm text-muted-foreground">
-                                    AQAR defaults are now tied to the selected academic year. Use the autofill action to refresh publications, projects, awards, FDPs, and other faculty records for the chosen cycle before submission.
-                                </div>
-                            </SectionCard>
-
-                            <SectionCard
-                                title="Live AQAR Summary"
-                                description="A real-time preview of key counts pulled from the current form state."
-                            >
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                    <MetricCard label="Research papers" value={String(liveMetrics.researchPaperCount)} />
-                                    <MetricCard label="Projects" value={String(liveMetrics.seedMoneyProjectCount)} />
-                                    <MetricCard label="Awards" value={String(liveMetrics.awardRecognitionCount)} />
-                                    <MetricCard label="Patents" value={String(liveMetrics.patentCount)} />
-                                    <MetricCard label="Books" value={String(liveMetrics.bookChapterCount)} />
-                                    <MetricCard label="Consultancy" value={String(liveMetrics.consultancyCount)} />
-                                </div>
-                                <div className="rounded-2xl border border-border bg-card p-4">
-                                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Total contribution index</p>
-                                    <p className="mt-2 text-3xl font-semibold text-foreground">{liveMetrics.totalContributionIndex}</p>
-                                </div>
-                            </SectionCard>
-                        </div>
-                    ) : null}
-
-                    {currentStep === 1 ? (
-                        <SectionCard
-                            title="Research Papers in UGC-Notified Journals"
-                            description="Capture journal publications with indexing, impact factor, and supporting evidence references."
-                        >
-                            {researchPaperFields.fields.length ? (
-                                <div className="grid gap-4">
-                                    {researchPaperFields.fields.map((field, index) => (
-                                        <EntryCard
-                                            key={field.id}
-                                            index={index}
-                                            title="Research Paper"
-                                            onRemove={() => researchPaperFields.remove(index)}
-                                            disabled={!editable}
-                                        >
-                                            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                                <TextField form={form} name={`facultyContribution.researchPapers.${index}.paperTitle`} label="Paper title" disabled={!editable} />
-                                                <TextField form={form} name={`facultyContribution.researchPapers.${index}.journalName`} label="Journal name" disabled={!editable} />
-                                                <TextField form={form} name={`facultyContribution.researchPapers.${index}.authors`} label="Author(s)" disabled={!editable} />
-                                                <TextField
-                                                    form={form}
-                                                    name={`facultyContribution.researchPapers.${index}.publicationYear`}
-                                                    label="Publication year"
-                                                    type="number"
-                                                    disabled={!editable}
-                                                    registerOptions={{ valueAsNumber: true }}
-                                                />
-                                                <TextField form={form} name={`facultyContribution.researchPapers.${index}.issnNumber`} label="ISSN number" disabled={!editable} />
-                                                <TextField form={form} name={`facultyContribution.researchPapers.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                <TextField form={form} name={`facultyContribution.researchPapers.${index}.impactFactor`} label="Impact factor" disabled={!editable} />
-                                                <TextField form={form} name={`facultyContribution.researchPapers.${index}.indexedIn`} label="Indexed in" disabled={!editable} />
-                                                <TextField form={form} name={`facultyContribution.researchPapers.${index}.links`} label="Links" disabled={!editable} />
-                                                <ProofUploadField form={form} name={`facultyContribution.researchPapers.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
-                                                <ProofUploadField form={form} name={`facultyContribution.researchPapers.${index}.ifProof`} label="Impact factor proof" facultyId={facultyId} disabled={!editable} />
-                                            </div>
-                                        </EntryCard>
-                                    ))}
-                                </div>
-                            ) : (
-                                <EmptyState
-                                    title="No research papers added"
-                                    description="Add journal publications here to build the AQAR research output summary."
-                                    actionLabel="Add First Research Paper"
-                                    onAction={() =>
-                                        researchPaperFields.append({
-                                            paperTitle: "",
-                                            journalName: "",
-                                            authors: "",
-                                            publicationYear: new Date().getFullYear(),
-                                            issnNumber: "",
-                                            year: "",
-                                            impactFactor: "",
-                                            indexedIn: "",
-                                            links: "",
-                                            proof: "",
-                                            ifProof: "",
-                                        })
-                                    }
-                                    disabled={!editable}
-                                />
-                            )}
-
-                            {researchPaperFields.fields.length ? (
-                                <SectionAction onClick={() =>
-                                    researchPaperFields.append({
-                                        paperTitle: "",
-                                        journalName: "",
-                                        authors: "",
-                                        publicationYear: new Date().getFullYear(),
-                                        issnNumber: "",
-                                        year: "",
-                                        impactFactor: "",
-                                        indexedIn: "",
-                                        links: "",
-                                        proof: "",
-                                        ifProof: "",
-                                    })
-                                } disabled={!editable}>
-                                    Add Research Paper
-                                </SectionAction>
-                            ) : null}
-                        </SectionCard>
-                    ) : null}
-
-                    {currentStep === 2 ? (
-                        <SectionCard
-                            title="Seed Money Projects"
-                            description="Record institution-supported research or innovation projects with funding source and award details."
-                        >
-                            {seedMoneyFields.fields.length ? (
-                                <div className="grid gap-4">
-                                    {seedMoneyFields.fields.map((field, index) => (
-                                        <EntryCard
-                                            key={field.id}
-                                            index={index}
-                                            title="Seed Money Project"
-                                            onRemove={() => seedMoneyFields.remove(index)}
-                                            disabled={!editable}
-                                        >
-                                            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                                <TextField form={form} name={`facultyContribution.seedMoneyProjects.${index}.schemeOrProjectTitle`} label="Scheme or project title" disabled={!editable} />
-                                                <TextField form={form} name={`facultyContribution.seedMoneyProjects.${index}.principalInvestigatorName`} label="Principal investigator" disabled={!editable} />
-                                                <TextField form={form} name={`facultyContribution.seedMoneyProjects.${index}.coInvestigator`} label="Co-investigator" disabled={!editable} />
-                                                <TextField form={form} name={`facultyContribution.seedMoneyProjects.${index}.fundingAgencyName`} label="Funding agency" disabled={!editable} />
-                                                <SelectField
-                                                    form={form}
-                                                    name={`facultyContribution.seedMoneyProjects.${index}.fundingAgencyType`}
-                                                    label="Funding agency type"
-                                                    options={fundingAgencyOptions}
-                                                    disabled={!editable}
-                                                />
-                                                <TextField
-                                                    form={form}
-                                                    name={`facultyContribution.seedMoneyProjects.${index}.awardYear`}
-                                                    label="Award year"
-                                                    type="number"
-                                                    disabled={!editable}
-                                                    registerOptions={{ valueAsNumber: true }}
-                                                />
-                                                <TextField form={form} name={`facultyContribution.seedMoneyProjects.${index}.projectDuration`} label="Project duration" disabled={!editable} />
-                                                <TextField
-                                                    form={form}
-                                                    name={`facultyContribution.seedMoneyProjects.${index}.fundsInInr`}
-                                                    label="Funds (INR)"
-                                                    type="number"
-                                                    disabled={!editable}
-                                                    registerOptions={{ valueAsNumber: true }}
-                                                />
-                                                <SelectField
-                                                    form={form}
-                                                    name={`facultyContribution.seedMoneyProjects.${index}.projectCategory`}
-                                                    label="Project category"
-                                                    options={projectCategoryOptions}
-                                                    placeholder="Select category"
-                                                    disabled={!editable}
-                                                />
-                                                <TextField form={form} name={`facultyContribution.seedMoneyProjects.${index}.status`} label="Project status" disabled={!editable} />
-                                                <TextField form={form} name={`facultyContribution.seedMoneyProjects.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                <ProofUploadField form={form} name={`facultyContribution.seedMoneyProjects.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
-                                            </div>
-                                        </EntryCard>
-                                    ))}
-                                </div>
-                            ) : (
-                                <EmptyState
-                                    title="No seed money projects added"
-                                    description="Add institution-supported projects to strengthen the AQAR funding and innovation section."
-                                    actionLabel="Add First Project"
-                                    onAction={() =>
-                                        seedMoneyFields.append({
-                                            schemeOrProjectTitle: "",
-                                            principalInvestigatorName: "",
-                                            coInvestigator: "",
-                                            fundingAgencyName: "",
-                                            fundingAgencyType: "Government",
-                                            awardYear: new Date().getFullYear(),
-                                            projectDuration: "",
-                                            fundsInInr: 0,
-                                            projectCategory: "Minor",
-                                            status: "",
-                                            year: "",
-                                            proof: "",
-                                        })
-                                    }
-                                    disabled={!editable}
-                                />
-                            )}
-
-                            {seedMoneyFields.fields.length ? (
-                                <SectionAction
-                                    onClick={() =>
-                                        seedMoneyFields.append({
-                                            schemeOrProjectTitle: "",
-                                            principalInvestigatorName: "",
-                                            coInvestigator: "",
-                                            fundingAgencyName: "",
-                                            fundingAgencyType: "Government",
-                                            awardYear: new Date().getFullYear(),
-                                            projectDuration: "",
-                                            fundsInInr: 0,
-                                            projectCategory: "Minor",
-                                            status: "",
-                                            year: "",
-                                            proof: "",
-                                        })
-                                    }
-                                    disabled={!editable}
-                                >
-                                    Add Seed Money Project
-                                </SectionAction>
-                            ) : null}
-                        </SectionCard>
-                    ) : null}
-
-                    {currentStep === 3 ? (
-                        <div className="grid gap-6">
-                            <SectionCard
-                                title="Awards and Recognition"
-                                description="Capture teacher awards, recognition, and incentive details."
-                            >
-                                {awardFields.fields.length ? (
-                                    <div className="grid gap-4">
-                                        {awardFields.fields.map((field, index) => (
-                                            <EntryCard
-                                                key={field.id}
-                                                index={index}
-                                                title="Award or Recognition"
-                                                onRemove={() => awardFields.remove(index)}
-                                                disabled={!editable}
-                                            >
-                                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                                    <TextField form={form} name={`facultyContribution.awardsRecognition.${index}.teacherName`} label="Teacher name" disabled={!editable} />
-                                                    <DatePickerField form={form} name={`facultyContribution.awardsRecognition.${index}.awardDate`} label="Award date" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.awardsRecognition.${index}.pan`} label="PAN" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.awardsRecognition.${index}.designation`} label="Designation" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.awardsRecognition.${index}.awardName`} label="Award name" disabled={!editable} />
-                                                    <SelectField
-                                                        form={form}
-                                                        name={`facultyContribution.awardsRecognition.${index}.level`}
-                                                        label="Level"
-                                                        options={awardLevelOptions}
-                                                        disabled={!editable}
-                                                    />
-                                                    <TextField form={form} name={`facultyContribution.awardsRecognition.${index}.awardAgencyName`} label="Award agency" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.awardsRecognition.${index}.incentiveDetails`} label="Incentive details" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.awardsRecognition.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                    <ProofUploadField form={form} name={`facultyContribution.awardsRecognition.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
-                                                </div>
-                                            </EntryCard>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <EmptyState
-                                        title="No awards added"
-                                        description="Add teacher awards and recognition to strengthen the quality profile for the year."
-                                        actionLabel="Add First Award"
-                                        onAction={() =>
-                                            awardFields.append({
-                                                teacherName: "",
-                                                awardDate: "",
-                                                pan: "",
-                                                designation: "",
-                                                awardName: "",
-                                                level: "National",
-                                                awardAgencyName: "",
-                                                incentiveDetails: "",
-                                                year: "",
-                                                proof: "",
-                                            })
-                                        }
-                                        disabled={!editable}
-                                    />
-                                )}
-
-                                {awardFields.fields.length ? (
-                                    <SectionAction
-                                        onClick={() =>
-                                            awardFields.append({
-                                                teacherName: "",
-                                                awardDate: "",
-                                                pan: "",
-                                                designation: "",
-                                                awardName: "",
-                                                level: "National",
-                                                awardAgencyName: "",
-                                                incentiveDetails: "",
-                                                year: "",
-                                                proof: "",
-                                            })
-                                        }
-                                        disabled={!editable}
-                                    >
-                                        Add Award or Recognition
-                                    </SectionAction>
-                                ) : null}
-                            </SectionCard>
-
-                            <SectionCard
-                                title="Fellowships and Research Fellows"
-                                description="Track faculty fellowships and research fellows enrolled or supported during the reporting year."
-                            >
-                                <div className="grid gap-6">
-                                    <div className="grid gap-4">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-foreground">Faculty Fellowships</h3>
-                                                <p className="text-sm text-muted-foreground">Awards or fellowships received by faculty members.</p>
-                                            </div>
-                                        </div>
-                                        {fellowshipFields.fields.length ? (
-                                            fellowshipFields.fields.map((field, index) => (
-                                                <EntryCard
-                                                    key={field.id}
-                                                    index={index}
-                                                    title="Fellowship"
-                                                    onRemove={() => fellowshipFields.remove(index)}
-                                                    disabled={!editable}
-                                                >
-                                                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                                        <TextField form={form} name={`facultyContribution.fellowships.${index}.teacherName`} label="Teacher name" disabled={!editable} />
-                                                        <TextField form={form} name={`facultyContribution.fellowships.${index}.fellowshipName`} label="Fellowship name" disabled={!editable} />
-                                                        <TextField form={form} name={`facultyContribution.fellowships.${index}.awardingAgency`} label="Awarding agency" disabled={!editable} />
-                                                        <TextField
-                                                            form={form}
-                                                            name={`facultyContribution.fellowships.${index}.awardYear`}
-                                                            label="Award year"
-                                                            type="number"
-                                                            disabled={!editable}
-                                                            registerOptions={{ valueAsNumber: true }}
-                                                        />
-                                                        <SelectField
-                                                            form={form}
-                                                            name={`facultyContribution.fellowships.${index}.level`}
-                                                            label="Level"
-                                                            options={levelOptions}
-                                                            disabled={!editable}
-                                                        />
-                                                        <TextField form={form} name={`facultyContribution.fellowships.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                        <ProofUploadField form={form} name={`facultyContribution.fellowships.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
-                                                    </div>
-                                                </EntryCard>
-                                            ))
-                                        ) : (
-                                            <EmptyState
-                                                title="No fellowships added"
-                                                description="Add fellowships received by faculty members during this reporting cycle."
-                                                actionLabel="Add First Fellowship"
-                                                onAction={() =>
-                                                    fellowshipFields.append({
-                                                        teacherName: "",
-                                                        fellowshipName: "",
-                                                        awardingAgency: "",
-                                                        awardYear: new Date().getFullYear(),
-                                                        level: "National",
-                                                        year: "",
-                                                        proof: "",
-                                                    })
-                                                }
-                                                disabled={!editable}
-                                            />
-                                        )}
-                                        {fellowshipFields.fields.length ? (
-                                            <SectionAction
-                                                onClick={() =>
-                                                    fellowshipFields.append({
-                                                        teacherName: "",
-                                                        fellowshipName: "",
-                                                        awardingAgency: "",
-                                                        awardYear: new Date().getFullYear(),
-                                                        level: "National",
-                                                        year: "",
-                                                        proof: "",
-                                                    })
-                                                }
-                                                disabled={!editable}
-                                            >
-                                                Add Fellowship
-                                            </SectionAction>
-                                        ) : null}
-                                    </div>
-
-                                    <Separator />
-
-                                    <div className="grid gap-4">
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-foreground">Research Fellows</h3>
-                                            <p className="text-sm text-muted-foreground">Research scholars or fellows enrolled with faculty supervision or support.</p>
-                                        </div>
-                                        {fellowFields.fields.length ? (
-                                            fellowFields.fields.map((field, index) => (
-                                                <EntryCard
-                                                    key={field.id}
-                                                    index={index}
-                                                    title="Research Fellow"
-                                                    onRemove={() => fellowFields.remove(index)}
-                                                    disabled={!editable}
-                                                >
-                                                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                                        <TextField form={form} name={`facultyContribution.researchFellows.${index}.fellowName`} label="Research fellow name" disabled={!editable} />
-                                                        <DatePickerField form={form} name={`facultyContribution.researchFellows.${index}.enrolmentDate`} label="Enrolment date" disabled={!editable} />
-                                                        <TextField form={form} name={`facultyContribution.researchFellows.${index}.fellowshipDuration`} label="Fellowship duration" disabled={!editable} />
-                                                        <TextField form={form} name={`facultyContribution.researchFellows.${index}.fellowshipType`} label="Fellowship type" disabled={!editable} />
-                                                        <TextField form={form} name={`facultyContribution.researchFellows.${index}.grantingAgency`} label="Granting agency" disabled={!editable} />
-                                                        <TextField form={form} name={`facultyContribution.researchFellows.${index}.qualifyingExam`} label="Qualifying exam" disabled={!editable} />
-                                                        <TextField form={form} name={`facultyContribution.researchFellows.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                        <ProofUploadField form={form} name={`facultyContribution.researchFellows.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
-                                                    </div>
-                                                </EntryCard>
-                                            ))
-                                        ) : (
-                                            <EmptyState
-                                                title="No research fellows added"
-                                                description="Add research fellows to represent doctoral or fellowship-linked supervision activity."
-                                                actionLabel="Add First Research Fellow"
-                                                onAction={() =>
-                                                    fellowFields.append({
-                                                        fellowName: "",
-                                                        enrolmentDate: "",
-                                                        fellowshipDuration: "",
-                                                        fellowshipType: "",
-                                                        grantingAgency: "",
-                                                        qualifyingExam: "",
-                                                        year: "",
-                                                        proof: "",
-                                                    })
-                                                }
-                                                disabled={!editable}
-                                            />
-                                        )}
-                                        {fellowFields.fields.length ? (
-                                            <SectionAction
-                                                onClick={() =>
-                                                    fellowFields.append({
-                                                        fellowName: "",
-                                                        enrolmentDate: "",
-                                                        fellowshipDuration: "",
-                                                        fellowshipType: "",
-                                                        grantingAgency: "",
-                                                        qualifyingExam: "",
-                                                        year: "",
-                                                        proof: "",
-                                                    })
-                                                }
-                                                disabled={!editable}
-                                            >
-                                                Add Research Fellow
-                                            </SectionAction>
-                                        ) : null}
-                                    </div>
-                                </div>
-                            </SectionCard>
-                        </div>
-                    ) : null}
-
-                    {currentStep === 4 ? (
-                        <div className="grid gap-6">
-                            <SectionCard
-                                title="Patents"
-                                description="Capture patents, publication status, level, and evidence references."
-                            >
-                                {patentFields.fields.length ? (
-                                    <div className="grid gap-4">
-                                        {patentFields.fields.map((field, index) => (
-                                            <EntryCard
-                                                key={field.id}
-                                                index={index}
-                                                title="Patent"
-                                                onRemove={() => patentFields.remove(index)}
-                                                disabled={!editable}
-                                            >
-                                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                                    <TextField form={form} name={`facultyContribution.patents.${index}.type`} label="Type" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.patents.${index}.patenterName`} label="Patenter name" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.patents.${index}.patentNumber`} label="Patent number" disabled={!editable} />
-                                                    <DatePickerField form={form} name={`facultyContribution.patents.${index}.filingDate`} label="Filing date" disabled={!editable} />
-                                                    <DatePickerField form={form} name={`facultyContribution.patents.${index}.publishedDate`} label="Published date" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.patents.${index}.title`} label="Title" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.patents.${index}.status`} label="Patent status" disabled={!editable} />
-                                                    <SelectField
-                                                        form={form}
-                                                        name={`facultyContribution.patents.${index}.level`}
-                                                        label="Level"
-                                                        options={levelOptions}
-                                                        disabled={!editable}
-                                                    />
-                                                    <TextField
-                                                        form={form}
-                                                        name={`facultyContribution.patents.${index}.awardYear`}
-                                                        label="Award year"
-                                                        type="number"
-                                                        disabled={!editable}
-                                                        registerOptions={{ valueAsNumber: true }}
-                                                    />
-                                                    <TextField form={form} name={`facultyContribution.patents.${index}.academicYear`} label="Academic year label" disabled={!editable} />
-                                                    <ProofUploadField form={form} name={`facultyContribution.patents.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
-                                                </div>
-                                            </EntryCard>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <EmptyState
-                                        title="No patents added"
-                                        description="Add patents to represent IP output and innovation activity in the AQAR cycle."
-                                        actionLabel="Add First Patent"
-                                        onAction={() =>
-                                            patentFields.append({
-                                                type: "Patent",
-                                                patenterName: "",
-                                                patentNumber: "",
-                                                filingDate: "",
-                                                publishedDate: "",
-                                                title: "",
-                                                status: "",
-                                                level: "National",
-                                                awardYear: new Date().getFullYear(),
-                                                academicYear: "",
-                                                proof: "",
-                                            })
-                                        }
-                                        disabled={!editable}
-                                    />
-                                )}
-
-                                {patentFields.fields.length ? (
-                                    <SectionAction
-                                        onClick={() =>
-                                            patentFields.append({
-                                                type: "Patent",
-                                                patenterName: "",
-                                                patentNumber: "",
-                                                filingDate: "",
-                                                publishedDate: "",
-                                                title: "",
-                                                status: "",
-                                                level: "National",
-                                                awardYear: new Date().getFullYear(),
-                                                academicYear: "",
-                                                proof: "",
-                                            })
-                                        }
-                                        disabled={!editable}
-                                    >
-                                        Add Patent
-                                    </SectionAction>
-                                ) : null}
-                            </SectionCard>
-
-                            <SectionCard
-                                title="PhD Awards"
-                                description="Record doctoral registration, thesis supervision, and award status for the reporting year."
-                            >
-                                {phdAwardFields.fields.length ? (
-                                    <div className="grid gap-4">
-                                        {phdAwardFields.fields.map((field, index) => (
-                                            <EntryCard
-                                                key={field.id}
-                                                index={index}
-                                                title="PhD Award"
-                                                onRemove={() => phdAwardFields.remove(index)}
-                                                disabled={!editable}
-                                            >
-                                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                                    <TextField form={form} name={`facultyContribution.phdAwards.${index}.scholarName`} label="Scholar name" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.phdAwards.${index}.departmentName`} label="Department name" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.phdAwards.${index}.guideName`} label="Guide name" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.phdAwards.${index}.thesisTitle`} label="Thesis title" disabled={!editable} />
-                                                    <DatePickerField form={form} name={`facultyContribution.phdAwards.${index}.registrationDate`} label="Registration date" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.phdAwards.${index}.gender`} label="Gender" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.phdAwards.${index}.category`} label="Category" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.phdAwards.${index}.degree`} label="Degree" disabled={!editable} />
-                                                    <SelectField
-                                                        form={form}
-                                                        name={`facultyContribution.phdAwards.${index}.awardStatus`}
-                                                        label="Award status"
-                                                        options={phdStatusOptions}
-                                                        disabled={!editable}
-                                                    />
-                                                    <TextField
-                                                        form={form}
-                                                        name={`facultyContribution.phdAwards.${index}.scholarRegistrationYear`}
-                                                        label="Registration year"
-                                                        type="number"
-                                                        disabled={!editable}
-                                                        registerOptions={{ valueAsNumber: true }}
-                                                    />
-                                                    <TextField
-                                                        form={form}
-                                                        name={`facultyContribution.phdAwards.${index}.awardYear`}
-                                                        label="Award year"
-                                                        type="number"
-                                                        disabled={!editable}
-                                                        registerOptions={{ valueAsNumber: true }}
-                                                    />
-                                                    <TextField form={form} name={`facultyContribution.phdAwards.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                    <ProofUploadField form={form} name={`facultyContribution.phdAwards.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
-                                                </div>
-                                            </EntryCard>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <EmptyState
-                                        title="No PhD awards added"
-                                        description="Add PhD completion and supervision records to represent doctoral outcome quality indicators."
-                                        actionLabel="Add First PhD Award"
-                                        onAction={() =>
-                                            phdAwardFields.append({
-                                                scholarName: "",
-                                                departmentName: "",
-                                                guideName: "",
-                                                thesisTitle: "",
-                                                registrationDate: "",
-                                                gender: "",
-                                                category: "",
-                                                degree: "",
-                                                awardStatus: "Awarded",
-                                                scholarRegistrationYear: new Date().getFullYear(),
-                                                awardYear: new Date().getFullYear(),
-                                                year: "",
-                                                proof: "",
-                                            })
-                                        }
-                                        disabled={!editable}
-                                    />
-                                )}
-
-                                {phdAwardFields.fields.length ? (
-                                    <SectionAction
-                                        onClick={() =>
-                                            phdAwardFields.append({
-                                                scholarName: "",
-                                                departmentName: "",
-                                                guideName: "",
-                                                thesisTitle: "",
-                                                registrationDate: "",
-                                                gender: "",
-                                                category: "",
-                                                degree: "",
-                                                awardStatus: "Awarded",
-                                                scholarRegistrationYear: new Date().getFullYear(),
-                                                awardYear: new Date().getFullYear(),
-                                                year: "",
-                                                proof: "",
-                                            })
-                                        }
-                                        disabled={!editable}
-                                    >
-                                        Add PhD Award
-                                    </SectionAction>
-                                ) : null}
-                            </SectionCard>
-                        </div>
-                    ) : null}
-
-                    {currentStep === 5 ? (
-                        <div className="grid gap-6">
-                            <SectionCard
-                                title="Books, Chapters, and Proceedings"
-                                description="Record books, chapters, translated works, and conference proceedings."
-                            >
-                                {bookChapterFields.fields.length ? (
-                                    <div className="grid gap-4">
-                                        {bookChapterFields.fields.map((field, index) => (
-                                            <EntryCard
-                                                key={field.id}
-                                                index={index}
-                                                title="Book or Chapter"
-                                                onRemove={() => bookChapterFields.remove(index)}
-                                                disabled={!editable}
-                                            >
-                                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                                    <TextField form={form} name={`facultyContribution.booksChapters.${index}.type`} label="Type" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.booksChapters.${index}.titleOfWork`} label="Title of work" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.booksChapters.${index}.titleOfChapter`} label="Title of chapter" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.booksChapters.${index}.paperTitle`} label="Paper title" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.booksChapters.${index}.translationWork`} label="Translation work" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.booksChapters.${index}.proceedingsTitle`} label="Proceedings title" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.booksChapters.${index}.conferenceName`} label="Conference name" disabled={!editable} />
-                                                    <SelectField
-                                                        form={form}
-                                                        name={`facultyContribution.booksChapters.${index}.level`}
-                                                        label="Level"
-                                                        options={levelOptions}
-                                                        placeholder="Select level"
-                                                        disabled={!editable}
-                                                    />
-                                                    <TextField
-                                                        form={form}
-                                                        name={`facultyContribution.booksChapters.${index}.publicationYear`}
-                                                        label="Publication year"
-                                                        type="number"
-                                                        disabled={!editable}
-                                                        registerOptions={{ valueAsNumber: true }}
-                                                    />
-                                                    <TextField form={form} name={`facultyContribution.booksChapters.${index}.isbnIssnNumber`} label="ISBN / ISSN" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.booksChapters.${index}.affiliationInstitute`} label="Affiliation institute" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.booksChapters.${index}.publisherName`} label="Publisher name" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.booksChapters.${index}.academicYear`} label="Academic year label" disabled={!editable} />
-                                                    <ProofUploadField form={form} name={`facultyContribution.booksChapters.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
-                                                </div>
-                                            </EntryCard>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <EmptyState
-                                        title="No books or chapters added"
-                                        description="Add published books, chapters, or proceedings to complete the academic output section."
-                                        actionLabel="Add First Book or Chapter"
-                                        onAction={() =>
-                                            bookChapterFields.append({
-                                                type: "Book",
-                                                titleOfWork: "",
-                                                titleOfChapter: "",
-                                                paperTitle: "",
-                                                translationWork: "",
-                                                proceedingsTitle: "",
-                                                conferenceName: "",
-                                                level: "National",
-                                                publicationYear: new Date().getFullYear(),
-                                                isbnIssnNumber: "",
-                                                affiliationInstitute: "",
-                                                publisherName: "",
-                                                academicYear: "",
-                                                proof: "",
-                                            })
-                                        }
-                                        disabled={!editable}
-                                    />
-                                )}
-
-                                {bookChapterFields.fields.length ? (
-                                    <SectionAction
-                                        onClick={() =>
-                                            bookChapterFields.append({
-                                                type: "Book",
-                                                titleOfWork: "",
-                                                titleOfChapter: "",
-                                                paperTitle: "",
-                                                translationWork: "",
-                                                proceedingsTitle: "",
-                                                conferenceName: "",
-                                                level: "National",
-                                                publicationYear: new Date().getFullYear(),
-                                                isbnIssnNumber: "",
-                                                affiliationInstitute: "",
-                                                publisherName: "",
-                                                academicYear: "",
-                                                proof: "",
-                                            })
-                                        }
-                                        disabled={!editable}
-                                    >
-                                        Add Book or Chapter
-                                    </SectionAction>
-                                ) : null}
-                            </SectionCard>
-
-                            <SectionCard
-                                title="E-Content, Consultancy, Support, and FDP"
-                                description="Complete the practice-oriented and outreach-oriented AQAR sections."
-                            >
-                                <div className="grid gap-6">
-                                    <GroupedEntries
-                                        title="E-Content Developed"
-                                        description="Digital content, modules, or courses developed by faculty."
-                                        hasItems={eContentFields.fields.length > 0}
-                                        emptyTitle="No e-content entries added"
-                                        emptyDescription="Add course content or digital resources developed during the AQAR year."
-                                        emptyActionLabel="Add First E-Content Record"
-                                        onEmptyAction={() =>
-                                            eContentFields.append({
-                                                moduleName: "",
-                                                creationType: "",
-                                                platform: "",
-                                                academicYear: "",
-                                                linkToContent: "",
-                                                proof: "",
-                                            })
-                                        }
-                                        onAdd={() =>
-                                            eContentFields.append({
-                                                moduleName: "",
-                                                creationType: "",
-                                                platform: "",
-                                                academicYear: "",
-                                                linkToContent: "",
-                                                proof: "",
-                                            })
-                                        }
-                                        disabled={!editable}
-                                    >
-                                        {eContentFields.fields.map((field, index) => (
-                                            <EntryCard
-                                                key={field.id}
-                                                index={index}
-                                                title="E-Content Record"
-                                                onRemove={() => eContentFields.remove(index)}
-                                                disabled={!editable}
-                                            >
-                                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                                    <TextField form={form} name={`facultyContribution.eContentDeveloped.${index}.moduleName`} label="Module or course name" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.eContentDeveloped.${index}.creationType`} label="Creation type" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.eContentDeveloped.${index}.platform`} label="Platform" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.eContentDeveloped.${index}.academicYear`} label="Academic year label" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.eContentDeveloped.${index}.linkToContent`} label="Link to content" disabled={!editable} />
-                                                    <ProofUploadField form={form} name={`facultyContribution.eContentDeveloped.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
-                                                </div>
-                                            </EntryCard>
-                                        ))}
-                                    </GroupedEntries>
-
-                                    <Separator />
-
-                                    <GroupedEntries
-                                        title="Consultancy Services"
-                                        description="Consultancy activity and revenue generated by faculty."
-                                        hasItems={consultancyFields.fields.length > 0}
-                                        emptyTitle="No consultancy services added"
-                                        emptyDescription="Add consultancy services to represent external engagement and revenue generation."
-                                        emptyActionLabel="Add First Consultancy Record"
-                                        onEmptyAction={() =>
-                                            consultancyFields.append({
-                                                consultantName: "",
-                                                consultancyProjectName: "",
-                                                sponsoringAgencyContact: "",
-                                                consultancyYear: new Date().getFullYear(),
-                                                revenueGeneratedInInr: 0,
-                                                year: "",
-                                                proof: "",
-                                            })
-                                        }
-                                        onAdd={() =>
-                                            consultancyFields.append({
-                                                consultantName: "",
-                                                consultancyProjectName: "",
-                                                sponsoringAgencyContact: "",
-                                                consultancyYear: new Date().getFullYear(),
-                                                revenueGeneratedInInr: 0,
-                                                year: "",
-                                                proof: "",
-                                            })
-                                        }
-                                        disabled={!editable}
-                                    >
-                                        {consultancyFields.fields.map((field, index) => (
-                                            <EntryCard
-                                                key={field.id}
-                                                index={index}
-                                                title="Consultancy Service"
-                                                onRemove={() => consultancyFields.remove(index)}
-                                                disabled={!editable}
-                                            >
-                                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                                    <TextField form={form} name={`facultyContribution.consultancyServices.${index}.consultantName`} label="Consultant name" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.consultancyServices.${index}.consultancyProjectName`} label="Consultancy project name" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.consultancyServices.${index}.sponsoringAgencyContact`} label="Sponsoring agency contact" disabled={!editable} />
-                                                    <TextField
-                                                        form={form}
-                                                        name={`facultyContribution.consultancyServices.${index}.consultancyYear`}
-                                                        label="Consultancy year"
-                                                        type="number"
-                                                        disabled={!editable}
-                                                        registerOptions={{ valueAsNumber: true }}
-                                                    />
-                                                    <TextField
-                                                        form={form}
-                                                        name={`facultyContribution.consultancyServices.${index}.revenueGeneratedInInr`}
-                                                        label="Revenue generated (INR)"
-                                                        type="number"
-                                                        disabled={!editable}
-                                                        registerOptions={{ valueAsNumber: true }}
-                                                    />
-                                                    <TextField form={form} name={`facultyContribution.consultancyServices.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                    <ProofUploadField form={form} name={`facultyContribution.consultancyServices.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
-                                                </div>
-                                            </EntryCard>
-                                        ))}
-                                    </GroupedEntries>
-
-                                    <Separator />
-
-                                    <GroupedEntries
-                                        title="Financial Support for Conferences"
-                                        description="Conference participation support and professional body-backed financial assistance."
-                                        hasItems={financialSupportFields.fields.length > 0}
-                                        emptyTitle="No conference support added"
-                                        emptyDescription="Add financial support records to complete the AQAR support and participation section."
-                                        emptyActionLabel="Add First Support Record"
-                                        onEmptyAction={() =>
-                                            financialSupportFields.append({
-                                                conferenceName: "",
-                                                professionalBodyName: "",
-                                                amountOfSupport: 0,
-                                                panNo: "",
-                                                year: "",
-                                                proof: "",
-                                            })
-                                        }
-                                        onAdd={() =>
-                                            financialSupportFields.append({
-                                                conferenceName: "",
-                                                professionalBodyName: "",
-                                                amountOfSupport: 0,
-                                                panNo: "",
-                                                year: "",
-                                                proof: "",
-                                            })
-                                        }
-                                        disabled={!editable}
-                                    >
-                                        {financialSupportFields.fields.map((field, index) => (
-                                            <EntryCard
-                                                key={field.id}
-                                                index={index}
-                                                title="Conference Support"
-                                                onRemove={() => financialSupportFields.remove(index)}
-                                                disabled={!editable}
-                                            >
-                                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                                    <TextField form={form} name={`facultyContribution.financialSupport.${index}.conferenceName`} label="Conference name" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.financialSupport.${index}.professionalBodyName`} label="Professional body" disabled={!editable} />
-                                                    <TextField
-                                                        form={form}
-                                                        name={`facultyContribution.financialSupport.${index}.amountOfSupport`}
-                                                        label="Amount of support"
-                                                        type="number"
-                                                        disabled={!editable}
-                                                        registerOptions={{ valueAsNumber: true }}
-                                                    />
-                                                    <TextField form={form} name={`facultyContribution.financialSupport.${index}.panNo`} label="PAN number" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.financialSupport.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                    <ProofUploadField form={form} name={`facultyContribution.financialSupport.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
-                                                </div>
-                                            </EntryCard>
-                                        ))}
-                                    </GroupedEntries>
-
-                                    <Separator />
-
-                                    <GroupedEntries
-                                        title="Faculty Development Programmes"
-                                        description="Faculty training, orientation, refresher, or development programmes."
-                                        hasItems={fdpFields.fields.length > 0}
-                                        emptyTitle="No FDP records added"
-                                        emptyDescription="Add faculty development programmes to complete training and capacity-building evidence."
-                                        emptyActionLabel="Add First FDP Record"
-                                        onEmptyAction={() =>
-                                            fdpFields.append({
-                                                programTitle: "",
-                                                organizedBy: "",
-                                                durationFrom: "",
-                                                durationTo: "",
-                                                year: "",
-                                                proof: "",
-                                            })
-                                        }
-                                        onAdd={() =>
-                                            fdpFields.append({
-                                                programTitle: "",
-                                                organizedBy: "",
-                                                durationFrom: "",
-                                                durationTo: "",
-                                                year: "",
-                                                proof: "",
-                                            })
-                                        }
-                                        disabled={!editable}
-                                    >
-                                        {fdpFields.fields.map((field, index) => (
-                                            <EntryCard
-                                                key={field.id}
-                                                index={index}
-                                                title="FDP Record"
-                                                onRemove={() => fdpFields.remove(index)}
-                                                disabled={!editable}
-                                            >
-                                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                                    <TextField form={form} name={`facultyContribution.facultyDevelopmentProgrammes.${index}.programTitle`} label="Programme title" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.facultyDevelopmentProgrammes.${index}.organizedBy`} label="Organized by" disabled={!editable} />
-                                                    <DatePickerField form={form} name={`facultyContribution.facultyDevelopmentProgrammes.${index}.durationFrom`} label="Duration from" disabled={!editable} />
-                                                    <DatePickerField form={form} name={`facultyContribution.facultyDevelopmentProgrammes.${index}.durationTo`} label="Duration to" disabled={!editable} />
-                                                    <TextField form={form} name={`facultyContribution.facultyDevelopmentProgrammes.${index}.year`} label="AQAR year label" disabled={!editable} />
-                                                    <ProofUploadField form={form} name={`facultyContribution.facultyDevelopmentProgrammes.${index}.proof`} label="Proof document" facultyId={facultyId} disabled={!editable} />
-                                                </div>
-                                            </EntryCard>
-                                        ))}
-                                    </GroupedEntries>
-                                </div>
-                            </SectionCard>
-                        </div>
-                    ) : null}
-
-                    {currentStep === 6 ? (
-                        <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
-                            <SectionCard
-                                title="AQAR Review Summary"
-                                description="Review section counts, confirm missing areas, and prepare the final submission."
-                            >
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                    <MetricCard label="Research papers" value={String(liveMetrics.researchPaperCount)} />
-                                    <MetricCard label="Projects" value={String(liveMetrics.seedMoneyProjectCount)} />
-                                    <MetricCard label="Awards and fellows" value={String(liveMetrics.awardRecognitionCount + liveMetrics.fellowshipCount + liveMetrics.researchFellowCount)} />
-                                    <MetricCard label="Patents and PhD" value={String(liveMetrics.patentCount + liveMetrics.phdAwardCount)} />
-                                    <MetricCard label="Books and e-content" value={String(liveMetrics.bookChapterCount + liveMetrics.eContentCount)} />
-                                    <MetricCard label="Consultancy and FDP" value={String(liveMetrics.consultancyCount + liveMetrics.fdpCount)} />
-                                </div>
-                                <div className="rounded-2xl border border-border bg-muted/50 p-5">
-                                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Contribution index</p>
-                                    <p className="mt-2 text-3xl font-semibold text-foreground">{liveMetrics.totalContributionIndex}</p>
-                                    <p className="mt-2 text-sm text-muted-foreground">
-                                        Academic year {normalizedValues.academicYear} with reporting period from {formatDateLabel(normalizedValues.reportingPeriod.fromDate)} to {formatDateLabel(normalizedValues.reportingPeriod.toDate)}.
-                                    </p>
-                                </div>
-                            </SectionCard>
-
-                            <SectionCard
-                                title="Readiness Checks"
-                                description="Finish the review checklist before submitting this AQAR application."
-                            >
-                                <div className="space-y-4">
-                                    {summarySections.map((section) => (
-                                        <div key={section.label} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/50 px-4 py-3">
-                                            <div className="min-w-0">
-                                                <p className="text-sm font-medium text-foreground">{section.label}</p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {section.count ? `${section.count} records ready` : "No records added yet"}
-                                                </p>
-                                            </div>
-                                            <Badge className={section.count ? "bg-success-muted text-success-muted-foreground" : "bg-warning-muted text-warning-muted-foreground"}>
-                                                {section.count ? "Ready" : "Attention"}
-                                            </Badge>
-                                        </div>
-                                    ))}
-
-                                    {reviewWarnings.length ? (
-                                        <div className="rounded-2xl border border-warning-border bg-warning-muted p-4 text-sm text-warning-muted-foreground">
-                                            <p className="font-semibold">Incomplete sections detected</p>
-                                            <ul className="mt-2 list-disc pl-5">
-                                                {reviewWarnings.map((warning) => (
-                                                    <li key={warning.label}>{warning.label} has no records yet.</li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    ) : (
-                                        <div className="rounded-2xl border border-success-border bg-success-muted p-4 text-sm text-success-muted-foreground">
-                                            All major AQAR sections contain at least one record.
-                                        </div>
-                                    )}
-
-                                    <div className="rounded-2xl border border-border bg-card p-4">
-                                        <p className="text-sm font-semibold text-foreground">Submission checklist</p>
-                                        <div className="mt-4 space-y-4">
-                                            {reviewChecklistItems.map((item, index) => (
-                                                <label key={item} className="flex items-start gap-3 rounded-xl border border-border bg-muted/50 px-4 py-3">
-                                                    <Checkbox
-                                                        checked={reviewChecks[index]}
-                                                        onCheckedChange={(checked) =>
-                                                            setReviewChecks((current) =>
-                                                                current.map((value, currentIndex) =>
-                                                                    currentIndex === index ? Boolean(checked) : value
-                                                                )
-                                                            )
-                                                        }
-                                                        disabled={!editable || isPending}
-                                                    />
-                                                    <span className="text-sm text-foreground">{item}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-wrap gap-3">
-                                        {selectedId ? (
-                                            <Button asChild type="button" variant="outline">
-                                                <a href={`/api/aqar/${selectedId}/report`}>Download AQAR PDF</a>
-                                            </Button>
-                                        ) : null}
-                                        <Button
-                                            loading={isPending}
-                                            type="button"
-                                            onClick={submitApplication}
-                                            disabled={isPending || !selectedId || !reviewReady}
-                                        >
-                                            <CheckCircle2 className="h-4 w-4" aria-hidden />
-                                            Submit AQAR Application
-                                        </Button>
-                                    </div>
-                                </div>
-                            </SectionCard>
-                        </div>
-                    ) : null}
-                </div>
-            </section>
-        </div>
-    );
-}
-
-function AQARDataTables({
-    values,
-}: {
-    values: AqarResolvedValues;
-}) {
-    const sections = [
-        {
-            title: "Research Papers",
-            columns: ["Title", "Journal", "Year", "Proof"],
-            rows: values.facultyContribution.researchPapers.map((item) => [
-                item.paperTitle,
-                item.journalName,
-                String(item.publicationYear),
-                item.proof ? "Linked" : "-",
-            ]),
-        },
-        {
-            title: "Seed Money Projects",
-            columns: ["Project", "Funding Agency", "Award Year", "Funds"],
-            rows: values.facultyContribution.seedMoneyProjects.map((item) => [
-                item.schemeOrProjectTitle,
-                item.fundingAgencyName,
-                String(item.awardYear),
-                String(item.fundsInInr ?? 0),
-            ]),
-        },
-        {
-            title: "Awards and Recognition",
-            columns: ["Award", "Level", "Agency", "Proof"],
-            rows: values.facultyContribution.awardsRecognition.map((item) => [
-                item.awardName,
-                item.level,
-                item.awardAgencyName,
-                item.proof ? "Linked" : "-",
-            ]),
-        },
-        {
-            title: "Patents",
-            columns: ["Title", "Status", "Level", "Proof"],
-            rows: values.facultyContribution.patents.map((item) => [
-                item.title,
-                item.status,
-                item.level,
-                item.proof ? "Linked" : "-",
-            ]),
-        },
-        {
-            title: "Books and Chapters",
-            columns: ["Title", "Type", "Academic Year", "Proof"],
-            rows: values.facultyContribution.booksChapters.map((item) => [
-                item.titleOfWork,
-                item.type,
-                item.academicYear ?? "-",
-                item.proof ? "Linked" : "-",
-            ]),
-        },
-        {
-            title: "E-Content, Consultancy, Support, and FDP",
-            columns: ["Section", "Title", "Year", "Proof"],
-            rows: [
-                ...values.facultyContribution.eContentDeveloped.map((item) => [
-                    "E-content",
-                    item.moduleName,
-                    item.academicYear ?? "-",
-                    item.proof ? "Linked" : "-",
-                ]),
-                ...values.facultyContribution.consultancyServices.map((item) => [
-                    "Consultancy",
-                    item.consultancyProjectName,
-                    item.year ?? "-",
-                    item.proof ? "Linked" : "-",
-                ]),
-                ...values.facultyContribution.financialSupport.map((item) => [
-                    "Conference Support",
-                    item.conferenceName,
-                    item.year ?? "-",
-                    item.proof ? "Linked" : "-",
-                ]),
-                ...values.facultyContribution.facultyDevelopmentProgrammes.map((item) => [
-                    "FDP",
-                    item.programTitle,
-                    item.year ?? "-",
-                    item.proof ? "Linked" : "-",
-                ]),
-            ],
-        },
-    ].filter((section) => section.rows.length > 0);
-
-    if (!sections.length) {
+    if (!selectedId) {
         return (
-            <Card className="rounded-[1.5rem] border-border shadow-none">
-                <CardHeader>
-                    <CardTitle className="text-xl">Current AQAR data tables</CardTitle>
-                    <CardDescription>
-                        Selected-year faculty data will appear here in table form after autofill or manual entry.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="rounded-2xl border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
-                        No AQAR rows are loaded yet for the current academic year.
-                    </div>
-                </CardContent>
-            </Card>
-        );
-    }
-
-    return (
-        <Card className="rounded-[1.5rem] border-border shadow-none">
-            <CardHeader>
-                <CardTitle className="text-xl">Current AQAR data tables</CardTitle>
-                <CardDescription>
-                    Review the selected-year data in tables before editing section details below.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                {sections.map((section) => (
-                    <details key={section.title} className="rounded-2xl border border-border bg-muted/50 p-4" open>
-                        <summary className="cursor-pointer text-sm font-semibold text-foreground">
-                            {section.title} ({section.rows.length})
-                        </summary>
-                        <div className="mt-4">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        {section.columns.map((column) => (
-                                            <TableHead key={column}>{column}</TableHead>
-                                        ))}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {section.rows.map((row, index) => (
-                                        <TableRow key={`${section.title}-${index}`}>
-                                            {row.map((cell, cellIndex) => (
-                                                <TableCell key={`${section.title}-${index}-${cellIndex}`}>
-                                                    {cell}
-                                                </TableCell>
-                                            ))}
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </details>
-                ))}
-            </CardContent>
-        </Card>
-    );
-}
-
-function AQARProgressStepper({
-    currentStep,
-    visitedSteps,
-    errors,
-    onStepChange,
-}: {
-    currentStep: number;
-    visitedSteps: number[];
-    errors: FieldErrors<AqarFormValues>;
-    onStepChange: (step: number) => void;
-}) {
-    return (
-        <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
-            {steps.map((step, index) => {
-                const visited = visitedSteps.includes(index);
-                const hasErrors = visited && hasErrorsForPaths(errors, step.fields);
-                const active = index === currentStep;
-                const completed = visited && index < currentStep && !hasErrors;
-                const Icon = step.icon;
-
-                return (
-                    <button
+            <WorkspaceIndex
+                message={workspace.message}
+                listTitle="Your AQAR reports"
+                listDescription="One report per academic year, prefilled from your faculty profile."
+                listActions={
+                    <Button
                         type="button"
-                        key={step.id}
-                        onClick={() => onStepChange(index)}
-                        className={cn(
-                            "min-w-[210px] rounded-2xl border p-4 text-left transition-colors",
-                            active
-                                ? "border-border bg-primary text-primary-foreground"
-                                : completed
-                                  ? "border-success-border bg-success-muted text-success-muted-foreground"
-                                  : hasErrors
-                                    ? "border-destructive-border bg-destructive-muted text-destructive-muted-foreground"
-                                    : "border-border bg-muted/50 text-foreground hover:border-border hover:bg-card"
-                        )}
+                        loading={workspace.isPending}
+                        disabled={workspace.isPending}
+                        onClick={() => void handleCreate()}
                     >
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2">
-                                <span
-                                    className={cn(
-                                        "flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold",
-                                        active
-                                            ? "bg-primary-foreground/15 text-primary-foreground"
-                                            : completed
-                                              ? "bg-success-muted text-success-muted-foreground"
-                                              : hasErrors
-                                                ? "bg-destructive-muted text-destructive-muted-foreground"
-                                                : "bg-card text-foreground"
-                                    )}
-                                >
-                                    {index + 1}
-                                </span>
-                                <Icon className="h-4 w-4" />
-                            </div>
-                            <Badge
-                                className={cn(
-                                    active
-                                        ? "bg-primary-foreground/15 text-primary-foreground"
-                                        : completed
-                                          ? "bg-success-muted text-success-muted-foreground"
-                                          : hasErrors
-                                            ? "bg-destructive-muted text-destructive-muted-foreground"
-                                            : "bg-card text-foreground"
-                                )}
-                            >
-                                {active ? "Current" : completed ? "Done" : hasErrors ? "Fix" : "Open"}
-                            </Badge>
-                        </div>
-                        <p className="mt-4 font-semibold">{step.title}</p>
-                        <p className={cn("mt-1 text-sm", active ? "text-primary-foreground/80" : "text-current/75")}>
-                            {step.description}
-                        </p>
-                    </button>
-                );
-            })}
-        </div>
-    );
-}
-
-function AQARStatusTimeline({ logs }: { logs: AqarApp["statusLogs"] }) {
-    const sortedLogs = [...logs].sort(
-        (left, right) => new Date(right.changedAt).getTime() - new Date(left.changedAt).getTime()
-    );
-
-    if (!sortedLogs.length) {
-        return (
-            <div className="rounded-2xl border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
-                No AQAR workflow transitions recorded yet.
-            </div>
-        );
-    }
-
-    return (
-        <div className="grid gap-4">
-            {sortedLogs.map((log) => (
-                <div key={log._id ?? `${log.status}-${log.changedAt}`} className="rounded-2xl border border-border bg-muted/50 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                        <p className="min-w-0 font-semibold text-foreground">{log.status}</p>
-                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                            {formatTimestamp(log.changedAt)}
-                        </p>
+                        <Plus aria-hidden />
+                        Start AQAR draft
+                    </Button>
+                }
+                overview={
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <StatCard
+                            label="Reports"
+                            value={applications.length}
+                            helper="Drafts and submitted years"
+                            dense
+                            tone="info"
+                        />
+                        <StatCard
+                            label="Active year"
+                            value={activeYear?.label ?? "Not configured"}
+                            dense
+                            tone="accent"
+                        />
+                        <StatCard
+                            label="Records available"
+                            value={Object.values(prefillDefaults ?? {}).reduce(
+                                (total, value) => total + (Array.isArray(value) ? value.length : 0),
+                                0
+                            )}
+                            helper="In your profile for the active year"
+                            dense
+                            tone="success"
+                        />
                     </div>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                        {log.actorName ? `${log.actorName} (${log.actorRole ?? "User"})` : "System"}
-                    </p>
-                    {log.remarks ? <p className="mt-2 text-sm text-muted-foreground">{log.remarks}</p> : null}
-                </div>
-            ))}
-        </div>
-    );
-}
-
-function SectionCard({
-    title,
-    description,
-    children,
-}: {
-    title: string;
-    description: string;
-    children: ReactNode;
-}) {
-    return (
-        <Card className="rounded-[1.5rem] border-border shadow-none">
-            <CardHeader>
-                <CardTitle className="text-xl">{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-6">{children}</CardContent>
-        </Card>
-    );
-}
-
-function EntryCard({
-    title,
-    index,
-    onRemove,
-    children,
-    disabled,
-}: {
-    title: string;
-    index: number;
-    onRemove: () => void;
-    children: ReactNode;
-    disabled?: boolean;
-}) {
-    return (
-        <div className="rounded-[1.5rem] border border-border bg-muted/80 p-5">
-            <div className="mb-5 flex items-start justify-between gap-3">
-                <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Entry {index + 1}</p>
-                    <p className="mt-1 text-lg font-semibold text-foreground">{title}</p>
-                </div>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    onClick={onRemove}
-                    disabled={disabled}
-                    aria-label={`Delete ${title} entry ${index + 1}`}
-                >
-                    <Trash2 className="size-4" />
-                </Button>
-            </div>
-            {children}
-        </div>
-    );
-}
-
-function GroupedEntries({
-    title,
-    description,
-    hasItems,
-    emptyTitle,
-    emptyDescription,
-    emptyActionLabel,
-    onEmptyAction,
-    onAdd,
-    disabled,
-    children,
-}: {
-    title: string;
-    description: string;
-    hasItems: boolean;
-    emptyTitle: string;
-    emptyDescription: string;
-    emptyActionLabel: string;
-    onEmptyAction: () => void;
-    onAdd: () => void;
-    disabled?: boolean;
-    children: ReactNode;
-}) {
-    return (
-        <div className="grid gap-4">
-            <div>
-                <h3 className="text-lg font-semibold text-foreground">{title}</h3>
-                <p className="text-sm text-muted-foreground">{description}</p>
-            </div>
-            {hasItems ? children : (
-                <EmptyState
-                    title={emptyTitle}
-                    description={emptyDescription}
-                    actionLabel={emptyActionLabel}
-                    onAction={onEmptyAction}
-                    disabled={disabled}
-                />
-            )}
-            {hasItems ? (
-                <SectionAction onClick={onAdd} disabled={disabled}>
-                    {emptyActionLabel.replace("First ", "")}
-                </SectionAction>
-            ) : null}
-        </div>
-    );
-}
-
-function SectionAction({
-    children,
-    onClick,
-    disabled,
-}: {
-    children: ReactNode;
-    onClick: () => void;
-    disabled?: boolean;
-}) {
-    return (
-        <Button type="button" variant="outline" onClick={onClick} disabled={disabled}>
-            <Plus className="h-4 w-4" />
-            {children}
-        </Button>
-    );
-}
-
-function EmptyState({
-    title,
-    description,
-    actionLabel,
-    onAction,
-    disabled,
-}: {
-    title: string;
-    description: string;
-    actionLabel: string;
-    onAction?: () => void;
-    disabled?: boolean;
-}) {
-    return (
-        <div className="rounded-[1.5rem] border border-dashed border-border bg-muted/50 p-6">
-            <div className="max-w-xl space-y-2">
-                <p className="text-lg font-semibold text-foreground">{title}</p>
-                <p className="text-sm text-muted-foreground">{description}</p>
-            </div>
-            {onAction ? (
-                <Button type="button" variant="outline" className="mt-4" onClick={onAction} disabled={disabled}>
-                    <Plus className="h-4 w-4" />
-                    {actionLabel}
-                </Button>
-            ) : null}
-        </div>
-    );
-}
-
-function FieldShell({
-    label,
-    error,
-    children,
-}: {
-    label: string;
-    error?: string;
-    children: ReactNode;
-}) {
-    return (
-        <div className="grid gap-2">
-            <Label className="text-sm font-medium text-foreground">{label}</Label>
-            {children}
-            {error ? <p className="text-xs text-destructive">{error}</p> : null}
-        </div>
-    );
-}
-
-function TextField({
-    form,
-    name,
-    label,
-    placeholder,
-    type = "text",
-    disabled,
-    registerOptions,
-}: {
-    form: AqarFormApi;
-    name: string;
-    label: string;
-    placeholder?: string;
-    type?: React.ComponentProps<typeof Input>["type"];
-    disabled?: boolean;
-    registerOptions?: Record<string, unknown>;
-}) {
-    return (
-        <FieldShell label={label} error={getErrorMessage(form.formState.errors, name)}>
-            <Input
-                type={type}
-                placeholder={placeholder}
-                disabled={disabled}
-                {...form.register(name as never, registerOptions)}
-            />
-        </FieldShell>
-    );
-}
-
-function SelectField({
-    form,
-    name,
-    label,
-    options,
-    placeholder = "Select an option",
-    disabled,
-    onValueChange,
-}: {
-    form: AqarFormApi;
-    name: string;
-    label: string;
-    options: Option[];
-    placeholder?: string;
-    disabled?: boolean;
-    onValueChange?: (value: string) => void;
-}) {
-    return (
-        <FieldShell label={label} error={getErrorMessage(form.formState.errors, name)}>
-            <Controller
-                control={form.control}
-                name={name as never}
-                render={({ field }) => (
-                    <Select
-                        value={field.value ?? ""}
-                        onValueChange={(value) => {
-                            field.onChange(value);
-                            onValueChange?.(value);
-                        }}
-                        disabled={disabled}
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder={placeholder} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {options.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                    {option.label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                )}
-            />
-        </FieldShell>
-    );
-}
-
-function DatePickerField({
-    form,
-    name,
-    label,
-    disabled,
-}: {
-    form: AqarFormApi;
-    name: string;
-    label: string;
-    disabled?: boolean;
-}) {
-    return (
-        <FieldShell label={label} error={getErrorMessage(form.formState.errors, name)}>
-            <Controller
-                control={form.control}
-                name={name as never}
-                render={({ field }) => (
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className={cn(
-                                    "h-10 justify-start px-3 text-left font-normal",
-                                    !field.value && "text-muted-foreground"
+                }
+            >
+                {applications.length ? (
+                    <RecordGrid>
+                        {applications.map((application) => (
+                            <RecordCard
+                                key={application._id}
+                                title={application.academicYear}
+                                subtitle={formatDateRange(
+                                    application.reportingPeriod.fromDate,
+                                    application.reportingPeriod.toDate
                                 )}
-                                disabled={disabled}
-                            >
-                                <CalendarClock className="mr-2 h-4 w-4" />
-                                {formatDateLabel(field.value)}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent align="start" className="w-auto p-0">
-                            <Calendar
-                                mode="single"
-                                selected={parseDateValue(field.value)}
-                                onSelect={(date) => field.onChange(toDateInputValue(date))}
-                                initialFocus
+                                status={application.status}
+                                openLabel={`Open the ${application.academicYear} AQAR report`}
+                                openHint={
+                                    EDITABLE_STATUSES.includes(application.status)
+                                        ? "Continue editing"
+                                        : "View report"
+                                }
+                                onOpen={() => workspace.select(application._id)}
+                                meta={[
+                                    {
+                                        label: "Contribution index",
+                                        value: application.metrics.totalContributionIndex,
+                                    },
+                                    {
+                                        label: "Last activity",
+                                        value: formatTimestamp(getLastActivity(application)),
+                                    },
+                                ]}
+                                actions={
+                                    EDITABLE_STATUSES.includes(application.status) ? (
+                                        <ConfirmButton
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                            loading={workspace.isPending}
+                                            onConfirm={() => void workspace.remove(application._id)}
+                                            title="Delete this AQAR draft?"
+                                            description={`The ${application.academicYear} draft and its contributions will be removed permanently.`}
+                                            aria-label={`Delete the ${application.academicYear} AQAR draft`}
+                                        >
+                                            <Trash2 className="size-4" aria-hidden />
+                                        </ConfirmButton>
+                                    ) : null
+                                }
                             />
-                        </PopoverContent>
-                    </Popover>
-                )}
-            />
-        </FieldShell>
-    );
-}
-
-function ProofUploadField({
-    form,
-    name,
-    label,
-    facultyId,
-    disabled,
-}: {
-    form: AqarFormApi;
-    name: string;
-    label: string;
-    facultyId: string;
-    disabled?: boolean;
-}) {
-    return (
-        <FieldShell label={label} error={getErrorMessage(form.formState.errors, name) ?? undefined}>
-            <Controller
-                control={form.control}
-                name={name as never}
-                render={({ field }) => (
-                    <InlineUpload
-                        category="evidence"
-                        ownerId={facultyId}
-                        mode="url"
-                        value={typeof field.value === "string" && field.value ? field.value : null}
-                        onChange={(val) => field.onChange(typeof val === "string" ? val : (val as { fileUrl?: string } | null)?.fileUrl ?? "")}
-                        disabled={disabled}
-                        placeholder="Upload proof"
+                        ))}
+                    </RecordGrid>
+                ) : (
+                    <EmptyState
+                        bordered
+                        title="No AQAR reports yet"
+                        description={`Start a draft, ${facultyName} — your research, awards, patents, and outreach records are pulled in from your profile automatically.`}
+                        action={
+                            <Button type="button" loading={workspace.isPending} onClick={() => void handleCreate()}>
+                                <Plus aria-hidden />
+                                Start AQAR draft
+                            </Button>
+                        }
                     />
                 )}
-            />
-        </FieldShell>
-    );
-}
+            </WorkspaceIndex>
+        );
+    }
 
-function DashboardStat({
-    label,
-    value,
-    detail,
-}: {
-    label: string;
-    value: string;
-    detail: string;
-}) {
+    // --- detail view --------------------------------------------------------
+
+    const step = aqarSteps[currentIndex];
+
+    const rail = (
+        <>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base">Report</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <DetailList
+                        columns={1}
+                        items={[
+                            { label: "Academic year", value: selected?.academicYear },
+                            {
+                                label: "Reporting period",
+                                value: formatDateRange(
+                                    selected?.reportingPeriod.fromDate,
+                                    selected?.reportingPeriod.toDate
+                                ),
+                            },
+                            { label: "Contribution index", value: liveMetrics.totalContributionIndex },
+                            { label: "Last activity", value: formatTimestamp(selected ? getLastActivity(selected) : undefined) },
+                        ]}
+                    />
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base">Status timeline</CardTitle>
+                    <CardDescription>Every AQAR workflow transition.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <StatusTimeline
+                        entries={selected?.statusLogs ?? []}
+                        emptyTitle="Not submitted yet"
+                        emptyDescription="Workflow activity appears here after you submit."
+                    />
+                </CardContent>
+            </Card>
+        </>
+    );
+
     return (
-        <div className="rounded-2xl border border-border bg-card/90 p-4 shadow-sm">
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-            <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
-        </div>
-    );
-}
+        <WorkspaceDetail
+            onBack={() => workspace.select(null)}
+            backLabel="All reports"
+            title={selected?.academicYear ?? "AQAR report"}
+            subtitle={`Contribution index ${liveMetrics.totalContributionIndex}`}
+            status={selected?.status}
+            message={workspace.message}
+            rail={rail}
+            railTitle="Report details"
+            headerAside={
+                editable ? <AutosaveIndicator status={autosave.status} error={autosave.error} /> : null
+            }
+        >
+            {!editable ? (
+                <InlineAlert tone="info" title="This report is read-only">
+                    It is {selected?.status.toLowerCase()} and cannot be edited until it returns to Draft or is
+                    rejected.
+                </InlineAlert>
+            ) : null}
 
-function SummaryTile({
-    label,
-    value,
-}: {
-    label: string;
-    value: string;
-}) {
-    return (
-        <div className="rounded-2xl border border-border bg-muted/50 p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-            <p className="mt-2 text-sm font-medium text-foreground">{value}</p>
-        </div>
-    );
-}
+            {selected?.status === "Rejected" ? (
+                <InlineAlert tone="danger" title="Resubmission required">
+                    Check the reviewer remarks in the status timeline, make the corrections, then submit again.
+                </InlineAlert>
+            ) : null}
 
-function SummaryChip({
-    label,
-    value,
-    inverse,
-}: {
-    label: string;
-    value: string;
-    inverse?: boolean;
-}) {
-    return (
-        <div className={cn("rounded-xl border px-3 py-2", inverse ? "border-border/15 bg-card/10" : "border-border bg-card")}>
-            <p className={cn("text-[11px] uppercase tracking-[0.16em]", inverse ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                {label}
-            </p>
-            <p className={cn("mt-1 text-sm font-medium", inverse ? "text-primary-foreground" : "text-foreground")}>{value}</p>
-        </div>
-    );
-}
+            <Form {...form}>
+                <Wizard
+                    steps={aqarSteps}
+                    currentIndex={currentIndex}
+                    visitedSteps={visitedSteps}
+                    onStepChange={(index) => void handleStepChange(index)}
+                    hasErrors={stepHasErrors}
+                    finalAction={
+                        <Button
+                            type="button"
+                            size="sm"
+                            loading={workspace.isPending}
+                            disabled={workspace.isPending || !editable || !reviewReady}
+                            title={reviewReady ? undefined : "Complete the submission checklist first"}
+                            onClick={() => void handleSubmit()}
+                        >
+                            <CheckCircle2 aria-hidden />
+                            Submit report
+                        </Button>
+                    }
+                >
+                    {step?.id === "overview" ? (
+                        <AqarStepOverview
+                            yearOptions={yearOptions}
+                            editable={editable}
+                            prefillYear={prefillYear}
+                            isPrefillLoading={isPrefillLoading}
+                            onReloadPrefill={(year) => void loadYearPrefill(year)}
+                        />
+                    ) : null}
 
-function MetricCard({ label, value }: { label: string; value: string }) {
-    return <StatTile label={label} value={value} />;
+                    {step && step.sections.length ? (
+                        <div className="space-y-8">
+                            {step.sections.map((key) => (
+                                <RepeatableSection
+                                    key={key}
+                                    config={aqarSections[key]}
+                                    disabled={!editable}
+                                    ownerId={facultyId}
+                                />
+                            ))}
+                        </div>
+                    ) : null}
+
+                    {step?.id === "review" ? (
+                        <div className="space-y-6">
+                            <AqarStepReview
+                                metrics={liveMetrics}
+                                readiness={readiness}
+                                academicYear={watchedYear}
+                                reportingPeriod={{
+                                    fromDate: watched.reportingPeriod?.fromDate,
+                                    toDate: watched.reportingPeriod?.toDate,
+                                }}
+                                checks={checks}
+                                onCheckChange={(index, value) =>
+                                    setChecks((current) =>
+                                        current.map((item, itemIndex) => (itemIndex === index ? value : item))
+                                    )
+                                }
+                                onJumpToStep={(stepId) => {
+                                    const target = aqarSteps.findIndex((item) => item.id === stepId);
+                                    if (target >= 0) goToStep(target);
+                                }}
+                                editable={editable}
+                                selectedId={selectedId}
+                            />
+                            <AqarContributionTables contribution={contribution} />
+                        </div>
+                    ) : null}
+                </Wizard>
+            </Form>
+        </WorkspaceDetail>
+    );
 }

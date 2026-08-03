@@ -1,49 +1,22 @@
 "use client";
 
-import { useDeferredValue, useMemo, useState, useTransition } from "react";
+import { PbasIndicatorModeration } from "@/components/pbas/pbas-indicator-moderation";
+import { ReviewBoard, type ReviewMode, type ReviewRecord } from "@/components/workspace/review-board";
 
-import { FormMessage, Spinner } from "@/components/auth/auth-helpers";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { StatTile } from "@/components/ui/stat-card";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { X } from "lucide-react";
+/**
+ * PBAS approval queue.
+ *
+ * Was the same 212-line skeleton as the AQAR and CAS boards, plus ~180 lines of
+ * indicator moderation and the five `Record<string, …>` state maps that panel
+ * needed. The skeleton is now `components/workspace/review-board.tsx` and the
+ * panel is `PbasIndicatorModeration`, which owns its own state because it mounts
+ * per expanded row.
+ */
 
-type PbasReviewApplication = {
-    _id: string;
+type PbasReviewApplication = ReviewRecord & {
     academicYear: string;
     currentDesignation: string;
-    status: string;
     apiScore: { totalScore: number };
-    facultyName?: string;
-    permissions?: {
-        canReview: boolean;
-        canApprove: boolean;
-        canReject: boolean;
-        canOverride: boolean;
-    };
-};
-
-type IndicatorEntry = {
-    indicatorId: string;
-    indicatorCode: string;
-    indicatorName: string;
-    category?: { id?: string; code?: string; name?: string; maxScore?: number };
-    maxScore: number;
-    claimedScore: number;
-    approvedScore?: number;
-    remarks?: string;
 };
 
 export function PbasReviewBoard({
@@ -51,342 +24,35 @@ export function PbasReviewBoard({
     mode,
 }: {
     applications: PbasReviewApplication[];
-    mode: "review" | "approve" | "scoped";
+    mode: ReviewMode;
 }) {
-    const [items, setItems] = useState(applications);
-    const [search, setSearch] = useState("");
-    const deferredSearch = useDeferredValue(search);
-    const [activeTab, setActiveTab] = useState<"actionable" | "history" | "all">(
-        mode === "scoped" ? "actionable" : "all"
-    );
-    const [notes, setNotes] = useState<Record<string, string>>({});
-    const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-    const [entryMessage, setEntryMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-    const [activeApplicationId, setActiveApplicationId] = useState<string | null>(null);
-    const [entriesByApplication, setEntriesByApplication] = useState<Record<string, IndicatorEntry[]>>({});
-    const [isEntryLoading, setIsEntryLoading] = useState<Record<string, boolean>>({});
-    const [isEntrySaving, setIsEntrySaving] = useState<Record<string, boolean>>({});
-    const [isPending, startTransition] = useTransition();
-
-    const filteredItems = useMemo(() => {
-        const query = deferredSearch.trim().toLowerCase();
-
-        return items.filter((application) => {
-            const canAct = Boolean(application.permissions?.canReview || application.permissions?.canApprove);
-            if (activeTab === "actionable" && !canAct) {
-                return false;
-            }
-
-            if (activeTab === "history" && canAct) {
-                return false;
-            }
-
-            if (!query) {
-                return true;
-            }
-
-            return [
-                application.facultyName,
-                application.currentDesignation,
-                application.academicYear,
-                application.status,
-            ]
-                .filter(Boolean)
-                .some((value) => String(value).toLowerCase().includes(query));
-        });
-    }, [activeTab, deferredSearch, items]);
-
-    const actionableCount = items.filter((item) => item.permissions?.canReview || item.permissions?.canApprove).length;
-    const historyCount = Math.max(items.length - actionableCount, 0);
-
-    function act(applicationId: string, decision: string) {
-        setMessage(null);
-
-        startTransition(async () => {
-            const application = items.find((item) => item._id === applicationId);
-            const scopedMode =
-                application?.permissions?.canApprove ? "approve" : application?.permissions?.canReview ? "review" : null;
-            const effectiveMode = mode === "scoped" ? scopedMode : mode;
-
-            if (!effectiveMode) {
-                setMessage({ type: "error", text: "You cannot act on this PBAS record at the current stage." });
-                return;
-            }
-
-            const endpoint =
-                effectiveMode === "review" ? `/api/pbas/${applicationId}/review` : `/api/pbas/${applicationId}/approve`;
-            const response = await fetch(endpoint, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    decision,
-                    remarks: notes[applicationId] ?? "Reviewed in PBAS board.",
-                }),
-            });
-
-            const data = (await response.json()) as { message?: string; application?: PbasReviewApplication };
-
-            if (!response.ok || !data.application) {
-                setMessage({ type: "error", text: data.message ?? "Unable to process PBAS review." });
-                return;
-            }
-
-            setItems((current) => current.map((item) => (item._id === applicationId ? data.application! : item)));
-            setMessage({ type: "success", text: data.message ?? "PBAS workflow updated." });
-        });
-    }
-
-    function updateEntryValue(applicationId: string, indicatorId: string, value: number) {
-        setEntriesByApplication((current) => ({
-            ...current,
-            [applicationId]: (current[applicationId] ?? []).map((entry) =>
-                entry.indicatorId === indicatorId
-                    ? { ...entry, approvedScore: Number.isFinite(value) ? value : 0 }
-                    : entry
-            ),
-        }));
-    }
-
-    function loadEntries(applicationId: string) {
-        setEntryMessage(null);
-        setIsEntryLoading((current) => ({ ...current, [applicationId]: true }));
-
-        fetch(`/api/pbas/${applicationId}/entries`)
-            .then((response) => response.json())
-            .then((data) => {
-                const items = (data?.entries?.items as IndicatorEntry[] | undefined) ?? [];
-                setEntriesByApplication((current) => ({ ...current, [applicationId]: items }));
-            })
-            .catch(() => {
-                setEntryMessage({ type: "error", text: "Unable to load PBAS indicator entries." });
-            })
-            .finally(() => {
-                setIsEntryLoading((current) => ({ ...current, [applicationId]: false }));
-            });
-    }
-
-    function toggleIndicatorPanel(applicationId: string) {
-        const next = activeApplicationId === applicationId ? null : applicationId;
-        setActiveApplicationId(next);
-
-        if (next && !entriesByApplication[applicationId]) {
-            loadEntries(applicationId);
-        }
-    }
-
-    function saveApprovedScores(applicationId: string) {
-        const entries = entriesByApplication[applicationId] ?? [];
-        if (!entries.length) {
-            setEntryMessage({ type: "error", text: "No indicator rows available to save." });
-            return;
-        }
-
-        setEntryMessage(null);
-        setIsEntrySaving((current) => ({ ...current, [applicationId]: true }));
-
-        fetch(`/api/pbas/${applicationId}/entries/moderate`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                updates: entries.map((entry) => ({
-                    indicatorId: entry.indicatorId,
-                    approvedScore: entry.approvedScore ?? entry.claimedScore,
-                    remarks: entry.remarks,
-                })),
-            }),
-        })
-            .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
-            .then(({ ok, data }) => {
-                if (!ok || !data?.entries?.items) {
-                    throw new Error(data?.message ?? "Unable to save approved scores.");
-                }
-
-                setEntriesByApplication((current) => ({
-                    ...current,
-                    [applicationId]: data.entries.items as IndicatorEntry[],
-                }));
-                setEntryMessage({ type: "success", text: data.message ?? "Approved scores updated." });
-            })
-            .catch((error) => {
-                setEntryMessage({
-                    type: "error",
-                    text: error instanceof Error ? error.message : "Unable to save approved scores.",
-                });
-            })
-            .finally(() => {
-                setIsEntrySaving((current) => ({ ...current, [applicationId]: false }));
-            });
-    }
-
     return (
-        <div className="space-y-6">
-            {message ? <FormMessage message={message.text} type={message.type} /> : null}
-            {entryMessage ? <FormMessage message={entryMessage.text} type={entryMessage.type} /> : null}
-            <Card>
-                <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
-                    <div>
-                        <CardTitle>PBAS record browser</CardTitle>
-                        <CardDescription>
-                            Separate current approvals from read-only history while staying inside your authorized scope.
-                        </CardDescription>
-                    </div>
-                    <div className="w-full max-w-sm">
-                        <Input
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Search faculty, designation, year, or status"
-                        />
-                    </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "actionable" | "history" | "all")}>
-                        <TabsList>
-                            <TabsTrigger value="actionable">Actionable</TabsTrigger>
-                            <TabsTrigger value="history">History</TabsTrigger>
-                            <TabsTrigger value="all">All</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-                    <div className="flex flex-wrap gap-2">
-                        <Badge variant="secondary">{actionableCount} actionable</Badge>
-                        <Badge variant="secondary">{historyCount} history</Badge>
-                        <Badge variant="secondary">{items.length} total</Badge>
-                    </div>
-                </CardContent>
-            </Card>
-            {filteredItems.length ? (
-                filteredItems.map((application) => (
-                    <Card key={application._id}>
-                        <CardHeader>
-                            <CardTitle>{application.facultyName ?? "Faculty PBAS Application"}</CardTitle>
-                            <CardDescription>
-                                {application.currentDesignation} | {application.academicYear} | {application.status}
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="grid gap-4">
-                            <div className="grid gap-3 md:grid-cols-3">
-                                <StatTile label="API Score" value={String(application.apiScore.totalScore)} />
-                                <StatTile label="Academic Year" value={application.academicYear} />
-                                <StatTile label="Status" value={application.status} />
-                            </div>
-                            <Textarea
-                                placeholder={
-                                    mode === "approve"
-                                        ? "Add principal approval remarks"
-                                        : "Add workflow remarks"
-                                }
-                                value={notes[application._id] ?? ""}
-                                onChange={(event) => setNotes((current) => ({ ...current, [application._id]: event.target.value }))}
-                            />
-                            <div className="flex flex-wrap gap-3">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => toggleIndicatorPanel(application._id)}
-                                >
-                                    {activeApplicationId === application._id ? "Hide Indicator Scores" : "Manage Indicator Scores"}
-                                </Button>
-                                {(mode === "review" || (mode === "scoped" && application.permissions?.canReview)) ? (
-                                    <>
-                                        <Button
-                                            loading={isPending}
-                                            disabled={isPending}
-                                            onClick={() => act(application._id, application.status === "Submitted" ? "Forward" : "Recommend")}
-                                        >
-                                            {application.status === "Submitted" ? "Move To Under Review" : "Move To Committee Review"}
-                                        </Button>
-                                        <Button loading={isPending} disabled={isPending} variant="secondary" onClick={() => act(application._id, "Reject")}>
-                                            <X aria-hidden />
-                                            Reject
-                                        </Button>
-                                    </>
-                                ) : mode === "approve" || (mode === "scoped" && application.permissions?.canApprove) ? (
-                                    <>
-                                        <Button loading={isPending} disabled={isPending} onClick={() => act(application._id, "Approve")}>
-                                            Final Approve
-                                        </Button>
-                                        <Button loading={isPending} disabled={isPending} variant="secondary" onClick={() => act(application._id, "Reject")}>
-                                            <X aria-hidden />
-                                            Final Reject
-                                        </Button>
-                                    </>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">
-                                        Read-only in your current governance scope.
-                                    </p>
-                                )}
-                            </div>
-
-                            {activeApplicationId === application._id ? (
-                                <div className="rounded-lg border border-border bg-muted/50 p-4">
-                                    {isEntryLoading[application._id] ? (
-                                        <p className="text-sm text-muted-foreground">Loading indicator entries...</p>
-                                    ) : (entriesByApplication[application._id] ?? []).length ? (
-                                        <>
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>Indicator</TableHead>
-                                                        <TableHead className="text-right">Claimed</TableHead>
-                                                        <TableHead className="text-right">Approved</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {(entriesByApplication[application._id] ?? []).map((entry) => (
-                                                        <TableRow key={entry.indicatorId}>
-                                                            <TableCell className="align-top whitespace-normal">
-                                                                <p className="font-medium text-foreground">{entry.indicatorName}</p>
-                                                                <p className="text-xs text-muted-foreground">{entry.indicatorCode} • Max {entry.maxScore}</p>
-                                                            </TableCell>
-                                                            <TableCell className="text-right align-top text-foreground">{entry.claimedScore}</TableCell>
-                                                            <TableCell className="text-right align-top">
-                                                                <Input
-                                                                    type="number"
-                                                                    min={0}
-                                                                    max={entry.maxScore}
-                                                                    step="0.1"
-                                                                    value={entry.approvedScore ?? entry.claimedScore}
-                                                                    onChange={(event) =>
-                                                                        updateEntryValue(
-                                                                            application._id,
-                                                                            entry.indicatorId,
-                                                                            Number(event.target.value)
-                                                                        )
-                                                                    }
-                                                                    className="w-24 text-right"
-                                                                />
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                            <div className="mt-3 flex justify-end">
-                                                <Button
-                                                    type="button"
-                                                    onClick={() => saveApprovedScores(application._id)}
-                                                    disabled={Boolean(isEntrySaving[application._id])}
-                                                >
-                                                    {isEntrySaving[application._id] ? <Spinner /> : null}
-                                                    Save Approved Scores
-                                                </Button>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <p className="text-sm text-muted-foreground">No indicator entries available for this PBAS form.</p>
-                                    )}
-                                </div>
-                            ) : null}
-                        </CardContent>
-                    </Card>
-                ))
-            ) : (
-                <Card>
-                    <CardContent className="p-6 text-sm text-muted-foreground">
-                        {items.length
-                            ? "No PBAS records matched the current filters."
-                            : "No PBAS records are available in your current governance scope."}
-                    </CardContent>
-                </Card>
-            )}
-        </div>
+        <ReviewBoard<PbasReviewApplication>
+            records={applications}
+            mode={mode}
+            config={{
+                noun: "PBAS",
+                endpointBase: "/api/pbas",
+                description:
+                    "Annual appraisals awaiting a decision, alongside read-only scoped history.",
+                searchPlaceholder: "Faculty, designation, year, or status",
+                searchValues: (record) => [
+                    record.facultyName,
+                    record.currentDesignation,
+                    record.academicYear,
+                    record.status,
+                ],
+                cardTitle: (record) => record.facultyName ?? "Faculty PBAS appraisal",
+                cardSubtitle: (record) => `${record.currentDesignation} · ${record.academicYear}`,
+                stats: (record) => [
+                    { label: "Total API", value: record.apiScore.totalScore },
+                    { label: "Academic year", value: record.academicYear },
+                ],
+                expansion: {
+                    label: "Moderate indicator scores",
+                    render: (record) => <PbasIndicatorModeration applicationId={record._id} />,
+                },
+            }}
+        />
     );
 }

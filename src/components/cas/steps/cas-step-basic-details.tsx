@@ -1,116 +1,83 @@
 "use client";
 
-import { Controller } from "react-hook-form";
+import { ArrowRight } from "lucide-react";
+import { useFormContext } from "react-hook-form";
 
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FieldGrid, RhfSelectField } from "@/components/forms/rhf-fields";
+import { SectionHeader } from "@/components/ui/page-header";
 import { designationOptions } from "@/lib/faculty/options";
-import type { CasDesignationProfile, CasForm, CasPromotionTargets } from "@/components/cas/cas-types";
+import type { CasDesignationProfile, CasPromotionTargets } from "@/components/cas/cas-types";
 
 export function CasStepBasicDetails({
-    form,
     canEdit,
     applicationYearOptions,
     designationProfile,
     allowedPromotionTargets,
 }: {
-    form: CasForm;
     canEdit: boolean;
     applicationYearOptions: Array<{ id: string; label: string; isActive?: boolean }>;
     designationProfile: CasDesignationProfile;
     allowedPromotionTargets: CasPromotionTargets;
 }) {
-    return (
-        <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <Field label="Application Year">
-                    <Controller
-                        control={form.control}
-                        name="applicationYearId"
-                        render={({ field }) => (
-                            <Select
-                                value={field.value || undefined}
-                                onValueChange={(value) => {
-                                    field.onChange(value);
-                                    const matchingOption = applicationYearOptions.find((option) => option.id === value);
-                                    form.setValue("applicationYear", matchingOption?.label ?? "", {
-                                        shouldDirty: true,
-                                        shouldValidate: true,
-                                    });
-                                }}
-                                disabled={!canEdit}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select application year" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {applicationYearOptions.map((option) => (
-                                        <SelectItem key={option.id} value={option.id}>
-                                            {option.label}{option.isActive ? " (Active)" : ""}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-                    />
-                </Field>
-                <Field label="Current Designation">
-                    <Controller
-                        control={form.control}
-                        name="currentDesignation"
-                        render={({ field }) => (
-                            <Select value={field.value || undefined} onValueChange={field.onChange} disabled={!canEdit}>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select designation" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {designationOptions.map((option) => (
-                                        <SelectItem key={option} value={option}>
-                                            {option}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-                    />
-                </Field>
-                <Field label="Applying For">
-                    <Controller
-                        control={form.control}
-                        name="applyingForDesignation"
-                        render={({ field }) => (
-                            <Select value={field.value || undefined} onValueChange={field.onChange} disabled={!canEdit}>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select designation" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {allowedPromotionTargets.map((option) => (
-                                        <SelectItem key={option} value={option}>
-                                            {option}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-                    />
-                </Field>
-            </div>
-            <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
-                <p className="font-semibold text-foreground">{designationProfile.label}</p>
-                <p className="mt-1">{designationProfile.casFocus}</p>
-                <p className="mt-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                    Allowed promotion path: {allowedPromotionTargets.join(" / ")}
-                </p>
-            </div>
-        </div>
-    );
-}
+    const form = useFormContext();
+    const current = String(form.watch("currentDesignation") ?? "");
+    const target = String(form.watch("applyingForDesignation") ?? "");
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
-        <div className="grid gap-2">
-            <Label>{label}</Label>
-            {children}
+        <div className="space-y-6">
+            <SectionHeader
+                title="Basic details"
+                description="The year you are applying in, and the promotion you are applying for."
+            />
+
+            <FieldGrid>
+                <RhfSelectField
+                    name="applicationYearId"
+                    label="Application year"
+                    placeholder="Select application year"
+                    disabled={!canEdit}
+                    options={applicationYearOptions.map((option) => ({
+                        value: option.id,
+                        label: option.isActive ? `${option.label} (Active)` : option.label,
+                    }))}
+                    onValueChange={(value) => {
+                        // Keep the stored label in step with the selected id.
+                        const match = applicationYearOptions.find((option) => option.id === value);
+                        form.setValue("applicationYear", match?.label ?? "", {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                        });
+                    }}
+                />
+                <RhfSelectField
+                    name="currentDesignation"
+                    label="Current designation"
+                    placeholder="Select designation"
+                    disabled={!canEdit}
+                    options={designationOptions.map((option) => ({ value: option, label: option }))}
+                />
+                <RhfSelectField
+                    name="applyingForDesignation"
+                    label="Applying for"
+                    placeholder="Select designation"
+                    disabled={!canEdit}
+                    description="Limited to the paths permitted from your current stage."
+                    options={allowedPromotionTargets.map((option) => ({ value: option, label: option }))}
+                />
+            </FieldGrid>
+
+            <div className="rounded-lg border bg-card p-4">
+                <p className="text-sm font-semibold text-foreground">{designationProfile.label}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{designationProfile.casFocus}</p>
+
+                {current && target ? (
+                    <p className="mt-3 flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
+                        {current}
+                        <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                        {target}
+                    </p>
+                ) : null}
+            </div>
         </div>
     );
 }

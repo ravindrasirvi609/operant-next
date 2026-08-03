@@ -1,128 +1,111 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { Controller, type UseFormReturn } from "react-hook-form";
+import Link from "next/link";
+import { useFormContext } from "react-hook-form";
 
+import { RhfDateField, RhfSelectField, RhfTextField, FieldGrid } from "@/components/forms/rhf-fields";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getDesignationProfile } from "@/lib/faculty/options";
-import type { PbasFormValues } from "@/components/pbas/pbas-types";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { SectionHeader } from "@/components/ui/page-header";
+import type { getDesignationProfile } from "@/lib/faculty/options";
 
 type DesignationProfile = ReturnType<typeof getDesignationProfile>;
 
+/**
+ * Emphasis chips per designation, keyed off `designationProfile.key`.
+ *
+ * The original inlined four separate `{key === "..." ? <>…</> : null}` blocks
+ * (pbas-step-details.tsx:91-114) holding eight hand-written `<span>` pills. As
+ * data it is one map and one loop, and adding a designation stops meaning adding
+ * another conditional branch.
+ */
+const DESIGNATION_EMPHASIS: Record<string, string[]> = {
+    early_assistant: ["Teaching-heavy visibility", "Research growth"],
+    advanced_assistant: ["Balanced teaching and research", "Institutional contribution visible"],
+    associate: ["Research-first visibility", "Leadership contribution visible"],
+    professor: ["Leadership-first visibility", "Mentoring and stewardship"],
+};
+
 export function PbasStepDetails({
-    form,
     academicYearOptions,
     canEdit,
     designationProfile,
     designationBadgeLabel,
 }: {
-    form: UseFormReturn<PbasFormValues>;
     academicYearOptions: Array<{ id: string; label: string; isActive: boolean }>;
     canEdit: boolean;
     designationProfile: DesignationProfile;
     designationBadgeLabel: string;
 }) {
+    const form = useFormContext();
+    const emphasis = DESIGNATION_EMPHASIS[designationProfile.key] ?? [];
+
     return (
         <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <Field label="Academic Year">
-                    <Controller
-                        control={form.control}
-                        name="academicYearId"
-                        render={({ field }) => (
-                            <Select
-                                value={field.value || undefined}
-                                onValueChange={(value) => {
-                                    field.onChange(value);
-                                    const matchingOption = academicYearOptions.find((option) => option.id === value);
-                                    form.setValue("academicYear", matchingOption?.label ?? "", {
-                                        shouldDirty: true,
-                                        shouldValidate: true,
-                                    });
-                                }}
-                                disabled={!canEdit}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select academic year" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {academicYearOptions.map((option) => (
-                                        <SelectItem key={option.id} value={option.id}>
-                                            {option.label}{option.isActive ? " (Active)" : ""}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-                    />
-                </Field>
-                <Field label="Current Designation">
-                    <Input
-                        {...form.register("currentDesignation")}
-                        disabled
-                        readOnly
-                    />
-                </Field>
-                <Field label="Appraisal From">
-                    <Input type="date" {...form.register("appraisalPeriod.fromDate")} disabled={!canEdit} />
-                </Field>
-                <Field label="Appraisal To">
-                    <Input type="date" {...form.register("appraisalPeriod.toDate")} disabled={!canEdit} />
-                </Field>
-            </div>
+            <SectionHeader
+                title="Application details"
+                description="The academic year and appraisal window this PBAS report covers."
+            />
 
-            <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
-                PBAS scores are derived from faculty teaching, research, and institutional records. Update the source data in{" "}
-                <a className="font-semibold text-foreground hover:underline" href="/faculty/profile">
-                    Faculty Workspace
-                </a>
+            <FieldGrid>
+                <RhfSelectField
+                    name="academicYearId"
+                    label="Academic year"
+                    placeholder="Select academic year"
+                    disabled={!canEdit}
+                    options={academicYearOptions.map((option) => ({
+                        value: option.id,
+                        label: option.isActive ? `${option.label} (Active)` : option.label,
+                    }))}
+                    onValueChange={(value) => {
+                        // `academicYear` is the human label the API stores alongside
+                        // the id; keep the two in step whenever the id changes.
+                        const match = academicYearOptions.find((option) => option.id === value);
+                        form.setValue("academicYear", match?.label ?? "", {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                        });
+                    }}
+                />
+                <RhfTextField
+                    name="currentDesignation"
+                    label="Current designation"
+                    description="Set from your faculty profile."
+                    disabled
+                />
+                <RhfDateField name="appraisalPeriod.fromDate" label="Appraisal from" disabled={!canEdit} />
+                <RhfDateField name="appraisalPeriod.toDate" label="Appraisal to" disabled={!canEdit} />
+            </FieldGrid>
+
+            <InlineAlert tone="info" title="Where PBAS scores come from">
+                Your API score is derived from the teaching, research, and institutional records in your
+                profile — this form selects which of them to include, it does not replace them. Add or
+                correct the underlying records in your{" "}
+                <Link href="/faculty/profile" className="font-medium underline underline-offset-2">
+                    faculty workspace
+                </Link>
                 .
-            </div>
+            </InlineAlert>
 
-            <div className="rounded-lg border border-border bg-card p-4">
+            <div className="rounded-lg border bg-card p-4">
                 <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-semibold text-foreground">{designationProfile.label}</p>
                     <Badge variant="secondary">{designationBadgeLabel || "PBAS"}</Badge>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">{designationProfile.pbasFocus}</p>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                    {designationProfile.key === "early_assistant" ? (
-                        <>
-                            <span className="rounded-full border border-border px-3 py-1">Teaching-heavy visibility</span>
-                            <span className="rounded-full border border-border px-3 py-1">Research growth</span>
-                        </>
-                    ) : null}
-                    {designationProfile.key === "advanced_assistant" ? (
-                        <>
-                            <span className="rounded-full border border-border px-3 py-1">Balanced teaching + research</span>
-                            <span className="rounded-full border border-border px-3 py-1">Institutional contribution visible</span>
-                        </>
-                    ) : null}
-                    {designationProfile.key === "associate" ? (
-                        <>
-                            <span className="rounded-full border border-border px-3 py-1">Research-first visibility</span>
-                            <span className="rounded-full border border-border px-3 py-1">Leadership contribution visible</span>
-                        </>
-                    ) : null}
-                    {designationProfile.key === "professor" ? (
-                        <>
-                            <span className="rounded-full border border-border px-3 py-1">Leadership-first visibility</span>
-                            <span className="rounded-full border border-border px-3 py-1">Mentoring and stewardship</span>
-                        </>
-                    ) : null}
-                </div>
+                {emphasis.length ? (
+                    <ul className="mt-3 flex flex-wrap gap-2">
+                        {emphasis.map((item) => (
+                            <li
+                                key={item}
+                                className="rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground"
+                            >
+                                {item}
+                            </li>
+                        ))}
+                    </ul>
+                ) : null}
             </div>
-        </div>
-    );
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-    return (
-        <div className="grid gap-2">
-            <p className="text-sm font-medium text-foreground">{label}</p>
-            {children}
         </div>
     );
 }

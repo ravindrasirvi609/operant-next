@@ -1,111 +1,144 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { ExternalLink, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm-button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import type { PbasSourceRow } from "@/components/pbas/pbas-types";
 
-export function ReadonlySourceTable({
+/**
+ * One group of candidate source records.
+ *
+ * The original was a `<Table>` with four columns — Source, Details, Status,
+ * Actions — where Actions held two full-width buttons ("Edit Source" and "Remove
+ * from PBAS"). Inside the old 340px-constrained form column that table could not
+ * fit, so it sat in a horizontal scroller and the Remove button was reachable
+ * only by scrolling sideways. On a phone the header row alone was wider than the
+ * viewport.
+ *
+ * A table was the wrong form here anyway: these are four facts and two actions
+ * per record, not a grid to be scanned column-wise. This renders them as rows
+ * that reflow, so nothing scrolls horizontally at any width.
+ */
+export function PbasSourceGroup({
     title,
     rows,
     canEdit,
-    onRemove,
+    onToggle,
     readOnly = false,
 }: {
     title: string;
     rows: PbasSourceRow[];
     canEdit: boolean;
-    onRemove: (row: PbasSourceRow) => void;
-    /** Hides the entire Actions column — used by the read-only Submission Summary. */
+    onToggle: (row: PbasSourceRow) => void;
+    /** Hides all actions — used by the read-only submission summary. */
     readOnly?: boolean;
 }) {
+    const includedCount = rows.filter((row) => row.included).length;
+
     return (
-        <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-sm font-semibold text-foreground">{title}</p>
+        <section className="rounded-lg border bg-card">
+            <header className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
+                <h4 className="text-sm font-semibold text-foreground">{title}</h4>
+                {rows.length ? (
+                    <Badge variant="outline">
+                        {includedCount} of {rows.length} included
+                    </Badge>
+                ) : null}
+            </header>
+
             {rows.length ? (
-                <div className="mt-4 overflow-x-auto rounded-lg border border-border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Source</TableHead>
-                                <TableHead>Details</TableHead>
-                                <TableHead>Status</TableHead>
-                                {readOnly ? null : <TableHead className="text-right">Actions</TableHead>}
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {rows.map((row) => (
-                                <TableRow key={`${title}-${row.id}`}>
-                                    <TableCell className="align-top text-sm font-medium text-foreground">
+                <ul className="divide-y">
+                    {rows.map((row) => (
+                        <li
+                            key={`${title}-${row.id}`}
+                            className={cn(
+                                "flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between",
+                                !row.included && "bg-muted/30"
+                            )}
+                        >
+                            <div className="min-w-0 space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Badge variant={row.included ? "default" : "outline"}>
+                                        {row.included ? "Included" : "Excluded"}
+                                    </Badge>
+                                    <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                                         {row.sourceType}
-                                    </TableCell>
-                                    <TableCell className="align-top">
-                                        <p className="text-sm font-medium text-foreground">{row.title}</p>
-                                        {row.subtitle ? <p className="text-xs text-muted-foreground">{row.subtitle}</p> : null}
-                                        {row.note ? (
-                                            <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{row.note}</p>
-                                        ) : null}
-                                    </TableCell>
-                                    <TableCell className="align-top">
-                                        <Badge variant={row.included ? "default" : "secondary"}>
-                                            {row.included ? "Included" : "Excluded"}
-                                        </Badge>
-                                    </TableCell>
-                                    {readOnly ? null : (
-                                        <TableCell className="align-top text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button asChild type="button" size="sm" variant="outline">
-                                                    <a href={row.sourceHref}>Edit Source</a>
-                                                </Button>
-                                                {row.included && row.removable !== false ? (
-                                                    <ConfirmButton
-                                                        type="button"
-                                                        size="sm"
-                                                        variant="destructive"
-                                                        disabled={!canEdit}
-                                                        onConfirm={() => onRemove(row)}
-                                                        title="Remove this row from the PBAS report?"
-                                                        description="The underlying record is not deleted — it is only excluded from this PBAS submission."
-                                                        confirmLabel="Remove"
-                                                    >
-                                                        <Trash2 aria-hidden />
-                                                        Remove from PBAS
-                                                    </ConfirmButton>
-                                                ) : null}
-                                            </div>
-                                        </TableCell>
+                                    </span>
+                                </div>
+                                <p className="text-sm font-medium break-words text-foreground">{row.title}</p>
+                                {row.subtitle ? (
+                                    <p className="text-sm break-words text-muted-foreground">{row.subtitle}</p>
+                                ) : null}
+                                {row.note ? (
+                                    <p className="text-xs text-muted-foreground">{row.note}</p>
+                                ) : null}
+                            </div>
+
+                            {readOnly ? null : (
+                                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                                    <Button asChild type="button" size="sm" variant="ghost">
+                                        <a href={row.sourceHref}>
+                                            <ExternalLink aria-hidden />
+                                            Edit source
+                                        </a>
+                                    </Button>
+                                    {row.included ? (
+                                        row.removable === false ? null : (
+                                            <ConfirmButton
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={!canEdit}
+                                                onConfirm={() => onToggle(row)}
+                                                title="Exclude this record from the PBAS report?"
+                                                description="The underlying record is not deleted — it is only left out of this PBAS submission. You can include it again from this list."
+                                                confirmLabel="Exclude"
+                                            >
+                                                <Trash2 aria-hidden />
+                                                Exclude
+                                            </ConfirmButton>
+                                        )
+                                    ) : (
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={!canEdit}
+                                            onClick={() => onToggle(row)}
+                                        >
+                                            Include
+                                        </Button>
                                     )}
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
+                                </div>
+                            )}
+                        </li>
+                    ))}
+                </ul>
             ) : (
-                <div className="mt-4 rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
-                    No records available in this section for the selected academic year.
-                </div>
+                <EmptyState
+                    title="Nothing available in this section"
+                    description="No records exist for the selected academic year. Add them in your faculty profile first."
+                    className="py-8"
+                />
             )}
-        </div>
+        </section>
     );
 }
 
-/** Loading placeholder shown while draft source candidates are being fetched. */
+/** Placeholder while draft source candidates load. */
 export function PbasSourceLoadingSkeleton() {
     return (
-        <div className="grid gap-4 xl:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, index) => (
-                <div key={`reference-skeleton-${index}`} className="rounded-lg border border-border bg-card p-4">
-                    <div className="grid gap-3">
-                        <Skeleton className="h-4 w-2/3" />
-                        <Skeleton className="h-3 w-full" />
-                        <Skeleton className="h-12 w-full" />
-                        <Skeleton className="h-12 w-full" />
-                        <Skeleton className="h-12 w-full" />
-                    </div>
+        <div className="space-y-4" aria-busy>
+            {Array.from({ length: 2 }).map((_, index) => (
+                <div key={`source-skeleton-${index}`} className="space-y-3 rounded-lg border bg-card p-4">
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-14 w-full" />
+                    <Skeleton className="h-14 w-full" />
                 </div>
             ))}
         </div>

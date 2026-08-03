@@ -1,3 +1,5 @@
+import { Building2, FileBarChart, Network } from "lucide-react";
+
 import { NaacCriteriaMappingManager } from "@/components/admin/naac-criteria-mapping-manager";
 import { requireAdmin } from "@/lib/auth/user";
 import { getAqarReviewQueue } from "@/lib/aqar/service";
@@ -5,29 +7,25 @@ import { listAqarCycles } from "@/lib/aqar-cycle/service";
 import { formatAcademicYearLabel } from "@/lib/academic-year";
 import { listAcademicYears } from "@/lib/admin/academics";
 import { getFacultyByIds } from "@/lib/faculty/migration";
-import {
-    naacCriterionCatalog,
-    naacMetricCatalog,
-} from "@/lib/naac-criteria-mapping/catalog";
+import { naacCriterionCatalog, naacMetricCatalog } from "@/lib/naac-criteria-mapping/catalog";
 import { listNaacCriteriaMappings } from "@/lib/naac-criteria-mapping/service";
 import { AqarReviewBoard } from "@/components/aqar/aqar-review-board";
 import { AqarCycleDashboard } from "@/components/aqar/aqar-cycle-dashboard";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader, SectionHeader } from "@/components/ui/page-header";
 
 export default async function AdminAqarReviewPage() {
     const admin = await requireAdmin();
     const [queue, cycles, mappings, academicYears] = await Promise.all([
-        getAqarReviewQueue({
-            id: admin.id,
-            name: admin.name,
-            role: admin.role,
-            department: admin.department,
-        }, { stageKinds: ["final"] }),
-        listAqarCycles({
-            id: admin.id,
-            name: admin.name,
-            role: admin.role,
-        }),
+        getAqarReviewQueue(
+            {
+                id: admin.id,
+                name: admin.name,
+                role: admin.role,
+                department: admin.department,
+            },
+            { stageKinds: ["final"] }
+        ),
+        listAqarCycles({ id: admin.id, name: admin.name, role: admin.role }),
         listNaacCriteriaMappings(),
         listAcademicYears(),
     ]);
@@ -58,40 +56,47 @@ export default async function AdminAqarReviewPage() {
     }));
 
     return (
-        <div className="space-y-6">
-            <NaacCriteriaMappingManager
-                initialMappings={JSON.parse(JSON.stringify(mappings))}
-                criteriaOptions={JSON.parse(JSON.stringify(naacCriterionCatalog))}
-                metricOptions={JSON.parse(JSON.stringify(naacMetricCatalog))}
+        <div className="space-y-8">
+            <PageHeader
+                title="AQAR administration"
+                description="NAAC criteria mappings, institution-wide AQAR compilation, and final approval of faculty submissions."
+                icon={FileBarChart}
             />
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Institutional AQAR Compilation</CardTitle>
-                    <CardDescription>
-                        Generate institution-wide AQAR cycles from PBAS, CAS, faculty, student, and organizational source modules using the configured NAAC criteria mappings.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <AqarCycleDashboard
-                        initialCycles={JSON.parse(JSON.stringify(cycles))}
-                        academicYearOptions={JSON.parse(JSON.stringify(academicYearOptions))}
-                        defaultAcademicYearLabel={defaultAcademicYearLabel}
-                    />
-                </CardContent>
-            </Card>
+            <section className="space-y-4">
+                <SectionHeader
+                    title="NAAC criteria mappings"
+                    description="How source-module data maps onto NAAC criteria and metrics."
+                    icon={Network}
+                />
+                <NaacCriteriaMappingManager
+                    initialMappings={JSON.parse(JSON.stringify(mappings))}
+                    criteriaOptions={JSON.parse(JSON.stringify(naacCriterionCatalog))}
+                    metricOptions={JSON.parse(JSON.stringify(naacMetricCatalog))}
+                />
+            </section>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Faculty AQAR Final Approval</CardTitle>
-                    <CardDescription>
-                        Final admin approval board for faculty AQAR submissions before they are compiled into the institutional AQAR cycle.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <AqarReviewBoard applications={items} mode="approve" />
-                </CardContent>
-            </Card>
+            <section className="space-y-4">
+                <SectionHeader
+                    title="Institutional AQAR compilation"
+                    description="Generate institution-wide cycles from PBAS, CAS, faculty, student, and organizational sources."
+                    icon={Building2}
+                />
+                <AqarCycleDashboard
+                    initialCycles={JSON.parse(JSON.stringify(cycles))}
+                    academicYearOptions={JSON.parse(JSON.stringify(academicYearOptions))}
+                    defaultAcademicYearLabel={defaultAcademicYearLabel}
+                />
+            </section>
+
+            <section className="space-y-4">
+                <SectionHeader
+                    title="Faculty AQAR final approval"
+                    description="Final admin decision before submissions are compiled into the institutional cycle."
+                    icon={FileBarChart}
+                />
+                <AqarReviewBoard applications={items} mode="approve" />
+            </section>
         </div>
     );
 }

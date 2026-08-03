@@ -1,18 +1,16 @@
-import type { UseFieldArrayReturn, UseFormReturn } from "react-hook-form";
 import type { z } from "zod";
 
 import type { getAllowedCasPromotionTargets, getDesignationProfile } from "@/lib/faculty/options";
 import { casApplicationSchema } from "@/lib/cas/validators";
-import type { StepDescriptor } from "@/components/ui/stepper";
 
 export type CasFormValues = z.input<typeof casApplicationSchema>;
 export type CasResolvedValues = z.output<typeof casApplicationSchema>;
 
-export type CasForm = UseFormReturn<CasFormValues, unknown, CasResolvedValues>;
-
-export type CasPublicationFieldArray = UseFieldArrayReturn<CasFormValues, "manualAchievements.publications">;
-export type CasBookFieldArray = UseFieldArrayReturn<CasFormValues, "manualAchievements.books">;
-export type CasProjectFieldArray = UseFieldArrayReturn<CasFormValues, "manualAchievements.researchProjects">;
+// `CasForm` and the three `UseFieldArrayReturn` aliases are gone: step components
+// read the form from `FormProvider` context instead of taking it as a prop, and
+// the field arrays are owned by `RepeatableSection`. Threading a `useFieldArray`
+// return value down from the dashboard was what forced all three achievement
+// editors to be separate bespoke components.
 
 export type CasDesignationProfile = ReturnType<typeof getDesignationProfile>;
 export type CasPromotionTargets = ReturnType<typeof getAllowedCasPromotionTargets>;
@@ -123,31 +121,10 @@ export type CasWorkflowStatus = {
     updatedAt?: string;
 };
 
-export const casStepTitles = [
-    "Basic Details",
-    "Eligibility Period",
-    "PBAS Reports",
-    "Publications (Optional)",
-    "Books & Projects (Optional)",
-    "Academic Contributions",
-    "Documents & Checklist",
-    "Review and Submit",
-] as const;
-
-export const casSteps: StepDescriptor[] = casStepTitles.map((title, index) => ({
-    id: String(index),
-    title,
-}));
-
-/** Dot-separated RHF field paths that belong to each wizard step, used to derive per-step "Fix" state. */
-export const casStepFieldPaths: Record<number, string[]> = {
-    0: ["applicationYearId", "applicationYear", "currentDesignation", "applyingForDesignation"],
-    1: ["eligibilityPeriod.fromYear", "eligibilityPeriod.toYear", "experienceYears"],
-    2: ["pbasReports"],
-    3: ["manualAchievements.publications"],
-    4: ["manualAchievements.books", "manualAchievements.researchProjects"],
-    5: ["manualAchievements.phdGuided", "manualAchievements.conferences"],
-};
+// `casStepTitles`, `casSteps`, and `casStepFieldPaths` moved to
+// src/lib/cas/form-config.ts, where the steps gained ids, icons, and
+// descriptions. The numeric ids they used here (`id: String(index)`) were what
+// forced the dashboard's `hasStepErrors` to switch on the magic indices 6 and 7.
 
 export function emptyCasAchievementBucket(): CasAchievementBucket {
     return {

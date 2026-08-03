@@ -1,19 +1,26 @@
 "use client";
 
 import { useMemo } from "react";
+import { FileText } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { EmptyState } from "@/components/ui/empty-state";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { InlineUpload } from "@/components/ui/file-upload";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { UploadedDocument } from "@/lib/upload/service";
 import type { IndicatorEntry } from "@/components/pbas/pbas-types";
 
 /**
- * Indicator totals table shared by the Score & Review step (editable, gated by
- * `canEdit`) and the read-only Submission Summary. When `canEdit` is false the
- * evidence column renders a static Uploaded/Not uploaded badge + file link
- * instead of the upload control.
+ * Indicator totals, shared by the review step (editable) and the read-only
+ * submission summary.
+ *
+ * Was a four-column `<Table>` whose last column held a file-upload widget. Inside
+ * the old narrow form column that never fit, and `<Table>` has no responsive
+ * behaviour, so on a phone the whole thing scrolled sideways and the upload
+ * control — the one interactive element — was the part pushed off-screen.
+ * Rendered as reflowing rows instead, with the numbers kept in a tight group so
+ * claimed-versus-approved is still directly comparable.
  */
 export function PbasIndicatorTotalsTable({
     entries,
@@ -31,110 +38,109 @@ export function PbasIndicatorTotalsTable({
     onUploadEvidence?: (indicatorId: string, documentId: string) => void;
 }) {
     const displayEntries = useMemo(() => {
+        // The API returns per-indicator rows plus rolled-up `*_TOTAL` rows; show
+        // the totals when present, and fall back to the raw rows otherwise.
         const totals = entries.filter((entry) => entry.indicatorCode.endsWith("_TOTAL"));
         return totals.length ? totals : entries;
     }, [entries]);
 
     if (loading) {
-        return <PbasIndicatorTableSkeleton />;
+        return (
+            <div className="space-y-2" aria-busy>
+                {Array.from({ length: 4 }).map((_, index) => (
+                    <Skeleton key={`indicator-skeleton-${index}`} className="h-16 w-full" />
+                ))}
+            </div>
+        );
     }
 
     if (error) {
-        return (
-            <div className="rounded-lg border border-destructive-border bg-destructive-muted p-4 text-sm text-destructive-muted-foreground">
-                {error}
-            </div>
-        );
+        return <InlineAlert message={{ type: "error", text: error }} />;
     }
 
     if (!displayEntries.length) {
         return (
-            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
-                Select a PBAS form to view indicator totals.
-            </div>
+            <EmptyState
+                bordered
+                icon={FileText}
+                title="No indicator totals yet"
+                description="Totals appear once the draft has been saved with at least one source record selected."
+                className="py-8"
+            />
         );
     }
 
     return (
-        <div className="rounded-lg border border-border">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Indicator</TableHead>
-                        <TableHead className="text-right">Claimed</TableHead>
-                        <TableHead className="text-right">Approved</TableHead>
-                        <TableHead>Evidence</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {displayEntries.map((entry) => (
-                        <TableRow key={entry.indicatorId}>
-                            <TableCell className="align-top">
-                                <div className="space-y-1">
-                                    <p className="text-sm font-semibold text-foreground">
-                                        {entry.indicatorName}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {entry.category?.name} • {entry.indicatorCode} • Max {entry.maxScore}
-                                    </p>
-                                </div>
-                            </TableCell>
-                            <TableCell className="text-right align-top">
-                                <span className="text-sm font-semibold text-foreground">{entry.claimedScore}</span>
-                            </TableCell>
-                            <TableCell className="text-right align-top">
-                                <span className="text-sm font-semibold text-success-muted-foreground">
-                                    {entry.approvedScore ?? "--"}
-                                </span>
-                            </TableCell>
-                            <TableCell className="align-top">
-                                {canEdit && facultyId ? (
-                                    <InlineUpload
-                                        category="evidence"
-                                        ownerId={facultyId}
-                                        mode="document"
-                                        value={entry.evidenceDocument ? (entry.evidenceDocument as unknown as UploadedDocument) : null}
-                                        onChange={(uploaded) => {
-                                            if (uploaded && typeof uploaded === "object") {
-                                                onUploadEvidence?.(entry.indicatorId, (uploaded as UploadedDocument)._id);
-                                            }
-                                        }}
-                                        placeholder="Upload evidence"
-                                    />
-                                ) : entry.evidenceDocument?.fileUrl ? (
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <Badge variant="secondary">Uploaded</Badge>
-                                        <a
-                                            href={entry.evidenceDocument.fileUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="text-xs font-medium text-primary hover:underline"
-                                        >
-                                            {entry.evidenceDocument.fileName ?? "View file"}
-                                        </a>
-                                    </div>
-                                ) : (
-                                    <Badge variant="secondary">Not uploaded</Badge>
-                                )}
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </div>
-    );
-}
+        <ul className="divide-y rounded-lg border">
+            {displayEntries.map((entry) => (
+                <li key={entry.indicatorId} className="space-y-3 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <p className="text-sm font-semibold break-words text-foreground">
+                                {entry.indicatorName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                {[entry.category?.name, entry.indicatorCode, `Max ${entry.maxScore}`]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                            </p>
+                        </div>
 
-function PbasIndicatorTableSkeleton() {
-    return (
-        <div className="rounded-lg border border-border bg-card p-4">
-            <div className="grid gap-3">
-                <Skeleton className="h-4 w-1/3" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-            </div>
-        </div>
+                        <div className="flex shrink-0 items-center gap-4">
+                            <div className="text-right">
+                                <p className="text-xs tracking-wide text-muted-foreground uppercase">Claimed</p>
+                                <p className="text-lg font-semibold tabular-nums text-foreground">
+                                    {entry.claimedScore}
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-xs tracking-wide text-muted-foreground uppercase">Approved</p>
+                                <p className="text-lg font-semibold tabular-nums text-success-muted-foreground">
+                                    {entry.approvedScore ?? "—"}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                            Evidence
+                        </span>
+                        {canEdit && facultyId ? (
+                            <InlineUpload
+                                category="evidence"
+                                ownerId={facultyId}
+                                mode="document"
+                                placeholder="Upload evidence"
+                                value={
+                                    entry.evidenceDocument
+                                        ? (entry.evidenceDocument as unknown as UploadedDocument)
+                                        : null
+                                }
+                                onChange={(uploaded) => {
+                                    if (uploaded && typeof uploaded === "object") {
+                                        onUploadEvidence?.(entry.indicatorId, (uploaded as UploadedDocument)._id);
+                                    }
+                                }}
+                            />
+                        ) : entry.evidenceDocument?.fileUrl ? (
+                            <>
+                                <Badge variant="outline">Uploaded</Badge>
+                                <a
+                                    href={entry.evidenceDocument.fileUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-xs font-medium text-primary hover:underline"
+                                >
+                                    {entry.evidenceDocument.fileName ?? "View file"}
+                                </a>
+                            </>
+                        ) : (
+                            <Badge variant="outline">Not uploaded</Badge>
+                        )}
+                    </div>
+                </li>
+            ))}
+        </ul>
     );
 }

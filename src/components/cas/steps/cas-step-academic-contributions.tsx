@@ -1,46 +1,68 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import type { CasDesignationProfile, CasForm } from "@/components/cas/cas-types";
+import { FieldGrid, RhfNumberField } from "@/components/forms/rhf-fields";
+import { InlineAlert } from "@/components/ui/inline-alert";
+import { SectionHeader } from "@/components/ui/page-header";
+import type { CasDesignationProfile } from "@/components/cas/cas-types";
 
+/**
+ * PhD guidance and conference counts — both shown only for the designations
+ * where they are scored.
+ *
+ * The original computed its grid class from the two flags
+ * (`showCasPhdGuided && showCasConferenceCount ? "md:grid-cols-2" : "md:grid-cols-1"`)
+ * so it could avoid a lone field stretching across two columns. `FieldGrid`'s
+ * columns are content-driven, so one field simply occupies one cell.
+ *
+ * When neither flag is set the step previously rendered an explanatory paragraph
+ * and then an empty grid — a step with no inputs and no acknowledgement of that.
+ */
 export function CasStepAcademicContributions({
-    form,
     canEdit,
     designationProfile,
 }: {
-    form: CasForm;
     canEdit: boolean;
     designationProfile: CasDesignationProfile;
 }) {
-    return (
-        <div className="space-y-4">
-            <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
-                {designationProfile.showCasPhdGuided
-                    ? "This promotion path includes doctoral guidance as a visible CAS contribution field."
-                    : "This promotion path keeps the academic contribution section lighter, with PBAS, publications, books, projects, and conference activity carrying most of the score."}
-            </div>
-            <div className={`grid gap-4 ${designationProfile.showCasPhdGuided && designationProfile.showCasConferenceCount ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
-                {designationProfile.showCasPhdGuided ? (
-                    <Field label="PhD Guided">
-                        <Input type="number" disabled={!canEdit} {...form.register("manualAchievements.phdGuided", { valueAsNumber: true })} />
-                    </Field>
-                ) : null}
-                {designationProfile.showCasConferenceCount ? (
-                    <Field label="Conferences">
-                        <Input type="number" disabled={!canEdit} {...form.register("manualAchievements.conferences", { valueAsNumber: true })} />
-                    </Field>
-                ) : null}
-            </div>
-        </div>
-    );
-}
+    const { showCasPhdGuided, showCasConferenceCount } = designationProfile;
+    const hasFields = showCasPhdGuided || showCasConferenceCount;
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
-        <div className="grid gap-2">
-            <Label>{label}</Label>
-            {children}
+        <div className="space-y-6">
+            <SectionHeader
+                title="Academic contributions"
+                description={
+                    showCasPhdGuided
+                        ? "This promotion path scores doctoral guidance directly."
+                        : "This promotion path draws most of its score from PBAS, publications, books, and projects."
+                }
+            />
+
+            {hasFields ? (
+                <FieldGrid>
+                    {showCasPhdGuided ? (
+                        <RhfNumberField
+                            name="manualAchievements.phdGuided"
+                            label="PhD scholars guided"
+                            min={0}
+                            disabled={!canEdit}
+                        />
+                    ) : null}
+                    {showCasConferenceCount ? (
+                        <RhfNumberField
+                            name="manualAchievements.conferences"
+                            label="Conference contributions"
+                            min={0}
+                            disabled={!canEdit}
+                        />
+                    ) : null}
+                </FieldGrid>
+            ) : (
+                <InlineAlert tone="info" title="Nothing to enter on this step">
+                    Neither doctoral guidance nor conference counts are scored for your promotion path. Continue
+                    to the next step.
+                </InlineAlert>
+            )}
         </div>
     );
 }

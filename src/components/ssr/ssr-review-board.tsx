@@ -1,19 +1,43 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Search, ShieldOff } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { InlineAlert, type FeedbackMessage } from "@/components/ui/inline-alert";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { SectionHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { InlineAlert } from "@/components/ui/inline-alert";
-import { StatCard, StatTile } from "@/components/ui/stat-card";
+import { DetailList } from "@/components/workspace/detail-list";
+import { RecordCard } from "@/components/workspace/record-card";
+import { RecordGrid, WorkspaceDetail, WorkspaceIndex } from "@/components/workspace/record-workspace";
+import { StatusTimeline, type TimelineEntry } from "@/components/workspace/status-timeline";
+import { SsrEvidence, SsrProse, SsrSubmittedValues, type SsrDocument } from "@/components/ssr/ssr-response-view";
+import { requestJson, toErrorMessage } from "@/lib/http/request-json";
+import { formatDateLabel, formatTimestamp } from "@/lib/ui/dates";
 
-type ReviewRecord = {
+/**
+ * SSR reviewer workspace.
+ *
+ * Was 747 lines built on the same `xl:grid-cols-[360px_minmax(0,1fr)]` split as
+ * the other modules, with the register on the left and — on the right — eight
+ * stacked cards holding the metric header, the response payload, links, documents,
+ * the workflow action, review history, and the status timeline. Below 1280px all
+ * of that became one column, so reaching the action buttons meant scrolling past
+ * the entire submitted response.
+ *
+ * Split into an index (the register) and a focused detail view, with the two
+ * histories moved to the rail and the decision buttons pinned in the header where
+ * they are reachable at any scroll position.
+ */
+
+type SsrReviewRecord = {
     _id: string;
     assignmentId: string;
     cycleTitle: string;
@@ -51,15 +75,7 @@ type ReviewRecord = {
     metricValueDate?: string | Date;
     tableData?: Record<string, unknown>;
     supportingLinks: string[];
-    documents: Array<{
-        id: string;
-        fileName?: string;
-        fileUrl?: string;
-        fileType?: string;
-        uploadedAt?: string | Date;
-        verificationStatus?: string;
-        verificationRemarks?: string;
-    }>;
+    documents: SsrDocument[];
     contributorRemarks?: string;
     reviewRemarks?: string;
     reviewHistory: Array<{
@@ -95,7 +111,7 @@ type ReviewRecord = {
     };
 };
 
-type ReviewSummary = {
+type SsrReviewSummary = {
     total: number;
     actionableCount: number;
     pendingCount: number;
@@ -103,48 +119,14 @@ type ReviewSummary = {
     rejectedCount: number;
 };
 
-function formatDate(value?: string | Date) {
-    if (!value) {
-        return "-";
-    }
+type TabKey = "actionable" | "history" | "all";
 
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-        return "-";
-    }
-
-    return parsed.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-    });
+function isActionable(record: SsrReviewRecord) {
+    return record.permissions.canReview || record.permissions.canApprove;
 }
 
-function formatDateTime(value?: string | Date) {
-    if (!value) {
-        return "-";
-    }
-
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-        return "-";
-    }
-
-    return parsed.toLocaleString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
-}
-
-function formatBoolean(value?: boolean) {
-    if (value === undefined) {
-        return "-";
-    }
-
-    return value ? "Yes" : "No";
+function toIso(value?: string | Date) {
+    return value ? String(value) : undefined;
 }
 
 export function SsrReviewBoard({
@@ -152,35 +134,26 @@ export function SsrReviewBoard({
     summary,
     viewerLabel,
 }: {
-    records: ReviewRecord[];
-    summary: ReviewSummary;
+    records: SsrReviewRecord[];
+    summary: SsrReviewSummary;
     viewerLabel: string;
 }) {
     const router = useRouter();
     const [search, setSearch] = useState("");
     const deferredSearch = useDeferredValue(search);
-    const [activeTab, setActiveTab] = useState<"actionable" | "history" | "all">("actionable");
-    const [selectedId, setSelectedId] = useState(records[0]?._id ?? "");
+    const [activeTab, setActiveTab] = useState<TabKey>("actionable");
+    const [selectedId, setSelectedId] = useState<string | null>(null);
     const [remarks, setRemarks] = useState<Record<string, string>>({});
-    const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-    const [isPending, startTransition] = useTransition();
+    const [message, setMessage] = useState<FeedbackMessage | null>(null);
+    const [pendingDecision, setPendingDecision] = useState<string | null>(null);
 
-    const filteredRecords = useMemo(() => {
+    const filtered = useMemo(() => {
         const query = deferredSearch.trim().toLowerCase();
 
         return records.filter((record) => {
-            const actionable = record.permissions.canReview || record.permissions.canApprove;
-            if (activeTab === "actionable" && !actionable) {
-                return false;
-            }
-
-            if (activeTab === "history" && actionable) {
-                return false;
-            }
-
-            if (!query) {
-                return true;
-            }
+            if (activeTab === "actionable" && !isActionable(record)) return false;
+            if (activeTab === "history" && isActionable(record)) return false;
+            if (!query) return true;
 
             return [
                 record.metricCode,
@@ -200,548 +173,358 @@ export function SsrReviewBoard({
         });
     }, [activeTab, deferredSearch, records]);
 
-    useEffect(() => {
-        if (!filteredRecords.length) {
-            setSelectedId("");
-            return;
-        }
+    const selected = selectedId ? records.find((record) => record._id === selectedId) : undefined;
 
-        if (!filteredRecords.some((record) => record._id === selectedId)) {
-            setSelectedId(filteredRecords[0]._id);
-        }
-    }, [filteredRecords, selectedId]);
-
-    const selectedRecord = filteredRecords.find((record) => record._id === selectedId) ?? null;
-
-    function submitDecision(decision: string) {
-        if (!selectedRecord) {
-            return;
-        }
-
+    async function submitDecision(record: SsrReviewRecord, decision: string) {
         setMessage(null);
+        setPendingDecision(decision);
 
-        startTransition(async () => {
-            try {
-                const response = await fetch(`/api/ssr/responses/${selectedRecord._id}/review`, {
+        try {
+            const payload = await requestJson<{ message?: string }>(
+                `/api/ssr/responses/${record._id}/review`,
+                {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
+                    body: {
                         decision,
                         remarks:
-                            remarks[selectedRecord._id]?.trim() ||
+                            remarks[record._id]?.trim() ||
                             `Recorded from the ${viewerLabel.toLowerCase()} SSR workspace.`,
-                    }),
-                });
-
-                const data = (await response.json()) as { message?: string };
-                if (!response.ok) {
-                    throw new Error(data.message ?? "Unable to record the SSR review decision.");
+                    },
+                    fallbackMessage: "Unable to record the SSR review decision.",
                 }
+            );
 
-                setRemarks((current) => ({ ...current, [selectedRecord._id]: "" }));
-                setMessage({
-                    type: "success",
-                    text: data.message ?? "SSR review decision recorded successfully.",
-                });
-                router.refresh();
-            } catch (error) {
-                setMessage({
-                    type: "error",
-                    text:
-                        error instanceof Error
-                            ? error.message
-                            : "Unable to record the SSR review decision.",
-                });
-            }
-        });
+            setRemarks((current) => ({ ...current, [record._id]: "" }));
+            setMessage({ type: "success", text: payload.message ?? "Decision recorded." });
+            // The server owns stage transitions and permissions, so re-fetch rather
+            // than trying to recompute the new workflow state on the client.
+            router.refresh();
+        } catch (cause) {
+            setMessage({
+                type: "error",
+                text: toErrorMessage(cause, "Unable to record the SSR review decision."),
+            });
+        } finally {
+            setPendingDecision(null);
+        }
     }
 
-    return (
-        <div className="space-y-6">
-            <InlineAlert message={message} />
+    // --- index view ---------------------------------------------------------
 
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-                <MetricCard label="Total Responses" value={summary.total} helper="All SSR submissions visible in your scope." />
-                <MetricCard label="Actionable" value={summary.actionableCount} helper="Records you can currently review or approve." />
-                <MetricCard label="Pending" value={summary.pendingCount} helper="Still moving through workflow stages." />
-                <MetricCard label="Approved" value={summary.approvedCount} helper="Completed SSR submissions." />
-                <MetricCard label="Rejected" value={summary.rejectedCount} helper="Returned or closed as rejected." />
-            </section>
+    if (!selected) {
+        return (
+            <WorkspaceIndex
+                message={message}
+                listTitle="Submission register"
+                listDescription={`${filtered.length} of ${records.length} responses shown.`}
+                overview={
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+                            <StatCard label="Total" value={summary.total} dense tone="neutral" />
+                            <StatCard
+                                label="Actionable"
+                                value={summary.actionableCount}
+                                dense
+                                tone="warning"
+                            />
+                            <StatCard label="Pending" value={summary.pendingCount} dense tone="info" />
+                            <StatCard label="Approved" value={summary.approvedCount} dense tone="success" />
+                            <StatCard label="Rejected" value={summary.rejectedCount} dense tone="danger" />
+                        </div>
 
-            <Card>
-                <CardHeader className="gap-4 lg:flex-row lg:items-end lg:justify-between">
-                    <div>
-                        <CardTitle>{viewerLabel} SSR review workspace</CardTitle>
-                        <CardDescription>
-                            Review scoped SSR responses with the full narrative, structured values, links, and uploaded evidence in one place.
-                        </CardDescription>
+                        <Card>
+                            <CardHeader>
+                                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                                    <div className="min-w-0">
+                                        <CardTitle>{viewerLabel} SSR review</CardTitle>
+                                        <CardDescription>
+                                            Open a response to inspect the narrative, values, and evidence before
+                                            recording a decision.
+                                        </CardDescription>
+                                    </div>
+                                    <div className="w-full lg:max-w-sm">
+                                        <Label htmlFor="ssr-review-search" className="sr-only">
+                                            Search SSR responses
+                                        </Label>
+                                        <div className="relative">
+                                            <Search
+                                                aria-hidden
+                                                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                                            />
+                                            <Input
+                                                id="ssr-review-search"
+                                                className="pl-9"
+                                                value={search}
+                                                onChange={(event) => setSearch(event.target.value)}
+                                                placeholder="Metric, contributor, status, or scope"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabKey)}>
+                                    <TabsList>
+                                        <TabsTrigger value="actionable">
+                                            Actionable ({records.filter(isActionable).length})
+                                        </TabsTrigger>
+                                        <TabsTrigger value="history">
+                                            History ({records.filter((record) => !isActionable(record)).length})
+                                        </TabsTrigger>
+                                        <TabsTrigger value="all">All ({records.length})</TabsTrigger>
+                                    </TabsList>
+                                </Tabs>
+                            </CardContent>
+                        </Card>
                     </div>
-                    <div className="w-full max-w-sm">
-                        <Input
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Search metric, contributor, status, or scope"
-                        />
-                    </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <Tabs
-                        value={activeTab}
-                        onValueChange={(value) =>
-                            setActiveTab(value as "actionable" | "history" | "all")
+                }
+            >
+                {filtered.length ? (
+                    <RecordGrid>
+                        {filtered.map((record) => (
+                            <RecordCard
+                                key={record._id}
+                                title={`${record.metricCode} · ${record.metricTitle}`}
+                                subtitle={`${record.contributorName || "Contributor not mapped"} · ${record.currentStageLabel}`}
+                                status={record.status}
+                                openLabel={`Review ${record.metricCode}`}
+                                openHint={isActionable(record) ? "Review now" : "View response"}
+                                onOpen={() => setSelectedId(record._id)}
+                                meta={[
+                                    { label: "Evidence", value: `${record.documents.length} docs · ${record.supportingLinks.length} links` },
+                                    { label: "Updated", value: formatTimestamp(toIso(record.updatedAt)) },
+                                ]}
+                            />
+                        ))}
+                    </RecordGrid>
+                ) : (
+                    <EmptyState
+                        bordered
+                        icon={records.length ? Search : ShieldOff}
+                        title={
+                            records.length
+                                ? "No responses match these filters"
+                                : "No SSR responses in your scope"
                         }
-                    >
-                        <TabsList>
-                            <TabsTrigger value="actionable">Actionable</TabsTrigger>
-                            <TabsTrigger value="history">History</TabsTrigger>
-                            <TabsTrigger value="all">All</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-                    <div className="flex flex-wrap gap-2">
-                        <Badge variant="secondary">{filteredRecords.length} visible</Badge>
-                        <Badge variant="secondary">{records.length} total loaded</Badge>
-                    </div>
+                        description={
+                            records.length
+                                ? "Try a different search term, or switch to the All tab."
+                                : "Responses appear here once they reach a stage assigned to your account."
+                        }
+                    />
+                )}
+            </WorkspaceIndex>
+        );
+    }
+
+    // --- detail view --------------------------------------------------------
+
+    const canAct = isActionable(selected) && selected.availableDecisions.length > 0;
+    const remarksId = `ssr-remarks-${selected._id}`;
+
+    const reviewEntries: TimelineEntry[] = selected.reviewHistory.map((entry, index) => ({
+        id: `${entry.stage}-${index}`,
+        status: entry.decision,
+        actorName: entry.reviewerName,
+        actorRole: entry.reviewerRole,
+        remarks: entry.remarks ? `${entry.stage}: ${entry.remarks}` : `Stage: ${entry.stage}`,
+        changedAt: toIso(entry.reviewedAt),
+    }));
+
+    const statusEntries: TimelineEntry[] = selected.statusLogs.map((entry, index) => ({
+        id: `${entry.status}-${index}`,
+        status: entry.status,
+        actorName: entry.actorName,
+        actorRole: entry.actorRole,
+        remarks: entry.remarks,
+        changedAt: toIso(entry.changedAt),
+    }));
+
+    const rail = (
+        <>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base">Response</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <DetailList
+                        columns={1}
+                        items={[
+                            { label: "Cycle", value: `${selected.cycleCode} · ${selected.cycleTitle}` },
+                            { label: "Criterion", value: `${selected.criterionCode} · ${selected.criterionTitle}` },
+                            { label: "Section", value: selected.sectionTitle || "Whole metric" },
+                            {
+                                label: "Contributor",
+                                value: `${selected.contributorName || "Not mapped"} · ${selected.contributorRole}`,
+                            },
+                            { label: "Contributor email", value: selected.contributorEmail || "Not recorded" },
+                            {
+                                label: "Scope",
+                                value:
+                                    selected.scopeDepartmentName ||
+                                    selected.scopeCollegeName ||
+                                    selected.scopeUniversityName ||
+                                    "Unscoped",
+                            },
+                            { label: "Response type", value: selected.dataType || selected.metricType },
+                            { label: "Evidence mode", value: selected.evidenceMode },
+                            { label: "Due date", value: formatDateLabel(toIso(selected.dueDate)) },
+                            { label: "Submitted", value: formatTimestamp(toIso(selected.submittedAt)) },
+                            { label: "Reviewed", value: formatTimestamp(toIso(selected.reviewedAt)) },
+                            { label: "Approved", value: formatTimestamp(toIso(selected.approvedAt)) },
+                        ]}
+                    />
                 </CardContent>
             </Card>
 
-            <section className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-                <Card className="h-fit">
-                    <CardHeader>
-                        <CardTitle>Submission register</CardTitle>
-                        <CardDescription>
-                            Open a response to inspect the submission and evidence before taking a workflow action.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        {filteredRecords.length ? (
-                            filteredRecords.map((record) => {
-                                const isActive = record._id === selectedId;
-                                const actionable =
-                                    record.permissions.canReview || record.permissions.canApprove;
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base">Review history</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <StatusTimeline
+                        entries={reviewEntries}
+                        emptyTitle="No review actions yet"
+                        emptyDescription="Decisions recorded by reviewers appear here."
+                    />
+                </CardContent>
+            </Card>
 
-                                return (
-                                    <button
-                                        className={`w-full rounded-lg border p-4 text-left transition ${
-                                            isActive
-                                                ? "border-border bg-muted"
-                                                : "border-border bg-muted/50 hover:border-border hover:bg-card"
-                                        }`}
-                                        key={record._id}
-                                        onClick={() => setSelectedId(record._id)}
-                                        type="button"
-                                    >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="min-w-0">
-                                                <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                                                    {record.metricCode}
-                                                </p>
-                                                <h3 className="mt-2 truncate text-base font-semibold text-foreground">
-                                                    {record.metricTitle}
-                                                </h3>
-                                                <p className="mt-1 text-sm text-muted-foreground">
-                                                    {record.contributorName || "Contributor not mapped"} •{" "}
-                                                    {record.currentStageLabel}
-                                                </p>
-                                            </div>
-                                            <StatusBadge status={record.status} />
-                                        </div>
-                                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                            <span>{record.documents.length} docs</span>
-                                            <span>{record.supportingLinks.length} links</span>
-                                            <span>{formatDateTime(record.updatedAt)}</span>
-                                        </div>
-                                        {actionable ? (
-                                            <div className="mt-3">
-                                                <Badge className="bg-primary text-primary-foreground">Actionable</Badge>
-                                            </div>
-                                        ) : null}
-                                    </button>
-                                );
-                            })
-                        ) : (
-                            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
-                                No SSR responses matched the current filters.
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base">Status timeline</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <StatusTimeline
+                        entries={statusEntries}
+                        emptyTitle="No status changes yet"
+                        emptyDescription="Workflow transitions appear here."
+                    />
+                </CardContent>
+            </Card>
+        </>
+    );
 
-                {selectedRecord ? (
-                    <div className="space-y-6">
-                        <Card>
-                            <CardHeader>
-                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                    <div>
-                                        <CardTitle>
-                                            {selectedRecord.metricCode} · {selectedRecord.metricTitle}
-                                        </CardTitle>
-                                        <CardDescription>
-                                            {selectedRecord.cycleTitle} · {selectedRecord.criterionCode}
-                                            {selectedRecord.sectionTitle
-                                                ? ` · ${selectedRecord.sectionTitle}`
-                                                : ""}
-                                        </CardDescription>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        <StatusBadge status={selectedRecord.status} />
-                                        <Badge variant="secondary">
-                                            {selectedRecord.currentStageLabel}
-                                        </Badge>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                <InfoCard label="Contributor" value={selectedRecord.contributorName || "-"} helper={`${selectedRecord.contributorRole} • ${selectedRecord.contributorEmail || "No email"}`} />
-                                <InfoCard label="Response Type" value={selectedRecord.dataType || "-"} helper={selectedRecord.metricType || "Metric"} />
-                                <InfoCard label="Ownership" value={selectedRecord.ownershipScope || "-"} helper={selectedRecord.scopeDepartmentName || selectedRecord.scopeCollegeName || selectedRecord.scopeUniversityName || "Unscoped"} />
-                                <InfoCard label="Evidence Mode" value={selectedRecord.evidenceMode || "-"} helper={`${selectedRecord.documents.length} document(s) and ${selectedRecord.supportingLinks.length} link(s)`} />
-                                <InfoCard label="Due Date" value={formatDate(selectedRecord.dueDate)} helper={`Assignment status: ${selectedRecord.assignmentStatus}`} />
-                                <InfoCard label="Submitted" value={formatDateTime(selectedRecord.submittedAt)} helper={`Updated ${formatDateTime(selectedRecord.updatedAt)}`} />
-                                <InfoCard label="Reviewed" value={formatDateTime(selectedRecord.reviewedAt)} helper={`Approved ${formatDateTime(selectedRecord.approvedAt)}`} />
-                                <InfoCard label="Value Summary" value={selectedRecord.valueSummary} helper={selectedRecord.unitLabel || selectedRecord.benchmarkValue || selectedRecord.sourceModule || "Captured response value"} />
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Response payload</CardTitle>
-                                <CardDescription>
-                                    Narrative, structured values, and contributor notes exactly as submitted.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {selectedRecord.metricDescription ? (
-                                    <SectionBlock title="Metric description" body={selectedRecord.metricDescription} />
-                                ) : null}
-                                {selectedRecord.metricInstructions ? (
-                                    <SectionBlock title="Instructions" body={selectedRecord.metricInstructions} />
-                                ) : null}
-                                {selectedRecord.sectionPrompt ? (
-                                    <SectionBlock
-                                        title="Narrative prompt"
-                                        body={selectedRecord.sectionPrompt}
-                                        helper={
-                                            selectedRecord.wordLimitMin || selectedRecord.wordLimitMax
-                                                ? `Word limit: ${selectedRecord.wordLimitMin ?? 0} to ${selectedRecord.wordLimitMax ?? "unbounded"}`
-                                                : selectedRecord.sectionGuidance
-                                        }
-                                    />
-                                ) : null}
-                                {selectedRecord.narrativeResponse ? (
-                                    <SectionBlock title="Narrative response" body={selectedRecord.narrativeResponse} />
-                                ) : null}
-
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    <InfoCard
-                                        label="Numeric value"
-                                        value={
-                                            selectedRecord.metricValueNumeric !== undefined
-                                                ? String(selectedRecord.metricValueNumeric)
-                                                : "-"
-                                        }
-                                    />
-                                    <InfoCard
-                                        label="Text value"
-                                        value={selectedRecord.metricValueText || "-"}
-                                    />
-                                    <InfoCard
-                                        label="Boolean value"
-                                        value={formatBoolean(selectedRecord.metricValueBoolean)}
-                                    />
-                                    <InfoCard
-                                        label="Date value"
-                                        value={formatDate(selectedRecord.metricValueDate)}
-                                    />
-                                </div>
-
-                                {selectedRecord.tableData &&
-                                Object.keys(selectedRecord.tableData).length ? (
-                                    <div className="rounded-lg border border-border bg-muted/50 p-4">
-                                        <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                                            Structured table data
-                                        </p>
-                                        <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-sm text-foreground">
-                                            {JSON.stringify(selectedRecord.tableData, null, 2)}
-                                        </pre>
-                                    </div>
-                                ) : null}
-
-                                {selectedRecord.contributorRemarks ? (
-                                    <SectionBlock
-                                        title="Contributor remarks"
-                                        body={selectedRecord.contributorRemarks}
-                                    />
-                                ) : null}
-                                {selectedRecord.assignmentNotes ? (
-                                    <SectionBlock
-                                        title="Assignment notes"
-                                        body={selectedRecord.assignmentNotes}
-                                    />
-                                ) : null}
-                            </CardContent>
-                        </Card>
-
-                        <section className="grid gap-6 xl:grid-cols-2">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Supporting links</CardTitle>
-                                    <CardDescription>
-                                        URLs submitted alongside the metric response.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    {selectedRecord.supportingLinks.length ? (
-                                        selectedRecord.supportingLinks.map((link) => (
-                                            <a
-                                                className="block rounded-lg border border-border bg-muted/50 p-4 text-sm text-foreground underline"
-                                                href={link}
-                                                key={link}
-                                                rel="noreferrer"
-                                                target="_blank"
-                                            >
-                                                {link}
-                                            </a>
-                                        ))
-                                    ) : (
-                                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
-                                            No supporting links were submitted for this response.
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Uploaded documents</CardTitle>
-                                    <CardDescription>
-                                        Evidence files linked to this SSR response, including their verification status.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    {selectedRecord.documents.length ? (
-                                        selectedRecord.documents.map((document) => (
-                                            <div
-                                                className="rounded-lg border border-border bg-muted/50 p-4"
-                                                key={document.id}
-                                            >
-                                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                                    <div>
-                                                        <p className="font-medium text-foreground">
-                                                            {document.fileName || "Document"}
-                                                        </p>
-                                                        <p className="mt-1 text-sm text-muted-foreground">
-                                                            {document.fileType || "Unknown type"} • Uploaded{" "}
-                                                            {formatDateTime(document.uploadedAt)}
-                                                        </p>
-                                                    </div>
-                                                    <StatusBadge status={document.verificationStatus || "Pending"} />
-                                                </div>
-                                                {document.verificationRemarks ? (
-                                                    <p className="mt-3 text-sm text-muted-foreground">
-                                                        {document.verificationRemarks}
-                                                    </p>
-                                                ) : null}
-                                                {document.fileUrl ? (
-                                                    <a
-                                                        className="mt-3 inline-flex text-sm font-medium text-foreground underline"
-                                                        href={document.fileUrl}
-                                                        rel="noreferrer"
-                                                        target="_blank"
-                                                    >
-                                                        Open document
-                                                    </a>
-                                                ) : null}
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
-                                            No documents were attached to this response.
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </section>
-
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Workflow action</CardTitle>
-                                <CardDescription>
-                                    Action buttons appear only when the current stage is assigned to your governance scope.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
+    return (
+        <WorkspaceDetail
+            onBack={() => setSelectedId(null)}
+            backLabel="All responses"
+            title={`${selected.metricCode} · ${selected.metricTitle}`}
+            subtitle={`${selected.currentStageLabel} · ${selected.contributorName || "Contributor not mapped"}`}
+            status={selected.status}
+            message={message}
+            rail={rail}
+            railTitle="Response details"
+        >
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base">Workflow decision</CardTitle>
+                    <CardDescription>
+                        {canAct
+                            ? "Remarks are recorded on the response timeline and are visible to the contributor."
+                            : "This response is read-only in your current governance scope."}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    {canAct ? (
+                        <>
+                            <div className="space-y-2">
+                                <Label htmlFor={remarksId}>Review remarks</Label>
                                 <Textarea
-                                    placeholder="Add workflow remarks for the next reviewer or contributor"
-                                    value={remarks[selectedRecord._id] ?? ""}
+                                    id={remarksId}
+                                    rows={3}
+                                    value={remarks[selected._id] ?? ""}
                                     onChange={(event) =>
                                         setRemarks((current) => ({
                                             ...current,
-                                            [selectedRecord._id]: event.target.value,
+                                            [selected._id]: event.target.value,
                                         }))
                                     }
+                                    placeholder="Explain the decision for the next reviewer or the contributor."
                                 />
-                                <div className="flex flex-wrap gap-3">
-                                    {selectedRecord.availableDecisions.length &&
-                                    (selectedRecord.permissions.canReview ||
-                                        selectedRecord.permissions.canApprove) ? (
-                                        selectedRecord.availableDecisions.map((decision) => (
-                                            <Button
-                                                loading={isPending}
-                                                disabled={isPending}
-                                                key={decision}
-                                                onClick={() => submitDecision(decision)}
-                                                type="button"
-                                                variant={
-                                                    decision === "Reject" ? "secondary" : "default"
-                                                }
-                                            >
-                                                {decision}
-                                            </Button>
-                                        ))
-                                    ) : (
-                                        <p className="text-sm text-muted-foreground">
-                                            This response is currently read-only in your governance scope.
-                                        </p>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {selected.availableDecisions.map((decision) => (
+                                    <Button
+                                        key={decision}
+                                        type="button"
+                                        size="sm"
+                                        variant={decision === "Reject" ? "outline" : "default"}
+                                        loading={pendingDecision === decision}
+                                        disabled={pendingDecision !== null}
+                                        onClick={() => void submitDecision(selected, decision)}
+                                    >
+                                        {decision}
+                                    </Button>
+                                ))}
+                            </div>
+                        </>
+                    ) : (
+                        <InlineAlert tone="info" icon={ShieldOff}>
+                            The current stage — {selected.currentStageLabel} — is not assigned to your account.
+                        </InlineAlert>
+                    )}
+                </CardContent>
+            </Card>
 
-                        <section className="grid gap-6 xl:grid-cols-2">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Review history</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    {selectedRecord.reviewHistory.length ? (
-                                        selectedRecord.reviewHistory.map((entry, index) => (
-                                            <div
-                                                className="rounded-lg border border-border bg-muted/50 p-4"
-                                                key={`${entry.stage}-${entry.reviewedAt}-${index}`}
-                                            >
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <div className="min-w-0">
-                                                        <p className="font-medium text-foreground">
-                                                            {entry.stage}
-                                                        </p>
-                                                        <p className="text-sm text-muted-foreground">
-                                                            {entry.reviewerName || "Reviewer"}{" "}
-                                                            {entry.reviewerRole
-                                                                ? `• ${entry.reviewerRole}`
-                                                                : ""}
-                                                        </p>
-                                                    </div>
-                                                    <Badge variant="secondary">{entry.decision}</Badge>
-                                                </div>
-                                                {entry.remarks ? (
-                                                    <p className="mt-3 text-sm text-muted-foreground">
-                                                        {entry.remarks}
-                                                    </p>
-                                                ) : null}
-                                                <p className="mt-3 text-xs text-muted-foreground">
-                                                    {formatDateTime(entry.reviewedAt)}
-                                                </p>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
-                                            No review actions have been recorded yet.
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base">Submitted response</CardTitle>
+                    <CardDescription>{selected.valueSummary}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <SsrSubmittedValues
+                        numeric={selected.metricValueNumeric}
+                        text={selected.metricValueText}
+                        boolean={selected.metricValueBoolean}
+                        date={selected.metricValueDate}
+                        tableData={selected.tableData}
+                        unitLabel={selected.unitLabel}
+                    />
 
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Status timeline</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    {selectedRecord.statusLogs.length ? (
-                                        selectedRecord.statusLogs.map((entry, index) => (
-                                            <div
-                                                className="rounded-lg border border-border bg-muted/50 p-4"
-                                                key={`${entry.status}-${entry.changedAt}-${index}`}
-                                            >
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <p className="min-w-0 font-medium text-foreground">
-                                                        {entry.status}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {formatDateTime(entry.changedAt)}
-                                                    </p>
-                                                </div>
-                                                <p className="mt-2 text-sm text-muted-foreground">
-                                                    {entry.actorName || "System"}
-                                                    {entry.actorRole ? ` • ${entry.actorRole}` : ""}
-                                                </p>
-                                                {entry.remarks ? (
-                                                    <p className="mt-2 text-sm text-muted-foreground">
-                                                        {entry.remarks}
-                                                    </p>
-                                                ) : null}
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
-                                            Status changes will appear here once the workflow starts moving.
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </section>
-                    </div>
-                ) : (
-                    <Card>
-                        <CardContent className="p-8 text-sm text-muted-foreground">
-                            Select an SSR response from the register to inspect it.
-                        </CardContent>
-                    </Card>
-                )}
+                    {selected.narrativeResponse ? (
+                        <SsrProse title="Narrative response" body={selected.narrativeResponse} />
+                    ) : null}
+                    {selected.contributorRemarks ? (
+                        <SsrProse title="Contributor remarks" body={selected.contributorRemarks} />
+                    ) : null}
+                    {selected.reviewRemarks ? (
+                        <SsrProse title="Previous review remarks" body={selected.reviewRemarks} />
+                    ) : null}
+                </CardContent>
+            </Card>
+
+            <SsrEvidence links={selected.supportingLinks} documents={selected.documents} />
+
+            <section className="space-y-3">
+                <SectionHeader
+                    title="Metric guidance"
+                    description="What the contributor was asked to provide."
+                />
+                {selected.metricDescription ? (
+                    <SsrProse title="Metric description" body={selected.metricDescription} />
+                ) : null}
+                {selected.metricInstructions ? (
+                    <SsrProse title="Instructions" body={selected.metricInstructions} />
+                ) : null}
+                {selected.sectionPrompt ? (
+                    <SsrProse
+                        title="Narrative prompt"
+                        body={selected.sectionPrompt}
+                        helper={
+                            selected.wordLimitMin || selected.wordLimitMax
+                                ? `Word limit: ${selected.wordLimitMin ?? 0} to ${selected.wordLimitMax ?? "unbounded"}`
+                                : selected.sectionGuidance
+                        }
+                    />
+                ) : null}
+                {selected.assignmentNotes ? (
+                    <SsrProse title="Assignment notes" body={selected.assignmentNotes} />
+                ) : null}
+                {selected.benchmarkValue ? (
+                    <SsrProse title="Benchmark" body={selected.benchmarkValue} />
+                ) : null}
             </section>
-        </div>
-    );
-}
-
-function MetricCard({
-    label,
-    value,
-    helper,
-}: {
-    label: string;
-    value: number;
-    helper: string;
-}) {
-    return <StatCard label={label} value={value} helper={helper} />;
-}
-
-function InfoCard({
-    label,
-    value,
-    helper,
-}: {
-    label: string;
-    value: string;
-    helper?: string;
-}) {
-    return <StatTile label={label} value={value} helper={helper} />;
-}
-
-function SectionBlock({
-    title,
-    body,
-    helper,
-}: {
-    title: string;
-    body: string;
-    helper?: string;
-}) {
-    return (
-        <div className="rounded-lg border border-border bg-muted/50 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{title}</p>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground">{body}</p>
-            {helper ? <p className="mt-3 text-xs text-muted-foreground">{helper}</p> : null}
-        </div>
+        </WorkspaceDetail>
     );
 }
