@@ -1,248 +1,55 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, ShieldCheck, Trash2 } from "lucide-react";
+import { Building2, ClipboardCheck, FileText, FlaskConical, GraduationCap, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { z } from "zod";
 
 import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { StatTile } from "@/components/ui/stat-card";
+import { Stepper, type StepDescriptor } from "@/components/ui/stepper";
 import { getDesignationProfile } from "@/lib/faculty/options";
-import { pbasApplicationSchema, type PbasSnapshot } from "@/lib/pbas/validators";
-import { InlineUpload } from "@/components/ui/file-upload";
-import { ConfirmButton } from "@/components/ui/confirm-button";
-import type { UploadedDocument } from "@/lib/upload/service";
+import { hasErrorsForPaths } from "@/lib/forms/has-errors-for-paths";
+import { pbasApplicationSchema } from "@/lib/pbas/validators";
+import { PbasStepDetails } from "@/components/pbas/steps/pbas-step-details";
+import { PbasStepTeachingSources } from "@/components/pbas/steps/pbas-step-teaching-sources";
+import { PbasStepResearchSources } from "@/components/pbas/steps/pbas-step-research-sources";
+import { PbasStepInstitutionalSources } from "@/components/pbas/steps/pbas-step-institutional-sources";
+import { PbasStepScoreReview } from "@/components/pbas/steps/pbas-step-score-review";
+import { PbasSubmissionSummary } from "@/components/pbas/pbas-submission-summary";
+import { PBASStatusTimeline } from "@/components/pbas/pbas-status-timeline";
+import type {
+    IndicatorEntry,
+    PbasApp,
+    PbasCandidateOption,
+    PbasDetail,
+    PbasDraftReferences,
+    PbasFormValues,
+    PbasReferenceKey,
+    PbasSourceRow,
+    PbasSourceTables,
+    PbasSummary,
+} from "@/components/pbas/pbas-types";
 
-type PbasFormValues = z.input<typeof pbasApplicationSchema>;
+const STEPS: StepDescriptor[] = [
+    { id: "details", title: "Application Details", description: "Year, designation, appraisal period", icon: FileText },
+    { id: "teaching", title: "Teaching Sources", description: "Teaching load & summary records", icon: GraduationCap },
+    { id: "research", title: "Research Sources", description: "Publications, books, projects", icon: FlaskConical },
+    { id: "institutional", title: "Institutional Sources", description: "Committees & institutional duties", icon: Building2 },
+    { id: "review", title: "Score & Review", description: "API score, evidence, submission", icon: ClipboardCheck },
+];
 
-type PbasApp = {
-    _id: string;
-    academicYearId?: string;
-    academicYear: string;
-    currentDesignation: PbasFormValues["currentDesignation"];
-    appraisalPeriod: {
-        fromDate: string;
-        toDate: string;
-    };
-    apiScore: {
-        teachingActivities: number;
-        researchAcademicContribution: number;
-        institutionalResponsibilities: number;
-        totalScore: number;
-    };
-    snapshot?: PbasSnapshot;
-    status: string;
-    statusLogs: Array<{
-        _id?: string;
-        status: string;
-        actorName?: string;
-        actorRole?: string;
-        remarks?: string;
-        changedAt: string;
-    }>;
-    updatedAt: string;
-};
-
-type PbasDraftReferences = {
-    teachingSummaryId?: string;
-    teachingLoadIds: string[];
-    resultSummaryIds: string[];
-    publicationIds: string[];
-    bookIds: string[];
-    patentIds: string[];
-    researchProjectIds: string[];
-    eventParticipationIds: string[];
-    fdpIds: string[];
-    moocCourseIds: string[];
-    econtentIds: string[];
-    phdGuidanceIds: string[];
-    awardIds: string[];
-    consultancyIds: string[];
-    adminRoleIds: string[];
-    institutionalContributionIds: string[];
-    socialExtensionIds: string[];
-};
-
-type PbasCandidateOption = {
-    id: string;
-    label: string;
-    sublabel?: string;
-    note?: string;
-};
-
-type PbasReferenceKey = keyof Omit<PbasDraftReferences, "teachingSummaryId"> | "teachingSummaryId";
-
-type PbasSourceRow = {
-    id: string;
-    sourceType: string;
-    title: string;
-    subtitle?: string;
-    note?: string;
-    included: boolean;
-    referenceKey?: PbasReferenceKey;
-    removable?: boolean;
-    sourceHref: string;
-};
-
-type PbasSourceStep = "teaching" | "research" | "institutional";
-
-type PbasSourceGroup = {
-    title: string;
-    description?: string;
-    rows: PbasSourceRow[];
-};
-
-type PbasSourceStepConfig = {
-    label: string;
-    description: string;
-    groups: PbasSourceGroup[];
-};
-
-type PbasSourceTables = Record<PbasSourceStep, PbasSourceStepConfig>;
-
-type PbasCandidatePools = {
-    category1: {
-        teachingSummary?: PbasCandidateOption;
-        teachingLoads: PbasCandidateOption[];
-        resultSummaries: PbasCandidateOption[];
-    };
-    category2: {
-        researchPapers: PbasCandidateOption[];
-        books: PbasCandidateOption[];
-        patents: PbasCandidateOption[];
-        conferences: PbasCandidateOption[];
-        projects: PbasCandidateOption[];
-        moocCourses: PbasCandidateOption[];
-        econtentItems: PbasCandidateOption[];
-        phdGuidance: PbasCandidateOption[];
-        awards: PbasCandidateOption[];
-        consultancies: PbasCandidateOption[];
-    };
-    category3: {
-        committees: PbasCandidateOption[];
-        administrativeDuties: PbasCandidateOption[];
-        examDuties: PbasCandidateOption[];
-        studentGuidance: PbasCandidateOption[];
-        extensionActivities: PbasCandidateOption[];
-        fdps: PbasCandidateOption[];
-    };
-};
-
-type PbasRevisionSummary = {
-    _id: string;
-    revisionNumber: number;
-    submittedAt: string;
-    approvedAt?: string;
-    backfillIntegrity?: string;
-    migrationSource?: string;
-    createdFromStatus: string;
-    apiScore: PbasApp["apiScore"];
-};
-
-type PbasDetail = PbasApp & {
-    draftReferences: PbasDraftReferences;
-    candidates: PbasCandidatePools;
-    draftSnapshot: PbasSnapshot;
-    activeRevision?: {
-        _id: string;
-        revisionNumber: number;
-        submittedAt: string;
-        approvedAt?: string;
-        backfillIntegrity?: string;
-        migrationSource?: string;
-        createdFromStatus: string;
-        apiScore: PbasApp["apiScore"];
-        snapshot: PbasSnapshot;
-        draftReferences: PbasDraftReferences;
-    } | null;
-    revisionHistory: PbasRevisionSummary[];
-};
-
-type PbasSummary = {
-    activeYear?: { id: string; label: string; yearStart: number; yearEnd: number };
-    academicYearOptions: Array<{ id: string; label: string; isActive: boolean }>;
-    submissionDeadline?: string;
-    lastApprovedApiScore?: number;
-    lastApprovedYear?: string;
-    warnings: string[];
-    stats: {
-        teachingLoadHours: number;
-        publicationCount: number;
-        projectCount: number;
-        fdpCount: number;
-        adminRoleCount: number;
-        extensionCount: number;
-        evidenceCount: number;
-    };
-    meta: PbasFormValues;
-    snapshot: PbasSnapshot;
-    apiScore: {
-        teachingActivities: number;
-        researchAcademicContribution: number;
-        institutionalResponsibilities: number;
-        totalScore: number;
-    };
-    scoringWeights: {
-        caps: {
-            teachingActivities: number;
-            researchAcademicContribution: number;
-            institutionalResponsibilities: number;
-        };
-        category1: {
-            classesTaken: number;
-            coursePreparationHours: number;
-            coursesTaught: number;
-            mentoringCount: number;
-            labSupervisionCount: number;
-        };
-        category2: {
-            researchPaperHigh: number;
-            researchPaperMedium: number;
-            researchPaperDefault: number;
-            book: number;
-            patentGranted: number;
-            patentPublished: number;
-            patentDefault: number;
-            conferenceInternational: number;
-            conferenceNational: number;
-            conferenceDefault: number;
-            projectLargeAmount: number;
-            projectMediumAmount: number;
-            projectLarge: number;
-            projectMedium: number;
-            projectDefault: number;
-        };
-        category3: {
-            committee: number;
-            administrativeDuty: number;
-            examDuty: number;
-            studentGuidancePerUnit: number;
-            studentGuidanceMaxPerEntry: number;
-            extensionActivity: number;
-        };
-    };
-};
-
-type IndicatorEntry = {
-    indicatorId: string;
-    indicatorCode: string;
-    indicatorName: string;
-    category?: { id?: string; code?: string; name?: string; maxScore?: number };
-    maxScore: number;
-    claimedScore: number;
-    approvedScore?: number;
-    evidenceDocument?: { _id?: string; fileName?: string; fileUrl?: string; fileType?: string } | null;
-    remarks?: string;
-};
+const DETAILS_STEP_FIELD_PATHS = [
+    "academicYearId",
+    "academicYear",
+    "currentDesignation",
+    "appraisalPeriod.fromDate",
+    "appraisalPeriod.toDate",
+];
 
 function emptyForm(prefill?: Partial<PbasFormValues>): PbasFormValues {
     const year = new Date().getFullYear();
@@ -287,68 +94,6 @@ function buildProfileEditHref(section: string, id: string) {
     return `/faculty/profile?section=${encodeURIComponent(section)}&editId=${encodeURIComponent(id)}`;
 }
 
-export function PBASScoreCalculator({
-    score,
-}: {
-    score: {
-        teachingActivities: number;
-        researchAcademicContribution: number;
-        institutionalResponsibilities: number;
-        totalScore: number;
-    };
-}) {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>API Score Calculator</CardTitle>
-                <CardDescription>
-                    PBAS API score is calculated from faculty records and captured on save or submit.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <Metric label="Teaching" value={String(score.teachingActivities)} />
-                <Metric label="Research" value={String(score.researchAcademicContribution)} />
-                <Metric label="Institutional" value={String(score.institutionalResponsibilities)} />
-                <Metric label="Total API" value={String(score.totalScore)} />
-            </CardContent>
-        </Card>
-    );
-}
-
-export function PBASStatusTimeline({
-    logs,
-}: {
-    logs: PbasApp["statusLogs"];
-}) {
-    return (
-        <div className="grid gap-3">
-            {logs.length ? (
-                logs.map((log) => (
-                    <div
-                        className="rounded-lg border border-border bg-muted/50 p-4"
-                        key={log._id ?? `${log.status}-${log.changedAt}`}
-                    >
-                        <div className="flex items-center justify-between gap-4">
-                            <p className="min-w-0 font-semibold text-foreground">{log.status}</p>
-                            <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                                {new Date(log.changedAt).toLocaleString()}
-                            </p>
-                        </div>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                            {log.actorName ? `${log.actorName} (${log.actorRole ?? "User"})` : "System"}
-                        </p>
-                        {log.remarks ? <p className="mt-1 text-sm text-muted-foreground">{log.remarks}</p> : null}
-                    </div>
-                ))
-            ) : (
-                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
-                    No PBAS status updates recorded yet.
-                </div>
-            )}
-        </div>
-    );
-}
-
 export function PbasDashboard({
     initialApplications,
     facultyName,
@@ -371,16 +116,12 @@ export function PbasDashboard({
     const [entries, setEntries] = useState<IndicatorEntry[]>([]);
     const [entryLoading, setEntryLoading] = useState(false);
     const [entryError, setEntryError] = useState<string | null>(null);
-    const [activeSourceStep, setActiveSourceStep] = useState<PbasSourceStep>("teaching");
+    const [currentStepIndex, setCurrentStepIndex] = useState(0);
+    const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
     const activeStatuses = useMemo(
         () => new Set(["Draft", "Rejected", "Submitted", "Under Review", "Committee Review"]),
         []
     );
-
-    const displayEntries = useMemo(() => {
-        const totals = entries.filter((entry) => entry.indicatorCode.endsWith("_TOTAL"));
-        return totals.length ? totals : entries;
-    }, [entries]);
 
     const selected = applications.find((item) => item._id === selectedId);
     const activeApplication = useMemo(
@@ -754,12 +495,23 @@ export function PbasDashboard({
         };
     }, [designationProfile.key, selectedDetail]);
 
-    const sourceStepOrder: PbasSourceStep[] = ["teaching", "research", "institutional"];
-    const activeSourceStepIndex = sourceStepOrder.indexOf(activeSourceStep);
-
     useEffect(() => {
-        setActiveSourceStep("teaching");
+        setCurrentStepIndex(0);
+        setVisitedSteps(new Set([0]));
     }, [selectedId]);
+
+    function handleStepChange(index: number) {
+        setCurrentStepIndex(index);
+        setVisitedSteps((current) => new Set(current).add(index));
+    }
+
+    function hasErrorsForStep(index: number): boolean {
+        if (index !== 0) {
+            return false;
+        }
+
+        return hasErrorsForPaths(form.formState.errors, DETAILS_STEP_FIELD_PATHS);
+    }
 
     function removeFromPbas(row: PbasSourceRow) {
         if (!row.referenceKey) {
@@ -1030,6 +782,88 @@ export function PbasDashboard({
         }
     }
 
+    function handleUploadEvidence(indicatorId: string, documentId: string) {
+        void persistEntry(indicatorId, { evidenceDocumentId: documentId }).catch(() => {
+            setMessage({ type: "error", text: "Unable to update PBAS entries." });
+        });
+    }
+
+    const submittedAt = useMemo(() => {
+        const submittedLog = [...(selected?.statusLogs ?? [])]
+            .reverse()
+            .find((log) => log.status === "Submitted");
+        return submittedLog?.changedAt ?? selectedDetail?.activeRevision?.submittedAt;
+    }, [selected, selectedDetail]);
+
+    function renderActiveStep() {
+        switch (STEPS[currentStepIndex]?.id) {
+            case "details":
+                return (
+                    <PbasStepDetails
+                        form={form}
+                        academicYearOptions={academicYearOptions}
+                        canEdit={canEdit}
+                        designationProfile={designationProfile}
+                        designationBadgeLabel={String(watchedValues.currentDesignation ?? selected?.currentDesignation ?? "")}
+                    />
+                );
+            case "teaching":
+                return (
+                    <PbasStepTeachingSources
+                        config={sourceTables?.teaching}
+                        snapshot={selectedSnapshot.category1}
+                        canEdit={canEdit}
+                        onRemove={removeFromPbas}
+                        loading={detailLoading}
+                        error={detailError}
+                        hasDetail={Boolean(selectedDetail)}
+                    />
+                );
+            case "research":
+                return (
+                    <PbasStepResearchSources
+                        config={sourceTables?.research}
+                        snapshot={selectedSnapshot.category2}
+                        canEdit={canEdit}
+                        onRemove={removeFromPbas}
+                        loading={detailLoading}
+                        error={detailError}
+                        hasDetail={Boolean(selectedDetail)}
+                    />
+                );
+            case "institutional":
+                return (
+                    <PbasStepInstitutionalSources
+                        config={sourceTables?.institutional}
+                        snapshot={selectedSnapshot.category3}
+                        canEdit={canEdit}
+                        onRemove={removeFromPbas}
+                        loading={detailLoading}
+                        error={detailError}
+                        hasDetail={Boolean(selectedDetail)}
+                    />
+                );
+            case "review":
+                return (
+                    <PbasStepScoreReview
+                        score={score}
+                        entries={entries}
+                        entryLoading={entryLoading}
+                        entryError={entryError}
+                        canEdit={canEdit}
+                        facultyId={facultyId}
+                        onUploadEvidence={handleUploadEvidence}
+                        revisionHistory={selectedDetail?.revisionHistory ?? []}
+                        selectedId={selectedId}
+                        isPending={isPending}
+                        onSubmit={submitApplication}
+                        submitDisabledReason={submitDisabledReason}
+                    />
+                );
+            default:
+                return null;
+        }
+    }
 
     return (
         <div className="grid gap-6">
@@ -1042,35 +876,21 @@ export function PbasDashboard({
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid gap-3 md:grid-cols-3">
-                        <div className="rounded-lg border border-border bg-muted/50 p-4">
-                            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Active Year</p>
-                            <p className="mt-2 text-lg font-semibold text-foreground">
-                                {summary.activeYear?.label || "Not configured"}
-                            </p>
-                        </div>
-                        <div className="rounded-lg border border-border bg-muted/50 p-4">
-                            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Submission Deadline</p>
-                            <p className="mt-2 text-lg font-semibold text-foreground">
-                                {summary.submissionDeadline || "Not configured"}
-                            </p>
-                        </div>
-                        <div className="rounded-lg border border-border bg-muted/50 p-4">
-                            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Last Approved API</p>
-                            <p className="mt-2 text-lg font-semibold text-foreground">
-                                {summary.lastApprovedApiScore ?? 0}
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                {summary.lastApprovedYear ? `Year ${summary.lastApprovedYear}` : "No approved PBAS yet"}
-                            </p>
-                        </div>
+                        <StatTile label="Active Year" value={summary.activeYear?.label || "Not configured"} />
+                        <StatTile label="Submission Deadline" value={summary.submissionDeadline || "Not configured"} />
+                        <StatTile
+                            label="Last Approved API"
+                            value={summary.lastApprovedApiScore ?? 0}
+                            helper={summary.lastApprovedYear ? `Year ${summary.lastApprovedYear}` : "No approved PBAS yet"}
+                        />
                     </div>
                     <div className="grid gap-3 md:grid-cols-6">
-                        <Metric label="Teaching Hours" value={String(summary.stats.teachingLoadHours)} />
-                        <Metric label="Publications" value={String(summary.stats.publicationCount)} />
-                        <Metric label="Projects" value={String(summary.stats.projectCount)} />
-                        <Metric label="FDP Count" value={String(summary.stats.fdpCount)} />
-                        <Metric label="Admin Roles" value={String(summary.stats.adminRoleCount)} />
-                        <Metric label="Evidence" value={String(summary.stats.evidenceCount)} />
+                        <StatTile label="Teaching Hours" value={summary.stats.teachingLoadHours} />
+                        <StatTile label="Publications" value={summary.stats.publicationCount} />
+                        <StatTile label="Projects" value={summary.stats.projectCount} />
+                        <StatTile label="FDP Count" value={summary.stats.fdpCount} />
+                        <StatTile label="Admin Roles" value={summary.stats.adminRoleCount} />
+                        <StatTile label="Evidence" value={summary.stats.evidenceCount} />
                     </div>
                     {summary.warnings.length ? (
                         <div className="rounded-lg border border-warning-border bg-warning-muted p-4 text-sm text-warning-muted-foreground">
@@ -1207,484 +1027,41 @@ export function PbasDashboard({
                         </Card>
                     ) : null}
 
-                    <PBASScoreCalculator score={score} />
-                    <Separator />
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>PBAS Indicator Totals</CardTitle>
-                            <CardDescription>
-                                Evidence-linked indicator totals for the selected PBAS form.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            {entryLoading ? (
-                                <PbasIndicatorTableSkeleton />
-                            ) : entryError ? (
-                                <div className="rounded-lg border border-destructive-border bg-destructive-muted p-4 text-sm text-destructive-muted-foreground">
-                                    {entryError}
-                                </div>
-                            ) : displayEntries.length ? (
-                                <div className="rounded-lg border border-border">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Indicator</TableHead>
-                                                <TableHead className="text-right">Claimed</TableHead>
-                                                <TableHead className="text-right">Approved</TableHead>
-                                                <TableHead>Evidence</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {displayEntries.map((entry) => (
-                                                <TableRow key={entry.indicatorId}>
-                                                    <TableCell className="align-top">
-                                                        <div className="space-y-1">
-                                                            <p className="text-sm font-semibold text-foreground">
-                                                                {entry.indicatorName}
-                                                            </p>
-                                                            <p className="text-xs text-muted-foreground">
-                                                                {entry.category?.name} • {entry.indicatorCode} • Max {entry.maxScore}
-                                                            </p>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-right align-top">
-                                                        <span className="text-sm font-semibold text-foreground">{entry.claimedScore}</span>
-                                                    </TableCell>
-                                                    <TableCell className="text-right align-top">
-                                                        <span className="text-sm font-semibold text-success-muted-foreground">
-                                                            {entry.approvedScore ?? "--"}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell className="align-top">
-                                                        <InlineUpload
-                                                            category="evidence"
-                                                            ownerId={facultyId}
-                                                            mode="document"
-                                                            value={entry.evidenceDocument ? (entry.evidenceDocument as unknown as UploadedDocument) : null}
-                                                            onChange={(uploaded) => {
-                                                                if (uploaded && typeof uploaded === "object") {
-                                                                    void persistEntry(entry.indicatorId, { evidenceDocumentId: (uploaded as UploadedDocument)._id });
-                                                                }
-                                                            }}
-                                                            placeholder="Upload evidence"
-                                                        />
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            ) : (
-                                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
-                                    Select a PBAS form to view indicator totals.
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>PBAS Annual Appraisal Form</CardTitle>
-                            <CardDescription>
-                                Metadata and read-only snapshot of faculty records used for PBAS scoring.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                <Field label="Academic Year">
-                                    <Controller
-                                        control={form.control}
-                                        name="academicYearId"
-                                        render={({ field }) => (
-                                            <Select
-                                                value={field.value || undefined}
-                                                onValueChange={(value) => {
-                                                    field.onChange(value);
-                                                    const matchingOption = academicYearOptions.find((option) => option.id === value);
-                                                    form.setValue("academicYear", matchingOption?.label ?? "", {
-                                                        shouldDirty: true,
-                                                        shouldValidate: true,
-                                                    });
-                                                }}
-                                                disabled={!canEdit}
-                                            >
-                                                <SelectTrigger className="w-full">
-                                                    <SelectValue placeholder="Select academic year" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {academicYearOptions.map((option) => (
-                                                        <SelectItem key={option.id} value={option.id}>
-                                                            {option.label}{option.isActive ? " (Active)" : ""}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        )}
-                                    />
-                                </Field>
-                                <Field label="Current Designation">
-                                    <Input
-                                        {...form.register("currentDesignation")}
-                                        disabled
-                                        readOnly
-                                    />
-                                </Field>
-                                <Field label="Appraisal From">
-                                    <Input type="date" {...form.register("appraisalPeriod.fromDate")} disabled={!canEdit} />
-                                </Field>
-                                <Field label="Appraisal To">
-                                    <Input type="date" {...form.register("appraisalPeriod.toDate")} disabled={!canEdit} />
-                                </Field>
-                            </div>
-
-                            <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
-                                PBAS scores are derived from faculty teaching, research, and institutional records. Update the source data in{" "}
-                                <a className="font-semibold text-foreground hover:underline" href="/faculty/profile">
-                                    Faculty Workspace
-                                </a>
-                                .
-                            </div>
-
-                            <div className="rounded-lg border border-border bg-card p-4">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <p className="text-sm font-semibold text-foreground">{designationProfile.label}</p>
-                                    <Badge variant="secondary">{watchedValues.currentDesignation || selected?.currentDesignation || "PBAS"}</Badge>
-                                </div>
-                                <p className="mt-2 text-sm text-muted-foreground">{designationProfile.pbasFocus}</p>
-                                <div className="mt-3 flex flex-wrap gap-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                                    {designationProfile.key === "early_assistant" ? (
-                                        <>
-                                            <span className="rounded-full border border-border px-3 py-1">Teaching-heavy visibility</span>
-                                            <span className="rounded-full border border-border px-3 py-1">Research growth</span>
-                                        </>
-                                    ) : null}
-                                    {designationProfile.key === "advanced_assistant" ? (
-                                        <>
-                                            <span className="rounded-full border border-border px-3 py-1">Balanced teaching + research</span>
-                                            <span className="rounded-full border border-border px-3 py-1">Institutional contribution visible</span>
-                                        </>
-                                    ) : null}
-                                    {designationProfile.key === "associate" ? (
-                                        <>
-                                            <span className="rounded-full border border-border px-3 py-1">Research-first visibility</span>
-                                            <span className="rounded-full border border-border px-3 py-1">Leadership contribution visible</span>
-                                        </>
-                                    ) : null}
-                                    {designationProfile.key === "professor" ? (
-                                        <>
-                                            <span className="rounded-full border border-border px-3 py-1">Leadership-first visibility</span>
-                                            <span className="rounded-full border border-border px-3 py-1">Mentoring and stewardship</span>
-                                        </>
-                                    ) : null}
-                                </div>
-                            </div>
-
-                            {detailLoading ? (
-                                <PbasReferenceSkeleton />
-                            ) : detailError ? (
-                                <div className="rounded-lg border border-destructive-border bg-destructive-muted p-4 text-sm text-destructive-muted-foreground">
-                                    {detailError}
-                                </div>
-                            ) : selectedDetail ? (
-                                <div className="space-y-4 rounded-lg border border-border bg-card p-4">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        {sourceStepOrder.map((stepKey, index) => {
-                                            const isActive = activeSourceStep === stepKey;
-                                            const step = sourceTables?.[stepKey];
-                                            const label = step?.label ?? stepKey;
-
-                                            return (
-                                                <Button
-                                                    key={stepKey}
-                                                    type="button"
-                                                    size="sm"
-                                                    variant={isActive ? "default" : "outline"}
-                                                    onClick={() => setActiveSourceStep(stepKey)}
-                                                >
-                                                    {index + 1}. {label}
-                                                </Button>
-                                            );
-                                        })}
-                                    </div>
-
-                                    <div className="rounded-lg border border-border bg-muted/50 p-4">
-                                        <p className="text-sm font-semibold text-foreground">
-                                            Step {activeSourceStepIndex + 1}: {sourceTables?.[activeSourceStep]?.label}
-                                        </p>
-                                        <p className="mt-1 text-sm text-muted-foreground">
-                                            {sourceTables?.[activeSourceStep]?.description}
-                                        </p>
-                                    </div>
-
-                                    <div className="grid gap-4">
-                                        {(sourceTables?.[activeSourceStep]?.groups ?? []).map((group) => (
-                                            <ReadonlySourceTable
-                                                key={`${activeSourceStep}-${group.title}`}
-                                                title={group.title}
-                                                rows={group.rows}
-                                                canEdit={canEdit}
-                                                onRemove={removeFromPbas}
-                                            />
-                                        ))}
-                                    </div>
-
-                                    <div className="flex flex-wrap justify-between gap-2">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            disabled={activeSourceStepIndex <= 0}
-                                            onClick={() => {
-                                                const previous = sourceStepOrder[activeSourceStepIndex - 1];
-                                                if (previous) setActiveSourceStep(previous);
-                                            }}
-                                        >
-                                            <ChevronLeft aria-hidden />
-                                            Previous Step
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            disabled={activeSourceStepIndex >= sourceStepOrder.length - 1}
-                                            onClick={() => {
-                                                const next = sourceStepOrder[activeSourceStepIndex + 1];
-                                                if (next) setActiveSourceStep(next);
-                                            }}
-                                        >
-                                            <ChevronRight aria-hidden />
-                                            Next Step
-                                        </Button>
-                                    </div>
-                                </div>
-                            ) : null}
-
-                            <div className="grid gap-4 lg:grid-cols-3">
-                                <div className="rounded-lg border border-border bg-card p-4">
-                                    <p className="text-sm font-semibold text-foreground">Teaching Snapshot</p>
-                                    <p className="mt-2 text-sm text-muted-foreground">
-                                        Classes taken: {selectedSnapshot.category1.classesTaken}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Courses taught: {selectedSnapshot.category1.coursesTaught.length}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Mentoring: {selectedSnapshot.category1.mentoringCount} | Lab: {selectedSnapshot.category1.labSupervisionCount}
-                                    </p>
-                                </div>
-                                <div className="rounded-lg border border-border bg-card p-4">
-                                    <p className="text-sm font-semibold text-foreground">Research Snapshot</p>
-                                    <p className="mt-2 text-sm text-muted-foreground">
-                                        Papers: {selectedSnapshot.category2.researchPapers.length} | Books: {selectedSnapshot.category2.books.length}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Patents: {selectedSnapshot.category2.patents.length} | Projects: {selectedSnapshot.category2.projects.length}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Conferences: {selectedSnapshot.category2.conferences.length}
-                                    </p>
-                                </div>
-                                <div className="rounded-lg border border-border bg-card p-4">
-                                    <p className="text-sm font-semibold text-foreground">Institutional Snapshot</p>
-                                    <p className="mt-2 text-sm text-muted-foreground">
-                                        Committees: {selectedSnapshot.category3.committees.length} | Admin duties: {selectedSnapshot.category3.administrativeDuties.length}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Exam duties: {selectedSnapshot.category3.examDuties.length} | Guidance: {selectedSnapshot.category3.studentGuidance.reduce((sum, item) => sum + item.count, 0)}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Extension activities: {selectedSnapshot.category3.extensionActivities.length}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {selectedDetail?.revisionHistory?.length ? (
-                                <div className="rounded-lg border border-border bg-muted/50 p-4">
-                                    <p className="text-sm font-semibold text-foreground">Submission Revisions</p>
-                                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                                        {selectedDetail.revisionHistory.map((revision) => (
-                                            <div key={revision._id} className="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <p className="font-semibold text-foreground">Revision {revision.revisionNumber}</p>
-                                                    <Badge variant="secondary">{revision.apiScore.totalScore}</Badge>
-                                                </div>
-                                                <p className="mt-2">
-                                                    Submitted {new Date(revision.submittedAt).toLocaleString()}
-                                                </p>
-                                                <p>
-                                                    {revision.approvedAt
-                                                        ? `Approved ${new Date(revision.approvedAt).toLocaleString()}`
-                                                        : revision.createdFromStatus}
-                                                </p>
-                                                {revision.backfillIntegrity || revision.migrationSource ? (
-                                                    <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                                                        {[revision.backfillIntegrity, revision.migrationSource].filter(Boolean).join(" • ")}
-                                                    </p>
-                                                ) : null}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : null}
-
-                            <div className="flex flex-wrap gap-3">
-                                {selectedId ? (
-                                    <Button asChild type="button" variant="secondary">
-                                        <a href={`/api/pbas/${selectedId}/report`}>Download PBAS PDF</a>
-                                    </Button>
-                                ) : null}
-                                <Button
-                                    loading={isPending}
-                                    type="button"
-                                    onClick={submitApplication}
-                                    disabled={isPending || !selectedId || !canEdit}
-                                >
-                                    Submit PBAS Application
-                                </Button>
-                            </div>
-                            {submitDisabledReason ? (
-                                <p className="text-sm text-warning-muted-foreground">{submitDisabledReason}</p>
-                            ) : null}
-                        </CardContent>
-                </Card>
+                    {canEdit ? (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>PBAS Annual Appraisal Form</CardTitle>
+                                <CardDescription>
+                                    Step through application details, source records, and score review for PBAS scoring.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <Stepper
+                                    steps={STEPS}
+                                    currentIndex={currentStepIndex}
+                                    visitedSteps={visitedSteps}
+                                    hasErrors={hasErrorsForStep}
+                                    onStepChange={handleStepChange}
+                                />
+                                {renderActiveStep()}
+                            </CardContent>
+                        </Card>
+                    ) : selected ? (
+                        <PbasSubmissionSummary
+                            application={selected}
+                            submittedAt={submittedAt}
+                            sourceTables={sourceTables}
+                            sourcesLoading={detailLoading}
+                            sourcesError={detailError}
+                            snapshot={selectedSnapshot}
+                            entries={entries}
+                            entryLoading={entryLoading}
+                            entryError={entryError}
+                            revisionHistory={selectedDetail?.revisionHistory ?? []}
+                        />
+                    ) : null}
+                </div>
             </div>
-        </div>
-        </div>
-    );
-}
-
-function Field({
-    label,
-    children,
-}: {
-    label: string;
-    children: React.ReactNode;
-}) {
-    return (
-        <div className="grid gap-2">
-            <p className="text-sm font-medium text-foreground">{label}</p>
-            {children}
-        </div>
-    );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="rounded-lg border border-border bg-muted/50 p-4">
-            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-            <p className="mt-2 font-semibold text-foreground">{value}</p>
-        </div>
-    );
-}
-
-function PbasIndicatorTableSkeleton() {
-    return (
-        <div className="rounded-lg border border-border bg-card p-4">
-            <div className="grid gap-3">
-                <Skeleton className="h-4 w-1/3" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-            </div>
-        </div>
-    );
-}
-
-function PbasReferenceSkeleton() {
-    return (
-        <div className="grid gap-4 xl:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, index) => (
-                <div key={`reference-skeleton-${index}`} className="rounded-lg border border-border bg-card p-4">
-                    <div className="grid gap-3">
-                        <Skeleton className="h-4 w-2/3" />
-                        <Skeleton className="h-3 w-full" />
-                        <Skeleton className="h-12 w-full" />
-                        <Skeleton className="h-12 w-full" />
-                        <Skeleton className="h-12 w-full" />
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-}
-
-function ReadonlySourceTable({
-    title,
-    rows,
-    canEdit,
-    onRemove,
-}: {
-    title: string;
-    rows: PbasSourceRow[];
-    canEdit: boolean;
-    onRemove: (row: PbasSourceRow) => void;
-}) {
-    return (
-        <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-sm font-semibold text-foreground">{title}</p>
-            {rows.length ? (
-                <div className="mt-4 overflow-x-auto rounded-lg border border-border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Source</TableHead>
-                                <TableHead>Details</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {rows.map((row) => (
-                                <TableRow key={`${title}-${row.id}`}>
-                                    <TableCell className="align-top text-sm font-medium text-foreground">
-                                        {row.sourceType}
-                                    </TableCell>
-                                    <TableCell className="align-top">
-                                        <p className="text-sm font-medium text-foreground">{row.title}</p>
-                                        {row.subtitle ? <p className="text-xs text-muted-foreground">{row.subtitle}</p> : null}
-                                        {row.note ? (
-                                            <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{row.note}</p>
-                                        ) : null}
-                                    </TableCell>
-                                    <TableCell className="align-top">
-                                        <Badge variant={row.included ? "default" : "secondary"}>
-                                            {row.included ? "Included" : "Excluded"}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="align-top text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <Button asChild type="button" size="sm" variant="outline">
-                                                <a href={row.sourceHref}>Edit Source</a>
-                                            </Button>
-                                            {row.included && row.removable !== false ? (
-                                                <ConfirmButton
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="destructive"
-                                                    disabled={!canEdit}
-                                                    onConfirm={() => onRemove(row)}
-                                                    title="Remove this row from the PBAS report?"
-                                                    description="The underlying record is not deleted — it is only excluded from this PBAS submission."
-                                                    confirmLabel="Remove"
-                                                >
-                                                    <Trash2 aria-hidden />
-                                                    Remove from PBAS
-                                                </ConfirmButton>
-                                            ) : null}
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-            ) : (
-                <div className="mt-4 rounded-lg border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground">
-                    No records available in this section for the selected academic year.
-                </div>
-            )}
         </div>
     );
 }

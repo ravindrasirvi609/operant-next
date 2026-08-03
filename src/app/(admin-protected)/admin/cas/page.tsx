@@ -1,6 +1,8 @@
+import { Calculator } from "lucide-react";
+
 import { CasRuleManager } from "@/components/admin/cas-rule-manager";
 import { CasReviewBoard } from "@/components/cas/cas-review-board";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { getCasPromotionRules } from "@/lib/cas/admin";
 import { getCasReviewQueue } from "@/lib/cas/service";
 import { getFacultyByIds } from "@/lib/faculty/migration";
@@ -32,19 +34,13 @@ export default async function AdminCasReviewPage() {
 
     return (
         <div className="space-y-6">
+            <PageHeader
+                title="CAS Final Approval"
+                description="Final admin approval board for CAS applications that passed review and committee stages."
+                icon={Calculator}
+            />
             <CasRuleManager initialRules={JSON.parse(JSON.stringify(rules))} />
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>CAS Final Approval</CardTitle>
-                    <CardDescription>
-                        Final admin approval board for CAS applications that passed review and committee stages.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <CasReviewBoard applications={items} mode="approve" />
-                </CardContent>
-            </Card>
+            <CasReviewBoard applications={items} mode="approve" />
         </div>
     );
 }

@@ -1,4 +1,7 @@
+import { Calculator } from "lucide-react";
+
 import { CasDashboard } from "@/components/cas/cas-dashboard";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireFaculty } from "@/lib/auth/user";
 import { getCasEligibilityForFaculty, getFacultyCasApplications } from "@/lib/cas/service";
 import { getFacultyReportDefaults } from "@/lib/faculty/report-defaults";
@@ -27,7 +30,12 @@ export default async function FacultyCasPage() {
 
     return (
         <main className="min-h-screen bg-muted/50">
-            <div className="w-full px-4 py-8 sm:px-6 lg:px-8 xl:px-10">
+            <div className="w-full space-y-6 px-4 py-8 sm:px-6 lg:px-8 xl:px-10">
+                <PageHeader
+                    title="CAS Applications"
+                    description="Track CAS promotion eligibility, PBAS linkage, and submission status."
+                    icon={Calculator}
+                />
                 <CasDashboard
                     facultyName={faculty.name}
                     facultyId={faculty.id}

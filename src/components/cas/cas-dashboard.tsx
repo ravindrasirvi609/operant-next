@@ -1,152 +1,49 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { z } from "zod";
 
 import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
-import { StatTile } from "@/components/ui/stat-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { StatTile } from "@/components/ui/stat-card";
+import { Stepper } from "@/components/ui/stepper";
+import { hasErrorsForPaths } from "@/lib/forms/has-errors-for-paths";
 import {
-    designationOptions,
     getAllowedCasPromotionTargets,
     getDefaultCasTarget,
     getDesignationProfile,
 } from "@/lib/faculty/options";
 import { casApplicationSchema } from "@/lib/cas/validators";
-import { FileUpload } from "@/components/ui/file-upload";
-import type { UploadedDocument } from "@/lib/upload/service";
 
-type CasFormValues = z.input<typeof casApplicationSchema>;
-type CasResolvedValues = z.output<typeof casApplicationSchema>;
+import { APIScoreCalculator } from "@/components/cas/cas-api-score-calculator";
+import { CASCommitteeTimeline } from "@/components/cas/cas-committee-timeline";
+import { CASStatusTimeline } from "@/components/cas/cas-status-timeline";
+import { CasSubmissionSummary } from "@/components/cas/cas-submission-summary";
+import {
+    casStepFieldPaths,
+    casSteps,
+    emptyCasAchievementBucket,
+    type CasApp,
+    type CasDocumentItem,
+    type CasEligibility,
+    type CasFormValues,
+    type CasResolvedValues,
+    type CasWorkflowStatus,
+    type PbasOption,
+} from "@/components/cas/cas-types";
 
-type PbasOption = {
-    _id: string;
-    academicYear: string;
-    totalApiScore?: number;
-    teachingScore?: number;
-    researchScore?: number;
-    institutionalScore?: number;
-    status?: string;
-    usableForSubmit?: boolean;
-};
-
-type CasApp = {
-    _id: string;
-    applicationYearId?: string;
-    applicationYear: string;
-    currentDesignation: string;
-    applyingForDesignation: string;
-    eligibilityPeriod: { fromYear: number; toYear: number };
-    experienceYears: number;
-    pbasReports: string[];
-    apiScore: {
-        teachingLearning: number;
-        researchPublication: number;
-        academicContribution: number;
-        totalScore: number;
-    };
-    eligibility?: {
-        isEligible: boolean;
-        message?: string;
-        minimumExperienceYears?: number;
-        minimumApiScore?: number;
-    };
-    linkedAchievements?: {
-        publications: Array<{ title: string; journal: string; year: number; issn?: string; indexing?: string }>;
-        books: Array<{ title: string; publisher: string; isbn?: string; year: number }>;
-        researchProjects: Array<{ title: string; fundingAgency: string; amount: number; year: number }>;
-        phdGuided: number;
-        conferences: number;
-    };
-    manualAchievements?: {
-        publications: Array<{ title: string; journal: string; year: number; issn?: string; indexing?: string }>;
-        books: Array<{ title: string; publisher: string; isbn?: string; year: number }>;
-        researchProjects: Array<{ title: string; fundingAgency: string; amount: number; year: number }>;
-        phdGuided: number;
-        conferences: number;
-    };
-    committeeReviews?: Array<{
-        _id?: string;
-        committeeMemberName: string;
-        designation: string;
-        role: string;
-        reviewerRole?: string;
-        stage: string;
-        remarks?: string;
-        decision?: string;
-        decisionDate?: string;
-        createdAt?: string;
-    }>;
-    apiBreakup?: Array<{
-        _id?: string;
-        categoryCode: string;
-        scoreObtained: number;
-        minimumRequired: number;
-        eligible: boolean;
-    }>;
-    status: string;
-    statusLogs: Array<{
-        _id?: string;
-        status: string;
-        actorName?: string;
-        actorRole?: string;
-        remarks?: string;
-        changedAt: string;
-    }>;
-    submittedAt?: string;
-    updatedAt: string;
-};
-
-type CasEligibility = {
-    eligible: boolean;
-    reason: string;
-    requiredYears?: number;
-    requiredScore?: number;
-    currentDesignation?: string;
-    nextDesignation?: string;
-    experienceYears?: number;
-    lastApprovedApiScore?: number;
-    lastApprovedYear?: string;
-    approvedPbasCount: number;
-    missingProfileFields: string[];
-};
-
-type CasDocumentItem = {
-    documentType: string;
-    label: string;
-    isMandatory: boolean;
-    documentId?: { _id?: string; fileName?: string; fileUrl?: string; fileType?: string } | null;
-    uploadedAt?: string | null;
-};
-
-type CasWorkflowStatus = {
-    moduleName?: string;
-    recordId?: string;
-    currentApproverRole: string;
-    status: string;
-    remarks?: string;
-    createdAt?: string;
-    updatedAt?: string;
-};
-
-const steps = [
-    "Basic Details",
-    "Eligibility Period",
-    "PBAS Reports",
-    "Publications (Optional)",
-    "Books & Projects (Optional)",
-    "Academic Contributions",
-    "Documents & Checklist",
-    "Review and Submit",
-] as const;
+import { CasStepAcademicContributions } from "@/components/cas/steps/cas-step-academic-contributions";
+import { CasStepBasicDetails } from "@/components/cas/steps/cas-step-basic-details";
+import { CasStepBooksProjects } from "@/components/cas/steps/cas-step-books-projects";
+import { CasStepDocumentsChecklist } from "@/components/cas/steps/cas-step-documents-checklist";
+import { CasStepEligibilityPeriod } from "@/components/cas/steps/cas-step-eligibility-period";
+import { CasStepPbasReports } from "@/components/cas/steps/cas-step-pbas-reports";
+import { CasStepPublications } from "@/components/cas/steps/cas-step-publications";
+import { CasStepReviewSubmit } from "@/components/cas/steps/cas-step-review-submit";
 
 function emptyForm(): CasFormValues {
     const year = new Date().getFullYear();
@@ -162,23 +59,7 @@ function emptyForm(): CasFormValues {
         },
         experienceYears: 0,
         pbasReports: [],
-        manualAchievements: {
-            publications: [],
-            books: [],
-            researchProjects: [],
-            phdGuided: 0,
-            conferences: 0,
-        },
-    };
-}
-
-function emptyAchievements() {
-    return {
-        publications: [],
-        books: [],
-        researchProjects: [],
-        phdGuided: 0,
-        conferences: 0,
+        manualAchievements: emptyCasAchievementBucket(),
     };
 }
 
@@ -195,324 +76,8 @@ function toFormValues(application?: CasApp): CasFormValues {
         eligibilityPeriod: application.eligibilityPeriod,
         experienceYears: application.experienceYears,
         pbasReports: application.pbasReports,
-        manualAchievements: application.manualAchievements ?? emptyAchievements(),
+        manualAchievements: application.manualAchievements ?? emptyCasAchievementBucket(),
     };
-}
-
-export function CASProgressStepper({
-    currentStep,
-}: {
-    currentStep: number;
-}) {
-    return (
-        <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
-            {steps.map((step, index) => (
-                <div className={`rounded-lg border p-3 text-sm ${index <= currentStep ? "border-border bg-card text-foreground" : "border-border bg-muted/50 text-muted-foreground"}`} key={step}>
-                    <p className="text-xs uppercase tracking-[0.16em]">Step {index + 1}</p>
-                    <p className="mt-2 font-medium">{step}</p>
-                </div>
-            ))}
-        </div>
-    );
-}
-
-export function AchievementTable({
-    title,
-    description,
-    children,
-}: {
-    title: string;
-    description: string;
-    children: React.ReactNode;
-}) {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4">{children}</CardContent>
-        </Card>
-    );
-}
-
-function LinkedAchievementsReadonly({
-    linkedAchievements,
-}: {
-    linkedAchievements: NonNullable<CasApp["linkedAchievements"]>;
-}) {
-    return (
-        <div className="space-y-3 rounded-lg border border-border bg-card p-4 text-sm text-foreground">
-            <div>
-                <p className="font-semibold text-foreground">Linked profile achievements (read-only)</p>
-                <p className="mt-1 text-muted-foreground">
-                    These records are reused from profile data and are not editable in CAS.
-                </p>
-            </div>
-
-            <details className="rounded-md border border-border bg-muted/50 p-3">
-                <summary className="cursor-pointer font-medium text-foreground">
-                    Publications ({linkedAchievements.publications.length})
-                </summary>
-                {linkedAchievements.publications.length ? (
-                    <div className="mt-3 overflow-x-auto">
-                        <table className="min-w-full text-left text-xs">
-                            <thead className="text-muted-foreground">
-                                <tr>
-                                    <th className="px-2 py-1 font-medium">Title</th>
-                                    <th className="px-2 py-1 font-medium">Journal</th>
-                                    <th className="px-2 py-1 font-medium">Year</th>
-                                    <th className="px-2 py-1 font-medium">ISSN</th>
-                                    <th className="px-2 py-1 font-medium">Indexing</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {linkedAchievements.publications.map((item, index) => (
-                                    <tr key={`${item.title}-${index}`} className="border-t border-border">
-                                        <td className="px-2 py-1 text-foreground">{item.title}</td>
-                                        <td className="px-2 py-1">{item.journal || "-"}</td>
-                                        <td className="px-2 py-1">{item.year}</td>
-                                        <td className="px-2 py-1">{item.issn || "-"}</td>
-                                        <td className="px-2 py-1">{item.indexing || "-"}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <p className="mt-2 text-xs text-muted-foreground">No linked publications available.</p>
-                )}
-            </details>
-
-            <details className="rounded-md border border-border bg-muted/50 p-3">
-                <summary className="cursor-pointer font-medium text-foreground">
-                    Books ({linkedAchievements.books.length})
-                </summary>
-                {linkedAchievements.books.length ? (
-                    <div className="mt-3 overflow-x-auto">
-                        <table className="min-w-full text-left text-xs">
-                            <thead className="text-muted-foreground">
-                                <tr>
-                                    <th className="px-2 py-1 font-medium">Title</th>
-                                    <th className="px-2 py-1 font-medium">Publisher</th>
-                                    <th className="px-2 py-1 font-medium">Year</th>
-                                    <th className="px-2 py-1 font-medium">ISBN</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {linkedAchievements.books.map((item, index) => (
-                                    <tr key={`${item.title}-${index}`} className="border-t border-border">
-                                        <td className="px-2 py-1 text-foreground">{item.title}</td>
-                                        <td className="px-2 py-1">{item.publisher || "-"}</td>
-                                        <td className="px-2 py-1">{item.year}</td>
-                                        <td className="px-2 py-1">{item.isbn || "-"}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <p className="mt-2 text-xs text-muted-foreground">No linked books available.</p>
-                )}
-            </details>
-
-            <details className="rounded-md border border-border bg-muted/50 p-3">
-                <summary className="cursor-pointer font-medium text-foreground">
-                    Research Projects ({linkedAchievements.researchProjects.length})
-                </summary>
-                {linkedAchievements.researchProjects.length ? (
-                    <div className="mt-3 overflow-x-auto">
-                        <table className="min-w-full text-left text-xs">
-                            <thead className="text-muted-foreground">
-                                <tr>
-                                    <th className="px-2 py-1 font-medium">Title</th>
-                                    <th className="px-2 py-1 font-medium">Funding Agency</th>
-                                    <th className="px-2 py-1 font-medium">Amount</th>
-                                    <th className="px-2 py-1 font-medium">Year</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {linkedAchievements.researchProjects.map((item, index) => (
-                                    <tr key={`${item.title}-${index}`} className="border-t border-border">
-                                        <td className="px-2 py-1 text-foreground">{item.title}</td>
-                                        <td className="px-2 py-1">{item.fundingAgency || "-"}</td>
-                                        <td className="px-2 py-1">{item.amount}</td>
-                                        <td className="px-2 py-1">{item.year}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <p className="mt-2 text-xs text-muted-foreground">No linked research projects available.</p>
-                )}
-            </details>
-
-            <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-                Linked conference count: {linkedAchievements.conferences}
-            </div>
-        </div>
-    );
-}
-
-export function PBASSelector({
-    options,
-    selectedIds,
-    onToggle,
-}: {
-    options: PbasOption[];
-    selectedIds: string[];
-    onToggle: (id: string) => void;
-}) {
-    return (
-        <div className="grid gap-3">
-            {options.length ? options.map((item) => {
-                const isSelected = selectedIds.includes(item._id);
-                return (
-                    <button
-                        type="button"
-                        onClick={() => onToggle(item._id)}
-                        key={item._id}
-                        className={`rounded-lg border p-4 text-left ${isSelected ? "border-border bg-card" : "border-border bg-muted/50"}`}
-                    >
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                                <p className="text-sm font-semibold text-foreground">{item.academicYear}</p>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    Teaching {item.teachingScore ?? 0} | Research {item.researchScore ?? 0} | Institutional {item.institutionalScore ?? 0}
-                                </p>
-                                {item.status ? (
-                                    <p className="mt-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                                        {item.status}{item.usableForSubmit === false ? " • Preview only" : ""}
-                                    </p>
-                                ) : null}
-                            </div>
-                            <Badge>{isSelected ? "Selected" : item.usableForSubmit === false ? "Preview" : "Available"}</Badge>
-                        </div>
-                    </button>
-                );
-            }) : (
-                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
-                    No PBAS reports are available yet. Create and submit PBAS applications first in the PBAS module.
-                </div>
-            )}
-        </div>
-    );
-}
-
-export function APIScoreCalculator({
-    score,
-    eligibility,
-    breakup,
-}: {
-    score: { teachingLearning: number; researchPublication: number; academicContribution: number; totalScore: number };
-    eligibility: { isEligible: boolean; message?: string; minimumExperienceYears?: number; minimumApiScore?: number };
-    breakup?: CasApp["apiBreakup"];
-}) {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>API Score Calculator</CardTitle>
-                <CardDescription>Authoritative CAS scoring comes from the saved server-side PBAS and achievement mapping.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <ScoreCard label="Teaching Learning" value={score.teachingLearning} />
-                <ScoreCard label="Research Publications" value={score.researchPublication} />
-                <ScoreCard label="Academic Contribution" value={score.academicContribution} />
-                <ScoreCard label="Total API Score" value={score.totalScore} />
-                <div className={`md:col-span-2 xl:col-span-4 rounded-lg border p-4 ${eligibility.isEligible ? "border-success-border bg-success-muted text-success-muted-foreground" : "border-warning-border bg-warning-muted text-warning-muted-foreground"}`}>
-                    <p className="text-sm font-semibold">{eligibility.isEligible ? "Eligible" : "Not Eligible"}</p>
-                    <p className="mt-1 text-sm">{eligibility.message ?? "Eligibility is being recalculated from the saved CAS record."}</p>
-                </div>
-                {breakup?.length ? (
-                    <div className="md:col-span-2 xl:col-span-4 overflow-x-auto rounded-lg border border-border bg-muted/50">
-                        <table className="min-w-full text-left text-sm">
-                            <thead className="bg-card text-muted-foreground">
-                                <tr>
-                                    <th className="px-4 py-3 font-medium">Category</th>
-                                    <th className="px-4 py-3 font-medium">Obtained</th>
-                                    <th className="px-4 py-3 font-medium">Minimum</th>
-                                    <th className="px-4 py-3 font-medium">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {breakup.map((entry) => (
-                                    <tr className="border-t border-border" key={entry._id ?? entry.categoryCode}>
-                                        <td className="px-4 py-3 font-medium text-foreground">{entry.categoryCode}</td>
-                                        <td className="px-4 py-3">{entry.scoreObtained}</td>
-                                        <td className="px-4 py-3">{entry.minimumRequired}</td>
-                                        <td className="px-4 py-3">
-                                            <Badge variant={entry.eligible ? "default" : "secondary"}>
-                                                {entry.eligible ? "Met" : "Pending"}
-                                            </Badge>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : null}
-            </CardContent>
-        </Card>
-    );
-}
-
-export function CASStatusTimeline({
-    logs,
-}: {
-    logs: CasApp["statusLogs"];
-}) {
-    return (
-        <div className="grid gap-3">
-            {logs.length ? logs.map((log) => (
-                <div className="rounded-lg border border-border bg-muted/50 p-4" key={log._id ?? `${log.status}-${log.changedAt}`}>
-                    <div className="flex items-center justify-between gap-4">
-                        <p className="min-w-0 font-semibold text-foreground">{log.status}</p>
-                        <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{new Date(log.changedAt).toLocaleString()}</p>
-                    </div>
-                    <p className="mt-2 text-sm text-muted-foreground">{log.actorName ? `${log.actorName} (${log.actorRole ?? "User"})` : "System"}</p>
-                    {log.remarks ? <p className="mt-1 text-sm text-muted-foreground">{log.remarks}</p> : null}
-                </div>
-            )) : (
-                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
-                    No CAS status updates recorded yet.
-                </div>
-            )}
-        </div>
-    );
-}
-
-export function CASCommitteeTimeline({
-    reviews,
-}: {
-    reviews: NonNullable<CasApp["committeeReviews"]>;
-}) {
-    return (
-        <div className="grid gap-3">
-            {reviews.length ? reviews.map((review) => (
-                <div className="rounded-lg border border-border bg-muted/50 p-4" key={review._id ?? `${review.stage}-${review.createdAt}`}>
-                    <div className="flex items-center justify-between gap-4">
-                        <div>
-                            <p className="font-semibold text-foreground">{review.stage}</p>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                {review.committeeMemberName} ({review.reviewerRole ?? review.role})
-                            </p>
-                        </div>
-                        <Badge>{review.decision ?? "Recorded"}</Badge>
-                    </div>
-                    <p className="mt-2 text-sm text-muted-foreground">{review.designation}</p>
-                    {review.remarks ? <p className="mt-2 text-sm text-muted-foreground">{review.remarks}</p> : null}
-                    <p className="mt-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                        {new Date(review.decisionDate ?? review.createdAt ?? Date.now()).toLocaleString()}
-                    </p>
-                </div>
-            )) : (
-                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
-                    No committee reviews recorded yet.
-                </div>
-            )}
-        </div>
-    );
 }
 
 export function CasDashboard({
@@ -541,6 +106,7 @@ export function CasDashboard({
     const [applications, setApplications] = useState(initialApplications);
     const [selectedId, setSelectedId] = useState<string | null>(initialApplications[0]?._id ?? null);
     const [currentStep, setCurrentStep] = useState(0);
+    const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [isPending, startTransition] = useTransition();
     const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved">("idle");
@@ -552,6 +118,7 @@ export function CasDashboard({
     const [workflowError, setWorkflowError] = useState<string | null>(null);
 
     const selected = applications.find((item) => item._id === selectedId);
+    const canEdit = !selected || ["Draft", "Rejected"].includes(selected.status);
     const applicationYearOptions = useMemo(() => {
         const options = [...academicYearOptions];
         const selectedYear = String(selected?.applicationYear ?? "").trim();
@@ -566,7 +133,7 @@ export function CasDashboard({
         return options;
     }, [academicYearOptions, selected?.applicationYear, selected?.applicationYearId]);
     const linkedAchievements = selected?.linkedAchievements ?? {
-        ...emptyAchievements(),
+        ...emptyCasAchievementBucket(),
         ...evidenceDefaults,
         phdGuided: evidenceDefaults.phdGuided ?? 0,
     };
@@ -578,6 +145,17 @@ export function CasDashboard({
     const publicationFields = useFieldArray({ control: form.control, name: "manualAchievements.publications" });
     const bookFields = useFieldArray({ control: form.control, name: "manualAchievements.books" });
     const projectFields = useFieldArray({ control: form.control, name: "manualAchievements.researchProjects" });
+
+    function goToStep(index: number) {
+        const clamped = Math.max(0, Math.min(casSteps.length - 1, index));
+        setCurrentStep(clamped);
+        setVisitedSteps((prev) => {
+            if (prev.has(clamped)) return prev;
+            const next = new Set(prev);
+            next.add(clamped);
+            return next;
+        });
+    }
 
     useEffect(() => {
         form.reset(selected ? toFormValues(selected) : emptyForm());
@@ -623,6 +201,13 @@ export function CasDashboard({
             ? "Waiting for the latest CAS calculation from the server."
             : "Create a CAS draft to calculate the authoritative API score and eligibility.",
     };
+    const hasMissingMandatoryDocument = documents.some((doc) => doc.isMandatory && !doc.documentId?._id);
+
+    function hasStepErrors(index: number): boolean {
+        if (index === 6) return hasMissingMandatoryDocument;
+        if (index === 7) return false;
+        return hasErrorsForPaths(form.formState.errors, casStepFieldPaths[index] ?? []);
+    }
 
     useEffect(() => {
         const selectedYear = String(watchedApplicationYear ?? "").trim();
@@ -784,6 +369,7 @@ export function CasDashboard({
             });
             setSelectedId(data.application._id);
             setCurrentStep(0);
+            setVisitedSteps(new Set([0]));
             setMessage({ type: "success", text: data.message ?? "CAS draft created." });
         });
     }
@@ -831,7 +417,6 @@ export function CasDashboard({
         }
     }
 
-
     return (
         <div className="grid gap-6">
             <Card>
@@ -842,520 +427,268 @@ export function CasDashboard({
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-3">
-                    <div className={`rounded-lg border p-4 ${eligibility.eligible ? "border-success-border bg-success-muted" : "border-warning-border bg-warning-muted"}`}>
-                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Eligibility</p>
-                        <p className="mt-2 text-lg font-semibold text-foreground">
-                            {eligibility.eligible ? "Eligible" : "Not Eligible"}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">{eligibility.reason}</p>
-                    </div>
-                    <div className="rounded-lg border border-border bg-muted/50 p-4">
-                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Required</p>
-                        <p className="mt-2 text-lg font-semibold text-foreground">
-                            {eligibility.requiredYears ?? "--"} yrs | API {eligibility.requiredScore ?? "--"}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                            Next: {eligibility.nextDesignation ?? "Not configured"}
-                        </p>
-                    </div>
-                    <div className="rounded-lg border border-border bg-muted/50 p-4">
-                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Approved PBAS</p>
-                        <p className="mt-2 text-lg font-semibold text-foreground">
-                            {eligibility.lastApprovedApiScore ?? 0}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                            {eligibility.lastApprovedYear ? `Year ${eligibility.lastApprovedYear}` : "No approved PBAS yet"}
-                        </p>
-                    </div>
+                    <StatTile
+                        label="Eligibility"
+                        value={eligibility.eligible ? "Eligible" : "Not Eligible"}
+                        helper={eligibility.reason}
+                        icon={eligibility.eligible ? CheckCircle2 : AlertTriangle}
+                        tone={eligibility.eligible ? "success" : "warning"}
+                    />
+                    <StatTile
+                        label="Required"
+                        value={`${eligibility.requiredYears ?? "--"} yrs | API ${eligibility.requiredScore ?? "--"}`}
+                        helper={`Next: ${eligibility.nextDesignation ?? "Not configured"}`}
+                    />
+                    <StatTile
+                        label="Approved PBAS"
+                        value={eligibility.lastApprovedApiScore ?? 0}
+                        helper={eligibility.lastApprovedYear ? `Year ${eligibility.lastApprovedYear}` : "No approved PBAS yet"}
+                    />
                 </CardContent>
             </Card>
 
             <div className="grid gap-6 xl:grid-cols-[340px_1fr]">
-            <div className="space-y-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>CAS Dashboard</CardTitle>
-                        <CardDescription>
-                            Manage active and past CAS promotion applications for {facultyName}.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <Button loading={isPending} className="w-full" onClick={createDraft} type="button" disabled={isPending}>
-                            Start CAS Draft
-                        </Button>
-                        <div className="rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
-                            Auto save: {selectedId ? autoSaveState : "Create a draft to enable auto save"}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Applications</CardTitle>
-                        <CardDescription>Active applications, history, and current workflow states.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid gap-3">
-                        {applications.length ? applications.map((application) => (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setSelectedId(application._id);
-                                    setCurrentStep(0);
-                                }}
-                                key={application._id}
-                                className={`rounded-lg border p-4 text-left ${selectedId === application._id ? "border-border bg-card" : "border-border bg-muted/50"}`}
-                            >
-                                <div className="flex items-center justify-between gap-3">
-                                    <p className="font-semibold text-foreground">{application.applyingForDesignation}</p>
-                                    <Badge>{application.status}</Badge>
-                                </div>
-                                <p className="mt-2 text-sm text-muted-foreground">
-                                    {application.currentDesignation} | {application.applicationYear}
-                                </p>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    API {application.apiScore.totalScore} | Experience {application.experienceYears} years
-                                </p>
-                            </button>
-                        )) : (
-                            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
-                                No CAS applications created yet.
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {selected ? (
+                <div className="space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Status Timeline</CardTitle>
-                            <CardDescription>Every status transition for this CAS application is logged here.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <CASStatusTimeline logs={selected.statusLogs} />
-                        </CardContent>
-                    </Card>
-                ) : null}
-
-                {selected ? (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Committee Review Trail</CardTitle>
-                            <CardDescription>Department, committee, and admin decisions are stored in the dedicated CAS committee register.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <CASCommitteeTimeline reviews={selected.committeeReviews ?? []} />
-                        </CardContent>
-                    </Card>
-                ) : null}
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Document Verification Status</CardTitle>
-                        <CardDescription>Read-only status from the approval workflow.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        {workflowLoading ? (
-                            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
-                                Loading verification status...
-                            </div>
-                        ) : workflowError ? (
-                            <div className="rounded-lg border border-destructive-border bg-destructive-muted p-4 text-sm text-destructive-muted-foreground">
-                                {workflowError}
-                            </div>
-                        ) : workflow ? (
-                            <div className="grid gap-3 rounded-lg border border-border bg-muted/50 p-4 text-sm">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <div>
-                                        <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Status</p>
-                                        <p className="mt-1 text-base font-semibold text-foreground">{workflow.status}</p>
-                                    </div>
-                                    <Badge>{workflow.currentApproverRole}</Badge>
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                    Last updated{" "}
-                                    {workflow.updatedAt
-                                        ? new Date(workflow.updatedAt).toLocaleString()
-                                        : "Not available"}
-                                </div>
-                                {workflow.remarks ? (
-                                    <div className="rounded-md border border-border bg-card p-3 text-xs text-muted-foreground">
-                                        {workflow.remarks}
-                                    </div>
-                                ) : (
-                                    <div className="text-xs text-muted-foreground">
-                                        No verification remarks recorded yet.
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
-                                Verification workflow has not started yet.
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-
-            <div className="space-y-6">
-                {message ? <FormMessage message={message.text} type={message.type} /> : null}
-
-                {selected?.status === "Rejected" ? (
-                    <Card className="border-destructive-border bg-destructive-muted">
-                        <CardHeader>
-                            <CardTitle>Resubmission Required</CardTitle>
+                            <CardTitle>CAS Dashboard</CardTitle>
                             <CardDescription>
-                                This CAS application was rejected. Review remarks and resubmit once corrections are made.
+                                Manage active and past CAS promotion applications for {facultyName}.
                             </CardDescription>
                         </CardHeader>
+                        <CardContent className="space-y-3">
+                            <Button loading={isPending} className="w-full" onClick={createDraft} type="button" disabled={isPending}>
+                                Start CAS Draft
+                            </Button>
+                            <div className="rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+                                Auto save: {selectedId ? autoSaveState : "Create a draft to enable auto save"}
+                            </div>
+                        </CardContent>
                     </Card>
-                ) : null}
 
-                <CASProgressStepper currentStep={currentStep} />
-                <APIScoreCalculator score={score} eligibility={computedEligibility} breakup={selected?.apiBreakup} />
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>CAS Application Form</CardTitle>
-                        <CardDescription>
-                            Multi-step UGC-oriented CAS promotion application with PBAS linkage, eligibility validation, and workflow-ready achievements.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        {currentStep === 0 ? (
-                            <div className="space-y-4">
-                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                                    <Field label="Application Year">
-                                        <Controller
-                                            control={form.control}
-                                            name="applicationYearId"
-                                            render={({ field }) => (
-                                                <Select
-                                                    value={field.value || undefined}
-                                                    onValueChange={(value) => {
-                                                        field.onChange(value);
-                                                        const matchingOption = applicationYearOptions.find((option) => option.id === value);
-                                                        form.setValue("applicationYear", matchingOption?.label ?? "", {
-                                                            shouldDirty: true,
-                                                            shouldValidate: true,
-                                                        });
-                                                    }}
-                                                >
-                                                    <SelectTrigger className="w-full">
-                                                        <SelectValue placeholder="Select application year" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {applicationYearOptions.map((option) => (
-                                                            <SelectItem key={option.id} value={option.id}>
-                                                                {option.label}{option.isActive ? " (Active)" : ""}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            )}
-                                        />
-                                    </Field>
-                                    <Field label="Current Designation">
-                                        <Controller
-                                            control={form.control}
-                                            name="currentDesignation"
-                                            render={({ field }) => (
-                                                <Select value={field.value || undefined} onValueChange={field.onChange}>
-                                                    <SelectTrigger className="w-full">
-                                                        <SelectValue placeholder="Select designation" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {designationOptions.map((option) => (
-                                                            <SelectItem key={option} value={option}>
-                                                                {option}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            )}
-                                        />
-                                    </Field>
-                                    <Field label="Applying For">
-                                        <Controller
-                                            control={form.control}
-                                            name="applyingForDesignation"
-                                            render={({ field }) => (
-                                                <Select value={field.value || undefined} onValueChange={field.onChange}>
-                                                    <SelectTrigger className="w-full">
-                                                        <SelectValue placeholder="Select designation" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {allowedPromotionTargets.map((option) => (
-                                                            <SelectItem key={option} value={option}>
-                                                                {option}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            )}
-                                        />
-                                    </Field>
-                                </div>
-                                <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
-                                    <p className="font-semibold text-foreground">{designationProfile.label}</p>
-                                    <p className="mt-1">{designationProfile.casFocus}</p>
-                                    <p className="mt-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                                        Allowed promotion path: {allowedPromotionTargets.join(" / ")}
-                                    </p>
-                                </div>
-                            </div>
-                        ) : null}
-
-                        {currentStep === 1 ? (
-                            <div className="grid gap-4 md:grid-cols-3">
-                                <Field label="Eligibility From Year"><Input type="number" {...form.register("eligibilityPeriod.fromYear", { valueAsNumber: true })} /></Field>
-                                <Field label="Eligibility To Year"><Input type="number" {...form.register("eligibilityPeriod.toYear", { valueAsNumber: true })} /></Field>
-                                <Field label="Experience Years"><Input type="number" {...form.register("experienceYears", { valueAsNumber: true })} /></Field>
-                            </div>
-                        ) : null}
-
-                        {currentStep === 2 ? (
-                            <div className="space-y-4">
-                                <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
-                                    Select approved PBAS reports. CAS API scoring primarily reuses linked PBAS data, so you only
-                                    add achievements below when something is not already captured.
-                                </div>
-                                <LinkedAchievementsReadonly linkedAchievements={linkedAchievements} />
-                                <PBASSelector
-                                    options={pbasOptions}
-                                    selectedIds={watchedValues.pbasReports ?? []}
-                                    onToggle={(id) => {
-                                        const current = form.getValues("pbasReports") ?? [];
-                                        form.setValue(
-                                            "pbasReports",
-                                            current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
-                                            { shouldDirty: true }
-                                        );
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Applications</CardTitle>
+                            <CardDescription>Active applications, history, and current workflow states.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="grid gap-3">
+                            {applications.length ? applications.map((application) => (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSelectedId(application._id);
+                                        setCurrentStep(0);
+                                        setVisitedSteps(new Set([0]));
                                     }}
-                                />
-                            </div>
-                        ) : null}
-
-                        {currentStep === 3 ? (
-                            <AchievementTable title="Research Publications (Optional Additions)" description="Add only missing publications that are not already covered in your PBAS-linked data.">
-                                {publicationFields.fields.map((field, index) => (
-                                    <div className="grid gap-4 rounded-lg border border-border bg-muted/50 p-4 md:grid-cols-2 xl:grid-cols-5" key={field.id}>
-                                        <Input placeholder="Title" {...form.register(`manualAchievements.publications.${index}.title`)} />
-                                        <Input placeholder="Journal" {...form.register(`manualAchievements.publications.${index}.journal`)} />
-                                        <Input placeholder="Year" type="number" {...form.register(`manualAchievements.publications.${index}.year`, { valueAsNumber: true })} />
-                                        <Input placeholder="ISSN" {...form.register(`manualAchievements.publications.${index}.issn`)} />
-                                        <Input placeholder="Indexing" {...form.register(`manualAchievements.publications.${index}.indexing`)} />
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                            onClick={() => publicationFields.remove(index)}
-                                            aria-label={`Delete publication ${index + 1}`}
-                                        >
-                                            <Trash2 className="size-4" />
-                                        </Button>
+                                    key={application._id}
+                                    className={`rounded-lg border p-4 text-left ${selectedId === application._id ? "border-border bg-card" : "border-border bg-muted/50"}`}
+                                >
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="font-semibold text-foreground">{application.applyingForDesignation}</p>
+                                        <Badge>{application.status}</Badge>
                                     </div>
-                                ))}
-                                <Button type="button" variant="secondary" onClick={() => publicationFields.append({ title: "", journal: "", year: new Date().getFullYear(), issn: "", indexing: "" })}>
-                                    <Plus aria-hidden />
-                                    Add Extra Publication
-                                </Button>
-                            </AchievementTable>
-                        ) : null}
-
-                        {currentStep === 4 ? (
-                            <div className="space-y-6">
-                                <AchievementTable title="Books" description="Record published books and chapters relevant to CAS review.">
-                                    {bookFields.fields.map((field, index) => (
-                                        <div className="grid gap-4 rounded-lg border border-border bg-muted/50 p-4 md:grid-cols-2 xl:grid-cols-4" key={field.id}>
-                                            <Input placeholder="Title" {...form.register(`manualAchievements.books.${index}.title`)} />
-                                            <Input placeholder="Publisher" {...form.register(`manualAchievements.books.${index}.publisher`)} />
-                                            <Input placeholder="ISBN" {...form.register(`manualAchievements.books.${index}.isbn`)} />
-                                            <Input placeholder="Year" type="number" {...form.register(`manualAchievements.books.${index}.year`, { valueAsNumber: true })} />
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                onClick={() => bookFields.remove(index)}
-                                                aria-label={`Delete book ${index + 1}`}
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                    <Button type="button" variant="secondary" onClick={() => bookFields.append({ title: "", publisher: "", isbn: "", year: new Date().getFullYear() })}>
-                                        <Plus aria-hidden />
-                                        Add Extra Book
-                                    </Button>
-                                </AchievementTable>
-                                <AchievementTable title="Research Projects" description="Capture only additional funded projects that are not already represented in PBAS-linked records.">
-                                    {projectFields.fields.map((field, index) => (
-                                        <div className="grid gap-4 rounded-lg border border-border bg-muted/50 p-4 md:grid-cols-2 xl:grid-cols-4" key={field.id}>
-                                            <Input placeholder="Title" {...form.register(`manualAchievements.researchProjects.${index}.title`)} />
-                                            <Input placeholder="Funding Agency" {...form.register(`manualAchievements.researchProjects.${index}.fundingAgency`)} />
-                                            <Input placeholder="Amount" type="number" {...form.register(`manualAchievements.researchProjects.${index}.amount`, { valueAsNumber: true })} />
-                                            <Input placeholder="Year" type="number" {...form.register(`manualAchievements.researchProjects.${index}.year`, { valueAsNumber: true })} />
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                onClick={() => projectFields.remove(index)}
-                                                aria-label={`Delete project ${index + 1}`}
-                                            >
-                                                <Trash2 className="size-4" />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                    <Button type="button" variant="secondary" onClick={() => projectFields.append({ title: "", fundingAgency: "", amount: 0, year: new Date().getFullYear() })}>
-                                        <Plus aria-hidden />
-                                        Add Extra Project
-                                    </Button>
-                                </AchievementTable>
-                            </div>
-                        ) : null}
-
-                        {currentStep === 5 ? (
-                            <div className="space-y-4">
-                                <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
-                                    {designationProfile.showCasPhdGuided
-                                        ? "This promotion path includes doctoral guidance as a visible CAS contribution field."
-                                        : "This promotion path keeps the academic contribution section lighter, with PBAS, publications, books, projects, and conference activity carrying most of the score."}
+                                    <p className="mt-2 text-sm text-muted-foreground">
+                                        {application.currentDesignation} | {application.applicationYear}
+                                    </p>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        API {application.apiScore.totalScore} | Experience {application.experienceYears} years
+                                    </p>
+                                </button>
+                            )) : (
+                                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
+                                    No CAS applications created yet.
                                 </div>
-                                <div className={`grid gap-4 ${designationProfile.showCasPhdGuided && designationProfile.showCasConferenceCount ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
-                                    {designationProfile.showCasPhdGuided ? (
-                                        <Field label="PhD Guided"><Input type="number" {...form.register("manualAchievements.phdGuided", { valueAsNumber: true })} /></Field>
-                                    ) : null}
-                                    {designationProfile.showCasConferenceCount ? (
-                                        <Field label="Conferences"><Input type="number" {...form.register("manualAchievements.conferences", { valueAsNumber: true })} /></Field>
-                                    ) : null}
-                                </div>
-                            </div>
-                        ) : null}
+                            )}
+                        </CardContent>
+                    </Card>
 
-                        {currentStep === 6 ? (
-                            <div className="space-y-4">
-                                <Card>
+                    {selected ? (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Status Timeline</CardTitle>
+                                <CardDescription>Every status transition for this CAS application is logged here.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <CASStatusTimeline logs={selected.statusLogs} />
+                            </CardContent>
+                        </Card>
+                    ) : null}
+
+                    {selected ? (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Committee Review Trail</CardTitle>
+                                <CardDescription>Department, committee, and admin decisions are stored in the dedicated CAS committee register.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <CASCommitteeTimeline reviews={selected.committeeReviews ?? []} />
+                            </CardContent>
+                        </Card>
+                    ) : null}
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Document Verification Status</CardTitle>
+                            <CardDescription>Read-only status from the approval workflow.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {workflowLoading ? (
+                                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
+                                    Loading verification status...
+                                </div>
+                            ) : workflowError ? (
+                                <div className="rounded-lg border border-destructive-border bg-destructive-muted p-4 text-sm text-destructive-muted-foreground">
+                                    {workflowError}
+                                </div>
+                            ) : workflow ? (
+                                <div className="grid gap-3 rounded-lg border border-border bg-muted/50 p-4 text-sm">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div>
+                                            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Status</p>
+                                            <p className="mt-1 text-base font-semibold text-foreground">{workflow.status}</p>
+                                        </div>
+                                        <Badge>{workflow.currentApproverRole}</Badge>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                        Last updated{" "}
+                                        {workflow.updatedAt
+                                            ? new Date(workflow.updatedAt).toLocaleString()
+                                            : "Not available"}
+                                    </div>
+                                    {workflow.remarks ? (
+                                        <div className="rounded-md border border-border bg-card p-3 text-xs text-muted-foreground">
+                                            {workflow.remarks}
+                                        </div>
+                                    ) : (
+                                        <div className="text-xs text-muted-foreground">
+                                            No verification remarks recorded yet.
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
+                                    Verification workflow has not started yet.
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="space-y-6">
+                    {message ? <FormMessage message={message.text} type={message.type} /> : null}
+
+                    {canEdit ? (
+                        <>
+                            {selected?.status === "Rejected" ? (
+                                <Card className="border-destructive-border bg-destructive-muted">
                                     <CardHeader>
-                                        <CardTitle>CAS Document Checklist</CardTitle>
+                                        <CardTitle>Resubmission Required</CardTitle>
                                         <CardDescription>
-                                            Upload mandatory documents to complete CAS submission.
+                                            This CAS application was rejected. Review remarks and resubmit once corrections are made.
                                         </CardDescription>
                                     </CardHeader>
-                                    <CardContent className="space-y-3">
-                                        {docLoading ? (
-                                            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
-                                                Loading CAS documents...
-                                            </div>
-                                        ) : docError ? (
-                                            <div className="rounded-lg border border-destructive-border bg-destructive-muted p-4 text-sm text-destructive-muted-foreground">
-                                                {docError}
-                                            </div>
-                                        ) : documents.length ? (
-                                            documents.map((doc) => (
-                                                <div key={doc.documentType} className="rounded-lg border border-border p-4">
-                                                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                                                        <div>
-                                                            <p className="text-sm font-semibold text-foreground">{doc.label}</p>
-                                                            <p className="text-xs text-muted-foreground">
-                                                                {doc.isMandatory ? "Mandatory" : "Optional"}
-                                                            </p>
-                                                        </div>
-                                                        {doc.documentId?.fileUrl && (
-                                                            <a
-                                                                href={doc.documentId.fileUrl}
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                className="inline-flex items-center gap-2 text-xs font-medium text-success-muted-foreground"
-                                                            >
-                                                                <ShieldCheck className="size-4" />
-                                                                {doc.documentId.fileName || "Uploaded"}
-                                                            </a>
-                                                        )}
-                                                    </div>
-                                                    <FileUpload
-                                                        category="document"
-                                                        ownerId={facultyId}
-                                                        mode="document"
-                                                        value={doc.documentId ? (doc.documentId as unknown as UploadedDocument) : null}
-                                                        onChange={(uploaded) => {
-                                                            if (uploaded && typeof uploaded === "object") {
-                                                                void persistDocument(doc.documentType, (uploaded as UploadedDocument)._id);
-                                                            }
-                                                        }}
-                                                    />
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <div className="rounded-lg border border-dashed border-border bg-muted/50 p-6 text-sm text-muted-foreground">
-                                                No CAS documents defined yet.
-                                            </div>
-                                        )}
-                                    </CardContent>
                                 </Card>
-                            </div>
-                        ) : null}
+                            ) : null}
 
-                        {currentStep === 7 ? (
-                            <div className="space-y-4">
-                                <div className="rounded-lg border border-border bg-muted/50 p-4">
-                                    <p className="text-sm font-semibold text-foreground">Review Summary</p>
-                                    <p className="mt-2 text-sm text-muted-foreground">
-                                        {watchedValues.currentDesignation ?? ""} to {watchedValues.applyingForDesignation ?? ""} | PBAS linked: {(watchedValues.pbasReports ?? []).length}
-                                    </p>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        Linked publications/books/projects: {linkedAchievements.publications.length}/{linkedAchievements.books.length}/{linkedAchievements.researchProjects.length}
-                                    </p>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        Manual additions publications/books/projects: {(watchedValues.manualAchievements?.publications ?? []).length}/{(watchedValues.manualAchievements?.books ?? []).length}/{(watchedValues.manualAchievements?.researchProjects ?? []).length}
-                                    </p>
-                                    {designationProfile.showCasPhdGuided ? (
-                                        <p className="mt-1 text-sm text-muted-foreground">
-                                            PhD guided: {Number(watchedValues.manualAchievements?.phdGuided ?? 0)}
-                                        </p>
-                                    ) : null}
-                                    {designationProfile.showCasConferenceCount ? (
-                                        <p className="mt-1 text-sm text-muted-foreground">
-                                            Conference contributions: {Number(watchedValues.manualAchievements?.conferences ?? 0)}
-                                        </p>
-                                    ) : null}
-                                </div>
-                                <div className="flex flex-wrap gap-3">
-                                    <Button loading={isPending} type="button" onClick={submitApplication} disabled={isPending || !selectedId}>
-                                        Submit CAS Application
-                                    </Button>
-                                </div>
-                            </div>
-                        ) : null}
+                            <Stepper
+                                steps={casSteps}
+                                currentIndex={currentStep}
+                                visitedSteps={visitedSteps}
+                                hasErrors={hasStepErrors}
+                                onStepChange={goToStep}
+                            />
+                            <APIScoreCalculator score={score} eligibility={computedEligibility} breakup={selected?.apiBreakup} />
 
-                        <div className="flex flex-wrap gap-3">
-                            <Button type="button" variant="secondary" onClick={() => setCurrentStep((step) => Math.max(0, step - 1))} disabled={currentStep === 0}>
-                                <ChevronLeft aria-hidden />
-                                Previous
-                            </Button>
-                            <Button type="button" onClick={() => setCurrentStep((step) => Math.min(steps.length - 1, step + 1))} disabled={currentStep === steps.length - 1}>
-                                <ChevronRight aria-hidden />
-                                Next
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>CAS Application Form</CardTitle>
+                                    <CardDescription>
+                                        Multi-step UGC-oriented CAS promotion application with PBAS linkage, eligibility validation, and workflow-ready achievements.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    {currentStep === 0 ? (
+                                        <CasStepBasicDetails
+                                            form={form}
+                                            canEdit={canEdit}
+                                            applicationYearOptions={applicationYearOptions}
+                                            designationProfile={designationProfile}
+                                            allowedPromotionTargets={allowedPromotionTargets}
+                                        />
+                                    ) : null}
+
+                                    {currentStep === 1 ? <CasStepEligibilityPeriod form={form} canEdit={canEdit} /> : null}
+
+                                    {currentStep === 2 ? (
+                                        <CasStepPbasReports
+                                            form={form}
+                                            canEdit={canEdit}
+                                            linkedAchievements={linkedAchievements}
+                                            pbasOptions={pbasOptions}
+                                            selectedPbasReportIds={watchedValues.pbasReports ?? []}
+                                        />
+                                    ) : null}
+
+                                    {currentStep === 3 ? (
+                                        <CasStepPublications form={form} canEdit={canEdit} publicationFields={publicationFields} />
+                                    ) : null}
+
+                                    {currentStep === 4 ? (
+                                        <CasStepBooksProjects form={form} canEdit={canEdit} bookFields={bookFields} projectFields={projectFields} />
+                                    ) : null}
+
+                                    {currentStep === 5 ? (
+                                        <CasStepAcademicContributions form={form} canEdit={canEdit} designationProfile={designationProfile} />
+                                    ) : null}
+
+                                    {currentStep === 6 ? (
+                                        <CasStepDocumentsChecklist
+                                            canEdit={canEdit}
+                                            facultyId={facultyId}
+                                            documents={documents}
+                                            docLoading={docLoading}
+                                            docError={docError}
+                                            onPersistDocument={(documentType, documentId) => {
+                                                void persistDocument(documentType, documentId);
+                                            }}
+                                        />
+                                    ) : null}
+
+                                    {currentStep === 7 ? (
+                                        <CasStepReviewSubmit
+                                            watchedValues={normalizedValues}
+                                            linkedAchievements={linkedAchievements}
+                                            designationProfile={designationProfile}
+                                            isPending={isPending}
+                                            selectedId={selectedId}
+                                            onSubmit={submitApplication}
+                                        />
+                                    ) : null}
+
+                                    <div className="flex flex-wrap gap-3">
+                                        <Button type="button" variant="secondary" onClick={() => goToStep(currentStep - 1)} disabled={currentStep === 0}>
+                                            <ChevronLeft aria-hidden />
+                                            Previous
+                                        </Button>
+                                        <Button type="button" onClick={() => goToStep(currentStep + 1)} disabled={currentStep === casSteps.length - 1}>
+                                            <ChevronRight aria-hidden />
+                                            Next
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </>
+                    ) : selected ? (
+                        <CasSubmissionSummary
+                            application={selected}
+                            pbasOptions={pbasOptions}
+                            documents={documents}
+                            docLoading={docLoading}
+                            docError={docError}
+                        />
+                    ) : null}
+                </div>
             </div>
         </div>
-        </div>
     );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <div className="grid gap-2">
-            <Label>{label}</Label>
-            {children}
-        </div>
-    );
-}
-
-function ScoreCard({ label, value }: { label: string; value: number }) {
-    return <StatTile label={label} value={value} />;
 }

@@ -1,5 +1,7 @@
+import { ScrollText } from "lucide-react";
+
 import { PbasReviewBoard } from "@/components/pbas/pbas-review-board";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireAdmin } from "@/lib/auth/user";
 import { getFacultyByIds } from "@/lib/faculty/migration";
 import { getPbasReviewQueue } from "@/lib/pbas/service";
@@ -26,16 +28,13 @@ export default async function AdminPbasReviewPage() {
     }));
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>PBAS Final Approval</CardTitle>
-                <CardDescription>
-                    Final admin approval board for PBAS applications that passed review and committee stages.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <PbasReviewBoard applications={items} mode="approve" />
-            </CardContent>
-        </Card>
+        <div className="space-y-6">
+            <PageHeader
+                title="PBAS Final Approval"
+                description="Final admin approval board for PBAS applications that passed review and committee stages."
+                icon={ScrollText}
+            />
+            <PbasReviewBoard applications={items} mode="approve" />
+        </div>
     );
 }

@@ -1,5 +1,7 @@
+import { ScrollText } from "lucide-react";
+
 import { PbasReviewBoard } from "@/components/pbas/pbas-review-board";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireDirector } from "@/lib/auth/user";
 import { getFacultyByIds } from "@/lib/faculty/migration";
 import { getPbasScopedApplications } from "@/lib/pbas/service";
@@ -32,17 +34,13 @@ export default async function DirectorPbasReviewPage() {
 
     return (
         <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>PBAS workspace</CardTitle>
-                    <CardDescription>
-                        Browse PBAS records inside your assigned scope. Review and approval controls appear only when the current workflow stage is assigned to you.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <PbasReviewBoard applications={items} mode="scoped" />
-                </CardContent>
-            </Card>
+            <PageHeader
+                title="PBAS Review"
+                description="Browse PBAS records inside your assigned scope. Review and approval controls appear only when the current workflow stage is assigned to you."
+                icon={ScrollText}
+                tone="info"
+            />
+            <PbasReviewBoard applications={items} mode="scoped" />
         </div>
     );
 }

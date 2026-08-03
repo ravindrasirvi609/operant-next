@@ -1,5 +1,7 @@
+import { Calculator } from "lucide-react";
+
 import { CasReviewBoard } from "@/components/cas/cas-review-board";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { getCasScopedApplications } from "@/lib/cas/service";
 import { getFacultyByIds } from "@/lib/faculty/migration";
 import { requireDirector } from "@/lib/auth/user";
@@ -32,17 +34,13 @@ export default async function DirectorCasReviewPage() {
 
     return (
         <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>CAS workspace</CardTitle>
-                    <CardDescription>
-                        Browse CAS records inside your assigned scope. Review and approval controls appear only when the current workflow stage is assigned to you.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <CasReviewBoard applications={items} mode="scoped" />
-                </CardContent>
-            </Card>
+            <PageHeader
+                title="CAS Review"
+                description="Browse CAS records inside your assigned scope. Review and approval controls appear only when the current workflow stage is assigned to you."
+                icon={Calculator}
+                tone="info"
+            />
+            <CasReviewBoard applications={items} mode="scoped" />
         </div>
     );
 }

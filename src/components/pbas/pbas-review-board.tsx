@@ -7,6 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { StatTile } from "@/components/ui/stat-card";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { X } from "lucide-react";
@@ -255,9 +264,9 @@ export function PbasReviewBoard({
                         </CardHeader>
                         <CardContent className="grid gap-4">
                             <div className="grid gap-3 md:grid-cols-3">
-                                <Metric label="API Score" value={String(application.apiScore.totalScore)} />
-                                <Metric label="Academic Year" value={application.academicYear} />
-                                <Metric label="Status" value={application.status} />
+                                <StatTile label="API Score" value={String(application.apiScore.totalScore)} />
+                                <StatTile label="Academic Year" value={application.academicYear} />
+                                <StatTile label="Status" value={application.status} />
                             </div>
                             <Textarea
                                 placeholder={
@@ -313,45 +322,43 @@ export function PbasReviewBoard({
                                         <p className="text-sm text-muted-foreground">Loading indicator entries...</p>
                                     ) : (entriesByApplication[application._id] ?? []).length ? (
                                         <>
-                                            <div className="overflow-x-auto">
-                                                <table className="min-w-full border-collapse text-sm">
-                                                    <thead>
-                                                        <tr className="border-b border-border text-left text-xs uppercase tracking-[0.08em] text-muted-foreground">
-                                                            <th className="px-2 py-2">Indicator</th>
-                                                            <th className="px-2 py-2 text-right">Claimed</th>
-                                                            <th className="px-2 py-2 text-right">Approved</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {(entriesByApplication[application._id] ?? []).map((entry) => (
-                                                            <tr key={entry.indicatorId} className="border-b border-border">
-                                                                <td className="px-2 py-2 align-top">
-                                                                    <p className="font-medium text-foreground">{entry.indicatorName}</p>
-                                                                    <p className="text-xs text-muted-foreground">{entry.indicatorCode} • Max {entry.maxScore}</p>
-                                                                </td>
-                                                                <td className="px-2 py-2 text-right align-top text-foreground">{entry.claimedScore}</td>
-                                                                <td className="px-2 py-2 text-right align-top">
-                                                                    <input
-                                                                        type="number"
-                                                                        min={0}
-                                                                        max={entry.maxScore}
-                                                                        step="0.1"
-                                                                        value={entry.approvedScore ?? entry.claimedScore}
-                                                                        onChange={(event) =>
-                                                                            updateEntryValue(
-                                                                                application._id,
-                                                                                entry.indicatorId,
-                                                                                Number(event.target.value)
-                                                                            )
-                                                                        }
-                                                                        className="w-24 rounded border border-border bg-card px-2 py-1 text-right"
-                                                                    />
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Indicator</TableHead>
+                                                        <TableHead className="text-right">Claimed</TableHead>
+                                                        <TableHead className="text-right">Approved</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {(entriesByApplication[application._id] ?? []).map((entry) => (
+                                                        <TableRow key={entry.indicatorId}>
+                                                            <TableCell className="align-top whitespace-normal">
+                                                                <p className="font-medium text-foreground">{entry.indicatorName}</p>
+                                                                <p className="text-xs text-muted-foreground">{entry.indicatorCode} • Max {entry.maxScore}</p>
+                                                            </TableCell>
+                                                            <TableCell className="text-right align-top text-foreground">{entry.claimedScore}</TableCell>
+                                                            <TableCell className="text-right align-top">
+                                                                <Input
+                                                                    type="number"
+                                                                    min={0}
+                                                                    max={entry.maxScore}
+                                                                    step="0.1"
+                                                                    value={entry.approvedScore ?? entry.claimedScore}
+                                                                    onChange={(event) =>
+                                                                        updateEntryValue(
+                                                                            application._id,
+                                                                            entry.indicatorId,
+                                                                            Number(event.target.value)
+                                                                        )
+                                                                    }
+                                                                    className="w-24 text-right"
+                                                                />
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
                                             <div className="mt-3 flex justify-end">
                                                 <Button
                                                     type="button"
@@ -380,15 +387,6 @@ export function PbasReviewBoard({
                     </CardContent>
                 </Card>
             )}
-        </div>
-    );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="rounded-lg border border-border bg-muted/50 p-4">
-            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-            <p className="mt-2 font-semibold text-foreground">{value}</p>
         </div>
     );
 }

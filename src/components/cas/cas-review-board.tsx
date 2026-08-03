@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { StatTile } from "@/components/ui/stat-card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { X } from "lucide-react";
@@ -158,10 +159,10 @@ export function CasReviewBoard({
                     </CardHeader>
                     <CardContent className="grid gap-4">
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                            <Metric label="API Score" value={String(application.apiScore.totalScore)} />
-                            <Metric label="Experience" value={`${application.experienceYears} years`} />
-                            <Metric label="Current Status" value={application.status} />
-                            <Metric label="Application Year" value={application.applicationYear} />
+                            <StatTile label="API Score" value={String(application.apiScore.totalScore)} />
+                            <StatTile label="Experience" value={`${application.experienceYears} years`} />
+                            <StatTile label="Current Status" value={application.status} />
+                            <StatTile label="Application Year" value={application.applicationYear} />
                         </div>
                         <Textarea
                             placeholder={mode === "approve" ? "Add principal approval remarks" : "Add workflow remarks"}
@@ -206,15 +207,6 @@ export function CasReviewBoard({
                     </CardContent>
                 </Card>
             )}
-        </div>
-    );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="rounded-lg border border-border bg-muted/50 p-4">
-            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-            <p className="mt-2 font-semibold text-foreground">{value}</p>
         </div>
     );
 }
