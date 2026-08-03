@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { StatTile } from "@/components/ui/stat-card";
@@ -172,10 +173,6 @@ export function PbasDashboard({
     }, [academicYearOptions, summary]);
 
     function deleteApplication(applicationId: string) {
-        if (!confirm("Are you sure you want to delete this PBAS draft?")) {
-            return;
-        }
-
         startTransition(async () => {
             const response = await fetch(`/api/pbas/${applicationId}`, { method: "DELETE" });
             const data = (await response.json()) as { message?: string };
@@ -992,18 +989,19 @@ export function PbasDashboard({
                                     <CardDescription>Every PBAS status transition is logged here.</CardDescription>
                                 </div>
                                 {selected.status === "Draft" ? (
-                                    <Button
+                                    <ConfirmButton
                                         loading={isPending}
                                         type="button"
                                         variant="ghost"
                                         size="icon"
                                         className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                        onClick={() => deleteApplication(selected._id)}
+                                        onConfirm={() => deleteApplication(selected._id)}
                                         disabled={isPending}
                                         title="Delete Draft"
+                                        description="This will permanently delete this PBAS draft. This action cannot be undone."
                                     >
                                         <Trash2 className="size-4" />
-                                    </Button>
+                                    </ConfirmButton>
                                 ) : null}
                             </CardHeader>
                             <CardContent>

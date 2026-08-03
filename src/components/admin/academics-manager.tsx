@@ -11,6 +11,7 @@ import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-button";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -203,6 +204,10 @@ export function AcademicsManager({
     const [programs, setPrograms] = useState(initialPrograms);
     const [semesters, setSemesters] = useState(initialSemesters);
     const [courses, setCourses] = useState(initialCourses);
+
+    const [pendingDelete, setPendingDelete] = useState<
+        { kind: "academicYear" | "program" | "semester" | "course"; id: string; label: string } | null
+    >(null);
 
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [programMessage, setProgramMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -1197,7 +1202,13 @@ export function AcademicsManager({
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem
                                                         className="text-destructive focus:text-destructive"
-                                                        onClick={() => deleteAcademicYear(year._id)}
+                                                        onClick={() =>
+                                                            setPendingDelete({
+                                                                kind: "academicYear",
+                                                                id: year._id,
+                                                                label: `${year.yearStart}-${year.yearEnd}`,
+                                                            })
+                                                        }
                                                     >
                                                         <Trash2 className="mr-2 size-4" /> Delete
                                                     </DropdownMenuItem>
@@ -1475,7 +1486,13 @@ export function AcademicsManager({
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem
                                                         className="text-destructive focus:text-destructive"
-                                                        onClick={() => deleteProgram(program._id)}
+                                                        onClick={() =>
+                                                            setPendingDelete({
+                                                                kind: "program",
+                                                                id: program._id,
+                                                                label: program.name,
+                                                            })
+                                                        }
                                                     >
                                                         <Trash2 className="mr-2 size-4" /> Delete
                                                     </DropdownMenuItem>
@@ -1623,7 +1640,13 @@ export function AcademicsManager({
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem
                                                         className="text-destructive focus:text-destructive"
-                                                        onClick={() => deleteSemester(semester._id)}
+                                                        onClick={() =>
+                                                            setPendingDelete({
+                                                                kind: "semester",
+                                                                id: semester._id,
+                                                                label: `Semester ${semester.semesterNumber}`,
+                                                            })
+                                                        }
                                                     >
                                                         <Trash2 className="mr-2 size-4" /> Delete
                                                     </DropdownMenuItem>
@@ -1916,7 +1939,13 @@ export function AcademicsManager({
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem
                                                         className="text-destructive focus:text-destructive"
-                                                        onClick={() => deleteCourse(course._id)}
+                                                        onClick={() =>
+                                                            setPendingDelete({
+                                                                kind: "course",
+                                                                id: course._id,
+                                                                label: course.name,
+                                                            })
+                                                        }
                                                     >
                                                         <Trash2 className="mr-2 size-4" /> Delete
                                                     </DropdownMenuItem>
@@ -1949,6 +1978,35 @@ export function AcademicsManager({
                     </div>
                 </CardContent>
             </Card>
+
+            <ConfirmDialog
+                open={pendingDelete !== null}
+                onOpenChange={(open) => {
+                    if (!open) setPendingDelete(null);
+                }}
+                title={`Delete ${pendingDelete?.label ?? "this item"}?`}
+                description="This action cannot be undone."
+                onConfirm={() => {
+                    if (!pendingDelete) return;
+
+                    switch (pendingDelete.kind) {
+                        case "academicYear":
+                            deleteAcademicYear(pendingDelete.id);
+                            break;
+                        case "program":
+                            deleteProgram(pendingDelete.id);
+                            break;
+                        case "semester":
+                            deleteSemester(pendingDelete.id);
+                            break;
+                        case "course":
+                            deleteCourse(pendingDelete.id);
+                            break;
+                    }
+
+                    setPendingDelete(null);
+                }}
+            />
         </div>
     );
 }

@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { FormMessage } from "@/components/auth/auth-helpers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import {
     Card,
     CardContent,
@@ -1303,15 +1304,17 @@ function RecordTable({
                     <TableRow key={row._id}>
                         {renderRow(row)}
                         <TableCell>
-                            <Button
+                            <ConfirmButton
                                 variant="ghost"
                                 size="icon"
                                 className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                onClick={() => onDelete(row._id)}
+                                onConfirm={() => onDelete(row._id)}
                                 aria-label="Delete record"
+                                title="Delete this record?"
+                                description="This action cannot be undone."
                             >
                                 <Trash2 className="size-4" />
-                            </Button>
+                            </ConfirmButton>
                         </TableCell>
                     </TableRow>
                 ))}

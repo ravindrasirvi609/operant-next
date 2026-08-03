@@ -721,10 +721,6 @@ export function AqarDashboard({
     }
 
     function deleteApplication(applicationId: string) {
-        if (!confirm("Delete this AQAR draft? This cannot be undone.")) {
-            return;
-        }
-
         setMessage(null);
 
         startTransition(async () => {
