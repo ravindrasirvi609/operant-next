@@ -115,6 +115,7 @@ export function StudentSssWorkspace({
                                 type="button"
                                 variant={survey._id === activeSurveyId ? "default" : "outline"}
                                 onClick={() => setActiveSurveyId(survey._id)}
+                                className="h-auto max-w-full whitespace-normal text-left"
                             >
                                 {survey.surveyTitle}
                             </Button>
@@ -166,6 +167,7 @@ export function StudentSssWorkspace({
                                                 key={rating}
                                                 type="button"
                                                 variant={answers[question._id]?.ratingValue === String(rating) ? "default" : "outline"}
+                                                className="h-7 px-2 text-xs sm:h-8 sm:px-2.5 sm:text-sm"
                                                 onClick={() =>
                                                     setAnswers((current) => ({
                                                         ...current,

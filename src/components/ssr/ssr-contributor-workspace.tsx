@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { MultiFileUpload } from "@/components/ui/file-upload";
 import { InlineAlert } from "@/components/ui/inline-alert";
@@ -245,7 +246,25 @@ export function SsrContributorWorkspace({
             <InlineAlert message={message} />
 
             <section className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
-                <Card className="h-fit">
+                <div className="xl:hidden">
+                    <Label htmlFor="ssr-assignment-picker" className="sr-only">
+                        Select assignment
+                    </Label>
+                    <Select value={selectedAssignment._id} onValueChange={setSelectedId}>
+                        <SelectTrigger id="ssr-assignment-picker" className="w-full">
+                            <SelectValue placeholder="Select an assignment" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {assignments.map((item) => (
+                                <SelectItem key={item._id} value={item._id}>
+                                    {item.metricCode} · {item.metricTitle}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <Card className="hidden h-fit xl:block">
                     <CardHeader>
                         <CardTitle>{actorLabel} SSR Assignments</CardTitle>
                         <CardDescription>

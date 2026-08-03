@@ -517,6 +517,29 @@ export function StudentRecordsDashboard({
                                     </TableCell>
                                 </>
                             )}
+                            renderMobileCard={(r) => (
+                                <>
+                                    <MobileField
+                                        label="Semester"
+                                        value={
+                                            r.semesterNumber ??
+                                            refName(r.semesterId, "semesterNumber") ??
+                                            "-"
+                                        }
+                                    />
+                                    <MobileField label="SGPA" value={r.sgpa ?? "-"} />
+                                    <MobileField label="CGPA" value={r.cgpa ?? "-"} />
+                                    <MobileField
+                                        label="Percentage"
+                                        value={r.percentage != null ? `${r.percentage}%` : "-"}
+                                    />
+                                    <MobileField label="Rank" value={r.rank ?? "-"} />
+                                    <MobileField
+                                        label="Result"
+                                        value={r.resultStatus ? <ResultBadge status={r.resultStatus} /> : "-"}
+                                    />
+                                </>
+                            )}
                             onDelete={(id) => handleDelete("academic", id)}
                         />
                     </SectionCard>
@@ -588,6 +611,31 @@ export function StudentRecordsDashboard({
                                     </TableCell>
                                 </>
                             )}
+                            renderMobileCard={(r) => (
+                                <>
+                                    <MobileField label="Title" value={r.title} />
+                                    <MobileField
+                                        label="Type"
+                                        value={r.publicationType ? <Badge variant="secondary">{r.publicationType}</Badge> : "-"}
+                                    />
+                                    <MobileField label="Journal / Publisher" value={r.journalName || r.publisher || "-"} />
+                                    <MobileField label="Date" value={fmtDate(r.publicationDate)} />
+                                    <MobileField label="DOI" value={<span className="font-mono text-xs">{r.doi || "-"}</span>} />
+                                    <MobileField label="Indexed In" value={r.indexedIn || "-"} />
+                                    <MobileField
+                                        label="Evidence"
+                                        value={
+                                            <EvidenceCell
+                                                recordType="publication"
+                                                recordId={r._id}
+                                                document={r.documentId as EvidenceDocument}
+                                                userId={studentMeta.userId}
+                                                onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
+                                            />
+                                        }
+                                    />
+                                </>
+                            )}
                             onDelete={(id) => handleDelete("publication", id)}
                         />
                     </SectionCard>
@@ -653,6 +701,30 @@ export function StudentRecordsDashboard({
                                     </TableCell>
                                 </>
                             )}
+                            renderMobileCard={(r) => (
+                                <>
+                                    <MobileField label="Title" value={r.title} />
+                                    <MobileField label="Guide" value={r.guideName || "-"} />
+                                    <MobileField
+                                        label="Status"
+                                        value={r.status ? <StatusBadge status={r.status} /> : "-"}
+                                    />
+                                    <MobileField label="Start" value={fmtDate(r.startDate)} />
+                                    <MobileField label="End" value={fmtDate(r.endDate)} />
+                                    <MobileField
+                                        label="Evidence"
+                                        value={
+                                            <EvidenceCell
+                                                recordType="research"
+                                                recordId={r._id}
+                                                document={r.documentId as EvidenceDocument}
+                                                userId={studentMeta.userId}
+                                                onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
+                                            />
+                                        }
+                                    />
+                                </>
+                            )}
                             onDelete={(id) => handleDelete("research", id)}
                         />
                     </SectionCard>
@@ -716,6 +788,29 @@ export function StudentRecordsDashboard({
                                             onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
                                         />
                                     </TableCell>
+                                </>
+                            )}
+                            renderMobileCard={(r) => (
+                                <>
+                                    <MobileField label="Award" value={refName(r.awardId, "title")} />
+                                    <MobileField label="Category" value={r.awardId?.category || "-"} />
+                                    <MobileField
+                                        label="Level"
+                                        value={r.awardId?.level ? <LevelBadge level={r.awardId.level} /> : "-"}
+                                    />
+                                    <MobileField label="Date" value={fmtDate(r.awardDate)} />
+                                    <MobileField
+                                        label="Evidence"
+                                        value={
+                                            <EvidenceCell
+                                                recordType="award"
+                                                recordId={r._id}
+                                                document={r.documentId as EvidenceDocument}
+                                                userId={studentMeta.userId}
+                                                onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
+                                            />
+                                        }
+                                    />
                                 </>
                             )}
                             onDelete={(id) => handleDelete("award", id)}
@@ -787,6 +882,38 @@ export function StudentRecordsDashboard({
                                     </TableCell>
                                 </>
                             )}
+                            renderMobileCard={(r) => (
+                                <>
+                                    <MobileField label="Skill" value={refName(r.skillId)} />
+                                    <MobileField
+                                        label="Category"
+                                        value={
+                                            r.skillId?.category ? (
+                                                <Badge variant="secondary">
+                                                    {r.skillId.category}
+                                                </Badge>
+                                            ) : (
+                                                "-"
+                                            )
+                                        }
+                                    />
+                                    <MobileField label="Provider" value={r.provider || "-"} />
+                                    <MobileField label="From" value={fmtDate(r.startDate)} />
+                                    <MobileField label="To" value={fmtDate(r.endDate)} />
+                                    <MobileField
+                                        label="Evidence"
+                                        value={
+                                            <EvidenceCell
+                                                recordType="skill"
+                                                recordId={r._id}
+                                                document={r.documentId as EvidenceDocument}
+                                                userId={studentMeta.userId}
+                                                onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
+                                            />
+                                        }
+                                    />
+                                </>
+                            )}
                             onDelete={(id) => handleDelete("skill", id)}
                         />
                     </SectionCard>
@@ -852,6 +979,30 @@ export function StudentRecordsDashboard({
                                     </TableCell>
                                 </>
                             )}
+                            renderMobileCard={(r) => (
+                                <>
+                                    <MobileField label="Sport" value={refName(r.sportId, "sportName")} />
+                                    <MobileField label="Event" value={r.eventName} />
+                                    <MobileField
+                                        label="Level"
+                                        value={r.level ? <LevelBadge level={r.level} /> : "-"}
+                                    />
+                                    <MobileField label="Position" value={r.position || "-"} />
+                                    <MobileField label="Date" value={fmtDate(r.eventDate)} />
+                                    <MobileField
+                                        label="Evidence"
+                                        value={
+                                            <EvidenceCell
+                                                recordType="sport"
+                                                recordId={r._id}
+                                                document={r.documentId as EvidenceDocument}
+                                                userId={studentMeta.userId}
+                                                onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
+                                            />
+                                        }
+                                    />
+                                </>
+                            )}
                             onDelete={(id) => handleDelete("sport", id)}
                         />
                     </SectionCard>
@@ -909,6 +1060,27 @@ export function StudentRecordsDashboard({
                                             onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
                                         />
                                     </TableCell>
+                                </>
+                            )}
+                            renderMobileCard={(r) => (
+                                <>
+                                    <MobileField label="Activity" value={refName(r.activityId)} />
+                                    <MobileField label="Event" value={r.eventName} />
+                                    <MobileField label="Level" value={r.level || "-"} />
+                                    <MobileField label="Position" value={r.position || "-"} />
+                                    <MobileField label="Date" value={fmtDate(r.date)} />
+                                    <MobileField
+                                        label="Evidence"
+                                        value={
+                                            <EvidenceCell
+                                                recordType="cultural"
+                                                recordId={r._id}
+                                                document={r.documentId as EvidenceDocument}
+                                                userId={studentMeta.userId}
+                                                onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
+                                            />
+                                        }
+                                    />
                                 </>
                             )}
                             onDelete={(id) => handleDelete("cultural", id)}
@@ -985,6 +1157,51 @@ export function StudentRecordsDashboard({
                                     </TableCell>
                                 </>
                             )}
+                            renderMobileCard={(r) => (
+                                <>
+                                    <MobileField label="Event" value={refName(r.eventId, "title")} />
+                                    <MobileField
+                                        label="Type"
+                                        value={
+                                            r.eventId?.eventType ? (
+                                                <Badge variant="secondary">
+                                                    {r.eventId.eventType}
+                                                </Badge>
+                                            ) : (
+                                                "-"
+                                            )
+                                        }
+                                    />
+                                    <MobileField
+                                        label="Role"
+                                        value={
+                                            <Badge
+                                                className={
+                                                    r.role === "Presenter"
+                                                        ? "bg-info-muted text-info-muted-foreground hover:bg-info-muted"
+                                                        : ""
+                                                }
+                                                variant="secondary"
+                                            >
+                                                {r.role}
+                                            </Badge>
+                                        }
+                                    />
+                                    <MobileField label="Paper Title" value={r.paperTitle || "-"} />
+                                    <MobileField
+                                        label="Evidence"
+                                        value={
+                                            <EvidenceCell
+                                                recordType="event"
+                                                recordId={r._id}
+                                                document={r.documentId as EvidenceDocument}
+                                                userId={studentMeta.userId}
+                                                onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
+                                            />
+                                        }
+                                    />
+                                </>
+                            )}
                             onDelete={(id) => handleDelete("event", id)}
                         />
                     </SectionCard>
@@ -1052,6 +1269,38 @@ export function StudentRecordsDashboard({
                                     </TableCell>
                                 </>
                             )}
+                            renderMobileCard={(r) => (
+                                <>
+                                    <MobileField label="Program" value={refName(r.programId)} />
+                                    <MobileField
+                                        label="Type"
+                                        value={
+                                            r.programId?.type ? (
+                                                <Badge variant="secondary">
+                                                    {r.programId.type}
+                                                </Badge>
+                                            ) : (
+                                                "-"
+                                            )
+                                        }
+                                    />
+                                    <MobileField label="Activity" value={r.activityName} />
+                                    <MobileField label="Hours" value={r.hoursContributed ?? "-"} />
+                                    <MobileField label="Date" value={fmtDate(r.date)} />
+                                    <MobileField
+                                        label="Evidence"
+                                        value={
+                                            <EvidenceCell
+                                                recordType="social"
+                                                recordId={r._id}
+                                                document={r.documentId as EvidenceDocument}
+                                                userId={studentMeta.userId}
+                                                onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
+                                            />
+                                        }
+                                    />
+                                </>
+                            )}
                             onDelete={(id) => handleDelete("social", id)}
                         />
                     </SectionCard>
@@ -1102,6 +1351,22 @@ export function StudentRecordsDashboard({
                                     <TableCell>
                                         {fmtDate(r.joiningDate)}
                                     </TableCell>
+                                </>
+                            )}
+                            renderMobileCard={(r) => (
+                                <>
+                                    <MobileField label="Company" value={r.companyName} />
+                                    <MobileField label="Role" value={r.jobRole || "-"} />
+                                    <MobileField
+                                        label="Package (LPA)"
+                                        value={
+                                            r.package != null
+                                                ? `₹${Number(r.package).toLocaleString("en-IN")}`
+                                                : "-"
+                                        }
+                                    />
+                                    <MobileField label="Offer Date" value={fmtDate(r.offerDate)} />
+                                    <MobileField label="Joining Date" value={fmtDate(r.joiningDate)} />
                                 </>
                             )}
                             onDelete={(id) => handleDelete("placement", id)}
@@ -1165,6 +1430,34 @@ export function StudentRecordsDashboard({
                                             onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
                                         />
                                     </TableCell>
+                                </>
+                            )}
+                            renderMobileCard={(r) => (
+                                <>
+                                    <MobileField label="Company" value={r.companyName} />
+                                    <MobileField label="Role" value={r.role || "-"} />
+                                    <MobileField
+                                        label="Stipend"
+                                        value={
+                                            r.stipend != null
+                                                ? `₹${Number(r.stipend).toLocaleString("en-IN")}`
+                                                : "-"
+                                        }
+                                    />
+                                    <MobileField label="Start" value={fmtDate(r.startDate)} />
+                                    <MobileField label="End" value={fmtDate(r.endDate)} />
+                                    <MobileField
+                                        label="Evidence"
+                                        value={
+                                            <EvidenceCell
+                                                recordType="internship"
+                                                recordId={r._id}
+                                                document={r.documentId as EvidenceDocument}
+                                                userId={studentMeta.userId}
+                                                onLinked={(type, id, doc) => void linkEvidenceDocument(type, id, doc)}
+                                            />
+                                        }
+                                    />
                                 </>
                             )}
                             onDelete={(id) => handleDelete("internship", id)}
@@ -1270,15 +1563,43 @@ function SectionCard({
     );
 }
 
+function DeleteRecordButton({ onConfirm }: { onConfirm: () => void }) {
+    return (
+        <ConfirmButton
+            variant="ghost"
+            size="icon"
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onConfirm={onConfirm}
+            aria-label="Delete record"
+            title="Delete this record?"
+            description="This action cannot be undone."
+        >
+            <Trash2 className="size-4" />
+        </ConfirmButton>
+    );
+}
+
+/** A single label/value row inside a mobile record card. */
+function MobileField({ label, value }: { label: string; value: React.ReactNode }) {
+    return (
+        <div className="flex items-baseline justify-between gap-3">
+            <dt className="shrink-0 text-xs font-medium text-muted-foreground">{label}</dt>
+            <dd className="text-right text-sm font-medium text-foreground break-words">{value}</dd>
+        </div>
+    );
+}
+
 function RecordTable({
     headers,
     rows,
     renderRow,
+    renderMobileCard,
     onDelete,
 }: {
     headers: string[];
     rows: AnyRecord[];
     renderRow: (row: AnyRecord) => React.ReactNode;
+    renderMobileCard: (row: AnyRecord) => React.ReactNode;
     onDelete: (id: string) => void;
 }) {
     if (rows.length === 0) {
@@ -1291,35 +1612,40 @@ function RecordTable({
     }
 
     return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    {headers.map((h) => (
-                        <TableHead key={h}>{h}</TableHead>
-                    ))}
-                </TableRow>
-            </TableHeader>
-            <TableBody>
+        <>
+            <div className="hidden md:block">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            {headers.map((h) => (
+                                <TableHead key={h}>{h}</TableHead>
+                            ))}
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {rows.map((row) => (
+                            <TableRow key={row._id}>
+                                {renderRow(row)}
+                                <TableCell>
+                                    <DeleteRecordButton onConfirm={() => onDelete(row._id)} />
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+
+            <div className="grid gap-3 md:hidden">
                 {rows.map((row) => (
-                    <TableRow key={row._id}>
-                        {renderRow(row)}
-                        <TableCell>
-                            <ConfirmButton
-                                variant="ghost"
-                                size="icon"
-                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                onConfirm={() => onDelete(row._id)}
-                                aria-label="Delete record"
-                                title="Delete this record?"
-                                description="This action cannot be undone."
-                            >
-                                <Trash2 className="size-4" />
-                            </ConfirmButton>
-                        </TableCell>
-                    </TableRow>
+                    <div key={row._id} className="rounded-lg border border-border bg-card p-4">
+                        <div className="flex items-start justify-between gap-3">
+                            <dl className="flex-1 space-y-2">{renderMobileCard(row)}</dl>
+                            <DeleteRecordButton onConfirm={() => onDelete(row._id)} />
+                        </div>
+                    </div>
                 ))}
-            </TableBody>
-        </Table>
+            </div>
+        </>
     );
 }
 
