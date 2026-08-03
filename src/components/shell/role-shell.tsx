@@ -6,6 +6,7 @@ import * as React from "react";
 import { useTransition } from "react";
 import { ChevronsUpDown, LogOut, ShieldCheck } from "lucide-react";
 
+import { HelpCenter } from "@/components/help/help-center";
 import { NotificationCenter } from "@/components/notifications/notification-center";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -254,6 +255,7 @@ export function RoleShell({
                     </Breadcrumb>
                     <div className="flex shrink-0 items-center gap-1.5">
                         {headerBadges}
+                        <HelpCenter role={role} />
                         <NotificationCenter />
                         <ThemeToggle />
                     </div>
