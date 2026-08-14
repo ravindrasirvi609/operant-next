@@ -1385,11 +1385,15 @@ export async function getPbasReviewQueue(
     await ensurePbasDynamicMigration();
     const workflowDefinition = await getActiveWorkflowDefinition("PBAS");
     const applications = await FacultyPbasForm.find({
-        status: { $in: getWorkflowPendingStatuses(workflowDefinition) },
+        status: {
+            $in: getWorkflowPendingStatuses(workflowDefinition) as PbasStatus[],
+        },
     }).sort({ updatedAt: -1 });
 
     await Promise.all(
-        applications.map((application) => upsertWorkflow(application, undefined))
+        applications.map((application) =>
+            upsertWorkflow(application as InstanceType<typeof FacultyPbasForm>, undefined)
+        )
     );
 
     const recordIds = await listPendingWorkflowRecordIds({
