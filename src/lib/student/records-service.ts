@@ -28,6 +28,10 @@ import { notifyEvidencePendingReview } from "@/lib/notifications/service";
 import type { RecordType } from "./record-validators";
 import { recordSchemaMap, recordTypeSchema } from "./record-validators";
 import { Types } from "mongoose";
+import type { QueryFilter } from "mongoose";
+import type { ISkill } from "@/models/reference/skill";
+import type { IEvent } from "@/models/reference/event";
+import type { ISocialProgram } from "@/models/reference/social-program";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -300,7 +304,7 @@ async function findOrCreateSkill(input: { skillName: string; category?: string }
         name: input.skillName,
         isActive: { $ne: false },
         ...(input.category ? { category: input.category } : {}),
-    });
+    } as QueryFilter<ISkill>);
 }
 
 async function findOrCreateSport(sportName: string) {
@@ -318,7 +322,7 @@ async function findOrCreateCulturalActivity(input: {
         name: input.activityName,
         isActive: { $ne: false },
         ...(input.activityCategory ? { category: input.activityCategory } : {}),
-    });
+    } as QueryFilter<Record<string, unknown>>);
 }
 
 async function findOrCreateEvent(input: {
@@ -332,7 +336,7 @@ async function findOrCreateEvent(input: {
         isActive: { $ne: false },
         ...(input.eventType ? { eventType: input.eventType } : {}),
         ...(input.organizedBy ? { organizedBy: input.organizedBy } : {}),
-    });
+    } as QueryFilter<IEvent>);
 }
 
 async function findOrCreateSocialProgram(input: {
@@ -343,7 +347,7 @@ async function findOrCreateSocialProgram(input: {
         name: input.programName,
         isActive: { $ne: false },
         ...(input.programType ? { type: input.programType } : {}),
-    });
+    } as QueryFilter<ISocialProgram>);
 }
 
 export async function createStudentRecord(
@@ -371,7 +375,7 @@ export async function createStudentRecord(
                 cgpa: d.cgpa,
                 percentage: d.percentage,
                 rank: d.rank,
-                resultStatus: d.resultStatus,
+                resultStatus: d.resultStatus as "Pass" | "Fail" | "Promoted" | "Withheld" | undefined,
             });
             break;
         }
@@ -391,7 +395,7 @@ export async function createStudentRecord(
                 title: d.title,
                 journalName: d.journalName,
                 publisher: d.publisher,
-                publicationType: d.publicationType,
+                publicationType: d.publicationType as "Journal" | "Conference" | "Book" | undefined,
                 publicationDate: toDateOrUndefined(d.publicationDate),
                 doi: d.doi,
                 indexedIn: d.indexedIn,
@@ -415,7 +419,7 @@ export async function createStudentRecord(
                 guideName: d.guideName,
                 startDate: toDateOrUndefined(d.startDate),
                 endDate: toDateOrUndefined(d.endDate),
-                status: d.status,
+                status: d.status as "Planned" | "Ongoing" | "Completed" | undefined,
                 description: d.description,
                 documentId: await resolveDocumentId(d.documentId, user._id.toString()),
             });
@@ -513,7 +517,7 @@ export async function createStudentRecord(
                 studentId,
                 sportId: sport._id,
                 eventName: d.eventName,
-                level: d.level,
+                level: d.level as "College" | "State" | "National" | "International" | undefined,
                 position: d.position,
                 eventDate: toDateOrUndefined(d.eventDate),
                 documentId: await resolveDocumentId(d.documentId, user._id.toString()),
@@ -583,7 +587,7 @@ export async function createStudentRecord(
             createdRecord = await StudentEventParticipation.create({
                 studentId,
                 eventId: event._id,
-                role: d.role,
+                role: d.role as "Participant" | "Presenter",
                 paperTitle: d.paperTitle,
                 documentId: await resolveDocumentId(d.documentId, user._id.toString()),
             });

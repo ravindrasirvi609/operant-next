@@ -772,16 +772,22 @@ async function loadScopedEntitiesForPlan(
 ): Promise<ScopedResearchEntities> {
     const facultyFilter =
         plan.scopeType === "Department" && plan.departmentId
-            ? { departmentId: plan.departmentId, status: "Active" }
+            ? { departmentId: plan.departmentId, status: "Active" as const }
             : plan.institutionId
-              ? { institutionId: plan.institutionId, status: "Active" }
+              ? { institutionId: plan.institutionId, status: "Active" as const }
               : { _id: { $in: [] as Types.ObjectId[] } };
 
     const studentFilter =
         plan.scopeType === "Department" && plan.departmentId
-            ? { departmentId: plan.departmentId, status: { $in: ["Active", "Graduated"] } }
+            ? {
+                  departmentId: plan.departmentId,
+                  status: { $in: ["Active", "Graduated"] as const },
+              }
             : plan.institutionId
-              ? { institutionId: plan.institutionId, status: { $in: ["Active", "Graduated"] } }
+              ? {
+                    institutionId: plan.institutionId,
+                    status: { $in: ["Active", "Graduated"] as const },
+                }
               : { _id: { $in: [] as Types.ObjectId[] } };
 
     const [facultyRows, studentRows] = await Promise.all([
