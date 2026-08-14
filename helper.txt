@@ -1,0 +1,45 @@
+23:59:57.127 Running build in Washington, D.C., USA (East) – iad1
+23:59:57.128 Build machine configuration: 2 cores, 8 GB
+23:59:57.316 Cloning github.com/ravindrasirvi609/operant-next (Branch: main, Commit: 5d08782)
+23:59:58.542 Cloning completed: 1.226s
+23:59:58.861 Restored build cache from previous deployment (3W3FKUJJPAfLNEDxVpzuocy6BLji)
+23:59:59.728 Running "vercel build"
+23:59:59.746 Vercel CLI 58.1.0
+00:00:00.094 Installing dependencies...
+00:00:10.717 
+00:00:10.718 added 48 packages, removed 167 packages, and changed 268 packages in 10s
+00:00:10.718 
+00:00:10.718 266 packages are looking for funding
+00:00:10.718   run `npm fund` for details
+00:00:10.765 Detected Next.js version: 16.1.6
+00:00:10.778 Running "npm run build"
+00:00:10.892 
+00:00:10.893 > operantums@0.1.0 build
+00:00:10.893 > next build
+00:00:10.893 
+00:00:12.066 ▲ Next.js 16.1.6 (Turbopack)
+00:00:12.067 
+00:00:12.154   Creating an optimized production build ...
+00:01:14.697 ✓ Compiled successfully in 62s
+00:01:14.703   Running TypeScript ...
+00:01:58.096 Failed to compile.
+00:01:58.096 
+00:01:58.098 ./src/lib/aqar/service.ts:810:9
+00:01:58.099 Type error: No overload matches this call.
+00:01:58.099   Overload 1 of 5, '(filter?: _QueryFilter<{ toJSON: { <PopulatedRawDocType, DepopulatedRawDocType>(this: PopulatedDocumentMarker<PopulatedRawDocType, DepopulatedRawDocType>, options: { depopulate: true; }): Require_id<...> extends { ...; } ? { ...; } & Require_id<...> : Require_id<...> & { ...; }; <PopulatedRawDocType, DepopulatedRawDocType, O extends ToObjectOptions & { depopulate: true; }>(this: PopulatedDocumentMarker<...>, options: O): ApplyVersionKey<...>; <PopulatedRawDocType, O extends ToObjectOptions>(this: PopulatedDocumentMarker<...>, options: O): ApplyVersionKey<...>; <PopulatedRawDocType>(this: PopulatedDocumentMarker<...>): Require_id<...> extends { ...; } ? { ...; } & Require_id<...> : Require_id<...> & { ...; }; <O extends ToObjectOptions>(options: O): ApplyVersionKey<...>; (options?: ToObjectOptions<...> | undefined): any; <T>(options?: ToObjectOptions<...> | undefined): Require_id<...> & { ...; }; }; ... 287 more ...; "statusLogs.changedAt": Date; }> | undefined, projection?: ProjectionType<...> | ... 1 more ... | undefined, options?: (QueryOptions<...> & Abortable) | undefined): Query<...>', gave the following error.
+00:01:58.099     Type '{ $in: string[]; }' is not assignable to type 'StrictCondition<ApplyBasicQueryCasting<NonNullable<AqarStatus>>> | undefined'.
+00:01:58.099       Types of property '$in' are incompatible.
+00:01:58.099         Type 'string[]' is not assignable to type 'readonly (RegExp | BSONRegExp | "Draft" | "Approved" | "Rejected" | "Submitted" | "Under Review" | "Committee Review" | (RegExp | "Draft" | "Approved" | "Rejected" | "Submitted" | "Under Review" | "Committee Review")[] | null)[]'.
+00:01:58.100           Type 'string' is not assignable to type 'RegExp | BSONRegExp | "Draft" | "Approved" | "Rejected" | "Submitted" | "Under Review" | "Committee Review" | (RegExp | "Draft" | "Approved" | "Rejected" | "Submitted" | "Under Review" | "Committee Review")[] | null'.
+00:01:58.100   Overload 2 of 5, '(filter?: Query<any, any, {}, unknown, "find", Record<string, never>> | undefined, projection?: ProjectionType<IAqarApplication> | null | undefined, options?: (QueryOptions<...> & Abortable) | undefined): Query<...>', gave the following error.
+00:01:58.100     Object literal may only specify known properties, and 'status' does not exist in type 'Query<any, any, {}, unknown, "find", Record<string, never>>'.
+00:01:58.100 
+00:01:58.101   808 |     const workflowDefinition = await getActiveWorkflowDefinition("AQAR");
+00:01:58.101   809 |     const applications = await AqarApplication.find({
+00:01:58.101 > 810 |         status: { $in: getWorkflowPendingStatuses(workflowDefinition) },
+00:01:58.101       |         ^
+00:01:58.102   811 |     }).sort({ updatedAt: -1 });
+00:01:58.102   812 |
+00:01:58.102   813 |     await Promise.all(
+00:01:58.257 Next.js build worker exited with code: 1 and signal: null
+00:01:58.329 Error: Command "npm run build" exited with 1
