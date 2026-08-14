@@ -807,7 +807,7 @@ export async function getAqarReviewQueue(
     await dbConnect();
     const workflowDefinition = await getActiveWorkflowDefinition("AQAR");
     const applications = await AqarApplication.find({
-        status: { $in: getWorkflowPendingStatuses(workflowDefinition) },
+        status: { $in: getWorkflowPendingStatuses(workflowDefinition) as AqarStatus[] },
     }).sort({ updatedAt: -1 });
 
     await Promise.all(
