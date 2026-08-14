@@ -65,7 +65,7 @@ export async function createPbasCategory(input: unknown) {
     const data = pbasCategorySchema.parse(input);
 
     const category = await PbasCategoryMaster.create({
-        categoryCode: normalizeCode(data.categoryCode),
+        categoryCode: normalizeCode(data.categoryCode) as "A" | "B" | "C",
         categoryName: data.categoryName.trim(),
         maxScore: data.maxScore,
         displayOrder: data.displayOrder,

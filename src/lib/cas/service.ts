@@ -1290,7 +1290,9 @@ export async function getCasReviewQueue(
     await ensureCasPromotionRules();
     const workflowDefinition = await getActiveWorkflowDefinition("CAS");
     const applications = await CasApplication.find({
-        status: { $in: getWorkflowPendingStatuses(workflowDefinition) },
+        status: {
+            $in: getWorkflowPendingStatuses(workflowDefinition) as CasStatus[],
+        },
     }).sort({ updatedAt: -1 });
 
     await Promise.all(applications.map((application) => upsertWorkflow(application, undefined)));
