@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 type SurveyQuestion = {
     _id: string;
     questionText: string;
+    questionType: "Rating" | "Subjective";
     ratingScaleMax: number;
     analyticsBucket: string;
 };
@@ -29,6 +30,8 @@ type SurveyRecord = {
     analytics?: {
         overallSatisfactionIndex?: number;
         responseRate?: number;
+        minimumRequiredResponses?: number;
+        meetsResponseRateThreshold?: boolean;
     } | null;
     questions: SurveyQuestion[];
 };
@@ -60,7 +63,7 @@ export function StudentSssWorkspace({
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [isPending, startTransition] = useTransition();
     const [activeSurveyId, setActiveSurveyId] = useState(surveys.find((survey) => !survey.eligibility?.isResponseSubmitted)?._id ?? surveys[0]?._id ?? "");
-    const [answers, setAnswers] = useState<Record<string, { ratingValue: string; remarks: string }>>({});
+    const [answers, setAnswers] = useState<Record<string, { ratingValue: string; textAnswer: string; remarks: string }>>({});
 
     const activeSurvey = useMemo(
         () => surveys.find((survey) => survey._id === activeSurveyId) ?? null,
@@ -81,7 +84,14 @@ export function StudentSssWorkspace({
                     body: JSON.stringify({
                         answers: activeSurvey.questions.map((question) => ({
                             questionId: question._id,
-                            ratingValue: Number(answers[question._id]?.ratingValue ?? 0),
+                            ratingValue:
+                                question.questionType === "Rating"
+                                    ? Number(answers[question._id]?.ratingValue ?? 0)
+                                    : undefined,
+                            textAnswer:
+                                question.questionType === "Subjective"
+                                    ? answers[question._id]?.textAnswer || undefined
+                                    : undefined,
                             remarks: answers[question._id]?.remarks || undefined,
                         })),
                     }),
@@ -141,7 +151,15 @@ export function StudentSssWorkspace({
                     </CardHeader>
                     <CardContent className="space-y-2 text-sm text-muted-foreground">
                         <p>Overall satisfaction index: {activeSurvey.analytics?.overallSatisfactionIndex ?? 0}%</p>
-                        <p>Institutional response rate: {activeSurvey.analytics?.responseRate ?? 0}%</p>
+                        <p>
+                            Institutional response rate: {activeSurvey.analytics?.responseRate ?? 0}%
+                            {" "}
+                            <Badge variant={activeSurvey.analytics?.meetsResponseRateThreshold ? "default" : "outline"}>
+                                {activeSurvey.analytics?.meetsResponseRateThreshold
+                                    ? "Meets NAAC minimum"
+                                    : "Below NAAC minimum"}
+                            </Badge>
+                        </p>
                     </CardContent>
                 </Card>
             ) : (
@@ -158,47 +176,77 @@ export function StudentSssWorkspace({
                                 <div key={question._id} className="rounded-xl border border-border p-4">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <Badge variant="secondary">{question.analyticsBucket}</Badge>
-                                        <Badge variant="outline">Scale 1-{question.ratingScaleMax}</Badge>
+                                        {question.questionType === "Rating" ? (
+                                            <Badge variant="outline">Scale 1-{question.ratingScaleMax}</Badge>
+                                        ) : (
+                                            <Badge variant="outline">Open-ended</Badge>
+                                        )}
                                     </div>
                                     <p className="mt-3 text-sm font-medium text-foreground">{question.questionText}</p>
-                                    <div className="mt-4 flex flex-wrap gap-2">
-                                        {Array.from({ length: question.ratingScaleMax }, (_, index) => index + 1).map((rating) => (
-                                            <Button
-                                                key={rating}
-                                                type="button"
-                                                variant={answers[question._id]?.ratingValue === String(rating) ? "default" : "outline"}
-                                                className="h-7 px-2 text-xs sm:h-8 sm:px-2.5 sm:text-sm"
-                                                onClick={() =>
+
+                                    {question.questionType === "Rating" ? (
+                                        <>
+                                            <div className="mt-4 flex flex-wrap gap-2">
+                                                {Array.from({ length: question.ratingScaleMax }, (_, index) => index + 1).map((rating) => (
+                                                    <Button
+                                                        key={rating}
+                                                        type="button"
+                                                        variant={answers[question._id]?.ratingValue === String(rating) ? "default" : "outline"}
+                                                        className="h-7 px-2 text-xs sm:h-8 sm:px-2.5 sm:text-sm"
+                                                        onClick={() =>
+                                                            setAnswers((current) => ({
+                                                                ...current,
+                                                                [question._id]: {
+                                                                    ratingValue: String(rating),
+                                                                    textAnswer: current[question._id]?.textAnswer ?? "",
+                                                                    remarks: current[question._id]?.remarks ?? "",
+                                                                },
+                                                            }))
+                                                        }
+                                                    >
+                                                        {rating}
+                                                    </Button>
+                                                ))}
+                                            </div>
+                                            <div className="mt-4 grid gap-2">
+                                                <Label htmlFor={`remarks-${question._id}`}>Remarks (optional)</Label>
+                                                <Textarea
+                                                    id={`remarks-${question._id}`}
+                                                    rows={3}
+                                                    value={answers[question._id]?.remarks ?? ""}
+                                                    onChange={(event) =>
+                                                        setAnswers((current) => ({
+                                                            ...current,
+                                                            [question._id]: {
+                                                                ratingValue: current[question._id]?.ratingValue ?? "",
+                                                                textAnswer: current[question._id]?.textAnswer ?? "",
+                                                                remarks: event.target.value,
+                                                            },
+                                                        }))
+                                                    }
+                                                />
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="mt-4 grid gap-2">
+                                            <Label htmlFor={`text-answer-${question._id}`}>Your answer</Label>
+                                            <Textarea
+                                                id={`text-answer-${question._id}`}
+                                                rows={4}
+                                                value={answers[question._id]?.textAnswer ?? ""}
+                                                onChange={(event) =>
                                                     setAnswers((current) => ({
                                                         ...current,
                                                         [question._id]: {
-                                                            ratingValue: String(rating),
+                                                            ratingValue: current[question._id]?.ratingValue ?? "",
+                                                            textAnswer: event.target.value,
                                                             remarks: current[question._id]?.remarks ?? "",
                                                         },
                                                     }))
                                                 }
-                                            >
-                                                {rating}
-                                            </Button>
-                                        ))}
-                                    </div>
-                                    <div className="mt-4 grid gap-2">
-                                        <Label htmlFor={`remarks-${question._id}`}>Remarks</Label>
-                                        <Textarea
-                                            id={`remarks-${question._id}`}
-                                            rows={3}
-                                            value={answers[question._id]?.remarks ?? ""}
-                                            onChange={(event) =>
-                                                setAnswers((current) => ({
-                                                    ...current,
-                                                    [question._id]: {
-                                                        ratingValue: current[question._id]?.ratingValue ?? "",
-                                                        remarks: event.target.value,
-                                                    },
-                                                }))
-                                            }
-                                        />
-                                    </div>
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             ))}
 

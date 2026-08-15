@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { sssSurveyStatusValues, } from "@/models/engagement/sss-survey";
-import { sssQuestionAnalyticsBucketValues, } from "@/models/engagement/sss-question";
+import { sssQuestionAnalyticsBucketValues, sssQuestionTypeValues, } from "@/models/engagement/sss-question";
 import { aisheSurveySubmissionStatusValues, } from "@/models/reporting/aishe-survey-cycle";
 import { aisheInstitutionTypeValues, aisheLocationTypeValues, } from "@/models/reporting/aishe-institution-profile";
 import { aisheSubmissionLogStatusValues, } from "@/models/reporting/aishe-submission-log";
@@ -23,6 +23,7 @@ const optionalDateStringSchema = z.string().trim().optional();
 
 export const sssQuestionDraftSchema = z.object({
     questionText: z.string().trim().min(5, "Question text is required."),
+    questionType: z.enum(sssQuestionTypeValues).default("Rating"),
     ratingScaleMax: z.coerce.number().int().min(2).max(10).default(5),
     displayOrder: z.coerce.number().int().min(1),
     isMandatory: z.boolean().default(true),
@@ -40,13 +41,27 @@ export const sssSurveySchema = z.object({
     questions: z.array(sssQuestionDraftSchema).min(1, "At least one question is required."),
 });
 
-export const sssSurveyUpdateSchema = sssSurveySchema.partial();
-
-export const sssStudentResponseAnswerSchema = z.object({
-    questionId: objectIdSchema,
-    ratingValue: z.coerce.number().int().min(1).max(10),
-    remarks: z.string().trim().optional(),
+// `.partial()` alone still applies `eligibleStudentIds`/`questions`'s `.default([])`
+// when the key is omitted (Zod resolves defaults before the optional wrapper sees
+// `undefined`), so a partial update with neither field would look like "clear the
+// roster." Override both with plain `.optional()` (no default) so an omitted key
+// really means "leave this untouched."
+export const sssSurveyUpdateSchema = sssSurveySchema.partial().extend({
+    eligibleStudentIds: z.array(objectIdSchema).optional(),
+    questions: z.array(sssQuestionDraftSchema).optional(),
 });
+
+export const sssStudentResponseAnswerSchema = z
+    .object({
+        questionId: objectIdSchema,
+        ratingValue: z.coerce.number().int().min(1).max(10).optional(),
+        textAnswer: z.string().trim().min(1).optional(),
+        remarks: z.string().trim().optional(),
+    })
+    .refine(
+        (value) => value.ratingValue !== undefined || value.textAnswer !== undefined,
+        { message: "Provide either a rating or a text answer." }
+    );
 
 export const sssStudentResponseSchema = z.object({
     answers: z.array(sssStudentResponseAnswerSchema).min(1, "At least one answer is required."),

@@ -20,6 +20,7 @@ export interface IStudentSupportRepresentation extends Document {
     representationType: StudentSupportRepresentationType;
     bodyName: string;
     roleTitle?: string;
+    studentIds?: Types.ObjectId[];
     studentCount?: number;
     meetingCount?: number;
     outcomeSummary?: string;
@@ -53,6 +54,8 @@ const StudentSupportRepresentationSchema = new Schema<IStudentSupportRepresentat
         },
         bodyName: { type: String, required: true, trim: true },
         roleTitle: { type: String, trim: true },
+        // When set, studentCount is derived from this list's length rather than typed manually.
+        studentIds: { type: [Schema.Types.ObjectId], ref: "Student", default: [] },
         studentCount: { type: Number, min: 0 },
         meetingCount: { type: Number, min: 0 },
         outcomeSummary: { type: String, trim: true },

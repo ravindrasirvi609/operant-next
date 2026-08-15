@@ -26,6 +26,7 @@ type Option = {
 type SssQuestionRecord = {
     _id?: string;
     questionText: string;
+    questionType?: string;
     ratingScaleMax?: number;
     displayOrder?: number;
     isMandatory?: boolean;
@@ -47,6 +48,8 @@ type SssSurveyRecord = {
     analytics?: {
         overallSatisfactionIndex?: number;
         responseRate?: number;
+        minimumRequiredResponses?: number;
+        meetsResponseRateThreshold?: boolean;
     } | null;
 };
 
@@ -373,8 +376,31 @@ function createDefaultSssForm(defaultInstitutionId: string, defaultAcademicYearI
         startDate: "",
         endDate: "",
         eligibleStudentIdsText: "",
-        questionLines:
-            "TeachingLearning | The teaching and mentoring process in your institution facilitates you in cognitive, social and emotional growth. | 5 | yes\nInfrastructure | The institution provides adequate infrastructure and learning resources for your academic needs. | 5 | yes\nStudentSupport | Student support services such as guidance, grievance handling, and mentoring are effective. | 5 | yes\nGovernance | Governance, communication, and institutional responsiveness meet your expectations. | 5 | yes",
+        // Pre-filled with NAAC's ~20-objective + 1-subjective question bank (13(c));
+        // trim or edit lines as needed before saving.
+        questionLines: [
+            "TeachingLearning | Teaching methods used by faculty are effective and engaging. | rating | 5 | yes",
+            "TeachingLearning | Faculty are approachable for academic doubts outside class hours. | rating | 5 | yes",
+            "TeachingLearning | The curriculum and coursework are relevant to your field of study. | rating | 5 | yes",
+            "TeachingLearning | Assessment and evaluation methods are fair and transparent. | rating | 5 | yes",
+            "TeachingLearning | ICT-enabled tools (LMS, online resources) are used effectively in teaching. | rating | 5 | yes",
+            "Infrastructure | Classrooms and laboratories are adequately equipped for learning. | rating | 5 | yes",
+            "Infrastructure | The library provides sufficient books, journals, and digital resources. | rating | 5 | yes",
+            "Infrastructure | Internet and Wi-Fi connectivity on campus is reliable. | rating | 5 | yes",
+            "Infrastructure | Hostel, canteen, and other campus amenities meet your needs. | rating | 5 | yes",
+            "Infrastructure | Sports, cultural, and recreational facilities are adequate. | rating | 5 | yes",
+            "StudentSupport | Mentoring and academic counseling support is readily available. | rating | 5 | yes",
+            "StudentSupport | Career guidance and placement support meet your expectations. | rating | 5 | yes",
+            "StudentSupport | Scholarships and financial aid information is easily accessible. | rating | 5 | yes",
+            "StudentSupport | Grievance redressal mechanisms are responsive and fair. | rating | 5 | yes",
+            "StudentSupport | The institution supports the wellbeing and safety of students on campus. | rating | 5 | yes",
+            "Governance | Institutional communication (notices, circulars, updates) is timely and clear. | rating | 5 | yes",
+            "Governance | Administrative processes (fee payment, certificates, records) are efficient. | rating | 5 | yes",
+            "Governance | Student feedback is taken seriously and acted upon. | rating | 5 | yes",
+            "Governance | You feel a sense of belonging and inclusion at the institution. | rating | 5 | yes",
+            "Governance | Overall, you are satisfied with your experience at the institution. | rating | 5 | yes",
+            "General | What is one specific change you would recommend to improve your experience at this institution? | subjective | 5 | yes",
+        ].join("\n"),
     };
 }
 
@@ -522,7 +548,7 @@ function mapSssRecordToForm(record: SssSurveyRecord, fallback: ReturnType<typeof
         questionLines: joinLines(
             (record.questions ?? []).map(
                 (question) =>
-                    `${question.analyticsBucket ?? "General"} | ${question.questionText} | ${question.ratingScaleMax ?? 5} | ${question.isMandatory === false ? "no" : "yes"}`
+                    `${question.analyticsBucket ?? "General"} | ${question.questionText} | ${question.questionType === "Subjective" ? "subjective" : "rating"} | ${question.ratingScaleMax ?? 5} | ${question.isMandatory === false ? "no" : "yes"}`
             )
         ),
     };
@@ -900,9 +926,10 @@ export function AccreditationOperationsManager({
             const questions = parsePipeLines(sssForm.questionLines).map((parts, index) => ({
                 questionText: parts[1] ?? parts[0] ?? "",
                 analyticsBucket: (parts[0] || "General").replace(/\s+/g, "") || "General",
-                ratingScaleMax: Number(parts[2] ?? 5),
+                questionType: (parts[2] ?? "rating").toLowerCase() === "subjective" ? "Subjective" : "Rating",
+                ratingScaleMax: Number(parts[3] ?? 5),
                 displayOrder: index + 1,
-                isMandatory: (parts[3] ?? "yes").toLowerCase() !== "no",
+                isMandatory: (parts[4] ?? "yes").toLowerCase() !== "no",
             }));
 
             const payload = {
@@ -1366,7 +1393,7 @@ export function AccreditationOperationsManager({
                                 <div className="grid gap-2 md:col-span-2">
                                     <Label>Question lines</Label>
                                     <Textarea rows={7} value={sssForm.questionLines} onChange={(event) => setSssForm((current) => ({ ...current, questionLines: event.target.value }))} />
-                                    <p className="text-xs text-muted-foreground">Format: `Bucket | Question text | Rating scale max | yes/no mandatory`</p>
+                                    <p className="text-xs text-muted-foreground">Format: `Bucket | Question text | rating/subjective | Rating scale max | yes/no mandatory`. Pre-filled with NAAC's ~20-objective + 1-subjective bank — trim or edit lines as needed.</p>
                                 </div>
                                 <div className="flex flex-wrap gap-3 md:col-span-2">
                                     <Button loading={isPending} disabled={isPending} type="submit">
@@ -1407,7 +1434,20 @@ export function AccreditationOperationsManager({
                                             <TableCell><Badge variant="secondary">{survey.surveyStatus}</Badge></TableCell>
                                             <TableCell>{survey.questionCount}</TableCell>
                                             <TableCell>{survey.eligibleCount}</TableCell>
-                                            <TableCell>{survey.analytics ? `${survey.analytics.overallSatisfactionIndex ?? 0}% / ${survey.analytics.responseRate ?? 0}% response` : "-"}</TableCell>
+                                            <TableCell>
+                                                {survey.analytics ? (
+                                                    <div className="flex flex-wrap items-center gap-1.5">
+                                                        <span>{survey.analytics.overallSatisfactionIndex ?? 0}% / {survey.analytics.responseRate ?? 0}% response</span>
+                                                        <Badge variant={survey.analytics.meetsResponseRateThreshold ? "default" : "outline"}>
+                                                            {survey.analytics.meetsResponseRateThreshold
+                                                                ? "Meets NAAC minimum"
+                                                                : `Below NAAC minimum (needs ${Math.max(0, (survey.analytics.minimumRequiredResponses ?? 0))} responses)`}
+                                                        </Badge>
+                                                    </div>
+                                                ) : (
+                                                    "-"
+                                                )}
+                                            </TableCell>
                                             <TableCell>
                                                 <Button
                                                     onClick={() => {

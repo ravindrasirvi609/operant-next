@@ -53,6 +53,7 @@ import {
     naacMetricValueManualUpdateSchema,
     naacMetricValueReviewSchema,
 } from "@/lib/naac-metric-warehouse/validators";
+import { computeGraduatingCohortMetrics, computeStudentTeacherRatio } from "@/lib/naac-metric-warehouse/student-metrics";
 
 type SafeActor = {
     id: string;
@@ -431,6 +432,10 @@ async function buildMetricComputations(
         complianceActionItems.length > 0
             ? Number(((complianceCompletedCount / complianceActionItems.length) * 100).toFixed(2))
             : 0;
+    const [studentTeacherRatio, graduatingCohortMetrics] = await Promise.all([
+        computeStudentTeacherRatio(),
+        computeGraduatingCohortMetrics(academicYearLabel),
+    ]);
     const administrativeResponsibilityCount =
         facultyRecords.reduce(
             (sum, record) => sum + (record.administrativeResponsibilities?.length ?? 0),
@@ -588,6 +593,52 @@ async function buildMetricComputations(
         numericValue: placementIds.length,
         sourceSnapshots: [
             createSourceSnapshot("Placement", "Placement records", "Placement", placementIds, placementIds.length),
+        ],
+    });
+
+    setMetric("Student", "studentTeacherRatio", {
+        numericValue: studentTeacherRatio.ratio,
+        sourceSnapshots: [
+            createSourceSnapshot(
+                "Student",
+                "Active students",
+                "Student",
+                activeStudentIds,
+                studentTeacherRatio.studentCount
+            ),
+            createSourceSnapshot(
+                "FacultyProfile",
+                "Active permanent faculty",
+                "Faculty",
+                [],
+                studentTeacherRatio.facultyCount
+            ),
+        ],
+    });
+
+    setMetric("StudentAcademicRecord", "passPercentage", {
+        numericValue: graduatingCohortMetrics.passPercentage,
+        sourceSnapshots: [
+            createSourceSnapshot(
+                "StudentAcademicRecord",
+                "Final-year results for the graduating cohort",
+                "StudentAcademicRecord",
+                [],
+                graduatingCohortMetrics.appearedCount
+            ),
+        ],
+    });
+
+    setMetric("Placement", "placementPercentage", {
+        numericValue: graduatingCohortMetrics.placementPercentage,
+        sourceSnapshots: [
+            createSourceSnapshot(
+                "Placement",
+                "Placements within the graduating cohort",
+                "Placement",
+                [],
+                graduatingCohortMetrics.placedCount
+            ),
         ],
     });
 

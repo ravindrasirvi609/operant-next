@@ -40,6 +40,7 @@ export interface IStudentSupportGrievance extends Document {
     assignmentId: Types.ObjectId;
     category: StudentSupportGrievanceCategory;
     referenceNumber?: string;
+    studentId?: Types.ObjectId;
     lodgedByType: StudentSupportGrievanceLodgedBy;
     receivedDate?: Date;
     resolvedDate?: Date;
@@ -76,6 +77,8 @@ const StudentSupportGrievanceSchema = new Schema<IStudentSupportGrievance>(
             index: true,
         },
         referenceNumber: { type: String, trim: true },
+        // Optional even for AntiRagging/Harassment — a complainant may choose to stay anonymous.
+        studentId: { type: Schema.Types.ObjectId, ref: "Student" },
         lodgedByType: {
             type: String,
             enum: studentSupportGrievanceLodgedByValues,

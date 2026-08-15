@@ -31,6 +31,7 @@ export interface IStudentSupportProgression extends Document {
     batchLabel?: string;
     programName?: string;
     destinationName?: string;
+    studentIds?: Types.ObjectId[];
     studentCount?: number;
     medianPackageLpa?: number;
     status: StudentSupportProgressionStatus;
@@ -66,6 +67,8 @@ const StudentSupportProgressionSchema = new Schema<IStudentSupportProgression>(
         batchLabel: { type: String, trim: true },
         programName: { type: String, trim: true },
         destinationName: { type: String, trim: true },
+        // When set, studentCount is derived from this list's length rather than typed manually.
+        studentIds: { type: [Schema.Types.ObjectId], ref: "Student", default: [] },
         studentCount: { type: Number, min: 0 },
         medianPackageLpa: { type: Number, min: 0 },
         status: {

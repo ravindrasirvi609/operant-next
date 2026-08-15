@@ -10,6 +10,9 @@ export interface ISssResultAnalytics extends Document {
     submittedResponses: number;
     eligibleResponses: number;
     responseRate: number;
+    /** NAAC 13(b)(ii): min(10% of eligible students, 500) for Universities. */
+    minimumRequiredResponses: number;
+    meetsResponseRateThreshold: boolean;
     generatedAt: Date;
     createdAt: Date;
     updatedAt: Date;
@@ -26,6 +29,8 @@ const SssResultAnalyticsSchema = new Schema<ISssResultAnalytics>(
         submittedResponses: { type: Number, required: true, default: 0, min: 0 },
         eligibleResponses: { type: Number, required: true, default: 0, min: 0 },
         responseRate: { type: Number, required: true, default: 0, min: 0 },
+        minimumRequiredResponses: { type: Number, required: true, default: 0, min: 0 },
+        meetsResponseRateThreshold: { type: Boolean, required: true, default: false },
         generatedAt: { type: Date, required: true, default: Date.now },
     },
     { timestamps: true, collection: "sss_result_analytics" }

@@ -31,6 +31,7 @@ import StudentSupportRepresentation from "@/models/student/student-support-repre
 import StudentSupportGovernancePlan from "@/models/student/student-support-governance-plan";
 import StudentSupportGrievance from "@/models/student/student-support-grievance";
 import StudentSupportProgression from "@/models/student/student-support-progression";
+import Student from "@/models/student/student";
 import AcademicYear from "@/models/reference/academic-year";
 import Department from "@/models/reference/department";
 import DocumentModel from "@/models/reference/document";
@@ -77,12 +78,22 @@ type HydratedDocument = {
     verificationRemarks?: string;
 };
 
+type HydratedPersonRef = {
+    id: string;
+    name: string;
+    enrollmentNo?: string;
+};
+
 type HydratedMentorGroup = {
     id: string;
     groupName: string;
     programName?: string;
     batchLabel?: string;
     mentorName?: string;
+    mentorId?: string;
+    mentor?: HydratedPersonRef;
+    menteeIds?: string[];
+    mentees?: HydratedPersonRef[];
     menteeCount?: number;
     meetingCount?: number;
     supportThemes?: string;
@@ -97,6 +108,8 @@ type HydratedGrievance = {
     id: string;
     category: string;
     referenceNumber?: string;
+    studentId?: string;
+    student?: HydratedPersonRef;
     lodgedByType: string;
     receivedDate?: Date;
     resolvedDate?: Date;
@@ -116,6 +129,8 @@ type HydratedProgression = {
     batchLabel?: string;
     programName?: string;
     destinationName?: string;
+    studentIds?: string[];
+    students?: HydratedPersonRef[];
     studentCount?: number;
     medianPackageLpa?: number;
     status: string;
@@ -129,6 +144,8 @@ type HydratedRepresentation = {
     representationType: string;
     bodyName: string;
     roleTitle?: string;
+    studentIds?: string[];
+    students?: HydratedPersonRef[];
     studentCount?: number;
     meetingCount?: number;
     outcomeSummary?: string;
@@ -236,6 +253,44 @@ function toObjectIdList(values?: string[]) {
     return (values ?? [])
         .filter((value) => Types.ObjectId.isValid(value))
         .map((value) => new Types.ObjectId(value));
+}
+
+/** Confirms every id in `ids` resolves to a real Student document — traceability is the point of these links. */
+async function resolveExistingStudentIds(ids: string[] | undefined, message: string) {
+    const objectIds = toObjectIdList(ids);
+    if (!objectIds.length) {
+        return [];
+    }
+
+    const found = await Student.find({ _id: { $in: objectIds } }).select("_id").lean();
+    if (found.length !== objectIds.length) {
+        throw new AuthError(message, 400);
+    }
+
+    return objectIds;
+}
+
+async function resolveExistingStudentId(id: string | undefined, message: string) {
+    if (!id) {
+        return undefined;
+    }
+
+    const [resolved] = await resolveExistingStudentIds([id], message);
+    return resolved;
+}
+
+async function resolveExistingFacultyId(id: string | undefined, message: string) {
+    if (!id) {
+        return undefined;
+    }
+
+    const objectId = ensureObjectId(id, message);
+    const exists = await Faculty.exists({ _id: objectId });
+    if (!exists) {
+        throw new AuthError(message, 400);
+    }
+
+    return objectId;
 }
 
 function toOptionalDate(value?: string | null) {
@@ -614,7 +669,7 @@ async function ensureEligibleStudentSupportContributor(
     return user;
 }
 
-async function syncMentorGroups(
+export async function syncMentorGroups(
     assignment: IStudentSupportGovernanceAssignment,
     input: StudentSupportGovernanceContributionDraftInput
 ) {
@@ -625,6 +680,14 @@ async function syncMentorGroups(
     const keepIds = new Set<string>();
 
     for (const [index, row] of input.mentorGroups.entries()) {
+        const mentorId = await resolveExistingFacultyId(
+            row.mentorId,
+            "Mentor is not a valid faculty record."
+        );
+        const menteeIds = await resolveExistingStudentIds(
+            row.menteeIds,
+            "One or more mentees are not valid student records."
+        );
         const payload = {
             planId: assignment.planId,
             assignmentId: assignment._id,
@@ -632,7 +695,9 @@ async function syncMentorGroups(
             programName: row.programName || undefined,
             batchLabel: row.batchLabel || undefined,
             mentorName: row.mentorName || undefined,
-            menteeCount: row.menteeCount,
+            mentorId,
+            menteeIds,
+            menteeCount: menteeIds.length > 0 ? menteeIds.length : row.menteeCount,
             meetingCount: row.meetingCount,
             supportThemes: row.supportThemes || undefined,
             escalatedCount: row.escalatedCount,
@@ -669,7 +734,7 @@ async function syncMentorGroups(
     return Array.from(keepIds);
 }
 
-async function syncGrievances(
+export async function syncGrievances(
     assignment: IStudentSupportGovernanceAssignment,
     input: StudentSupportGovernanceContributionDraftInput
 ) {
@@ -680,11 +745,16 @@ async function syncGrievances(
     const keepIds = new Set<string>();
 
     for (const [index, row] of input.grievances.entries()) {
+        const studentId = await resolveExistingStudentId(
+            row.studentId,
+            "Linked student record was not found."
+        );
         const payload = {
             planId: assignment.planId,
             assignmentId: assignment._id,
             category: row.category,
             referenceNumber: row.referenceNumber || undefined,
+            studentId,
             lodgedByType: row.lodgedByType,
             receivedDate: toOptionalDate(row.receivedDate),
             resolvedDate: toOptionalDate(row.resolvedDate),
@@ -724,7 +794,7 @@ async function syncGrievances(
     return Array.from(keepIds);
 }
 
-async function syncProgressions(
+export async function syncProgressions(
     assignment: IStudentSupportGovernanceAssignment,
     input: StudentSupportGovernanceContributionDraftInput
 ) {
@@ -735,6 +805,10 @@ async function syncProgressions(
     const keepIds = new Set<string>();
 
     for (const [index, row] of input.progressionRows.entries()) {
+        const studentIds = await resolveExistingStudentIds(
+            row.studentIds,
+            "One or more linked students were not found."
+        );
         const payload = {
             planId: assignment.planId,
             assignmentId: assignment._id,
@@ -743,7 +817,8 @@ async function syncProgressions(
             batchLabel: row.batchLabel || undefined,
             programName: row.programName || undefined,
             destinationName: row.destinationName || undefined,
-            studentCount: row.studentCount,
+            studentIds,
+            studentCount: studentIds.length > 0 ? studentIds.length : row.studentCount,
             medianPackageLpa: row.medianPackageLpa,
             status: row.status,
             remarks: row.remarks || undefined,
@@ -778,7 +853,7 @@ async function syncProgressions(
     return Array.from(keepIds);
 }
 
-async function syncRepresentations(
+export async function syncRepresentations(
     assignment: IStudentSupportGovernanceAssignment,
     input: StudentSupportGovernanceContributionDraftInput
 ) {
@@ -789,13 +864,18 @@ async function syncRepresentations(
     const keepIds = new Set<string>();
 
     for (const [index, row] of input.representationRows.entries()) {
+        const studentIds = await resolveExistingStudentIds(
+            row.studentIds,
+            "One or more linked students were not found."
+        );
         const payload = {
             planId: assignment.planId,
             assignmentId: assignment._id,
             representationType: row.representationType,
             bodyName: row.bodyName,
             roleTitle: row.roleTitle || undefined,
-            studentCount: row.studentCount,
+            studentIds,
+            studentCount: studentIds.length > 0 ? studentIds.length : row.studentCount,
             meetingCount: row.meetingCount,
             outcomeSummary: row.outcomeSummary || undefined,
             remarks: row.remarks || undefined,
@@ -926,6 +1006,42 @@ async function hydrateAssignments(
         documents.map((row) => [row._id.toString(), mapDocumentRecord(row)])
     );
 
+    const rowStudentIds = uniqueStrings([
+        ...grievances.map((row) => row.studentId?.toString()),
+        ...mentorGroups.flatMap((row) => (row.menteeIds ?? []).map((id: Types.ObjectId) => id.toString())),
+        ...progressionRows.flatMap((row) => (row.studentIds ?? []).map((id: Types.ObjectId) => id.toString())),
+        ...representationRows.flatMap((row) => (row.studentIds ?? []).map((id: Types.ObjectId) => id.toString())),
+    ]);
+    const rowMentorIds = uniqueStrings(mentorGroups.map((row) => row.mentorId?.toString()));
+    const [linkedStudents, linkedMentors] = await Promise.all([
+        rowStudentIds.length
+            ? Student.find({ _id: { $in: toObjectIdList(rowStudentIds) } })
+                  .select("firstName lastName enrollmentNo")
+                  .lean()
+            : [],
+        rowMentorIds.length
+            ? Faculty.find({ _id: { $in: toObjectIdList(rowMentorIds) } })
+                  .select("firstName lastName")
+                  .lean()
+            : [],
+    ]);
+    const studentRefById = new Map(
+        linkedStudents.map((row) => [
+            row._id.toString(),
+            {
+                id: row._id.toString(),
+                name: [row.firstName, row.lastName].filter(Boolean).join(" "),
+                enrollmentNo: row.enrollmentNo,
+            },
+        ])
+    );
+    const mentorRefById = new Map(
+        linkedMentors.map((row) => [
+            row._id.toString(),
+            { id: row._id.toString(), name: [row.firstName, row.lastName].filter(Boolean).join(" ") },
+        ])
+    );
+
     const workflowDefinition = await getActiveWorkflowDefinition("STUDENT_SUPPORT_GOVERNANCE");
     const profile = actor ? await resolveAuthorizationProfile(actor) : null;
 
@@ -947,6 +1063,12 @@ async function hydrateAssignments(
                     programName: row.programName,
                     batchLabel: row.batchLabel,
                     mentorName: row.mentorName,
+                    mentorId: row.mentorId?.toString(),
+                    mentor: row.mentorId ? mentorRefById.get(row.mentorId.toString()) : undefined,
+                    menteeIds: (row.menteeIds ?? []).map((id: Types.ObjectId) => id.toString()),
+                    mentees: (row.menteeIds ?? [])
+                        .map((id: Types.ObjectId) => studentRefById.get(id.toString()))
+                        .filter(Boolean),
                     menteeCount: row.menteeCount,
                     meetingCount: row.meetingCount,
                     supportThemes: row.supportThemes,
@@ -963,6 +1085,8 @@ async function hydrateAssignments(
                     id: row._id.toString(),
                     category: row.category,
                     referenceNumber: row.referenceNumber,
+                    studentId: row.studentId?.toString(),
+                    student: row.studentId ? studentRefById.get(row.studentId.toString()) : undefined,
                     lodgedByType: row.lodgedByType,
                     receivedDate: row.receivedDate,
                     resolvedDate: row.resolvedDate,
@@ -984,6 +1108,10 @@ async function hydrateAssignments(
                     batchLabel: row.batchLabel,
                     programName: row.programName,
                     destinationName: row.destinationName,
+                    studentIds: (row.studentIds ?? []).map((id: Types.ObjectId) => id.toString()),
+                    students: (row.studentIds ?? [])
+                        .map((id: Types.ObjectId) => studentRefById.get(id.toString()))
+                        .filter(Boolean),
                     studentCount: row.studentCount,
                     medianPackageLpa: row.medianPackageLpa,
                     status: row.status,
@@ -999,6 +1127,10 @@ async function hydrateAssignments(
                     representationType: row.representationType,
                     bodyName: row.bodyName,
                     roleTitle: row.roleTitle,
+                    studentIds: (row.studentIds ?? []).map((id: Types.ObjectId) => id.toString()),
+                    students: (row.studentIds ?? [])
+                        .map((id: Types.ObjectId) => studentRefById.get(id.toString()))
+                        .filter(Boolean),
                     studentCount: row.studentCount,
                     meetingCount: row.meetingCount,
                     outcomeSummary: row.outcomeSummary,

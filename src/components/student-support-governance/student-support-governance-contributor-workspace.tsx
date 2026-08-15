@@ -14,6 +14,8 @@ import { InlineUpload, MultiFileUpload } from "@/components/ui/file-upload";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { StatTile } from "@/components/ui/stat-card";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
+import { MultiCombobox } from "@/components/ui/multi-combobox";
 import type { UploadedDocument } from "@/lib/upload/service";
 import { Plus, Save, Send, Trash2 } from "lucide-react";
 
@@ -30,6 +32,8 @@ type MentorGroupRecord = {
     programName?: string;
     batchLabel?: string;
     mentorName?: string;
+    mentorId?: string;
+    menteeIds?: string[];
     menteeCount?: number;
     meetingCount?: number;
     supportThemes?: string;
@@ -44,6 +48,7 @@ type GrievanceRecord = {
     id: string;
     category: string;
     referenceNumber?: string;
+    studentId?: string;
     lodgedByType: string;
     receivedDate?: string;
     resolvedDate?: string;
@@ -63,6 +68,7 @@ type ProgressionRecord = {
     batchLabel?: string;
     programName?: string;
     destinationName?: string;
+    studentIds?: string[];
     studentCount?: number;
     medianPackageLpa?: number;
     status: string;
@@ -76,6 +82,7 @@ type RepresentationRecord = {
     representationType: string;
     bodyName: string;
     roleTitle?: string;
+    studentIds?: string[];
     studentCount?: number;
     meetingCount?: number;
     outcomeSummary?: string;
@@ -154,6 +161,8 @@ type MentorGroupRow = {
     programName: string;
     batchLabel: string;
     mentorName: string;
+    mentorId: string;
+    menteeIds: string[];
     menteeCount: string;
     meetingCount: string;
     supportThemes: string;
@@ -167,6 +176,7 @@ type GrievanceRow = {
     id?: string;
     category: string;
     referenceNumber: string;
+    studentId: string;
     lodgedByType: string;
     receivedDate: string;
     resolvedDate: string;
@@ -185,6 +195,7 @@ type ProgressionRow = {
     batchLabel: string;
     programName: string;
     destinationName: string;
+    studentIds: string[];
     studentCount: string;
     medianPackageLpa: string;
     status: string;
@@ -197,6 +208,7 @@ type RepresentationRow = {
     representationType: string;
     bodyName: string;
     roleTitle: string;
+    studentIds: string[];
     studentCount: string;
     meetingCount: string;
     outcomeSummary: string;
@@ -310,6 +322,8 @@ function emptyMentorGroupRow(): MentorGroupRow {
         programName: "",
         batchLabel: "",
         mentorName: "",
+        mentorId: "",
+        menteeIds: [],
         menteeCount: "",
         meetingCount: "",
         supportThemes: "",
@@ -324,6 +338,7 @@ function emptyGrievanceRow(): GrievanceRow {
     return {
         category: "Academic",
         referenceNumber: "",
+        studentId: "",
         lodgedByType: "Student",
         receivedDate: "",
         resolvedDate: "",
@@ -343,6 +358,7 @@ function emptyProgressionRow(): ProgressionRow {
         batchLabel: "",
         programName: "",
         destinationName: "",
+        studentIds: [],
         studentCount: "",
         medianPackageLpa: "",
         status: "Placed",
@@ -356,6 +372,7 @@ function emptyRepresentationRow(): RepresentationRow {
         representationType: "StudentCouncil",
         bodyName: "",
         roleTitle: "",
+        studentIds: [],
         studentCount: "",
         meetingCount: "",
         outcomeSummary: "",
@@ -386,6 +403,8 @@ function buildInitialForm(record: AssignmentRecord): FormState {
                   programName: row.programName ?? "",
                   batchLabel: row.batchLabel ?? "",
                   mentorName: row.mentorName ?? "",
+                  mentorId: row.mentorId ?? "",
+                  menteeIds: row.menteeIds ?? [],
                   menteeCount: row.menteeCount !== undefined ? String(row.menteeCount) : "",
                   meetingCount: row.meetingCount !== undefined ? String(row.meetingCount) : "",
                   supportThemes: row.supportThemes ?? "",
@@ -401,6 +420,7 @@ function buildInitialForm(record: AssignmentRecord): FormState {
                   id: row.id,
                   category: row.category,
                   referenceNumber: row.referenceNumber ?? "",
+                  studentId: row.studentId ?? "",
                   lodgedByType: row.lodgedByType,
                   receivedDate: row.receivedDate ? row.receivedDate.slice(0, 10) : "",
                   resolvedDate: row.resolvedDate ? row.resolvedDate.slice(0, 10) : "",
@@ -421,6 +441,7 @@ function buildInitialForm(record: AssignmentRecord): FormState {
                   batchLabel: row.batchLabel ?? "",
                   programName: row.programName ?? "",
                   destinationName: row.destinationName ?? "",
+                  studentIds: row.studentIds ?? [],
                   studentCount: row.studentCount !== undefined ? String(row.studentCount) : "",
                   medianPackageLpa:
                       row.medianPackageLpa !== undefined ? String(row.medianPackageLpa) : "",
@@ -435,6 +456,7 @@ function buildInitialForm(record: AssignmentRecord): FormState {
                   representationType: row.representationType,
                   bodyName: row.bodyName,
                   roleTitle: row.roleTitle ?? "",
+                  studentIds: row.studentIds ?? [],
                   studentCount: row.studentCount !== undefined ? String(row.studentCount) : "",
                   meetingCount: row.meetingCount !== undefined ? String(row.meetingCount) : "",
                   outcomeSummary: row.outcomeSummary ?? "",
@@ -481,6 +503,36 @@ export function StudentSupportGovernanceContributorWorkspace({
     );
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [isPending, startTransition] = useTransition();
+    const [directory, setDirectory] = useState<{ students: ComboboxOption[]; faculty: ComboboxOption[] }>({
+        students: [],
+        faculty: [],
+    });
+
+    useEffect(() => {
+        let cancelled = false;
+        fetch("/api/student-support-governance/directory")
+            .then((res) => res.json())
+            .then((data) => {
+                if (cancelled) return;
+                setDirectory({
+                    students: (data?.students ?? []).map((student: { id: string; name: string; enrollmentNo?: string }) => ({
+                        value: student.id,
+                        label: student.enrollmentNo ? `${student.name} (${student.enrollmentNo})` : student.name,
+                    })),
+                    faculty: (data?.faculty ?? []).map((member: { id: string; name: string }) => ({
+                        value: member.id,
+                        label: member.name,
+                    })),
+                });
+            })
+            .catch(() => {
+                if (cancelled) return;
+                setDirectory({ students: [], faculty: [] });
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const filteredAssignments = assignments.filter((assignment) => {
         const query = deferredSearch.trim().toLowerCase();
@@ -565,6 +617,33 @@ export function StudentSupportGovernanceContributorWorkspace({
         }));
     }
 
+    function updateMentorGroupMenteeIds(index: number, values: string[]) {
+        setForm((current) => ({
+            ...current,
+            mentorGroups: current.mentorGroups.map((row, rowIndex) =>
+                rowIndex === index ? { ...row, menteeIds: values } : row
+            ),
+        }));
+    }
+
+    function updateProgressionStudentIds(index: number, values: string[]) {
+        setForm((current) => ({
+            ...current,
+            progressionRows: current.progressionRows.map((row, rowIndex) =>
+                rowIndex === index ? { ...row, studentIds: values } : row
+            ),
+        }));
+    }
+
+    function updateRepresentationStudentIds(index: number, values: string[]) {
+        setForm((current) => ({
+            ...current,
+            representationRows: current.representationRows.map((row, rowIndex) =>
+                rowIndex === index ? { ...row, studentIds: values } : row
+            ),
+        }));
+    }
+
     function buildDraftPayload() {
         return {
             mentoringFramework: form.mentoringFramework.trim(),
@@ -588,6 +667,8 @@ export function StudentSupportGovernanceContributorWorkspace({
                     programName: row.programName.trim(),
                     batchLabel: row.batchLabel.trim(),
                     mentorName: row.mentorName.trim(),
+                    mentorId: row.mentorId || undefined,
+                    menteeIds: row.menteeIds,
                     menteeCount: row.menteeCount.trim() === "" ? undefined : Number(row.menteeCount),
                     meetingCount:
                         row.meetingCount.trim() === "" ? undefined : Number(row.meetingCount),
@@ -607,6 +688,7 @@ export function StudentSupportGovernanceContributorWorkspace({
                     _id: row.id,
                     category: row.category,
                     referenceNumber: row.referenceNumber.trim(),
+                    studentId: row.studentId || undefined,
                     lodgedByType: row.lodgedByType,
                     receivedDate: row.receivedDate || undefined,
                     resolvedDate: row.resolvedDate || undefined,
@@ -630,6 +712,7 @@ export function StudentSupportGovernanceContributorWorkspace({
                     batchLabel: row.batchLabel.trim(),
                     programName: row.programName.trim(),
                     destinationName: row.destinationName.trim(),
+                    studentIds: row.studentIds,
                     studentCount:
                         row.studentCount.trim() === "" ? undefined : Number(row.studentCount),
                     medianPackageLpa:
@@ -648,6 +731,7 @@ export function StudentSupportGovernanceContributorWorkspace({
                     representationType: row.representationType,
                     bodyName: row.bodyName.trim(),
                     roleTitle: row.roleTitle.trim(),
+                    studentIds: row.studentIds,
                     studentCount:
                         row.studentCount.trim() === "" ? undefined : Number(row.studentCount),
                     meetingCount:
@@ -953,7 +1037,9 @@ export function StudentSupportGovernanceContributorWorkspace({
                                                 <TextField disabled={!canEdit} label="Program" onChange={(value) => updateFacility(index, "programName", value)} value={row.programName} />
                                                 <TextField disabled={!canEdit} label="Batch label" onChange={(value) => updateFacility(index, "batchLabel", value)} value={row.batchLabel} />
                                                 <TextField disabled={!canEdit} label="Mentor name" onChange={(value) => updateFacility(index, "mentorName", value)} value={row.mentorName} />
-                                                <TextField disabled={!canEdit} label="Mentee count" onChange={(value) => updateFacility(index, "menteeCount", value)} type="number" value={row.menteeCount} />
+                                                <ComboboxField disabled={!canEdit} label="Mentor (faculty record)" onValueChange={(value) => updateFacility(index, "mentorId", value)} options={directory.faculty} placeholder="Link a faculty record" value={row.mentorId} />
+                                                <MultiComboboxField disabled={!canEdit} label="Mentees (student records)" onValuesChange={(values) => updateMentorGroupMenteeIds(index, values)} options={directory.students} placeholder="Add mentees" values={row.menteeIds} />
+                                                <TextField disabled={!canEdit} label="Mentee count (used only if no mentees are linked above)" onChange={(value) => updateFacility(index, "menteeCount", value)} type="number" value={row.menteeCount} />
                                                 <TextField disabled={!canEdit} label="Meeting count" onChange={(value) => updateFacility(index, "meetingCount", value)} type="number" value={row.meetingCount} />
                                                 <TextField disabled={!canEdit} label="Support themes" onChange={(value) => updateFacility(index, "supportThemes", value)} value={row.supportThemes} />
                                                 <TextField disabled={!canEdit} label="Escalated cases" onChange={(value) => updateFacility(index, "escalatedCount", value)} type="number" value={row.escalatedCount} />
@@ -994,6 +1080,7 @@ export function StudentSupportGovernanceContributorWorkspace({
                                                 <SelectField disabled={!canEdit} label="Category" onValueChange={(value) => updateLibraryResource(index, "category", value)} options={["Academic","Administrative","Scholarship","Examination","Hostel","Infrastructure","AntiRagging","Harassment","Wellbeing","Other"]} value={row.category} />
                                                 <TextField disabled={!canEdit} label="Reference number" onChange={(value) => updateLibraryResource(index, "referenceNumber", value)} value={row.referenceNumber} />
                                                 <SelectField disabled={!canEdit} label="Lodged by" onValueChange={(value) => updateLibraryResource(index, "lodgedByType", value)} options={["Student","Parent","Group","Anonymous"]} value={row.lodgedByType} />
+                                                <ComboboxField disabled={!canEdit} label="Linked student (optional — leave blank to keep anonymous)" onValueChange={(value) => updateLibraryResource(index, "studentId", value)} options={directory.students} placeholder="Link a student record" value={row.studentId} />
                                                 <TextField disabled={!canEdit} label="Received date" onChange={(value) => updateLibraryResource(index, "receivedDate", value)} type="date" value={row.receivedDate} />
                                                 <TextField disabled={!canEdit} label="Resolved date" onChange={(value) => updateLibraryResource(index, "resolvedDate", value)} type="date" value={row.resolvedDate} />
                                                 <SelectField disabled={!canEdit} label="Status" onValueChange={(value) => updateLibraryResource(index, "status", value)} options={["Open","InProgress","Resolved","Escalated","Closed"]} value={row.status} />
@@ -1038,7 +1125,8 @@ export function StudentSupportGovernanceContributorWorkspace({
                                                 <TextField disabled={!canEdit} label="Batch label" onChange={(value) => updateUsage(index, "batchLabel", value)} value={row.batchLabel} />
                                                 <TextField disabled={!canEdit} label="Program" onChange={(value) => updateUsage(index, "programName", value)} value={row.programName} />
                                                 <TextField disabled={!canEdit} label="Destination / employer" onChange={(value) => updateUsage(index, "destinationName", value)} value={row.destinationName} />
-                                                <TextField disabled={!canEdit} label="Student count" onChange={(value) => updateUsage(index, "studentCount", value)} type="number" value={row.studentCount} />
+                                                <MultiComboboxField disabled={!canEdit} label="Students (student records)" onValuesChange={(values) => updateProgressionStudentIds(index, values)} options={directory.students} placeholder="Add students" values={row.studentIds} />
+                                                <TextField disabled={!canEdit} label="Student count (used only if no students are linked above)" onChange={(value) => updateUsage(index, "studentCount", value)} type="number" value={row.studentCount} />
                                                 <TextField disabled={!canEdit} label="Median package (LPA)" onChange={(value) => updateUsage(index, "medianPackageLpa", value)} type="number" value={row.medianPackageLpa} />
                                                 <SelectField disabled={!canEdit} label="Status" onValueChange={(value) => updateUsage(index, "status", value)} options={["Placed","Admitted","Qualified","Progressing","Completed","Other"]} value={row.status} />
                                                 <div className="space-y-2">
@@ -1077,7 +1165,8 @@ export function StudentSupportGovernanceContributorWorkspace({
                                                 <SelectField disabled={!canEdit} label="Representation type" onValueChange={(value) => updateMaintenance(index, "representationType", value)} options={["StudentCouncil","ClassRepresentative","Committee","Club","QualityCircle","FeedbackForum","AntiRaggingCell","Other"]} value={row.representationType} />
                                                 <TextField disabled={!canEdit} label="Body name" onChange={(value) => updateMaintenance(index, "bodyName", value)} value={row.bodyName} />
                                                 <TextField disabled={!canEdit} label="Role title" onChange={(value) => updateMaintenance(index, "roleTitle", value)} value={row.roleTitle} />
-                                                <TextField disabled={!canEdit} label="Student count" onChange={(value) => updateMaintenance(index, "studentCount", value)} type="number" value={row.studentCount} />
+                                                <MultiComboboxField disabled={!canEdit} label="Students (student records)" onValuesChange={(values) => updateRepresentationStudentIds(index, values)} options={directory.students} placeholder="Add students" values={row.studentIds} />
+                                                <TextField disabled={!canEdit} label="Student count (used only if no students are linked above)" onChange={(value) => updateMaintenance(index, "studentCount", value)} type="number" value={row.studentCount} />
                                                 <TextField disabled={!canEdit} label="Meeting count" onChange={(value) => updateMaintenance(index, "meetingCount", value)} type="number" value={row.meetingCount} />
                                                 <TextField disabled={!canEdit} label="Outcome summary" onChange={(value) => updateMaintenance(index, "outcomeSummary", value)} value={row.outcomeSummary} />
                                                 <div className="space-y-2">
@@ -1257,6 +1346,66 @@ function SelectField({
                     ))}
                 </SelectContent>
             </Select>
+        </div>
+    );
+}
+
+function ComboboxField({
+    label,
+    value,
+    onValueChange,
+    options,
+    disabled,
+    placeholder,
+}: {
+    label: string;
+    value: string;
+    onValueChange: (value: string) => void;
+    options: ComboboxOption[];
+    disabled?: boolean;
+    placeholder?: string;
+}) {
+    return (
+        <div className="space-y-2">
+            <Label>{label}</Label>
+            <Combobox
+                disabled={disabled}
+                onValueChange={onValueChange}
+                options={options}
+                placeholder={placeholder ?? "Select..."}
+                searchPlaceholder="Search by name or enrollment no."
+                value={value}
+            />
+        </div>
+    );
+}
+
+function MultiComboboxField({
+    label,
+    values,
+    onValuesChange,
+    options,
+    disabled,
+    placeholder,
+}: {
+    label: string;
+    values: string[];
+    onValuesChange: (values: string[]) => void;
+    options: ComboboxOption[];
+    disabled?: boolean;
+    placeholder?: string;
+}) {
+    return (
+        <div className="space-y-2 sm:col-span-2">
+            <Label>{label}</Label>
+            <MultiCombobox
+                disabled={disabled}
+                onValuesChange={onValuesChange}
+                options={options}
+                placeholder={placeholder ?? "Add..."}
+                searchPlaceholder="Search by name or enrollment no."
+                values={values}
+            />
         </div>
     );
 }

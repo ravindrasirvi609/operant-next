@@ -12,6 +12,7 @@ import Program from "@/models/academic/program";
 import User from "@/models/core/user";
 import Student from "@/models/student/student";
 import DocumentModel from "@/models/reference/document";
+import { notifySssSurveyOpen } from "@/lib/notifications/service";
 import SssSurvey from "@/models/engagement/sss-survey";
 import SssQuestion from "@/models/engagement/sss-question";
 import SssEligibleStudent from "@/models/engagement/sss-eligible-student";
@@ -79,35 +80,33 @@ type StudentActor = {
     role: string;
 };
 
-const defaultSssQuestionBlueprint = [
-    {
-        questionText: "The teaching and mentoring process in your institution facilitates you in cognitive, social and emotional growth.",
-        ratingScaleMax: 5,
-        displayOrder: 1,
-        isMandatory: true,
-        analyticsBucket: "TeachingLearning" as const,
-    },
-    {
-        questionText: "The institution provides adequate infrastructure and learning resources for your academic needs.",
-        ratingScaleMax: 5,
-        displayOrder: 2,
-        isMandatory: true,
-        analyticsBucket: "Infrastructure" as const,
-    },
-    {
-        questionText: "Student support services such as guidance, grievance handling, and mentoring are effective.",
-        ratingScaleMax: 5,
-        displayOrder: 3,
-        isMandatory: true,
-        analyticsBucket: "StudentSupport" as const,
-    },
-    {
-        questionText: "Governance, communication, and institutional responsiveness meet your expectations.",
-        ratingScaleMax: 5,
-        displayOrder: 4,
-        isMandatory: true,
-        analyticsBucket: "Governance" as const,
-    },
+/**
+ * NAAC 13(c) calls for ~20 objective questions plus one subjective question.
+ * Distributed evenly (5 each) across the four scored buckets, plus one
+ * open-ended question that feeds no numeric average.
+ */
+export const defaultSssQuestionBlueprint = [
+    { questionText: "Teaching methods used by faculty are effective and engaging.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 1, isMandatory: true, analyticsBucket: "TeachingLearning" as const },
+    { questionText: "Faculty are approachable for academic doubts outside class hours.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 2, isMandatory: true, analyticsBucket: "TeachingLearning" as const },
+    { questionText: "The curriculum and coursework are relevant to your field of study.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 3, isMandatory: true, analyticsBucket: "TeachingLearning" as const },
+    { questionText: "Assessment and evaluation methods are fair and transparent.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 4, isMandatory: true, analyticsBucket: "TeachingLearning" as const },
+    { questionText: "ICT-enabled tools (LMS, online resources) are used effectively in teaching.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 5, isMandatory: true, analyticsBucket: "TeachingLearning" as const },
+    { questionText: "Classrooms and laboratories are adequately equipped for learning.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 6, isMandatory: true, analyticsBucket: "Infrastructure" as const },
+    { questionText: "The library provides sufficient books, journals, and digital resources.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 7, isMandatory: true, analyticsBucket: "Infrastructure" as const },
+    { questionText: "Internet and Wi-Fi connectivity on campus is reliable.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 8, isMandatory: true, analyticsBucket: "Infrastructure" as const },
+    { questionText: "Hostel, canteen, and other campus amenities meet your needs.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 9, isMandatory: true, analyticsBucket: "Infrastructure" as const },
+    { questionText: "Sports, cultural, and recreational facilities are adequate.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 10, isMandatory: true, analyticsBucket: "Infrastructure" as const },
+    { questionText: "Mentoring and academic counseling support is readily available.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 11, isMandatory: true, analyticsBucket: "StudentSupport" as const },
+    { questionText: "Career guidance and placement support meet your expectations.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 12, isMandatory: true, analyticsBucket: "StudentSupport" as const },
+    { questionText: "Scholarships and financial aid information is easily accessible.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 13, isMandatory: true, analyticsBucket: "StudentSupport" as const },
+    { questionText: "Grievance redressal mechanisms are responsive and fair.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 14, isMandatory: true, analyticsBucket: "StudentSupport" as const },
+    { questionText: "The institution supports the wellbeing and safety of students on campus.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 15, isMandatory: true, analyticsBucket: "StudentSupport" as const },
+    { questionText: "Institutional communication (notices, circulars, updates) is timely and clear.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 16, isMandatory: true, analyticsBucket: "Governance" as const },
+    { questionText: "Administrative processes (fee payment, certificates, records) are efficient.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 17, isMandatory: true, analyticsBucket: "Governance" as const },
+    { questionText: "Student feedback is taken seriously and acted upon.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 18, isMandatory: true, analyticsBucket: "Governance" as const },
+    { questionText: "You feel a sense of belonging and inclusion at the institution.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 19, isMandatory: true, analyticsBucket: "Governance" as const },
+    { questionText: "Overall, you are satisfied with your experience at the institution.", questionType: "Rating" as const, ratingScaleMax: 5, displayOrder: 20, isMandatory: true, analyticsBucket: "Governance" as const },
+    { questionText: "What is one specific change you would recommend to improve your experience at this institution?", questionType: "Subjective" as const, ratingScaleMax: 5, displayOrder: 21, isMandatory: true, analyticsBucket: "General" as const },
 ] as const;
 
 const defaultNirfParameterBlueprint = [
@@ -207,6 +206,10 @@ async function recomputeSssAnalytics(surveyId: string | Types.ObjectId) {
     const averageForBucket = (bucket?: string) => {
         const scopedDetails = details.filter((detail) => {
             const question = questionsById.get(String(detail.questionId));
+            // Subjective answers carry no ratingValue and must never be averaged in.
+            if (question?.questionType !== "Rating") {
+                return false;
+            }
             return bucket ? question?.analyticsBucket === bucket : true;
         });
 
@@ -223,6 +226,10 @@ async function recomputeSssAnalytics(surveyId: string | Types.ObjectId) {
         return Number((normalized.reduce((sum, value) => sum + value, 0) / normalized.length).toFixed(2));
     };
 
+    // NAAC 13(b)(ii): for Universities, at least 10% of eligible students or
+    // 500, whichever is less, must respond for the SSS metric to be usable.
+    const minimumRequiredResponses = Math.min(Math.ceil(totalEligible * 0.1), 500);
+
     const payload = {
         overallSatisfactionIndex: averageForBucket(),
         teachingLearningScore: averageForBucket("TeachingLearning"),
@@ -232,6 +239,8 @@ async function recomputeSssAnalytics(surveyId: string | Types.ObjectId) {
         submittedResponses,
         eligibleResponses: totalEligible,
         responseRate,
+        minimumRequiredResponses,
+        meetsResponseRateThreshold: totalEligible > 0 && submittedResponses >= minimumRequiredResponses,
         generatedAt: new Date(),
     };
 
@@ -242,6 +251,33 @@ async function recomputeSssAnalytics(surveyId: string | Types.ObjectId) {
     );
 
     return SssResultAnalytics.findOne({ surveyId: resolvedSurveyId }).lean();
+}
+
+async function notifyEligibleStudentsOfSssSurvey(
+    survey: { _id: Types.ObjectId; surveyTitle: string; endDate?: Date },
+    studentIds: Types.ObjectId[]
+) {
+    if (!studentIds.length) {
+        return;
+    }
+
+    const students = await Student.find({ _id: { $in: studentIds }, userId: { $exists: true } })
+        .select("userId")
+        .lean();
+    const recipientUserIds = students
+        .map((student) => student.userId?.toString())
+        .filter((value): value is string => Boolean(value));
+
+    if (!recipientUserIds.length) {
+        return;
+    }
+
+    await notifySssSurveyOpen({
+        surveyId: survey._id.toString(),
+        surveyTitle: survey.surveyTitle,
+        endDate: survey.endDate,
+        recipientUserIds,
+    });
 }
 
 async function loadSssAdminRecords() {
@@ -601,6 +637,7 @@ export async function createSssSurvey(actor: AccreditationActor, rawInput: unkno
     const questionPayload = (input.questions.length ? input.questions : defaultSssQuestionBlueprint).map((question) => ({
         surveyId: survey._id,
         questionText: question.questionText,
+        questionType: question.questionType,
         ratingScaleMax: question.ratingScaleMax,
         displayOrder: question.displayOrder,
         isMandatory: question.isMandatory,
@@ -634,6 +671,10 @@ export async function createSssSurvey(actor: AccreditationActor, rawInput: unkno
     await recomputeSssAnalytics(survey._id);
     await createAuditEntry(actor, "SSS_SURVEY_CREATE", "sss_surveys", survey._id.toString(), undefined, survey.toObject());
 
+    if (survey.surveyStatus === "Active" && activeStudents.length) {
+        await notifyEligibleStudentsOfSssSurvey(survey, activeStudents);
+    }
+
     return survey;
 }
 
@@ -648,6 +689,7 @@ export async function updateSssSurvey(actor: AccreditationActor, id: string, raw
     }
 
     const oldData = survey.toObject();
+    const previousStatus = survey.surveyStatus;
     if (input.institutionId) {
         survey.institutionId = ensureObjectId(input.institutionId);
     }
@@ -675,6 +717,7 @@ export async function updateSssSurvey(actor: AccreditationActor, id: string, raw
             input.questions.map((question) => ({
                 surveyId: survey._id,
                 questionText: question.questionText,
+                questionType: question.questionType,
                 ratingScaleMax: question.ratingScaleMax,
                 displayOrder: question.displayOrder,
                 isMandatory: question.isMandatory,
@@ -683,20 +726,45 @@ export async function updateSssSurvey(actor: AccreditationActor, id: string, raw
         );
     }
 
+    let newlyEligibleStudentIds: Types.ObjectId[] = [];
     if (input.eligibleStudentIds) {
-        await replaceMany(
-            SssEligibleStudent,
-            { surveyId: survey._id },
-            input.eligibleStudentIds.map((studentId) => ({
-                surveyId: survey._id,
-                studentId: ensureObjectId(studentId),
-                isResponseSubmitted: false,
-            }))
-        );
+        // Diff against the existing roster instead of delete+reinsert, so a
+        // student who already responded doesn't get their submission wiped.
+        const nextStudentIds = input.eligibleStudentIds.map((value) => ensureObjectId(value));
+        const nextStudentIdSet = new Set(nextStudentIds.map((id) => id.toString()));
+        const existingRows = await SssEligibleStudent.find({ surveyId: survey._id }).select("studentId");
+        const existingStudentIdSet = new Set(existingRows.map((row) => row.studentId.toString()));
+
+        const toRemove = existingRows.filter((row) => !nextStudentIdSet.has(row.studentId.toString()));
+        if (toRemove.length) {
+            await SssEligibleStudent.deleteMany({ _id: { $in: toRemove.map((row) => row._id) } });
+        }
+
+        const toAdd = nextStudentIds.filter((id) => !existingStudentIdSet.has(id.toString()));
+        if (toAdd.length) {
+            await SssEligibleStudent.insertMany(
+                toAdd.map((studentId) => ({
+                    surveyId: survey._id,
+                    studentId,
+                    isResponseSubmitted: false,
+                }))
+            );
+        }
+        newlyEligibleStudentIds = toAdd;
     }
 
     await recomputeSssAnalytics(survey._id);
     await createAuditEntry(actor, "SSS_SURVEY_UPDATE", "sss_surveys", survey._id.toString(), oldData, survey.toObject());
+
+    if (survey.surveyStatus === "Active") {
+        if (previousStatus !== "Active") {
+            // Just opened: notify everyone currently eligible, not only the new additions.
+            const allEligible = await SssEligibleStudent.find({ surveyId: survey._id }).select("studentId").lean();
+            await notifyEligibleStudentsOfSssSurvey(survey, allEligible.map((row) => row.studentId));
+        } else if (newlyEligibleStudentIds.length) {
+            await notifyEligibleStudentsOfSssSurvey(survey, newlyEligibleStudentIds);
+        }
+    }
 
     return survey;
 }
@@ -788,8 +856,17 @@ export async function submitStudentSssResponse(actor: StudentActor, surveyId: st
         if (!question) {
             throw new AuthError("One or more survey answers reference an unknown question.", 400);
         }
-        if (answer.ratingValue > question.ratingScaleMax) {
-            throw new AuthError(`Rating for "${question.questionText}" exceeds the configured scale.`, 400);
+        if (question.questionType === "Rating") {
+            if (answer.ratingValue === undefined) {
+                throw new AuthError(`"${question.questionText}" requires a rating.`, 400);
+            }
+            if (answer.ratingValue > question.ratingScaleMax) {
+                throw new AuthError(`Rating for "${question.questionText}" exceeds the configured scale.`, 400);
+            }
+        } else {
+            if (!answer.textAnswer?.trim()) {
+                throw new AuthError(`"${question.questionText}" requires a text answer.`, 400);
+            }
         }
     }
 
@@ -800,12 +877,16 @@ export async function submitStudentSssResponse(actor: StudentActor, surveyId: st
     });
 
     await SssResponseDetail.insertMany(
-        input.answers.map((answer) => ({
-            responseId: response._id,
-            questionId: ensureObjectId(answer.questionId),
-            ratingValue: answer.ratingValue,
-            remarks: answer.remarks?.trim() || undefined,
-        }))
+        input.answers.map((answer) => {
+            const question = questionById.get(answer.questionId);
+            return {
+                responseId: response._id,
+                questionId: ensureObjectId(answer.questionId),
+                ratingValue: question?.questionType === "Rating" ? answer.ratingValue : undefined,
+                textAnswer: question?.questionType === "Subjective" ? answer.textAnswer?.trim() : undefined,
+                remarks: answer.remarks?.trim() || undefined,
+            };
+        })
     );
 
     eligibility.isResponseSubmitted = true;

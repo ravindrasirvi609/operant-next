@@ -69,6 +69,8 @@ type ReviewRecord = {
         programName?: string;
         batchLabel?: string;
         mentorName?: string;
+        mentor?: { id: string; name: string };
+        mentees?: Array<{ id: string; name: string; enrollmentNo?: string }>;
         menteeCount?: number;
         meetingCount?: number;
         supportThemes?: string;
@@ -81,6 +83,7 @@ type ReviewRecord = {
         id: string;
         category: string;
         referenceNumber?: string;
+        student?: { id: string; name: string; enrollmentNo?: string };
         lodgedByType: string;
         receivedDate?: string;
         resolvedDate?: string;
@@ -98,6 +101,7 @@ type ReviewRecord = {
         batchLabel?: string;
         programName?: string;
         destinationName?: string;
+        students?: Array<{ id: string; name: string; enrollmentNo?: string }>;
         studentCount?: number;
         medianPackageLpa?: number;
         status: string;
@@ -109,6 +113,7 @@ type ReviewRecord = {
         representationType: string;
         bodyName: string;
         roleTitle?: string;
+        students?: Array<{ id: string; name: string; enrollmentNo?: string }>;
         studentCount?: number;
         meetingCount?: number;
         outcomeSummary?: string;
@@ -511,6 +516,14 @@ export function StudentSupportGovernanceReviewBoard({
                                     <p className="mt-2 text-sm text-muted-foreground">
                                         Mentees {row.menteeCount ?? "-"} · Meetings {row.meetingCount ?? "-"} · Escalations {row.escalatedCount ?? "-"}
                                     </p>
+                                    {row.mentor ? (
+                                        <p className="mt-2 text-sm text-muted-foreground">Mentor: {row.mentor.name}</p>
+                                    ) : null}
+                                    {row.mentees?.length ? (
+                                        <p className="mt-2 text-sm text-muted-foreground">
+                                            Linked mentees: {row.mentees.map((student) => student.enrollmentNo ? `${student.name} (${student.enrollmentNo})` : student.name).join(", ")}
+                                        </p>
+                                    ) : null}
                                     {row.supportThemes ? (
                                         <p className="mt-2 text-sm text-muted-foreground">Themes: {row.supportThemes}</p>
                                     ) : null}
@@ -536,6 +549,9 @@ export function StudentSupportGovernanceReviewBoard({
                                     </p>
                                     <p className="mt-2 text-sm text-muted-foreground">
                                         Received {formatDate(row.receivedDate)} · Resolved {formatDate(row.resolvedDate)} · Resolution days {row.resolutionDays ?? "-"}
+                                    </p>
+                                    <p className="mt-2 text-sm text-muted-foreground">
+                                        Linked student: {row.student ? (row.student.enrollmentNo ? `${row.student.name} (${row.student.enrollmentNo})` : row.student.name) : "Not linked / anonymous"}
                                     </p>
                                     {row.committeeName ? (
                                         <p className="mt-2 text-sm text-muted-foreground">Committee: {row.committeeName}</p>
@@ -565,6 +581,11 @@ export function StudentSupportGovernanceReviewBoard({
                                     <p className="mt-2 text-sm text-muted-foreground">
                                         Destination {row.destinationName ?? "-"} · Student count {row.studentCount ?? "-"} · Median package {row.medianPackageLpa ?? "-"}
                                     </p>
+                                    {row.students?.length ? (
+                                        <p className="mt-2 text-sm text-muted-foreground">
+                                            Linked students: {row.students.map((student) => student.enrollmentNo ? `${student.name} (${student.enrollmentNo})` : student.name).join(", ")}
+                                        </p>
+                                    ) : null}
                                     {row.remarks ? (
                                         <p className="mt-2 text-sm text-muted-foreground">{row.remarks}</p>
                                     ) : null}
@@ -587,6 +608,11 @@ export function StudentSupportGovernanceReviewBoard({
                                     <p className="mt-2 text-sm text-muted-foreground">
                                         Students {row.studentCount ?? "-"} · Meetings {row.meetingCount ?? "-"}
                                     </p>
+                                    {row.students?.length ? (
+                                        <p className="mt-2 text-sm text-muted-foreground">
+                                            Linked students: {row.students.map((student) => student.enrollmentNo ? `${student.name} (${student.enrollmentNo})` : student.name).join(", ")}
+                                        </p>
+                                    ) : null}
                                     {row.outcomeSummary ? (
                                         <p className="mt-2 text-sm text-muted-foreground">{row.outcomeSummary}</p>
                                     ) : null}

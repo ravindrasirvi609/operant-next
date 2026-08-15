@@ -10,9 +10,13 @@ export const sssQuestionAnalyticsBucketValues = [
 
 export type SssQuestionAnalyticsBucket = (typeof sssQuestionAnalyticsBucketValues)[number];
 
+export const sssQuestionTypeValues = ["Rating", "Subjective"] as const;
+export type SssQuestionType = (typeof sssQuestionTypeValues)[number];
+
 export interface ISssQuestion extends Document {
     surveyId: Types.ObjectId;
     questionText: string;
+    questionType: SssQuestionType;
     ratingScaleMax: number;
     displayOrder: number;
     isMandatory: boolean;
@@ -25,6 +29,9 @@ const SssQuestionSchema = new Schema<ISssQuestion>(
     {
         surveyId: { type: Schema.Types.ObjectId, ref: "SssSurvey", required: true, index: true },
         questionText: { type: String, required: true, trim: true },
+        // Subjective questions ignore ratingScaleMax; kept required with a default so
+        // existing Rating-question documents/forms are unaffected.
+        questionType: { type: String, enum: sssQuestionTypeValues, required: true, default: "Rating" },
         ratingScaleMax: { type: Number, required: true, min: 2, default: 5 },
         displayOrder: { type: Number, required: true, min: 1, default: 1 },
         isMandatory: { type: Boolean, required: true, default: true },

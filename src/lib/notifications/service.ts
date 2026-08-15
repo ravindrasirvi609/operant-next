@@ -425,6 +425,33 @@ export async function notifyWorkflowStageAssignees(options: {
     );
 }
 
+export async function notifySssSurveyOpen(options: {
+    surveyId: string;
+    surveyTitle: string;
+    endDate?: Date;
+    recipientUserIds: string[];
+}) {
+    const deduped = dedupeUserIds(options.recipientUserIds);
+
+    await createNotifications(
+        deduped.map((userId) => ({
+            userId,
+            kind: "reminder" as const,
+            moduleName: "STUDENT" as const,
+            entityId: options.surveyId,
+            href: "/student/sss",
+            title: "Student Satisfaction Survey open",
+            message: options.endDate
+                ? `"${options.surveyTitle}" is open for responses until ${options.endDate.toLocaleDateString()}.`
+                : `"${options.surveyTitle}" is open for responses.`,
+            metadata: {
+                dedupeKey: `sss-survey-open:${options.surveyId}`,
+                dedupeWindowHours: 24 * 30,
+            },
+        }))
+    );
+}
+
 export async function resolveEvidenceReviewerRecipients(departmentId?: string) {
     await dbConnect();
 

@@ -7,6 +7,8 @@ export interface IStudentSupportMentorGroup extends Document {
     programName?: string;
     batchLabel?: string;
     mentorName?: string;
+    mentorId?: Types.ObjectId;
+    menteeIds?: Types.ObjectId[];
     menteeCount?: number;
     meetingCount?: number;
     supportThemes?: string;
@@ -37,6 +39,9 @@ const StudentSupportMentorGroupSchema = new Schema<IStudentSupportMentorGroup>(
         programName: { type: String, trim: true },
         batchLabel: { type: String, trim: true },
         mentorName: { type: String, trim: true },
+        mentorId: { type: Schema.Types.ObjectId, ref: "Faculty" },
+        // When set, menteeCount is derived from this list's length rather than typed manually.
+        menteeIds: { type: [Schema.Types.ObjectId], ref: "Student", default: [] },
         menteeCount: { type: Number, min: 0 },
         meetingCount: { type: Number, min: 0 },
         supportThemes: { type: String, trim: true },
