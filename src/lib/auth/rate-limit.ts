@@ -41,6 +41,7 @@ export const RATE_LIMIT_RULES = {
     "auth:resend-verification": { limit: 5, windowMs: 15 * MINUTE },
     "auth:activate-faculty": { limit: 10, windowMs: 15 * MINUTE },
     "auth:activate-student": { limit: 10, windowMs: 15 * MINUTE },
+    "auth:activate-alumni": { limit: 10, windowMs: 15 * MINUTE },
 } satisfies Record<string, RateLimitRule>;
 
 /** Valid limiter bucket names. */

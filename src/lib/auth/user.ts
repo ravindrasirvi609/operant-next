@@ -12,6 +12,7 @@ import { addHours, addMinutes, createRandomToken, hashToken } from "@/lib/auth/t
 import {
     adminBootstrapSchema,
     adminLoginSchema,
+    alumniActivationSchema,
     facultyActivationSchema,
     forgotPasswordSchema,
     loginSchema,
@@ -22,6 +23,7 @@ import {
 } from "@/lib/auth/validators";
 import Faculty from "@/models/faculty/faculty";
 import Student from "@/models/student/student";
+import Alumni from "@/models/alumni/alumni";
 import User, { IUser } from "@/models/core/user";
 
 type SafeUser = {
@@ -36,6 +38,7 @@ type SafeUser = {
     designation?: string;
     phone?: string;
     facultyId?: string;
+    alumniId?: string;
     emailVerified: boolean;
     lastLoginAt?: Date;
 };
@@ -57,6 +60,14 @@ function getPostLoginPath(user: SafeUser) {
         return "/faculty";
     }
 
+    if (user.role === "Alumni") {
+        if (user.accountStatus === "PendingActivation") {
+            return "/activate-alumni";
+        }
+
+        return "/alumni";
+    }
+
     return "/";
 }
 
@@ -73,6 +84,7 @@ function toSafeUser(user: IUser): SafeUser {
         designation: user.designation,
         phone: user.phone,
         facultyId: user.facultyId?.toString(),
+        alumniId: user.alumniId?.toString(),
         emailVerified: user.emailVerified,
         lastLoginAt: user.lastLoginAt,
     };
@@ -147,11 +159,17 @@ async function findUserForLogin(identifier: string) {
 
     const student = await Student.findOne({ enrollmentNo: normalized }).select("userId");
 
-    if (!student?.userId) {
+    if (student?.userId) {
+        return User.findById(student.userId).select("+password");
+    }
+
+    const alumni = await Alumni.findOne({ enrollmentNo: normalized }).select("userId");
+
+    if (!alumni?.userId) {
         return null;
     }
 
-    return User.findById(student.userId).select("+password");
+    return User.findById(alumni.userId).select("+password");
 }
 
 export async function registerUser(rawInput: unknown) {
@@ -211,6 +229,13 @@ export async function loginUser(rawInput: unknown, options?: LoginOptions) {
     if (user.role === "Faculty" && (!user.password || user.accountStatus === "PendingActivation")) {
         throw new AuthError(
             "Your institutional faculty account is ready. Complete First Time Faculty Login Setup before signing in.",
+            403
+        );
+    }
+
+    if (user.role === "Alumni" && (!user.password || user.accountStatus === "PendingActivation")) {
+        throw new AuthError(
+            "Your alumni account is ready. Complete First Time Alumni Login Setup before signing in.",
             403
         );
     }
@@ -547,6 +572,81 @@ export async function activateFacultyAccount(rawInput: unknown) {
     };
 }
 
+export async function activateAlumniAccount(rawInput: unknown) {
+    const input = alumniActivationSchema.parse(rawInput);
+
+    await dbConnect();
+
+    const alumni = await Alumni.findOne({
+        enrollmentNo: input.enrollmentNo.trim(),
+    }).select("userId email mobile");
+
+    if (!alumni?.userId) {
+        throw new AuthError(
+            "No pre-provisioned alumni account was found for that enrollment number.",
+            404
+        );
+    }
+
+    const user = await User.findById(alumni.userId).select("+password");
+
+    if (!user || user.role !== "Alumni") {
+        throw new AuthError("Alumni activation record is invalid.", 400);
+    }
+
+    const verificationValue = input.verificationValue.trim();
+    const isEmailVerification = verificationValue.includes("@");
+
+    const verified = isEmailVerification
+        ? [user.email, alumni.email].some(
+              (value) =>
+                  value?.trim().toLowerCase() === verificationValue.toLowerCase()
+          )
+        : [user.phone, alumni.mobile].some(
+              (value) => normalizePhone(value) === normalizePhone(verificationValue)
+          );
+
+    if (!verified) {
+        throw new AuthError(
+            "The enrollment number and registered contact details do not match our records.",
+            403
+        );
+    }
+
+    if (user.password && user.accountStatus === "Active") {
+        throw new AuthError(
+            "This alumni account is already activated. Sign in normally instead.",
+            409
+        );
+    }
+
+    user.password = await hashPassword(input.password);
+    user.accountStatus = "Active";
+    user.emailVerified = true;
+    user.isActive = true;
+    user.alumniId = alumni._id;
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    const token = await createSessionToken({
+        sub: user._id.toString(),
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        sessionVersion: user.sessionVersion ?? 0,
+    });
+
+    await setSessionCookie(token);
+
+    const safeUser = toSafeUser(user);
+
+    return {
+        message: "Alumni account activated successfully.",
+        redirectPath: getPostLoginPath(safeUser),
+        user: safeUser,
+    };
+}
+
 export async function getAdminCount() {
     await dbConnect();
     return User.countDocuments({ role: "Admin" });
@@ -710,6 +810,24 @@ export async function requireFaculty() {
 
     if (user.accountStatus === "PendingActivation") {
         redirect("/activate-faculty");
+    }
+
+    return user;
+}
+
+export async function requireAlumni() {
+    const user = await getCurrentUser();
+
+    if (!user) {
+        redirect("/login");
+    }
+
+    if (user.role !== "Alumni") {
+        redirect("/");
+    }
+
+    if (user.accountStatus === "PendingActivation") {
+        redirect("/activate-alumni");
     }
 
     return user;

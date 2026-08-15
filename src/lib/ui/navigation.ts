@@ -15,6 +15,7 @@ import {
     FlaskConical,
     GitBranch,
     GraduationCap,
+    Handshake,
     HeartHandshake,
     LayoutDashboard,
     ListTree,
@@ -54,7 +55,7 @@ export type NavGroup = {
     items: NavItem[];
 };
 
-export type RoleKey = "admin" | "director" | "faculty" | "student";
+export type RoleKey = "admin" | "director" | "faculty" | "student" | "alumni";
 
 export const ROLE_META: Record<
     RoleKey,
@@ -102,6 +103,14 @@ export const ROLE_META: Record<
         home: "/student",
         logoutRedirect: "/login",
     },
+    alumni: {
+        shortLabel: "Alumni",
+        eyebrow: "Operant Alumni",
+        title: "Alumni Workspace",
+        roleLabel: "Alumni",
+        home: "/alumni",
+        logoutRedirect: "/login",
+    },
 };
 
 const adminNav: NavGroup[] = [
@@ -131,6 +140,7 @@ const adminNav: NavGroup[] = [
                 icon: Sparkles,
             },
             { href: "/admin/student-support-governance", label: "Student Support", icon: HeartHandshake },
+            { href: "/admin/alumni", label: "Alumni Engagement", icon: Handshake },
             { href: "/admin/governance-leadership-iqac", label: "Leadership & IQAC", icon: Crown },
         ],
     },
@@ -284,11 +294,33 @@ const studentNav: NavGroup[] = [
     },
 ];
 
+const alumniNav: NavGroup[] = [
+    {
+        label: "Workspace",
+        items: [
+            {
+                href: "/alumni",
+                label: "Dashboard",
+                shortLabel: "Home",
+                description: "Alumni workspace summary.",
+                icon: LayoutDashboard,
+            },
+            {
+                href: "/alumni/profile",
+                label: "Profile",
+                description: "Contact details and current career information.",
+                icon: UserRound,
+            },
+        ],
+    },
+];
+
 export const NAV: Record<RoleKey, NavGroup[]> = {
     admin: adminNav,
     director: directorNav,
     faculty: facultyNav,
     student: studentNav,
+    alumni: alumniNav,
 };
 
 /**

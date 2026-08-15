@@ -43,6 +43,7 @@ export interface IUser extends Document {
     departmentId?: mongoose.Types.ObjectId;
     studentId?: mongoose.Types.ObjectId;
     facultyId?: mongoose.Types.ObjectId;
+    alumniId?: mongoose.Types.ObjectId;
     universityName?: string;
     department?: string;
     collegeName?: string;
@@ -90,6 +91,7 @@ const UserSchema = new Schema<IUser>(
         departmentId: { type: Schema.Types.ObjectId, ref: "Department", index: true },
         studentId: { type: Schema.Types.ObjectId, ref: "Student" },
         facultyId: { type: Schema.Types.ObjectId, ref: "Faculty" },
+        alumniId: { type: Schema.Types.ObjectId, ref: "Alumni" },
         universityName: { type: String, trim: true, index: true },
         department: { type: String, trim: true },
         collegeName: { type: String, trim: true, index: true },
@@ -119,6 +121,7 @@ UserSchema.index({ institutionId: 1, role: 1 });
 UserSchema.index({ departmentId: 1, role: 1 });
 UserSchema.index({ studentId: 1 }, { unique: true, sparse: true });
 UserSchema.index({ facultyId: 1 }, { unique: true, sparse: true });
+UserSchema.index({ alumniId: 1 }, { unique: true, sparse: true });
 UserSchema.index({ role: 1, accountStatus: 1 });
 
 const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>("User", UserSchema);

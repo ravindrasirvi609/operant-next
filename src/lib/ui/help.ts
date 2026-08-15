@@ -32,6 +32,7 @@ export const HELP_CONTENT: Record<RoleKey, Record<string, HelpEntry>> = {
     faculty: facultyHelpContent,
     admin: {},
     director: {},
+    alumni: {},
 };
 
 /**

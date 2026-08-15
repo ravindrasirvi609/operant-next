@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from "@/components/ui/label";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import {
+    alumniActivationSchema,
     facultyActivationSchema,
     forgotPasswordSchema,
     loginSchema,
@@ -30,6 +31,7 @@ type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
 type ResendValues = z.infer<typeof resendVerificationSchema>;
 type StudentActivationValues = z.infer<typeof studentActivationSchema>;
 type FacultyActivationValues = z.infer<typeof facultyActivationSchema>;
+type AlumniActivationValues = z.infer<typeof alumniActivationSchema>;
 
 async function postJson(url: string, body: unknown) {
     const response = await fetch(url, {
@@ -129,6 +131,10 @@ export function LoginForm({
                         {" · "}
                         <Link href="/activate-faculty" className="font-medium text-foreground">
                             Faculty first-time setup
+                        </Link>
+                        {" · "}
+                        <Link href="/activate-alumni" className="font-medium text-foreground">
+                            Alumni first-time setup
                         </Link>
                     </div>
                 }
@@ -421,6 +427,104 @@ export function FacultyActivationForm() {
                 <Button loading={isPending} className="w-full" size="lg" disabled={isPending} type="submit">
                     <ArrowRight aria-hidden />
                     Activate Faculty Account
+                </Button>
+            </form>
+        </AuthCard>
+    );
+}
+
+export function AlumniActivationForm() {
+    const router = useRouter();
+    const [isPending, startTransition] = useTransition();
+    const [successMessage, setSuccessMessage] = useState("");
+    const [errorMessage, setErrorMessage] = useState("");
+
+    const form = useForm<AlumniActivationValues>({
+        resolver: zodResolver(alumniActivationSchema),
+        defaultValues: {
+            enrollmentNo: "",
+            verificationValue: "",
+            password: "",
+            confirmPassword: "",
+        },
+    });
+
+    const password = useWatch({
+        control: form.control,
+        name: "password",
+        defaultValue: "",
+    });
+
+    function onSubmit(values: AlumniActivationValues) {
+        setErrorMessage("");
+        setSuccessMessage("");
+
+        startTransition(async () => {
+            try {
+                const data = (await postJson("/api/auth/activate-alumni", values)) as {
+                    message?: string;
+                    redirectPath?: string;
+                };
+                setSuccessMessage(data.message ?? "Alumni account activated.");
+                router.push(data.redirectPath ?? "/alumni");
+                router.refresh();
+            } catch (error) {
+                setErrorMessage(
+                    error instanceof Error ? error.message : "Unable to activate account."
+                );
+            }
+        });
+    }
+
+    return (
+        <AuthCard
+            title="First Time Alumni Login Setup"
+            description="Use your original enrollment number to verify your identity and set your alumni portal password."
+            footer={
+                <div className="text-sm text-muted-foreground">
+                    Already activated?{" "}
+                    <Link href="/login" className="font-medium text-foreground">
+                        Sign in here
+                    </Link>
+                </div>
+            }
+        >
+            <form className="grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
+                {successMessage ? <FormMessage message={successMessage} type="success" /> : null}
+                {errorMessage ? <FormMessage message={errorMessage} type="error" /> : null}
+
+                <Field label="Enrollment number" id="activate-alumni-enrollment" error={form.formState.errors.enrollmentNo?.message}>
+                    <InputGroup>
+                        <InputGroupAddon>
+                            <IdCard aria-hidden />
+                        </InputGroupAddon>
+                        <InputGroupInput id="activate-alumni-enrollment" placeholder="CSE2018001" {...form.register("enrollmentNo")} />
+                    </InputGroup>
+                </Field>
+
+                <Field label="Registered email or mobile" id="activate-alumni-verification" error={form.formState.errors.verificationValue?.message}>
+                    <InputGroup>
+                        <InputGroupAddon>
+                            <AtSign aria-hidden />
+                        </InputGroupAddon>
+                        <InputGroupInput id="activate-alumni-verification" placeholder="ravi@college.edu or 9876543210" {...form.register("verificationValue")} />
+                    </InputGroup>
+                </Field>
+
+                <div className="grid gap-5 sm:grid-cols-2">
+                    <Field label="Set password" id="activate-alumni-password" error={form.formState.errors.password?.message}>
+                        <PasswordInput id="activate-alumni-password" {...form.register("password")} />
+                    </Field>
+                    <Field label="Confirm password" id="activate-alumni-confirm-password" error={form.formState.errors.confirmPassword?.message}>
+                        <PasswordInput id="activate-alumni-confirm-password" {...form.register("confirmPassword")} />
+                    </Field>
+                </div>
+
+                <PasswordChecklist password={password ?? ""} />
+
+                <Button loading={isPending} className="w-full" size="lg" disabled={isPending} type="submit">
+                    <ArrowRight aria-hidden />
+                    Activate Alumni Account
                 </Button>
             </form>
         </AuthCard>

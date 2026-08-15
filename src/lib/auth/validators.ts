@@ -50,6 +50,21 @@ export const studentActivationSchema = z
         path: ["confirmPassword"],
     });
 
+export const alumniActivationSchema = z
+    .object({
+        enrollmentNo: z.string().trim().min(2, "Enrollment number is required."),
+        verificationValue: z
+            .string()
+            .trim()
+            .min(4, "Enter your registered email or mobile number."),
+        password: passwordSchema,
+        confirmPassword: z.string().min(1, "Please confirm your password."),
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+        message: "Passwords do not match.",
+        path: ["confirmPassword"],
+    });
+
 export const facultyActivationSchema = z
     .object({
         employeeCode: z.string().trim().min(2, "Employee code is required."),
