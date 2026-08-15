@@ -789,3 +789,25 @@ export async function assertLeadershipApiAccess() {
 
     return user;
 }
+
+/** Admins always pass; everyone else needs department-scoped leadership access. */
+export async function assertAdminOrLeadershipApiAccess() {
+    const user = await getCurrentUser();
+
+    if (!user) {
+        throw new AuthError("Admin or leadership access is required.", 403);
+    }
+
+    if (user.role === "Admin") {
+        return user;
+    }
+
+    await dbConnect();
+    const hasLeadershipAccess = (await resolveAuthorizationProfile(user)).hasLeadershipPortalAccess;
+
+    if (!hasLeadershipAccess) {
+        throw new AuthError("Admin or leadership access is required.", 403);
+    }
+
+    return user;
+}

@@ -486,6 +486,55 @@ export async function notifyEvidencePendingReview(options: {
     );
 }
 
+export async function notifyAcademicRecordEditRequestPending(options: {
+    departmentId?: string;
+    studentName: string;
+    entityId: string;
+    actor?: NotificationActor;
+}) {
+    const recipients = await resolveEvidenceReviewerRecipients(options.departmentId);
+
+    await createNotifications(
+        recipients
+            .filter((recipient) => recipient.userId !== options.actor?.id)
+            .map((recipient) => ({
+                userId: recipient.userId,
+                kind: "workflow" as const,
+                moduleName: "STUDENT" as const,
+                entityId: options.entityId,
+                href: recipient.role === "Admin" ? "/admin/academic-record-requests" : "/director/academic-record-requests",
+                title: "Academic record correction pending review",
+                message: `${options.studentName} requested a correction to a semester academic record.`,
+                actor: options.actor,
+                metadata: {
+                    reviewStatus: "Pending",
+                    dedupeKey: `academic-record-edit-request:${options.entityId}`,
+                    dedupeWindowHours: 24 * 45,
+                },
+            }))
+    );
+}
+
+export async function notifyAcademicRecordEditRequestOutcome(options: {
+    userId?: string;
+    entityId: string;
+    decision: "Approve" | "Reject";
+    actor?: NotificationActor;
+}) {
+    await notifyUser({
+        userId: options.userId,
+        moduleName: "STUDENT",
+        entityId: options.entityId,
+        href: "/student/records",
+        title: options.decision === "Approve" ? "Academic record correction approved" : "Academic record correction rejected",
+        message:
+            options.decision === "Approve"
+                ? `${options.actor?.name ?? "A reviewer"} approved your requested correction.`
+                : `${options.actor?.name ?? "A reviewer"} rejected your requested correction.`,
+        actor: options.actor,
+    });
+}
+
 export async function notifyUser(options: {
     userId?: string;
     moduleName: NotificationModuleName;

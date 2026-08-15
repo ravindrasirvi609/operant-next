@@ -187,6 +187,30 @@ export const internshipRecordSchema = z.object({
     documentId: optionalId,
 });
 
+// ── Academic Record Correction Request ────────────────────────────
+export const academicRecordEditRequestSchema = z
+    .object({
+        requestedChanges: z.object({
+            sgpa: z.coerce.number().min(0).max(10).optional(),
+            cgpa: z.coerce.number().min(0).max(10).optional(),
+            percentage: z.coerce.number().min(0).max(100).optional(),
+            rank: z.coerce.number().int().min(1).optional(),
+            resultStatus: z.enum(["Pass", "Fail", "Promoted", "Withheld"]).optional(),
+        }),
+        reason: requiredString("Reason"),
+    })
+    .superRefine((value, ctx) => {
+        if (Object.keys(value.requestedChanges).length === 0) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["requestedChanges"],
+                message: "Change at least one field.",
+            });
+        }
+    });
+
+export type AcademicRecordEditRequestInput = z.infer<typeof academicRecordEditRequestSchema>;
+
 // ── Union type for API dispatch ──────────────────────────────────
 export const RECORD_TYPES = [
     "academic",

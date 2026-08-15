@@ -7,6 +7,7 @@ import {
     getAllStudentRecords,
     createStudentRecord,
     deleteStudentRecord,
+    updateStudentRecord,
     updateStudentRecordDocument,
 } from "@/lib/student/records-service";
 
@@ -91,6 +92,43 @@ export async function DELETE(request: Request) {
         });
 
         return NextResponse.json({ message: "Record deleted successfully." });
+    } catch (error) {
+        return createApiErrorResponse(error);
+    }
+}
+
+export async function PUT(request: Request) {
+    try {
+        const user = await getCurrentUser();
+        if (!user || user.role !== "Student") {
+            return NextResponse.json(
+                { message: "Student access required." },
+                { status: 403 }
+            );
+        }
+
+        const body = (await request.json()) as {
+            type?: string;
+            id?: string;
+            data?: unknown;
+        };
+
+        if (!body.type || !body.id || !body.data) {
+            return NextResponse.json(
+                { message: "Missing type, id, or data." },
+                { status: 400 }
+            );
+        }
+
+        const record = await updateStudentRecord(user.id, body.type, body.id, body.data, {
+            actor: { id: user.id, name: user.name, role: user.role },
+            auditContext: getRequestAuditContext(request),
+        });
+
+        return NextResponse.json({
+            message: "Record updated successfully.",
+            record: JSON.parse(JSON.stringify(record)),
+        });
     } catch (error) {
         return createApiErrorResponse(error);
     }

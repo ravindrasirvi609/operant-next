@@ -686,6 +686,330 @@ export async function createStudentRecord(
     return createdRecord;
 }
 
+// ── UPDATE a record (full field edit) ────────────────────────────
+
+const editableTypeSchemaMap = Object.fromEntries(
+    Object.entries(recordSchemaMap).filter(([type]) => type !== "academic")
+) as Omit<typeof recordSchemaMap, "academic">;
+
+export async function updateStudentRecord(
+    userId: string,
+    type: string,
+    recordId: string,
+    rawData: unknown,
+    options?: { actor?: AuditActor; auditContext?: AuditRequestContext }
+) {
+    await dbConnect();
+    const parsedType = recordTypeSchema.parse(type) as RecordType;
+
+    if (parsedType === "academic") {
+        throw new AuthError(
+            "Academic records cannot be edited directly. Submit a correction request instead.",
+            400
+        );
+    }
+
+    const schema = editableTypeSchemaMap[parsedType];
+    const data = schema.parse(rawData);
+    const { student, user } = await resolveStudent(userId);
+    const studentId = student._id;
+
+    const Model = modelMap[parsedType];
+    const existing = await (Model as any).findOne({ _id: recordId, studentId });
+
+    if (!existing) {
+        throw new AuthError("Record not found or does not belong to this student.", 404);
+    }
+
+    let update: Record<string, unknown>;
+
+    switch (parsedType) {
+        case "publication": {
+            const d = data as {
+                title: string;
+                journalName?: string;
+                publisher?: string;
+                publicationType?: string;
+                publicationDate?: string;
+                doi?: string;
+                indexedIn?: string;
+                documentId?: string;
+            };
+            update = {
+                title: d.title,
+                journalName: d.journalName,
+                publisher: d.publisher,
+                publicationType: d.publicationType,
+                publicationDate: toDateOrUndefined(d.publicationDate),
+                doi: d.doi,
+                indexedIn: d.indexedIn,
+                documentId: await resolveDocumentId(d.documentId, user._id.toString()),
+            };
+            break;
+        }
+        case "research": {
+            const d = data as {
+                title: string;
+                guideName?: string;
+                startDate?: string;
+                endDate?: string;
+                status?: string;
+                description?: string;
+                documentId?: string;
+            };
+            update = {
+                title: d.title,
+                guideName: d.guideName,
+                startDate: toDateOrUndefined(d.startDate),
+                endDate: toDateOrUndefined(d.endDate),
+                status: d.status,
+                description: d.description,
+                documentId: await resolveDocumentId(d.documentId, user._id.toString()),
+            };
+            break;
+        }
+        case "award": {
+            const d = data as { awardId?: string; awardTitle?: string; category?: string; organizingBody?: string; level?: string; awardDate?: string; documentId?: string };
+            let award = d.awardId ? await Award.findById(d.awardId) : null;
+            if (!award && d.awardId) {
+                const master = await resolveMasterData(d.awardId, ["award"]);
+                if (master) {
+                    award = await findOrCreateAward({
+                        awardTitle: master.label,
+                        category: readMetaString(master.metadata as Record<string, unknown>, "category") ?? undefined,
+                        organizingBody:
+                            readMetaString(master.metadata as Record<string, unknown>, "organizingBody") ??
+                            readMetaString(master.metadata as Record<string, unknown>, "organizedBy") ??
+                            undefined,
+                        level: sanitizeEnum(
+                            readMetaString(master.metadata as Record<string, unknown>, "level"),
+                            awardLevelSet
+                        ),
+                    });
+                }
+            }
+            if (!award) {
+                award = await findOrCreateAward({
+                    awardTitle: d.awardTitle ?? "",
+                    category: d.category,
+                    organizingBody: d.organizingBody,
+                    level: d.level,
+                });
+            }
+            if (!award) {
+                throw new AuthError("Award not found.", 404);
+            }
+            update = {
+                awardId: award._id,
+                awardDate: toDateOrUndefined(d.awardDate),
+                documentId: await resolveDocumentId(d.documentId, user._id.toString()),
+            };
+            break;
+        }
+        case "skill": {
+            const d = data as { skillId?: string; skillName?: string; category?: string; provider?: string; startDate?: string; endDate?: string; documentId?: string };
+            let skill = d.skillId ? await Skill.findById(d.skillId) : null;
+            if (!skill && d.skillId) {
+                const master = await resolveMasterData(d.skillId, ["skill"]);
+                if (master) {
+                    skill = await findOrCreateSkill({
+                        skillName: master.label,
+                        category: sanitizeEnum(
+                            readMetaString(master.metadata as Record<string, unknown>, "category"),
+                            skillCategorySet
+                        ),
+                    });
+                }
+            }
+            if (!skill) {
+                skill = await findOrCreateSkill({
+                    skillName: d.skillName ?? "",
+                    category: d.category,
+                });
+            }
+            if (!skill) {
+                throw new AuthError("Skill not found in governed reference masters. Ask admin to create or activate it first.", 404);
+            }
+            update = {
+                skillId: skill._id,
+                provider: d.provider,
+                startDate: toDateOrUndefined(d.startDate),
+                endDate: toDateOrUndefined(d.endDate),
+                documentId: await resolveDocumentId(d.documentId, user._id.toString()),
+            };
+            break;
+        }
+        case "sport": {
+            const d = data as { sportId?: string; sportName?: string; eventName: string; level?: string; position?: string; eventDate?: string; documentId?: string };
+            let sport = d.sportId ? await Sport.findById(d.sportId) : null;
+            if (!sport && d.sportId) {
+                const master = await resolveMasterData(d.sportId, ["sport"]);
+                if (master) {
+                    sport = await findOrCreateSport(master.label);
+                }
+            }
+            if (!sport) {
+                sport = await findOrCreateSport(d.sportName ?? "");
+            }
+            if (!sport) {
+                throw new AuthError("Sport not found in governed reference masters. Ask admin to create or activate it first.", 404);
+            }
+            update = {
+                sportId: sport._id,
+                eventName: d.eventName,
+                level: d.level,
+                position: d.position,
+                eventDate: toDateOrUndefined(d.eventDate),
+                documentId: await resolveDocumentId(d.documentId, user._id.toString()),
+            };
+            break;
+        }
+        case "cultural": {
+            const d = data as { activityId?: string; activityName?: string; activityCategory?: string; eventName: string; level?: string; position?: string; date?: string; documentId?: string };
+            let activity = d.activityId ? await CulturalActivity.findById(d.activityId) : null;
+            if (!activity && d.activityId) {
+                const master = await resolveMasterData(d.activityId, ["cultural-activity"]);
+                if (master) {
+                    activity = await findOrCreateCulturalActivity({
+                        activityName: master.label,
+                        activityCategory: readMetaString(master.metadata as Record<string, unknown>, "category") ?? undefined,
+                    });
+                }
+            }
+            if (!activity) {
+                activity = await findOrCreateCulturalActivity({
+                    activityName: d.activityName ?? "",
+                    activityCategory: d.activityCategory,
+                });
+            }
+            if (!activity) {
+                throw new AuthError("Cultural activity not found in governed reference masters. Ask admin to create or activate it first.", 404);
+            }
+            update = {
+                activityId: activity._id,
+                eventName: d.eventName,
+                level: d.level,
+                position: d.position,
+                date: toDateOrUndefined(d.date),
+                documentId: await resolveDocumentId(d.documentId, user._id.toString()),
+            };
+            break;
+        }
+        case "event": {
+            const d = data as { eventId?: string; eventTitle?: string; eventType?: string; organizedBy?: string; role: string; paperTitle?: string; eventDate?: string; documentId?: string };
+            let event = d.eventId ? await Event.findById(d.eventId) : null;
+            if (!event && d.eventId) {
+                const master = await resolveMasterData(d.eventId, ["event"]);
+                if (master) {
+                    event = await findOrCreateEvent({
+                        eventTitle: master.label,
+                        eventType: sanitizeEnum(
+                            readMetaString(master.metadata as Record<string, unknown>, "eventType"),
+                            eventTypeSet
+                        ),
+                        organizedBy: readMetaString(master.metadata as Record<string, unknown>, "organizedBy") ?? undefined,
+                        eventDate: readMetaString(master.metadata as Record<string, unknown>, "eventDate") ?? undefined,
+                    });
+                }
+            }
+            if (!event) {
+                event = await findOrCreateEvent({
+                    eventTitle: d.eventTitle ?? "",
+                    eventType: d.eventType,
+                    organizedBy: d.organizedBy,
+                    eventDate: d.eventDate,
+                });
+            }
+            if (!event) {
+                throw new AuthError("Event not found in governed reference masters. Ask admin to create or activate it first.", 404);
+            }
+            update = {
+                eventId: event._id,
+                role: d.role,
+                paperTitle: d.paperTitle,
+                documentId: await resolveDocumentId(d.documentId, user._id.toString()),
+            };
+            break;
+        }
+        case "social": {
+            const d = data as { programId?: string; programName?: string; programType?: string; activityName: string; hoursContributed?: number; date?: string; documentId?: string };
+            let prog = d.programId ? await SocialProgram.findById(d.programId) : null;
+            if (!prog && d.programId) {
+                const master = await resolveMasterData(d.programId, ["social-program"]);
+                if (master) {
+                    prog = await findOrCreateSocialProgram({
+                        programName: master.label,
+                        programType: sanitizeEnum(
+                            readMetaString(master.metadata as Record<string, unknown>, "type"),
+                            socialProgramTypeSet
+                        ),
+                    });
+                }
+            }
+            if (!prog) {
+                prog = await findOrCreateSocialProgram({
+                    programName: d.programName ?? "",
+                    programType: d.programType,
+                });
+            }
+            if (!prog) {
+                throw new AuthError("Social programme not found in governed reference masters. Ask admin to create or activate it first.", 404);
+            }
+            update = {
+                programId: prog._id,
+                activityName: d.activityName,
+                hoursContributed: d.hoursContributed,
+                date: toDateOrUndefined(d.date),
+                documentId: await resolveDocumentId(d.documentId, user._id.toString()),
+            };
+            break;
+        }
+        case "placement": {
+            const d = data as { companyName: string; jobRole?: string; package?: number; offerDate?: string; joiningDate?: string };
+            update = {
+                companyName: d.companyName,
+                jobRole: d.jobRole,
+                package: d.package,
+                offerDate: toDateOrUndefined(d.offerDate),
+                joiningDate: toDateOrUndefined(d.joiningDate),
+            };
+            break;
+        }
+        case "internship": {
+            const d = data as { companyName: string; role?: string; startDate?: string; endDate?: string; stipend?: number; documentId?: string };
+            update = {
+                companyName: d.companyName,
+                role: d.role,
+                startDate: toDateOrUndefined(d.startDate),
+                endDate: toDateOrUndefined(d.endDate),
+                stipend: d.stipend,
+                documentId: await resolveDocumentId(d.documentId, user._id.toString()),
+            };
+            break;
+        }
+    }
+
+    const record = await (Model as any).findOneAndUpdate(
+        { _id: recordId, studentId },
+        { $set: update },
+        { returnDocument: "after" }
+    );
+
+    if (options?.actor) {
+        await createAuditLog({
+            actor: options.actor,
+            action: "STUDENT_RECORD_UPDATE",
+            tableName: `student_${parsedType}_records`,
+            recordId,
+            oldData: existing,
+            newData: record,
+            auditContext: options.auditContext,
+        });
+    }
+
+    return record;
+}
+
 // ── DELETE a record ──────────────────────────────────────────────
 
 const modelMap = {

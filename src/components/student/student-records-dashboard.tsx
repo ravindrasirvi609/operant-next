@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, Flag, Globe2, MapPin, Plus, Trash2, X, type LucideIcon } from "lucide-react";
+import { Building2, FileWarning, Flag, Globe2, MapPin, Pencil, Plus, Trash2, X, type LucideIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
 
@@ -135,6 +135,21 @@ function refName(ref: any, field: string = "name") {
     return ref[field] ?? ref.title ?? ref.sportName ?? "-";
 }
 
+/** Populated refs come back as objects on edit; forms need the raw id for a <select>. */
+function idOf(ref: any): string {
+    if (!ref) return "";
+    if (typeof ref === "string") return ref;
+    return ref._id ?? "";
+}
+
+/** `<input type="date">` needs `yyyy-mm-dd`; existing records store full Date/ISO values. */
+function toDateInputValue(value?: string | Date | null): string {
+    if (!value) return "";
+    const d = new Date(value as string);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toISOString().slice(0, 10);
+}
+
 
 const recordsTabs = [
     { value: "academics", label: "Academics" },
@@ -182,6 +197,11 @@ export function StudentRecordsDashboard({
         text: string;
     } | null>(null);
     const [activeForm, setActiveForm] = useState<RecordType | null>(null);
+    const [editingRecord, setEditingRecord] = useState<{
+        type: RecordType;
+        id: string;
+        data: AnyRecord;
+    } | null>(null);
     const [semesters, setSemesters] = useState<SemesterOption[]>([]);
     const [semesterError, setSemesterError] = useState<string | null>(null);
     const [masterData, setMasterData] = useState<StudentMasterData>({
@@ -193,7 +213,16 @@ export function StudentRecordsDashboard({
         socialPrograms: [],
     });
     const [masterError, setMasterError] = useState<string | null>(null);
+    const [correctionRequests, setCorrectionRequests] = useState<AnyRecord[]>([]);
+    const [correctionRequestFor, setCorrectionRequestFor] = useState<string | null>(null);
     const activeTab = resolveRecordsTab(searchParams.get("tab"));
+
+    const refreshCorrectionRequests = useCallback(() => {
+        fetch("/api/student/academic-records/edit-requests")
+            .then((res) => res.json())
+            .then((data) => setCorrectionRequests((data?.requests ?? []) as AnyRecord[]))
+            .catch(() => setCorrectionRequests([]));
+    }, []);
 
     const refreshRecords = useCallback(() => {
         startTransition(async () => {
@@ -251,6 +280,35 @@ export function StudentRecordsDashboard({
         };
     }, []);
 
+    useEffect(() => {
+        refreshCorrectionRequests();
+    }, [refreshCorrectionRequests]);
+
+    const pendingCorrectionByRecordId = new Map(
+        correctionRequests
+            .filter((r) => r.status === "Pending")
+            .map((r) => [String(r.academicRecordId), r])
+    );
+
+    async function submitCorrectionRequest(academicRecordId: string, data: AnyRecord) {
+        setMessage(null);
+        const res = await fetch(`/api/student/academic-records/${academicRecordId}/edit-request`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+        });
+        const result = (await res.json()) as { message?: string };
+        if (!res.ok) {
+            setMessage({
+                type: "error",
+                text: result.message ?? "Failed to submit correction request.",
+            });
+            return;
+        }
+        setMessage({ type: "success", text: result.message ?? "Correction request submitted." });
+        setCorrectionRequestFor(null);
+        refreshCorrectionRequests();
+    }
 
     function handleTabChange(nextTabValue: string) {
         const nextTab = resolveRecordsTab(nextTabValue);
@@ -260,6 +318,8 @@ export function StudentRecordsDashboard({
         }
 
         setActiveForm(null);
+        setEditingRecord(null);
+        setCorrectionRequestFor(null);
 
         const params = new URLSearchParams(searchParams.toString());
         if (nextTab === defaultRecordsTab) {
@@ -299,6 +359,49 @@ export function StudentRecordsDashboard({
         setMessage({ type: "success", text: result.message ?? "Record added." });
         setActiveForm(null);
         refreshRecords();
+    }
+
+    async function handleUpdate(type: RecordType, id: string, data: AnyRecord) {
+        setMessage(null);
+        const res = await fetch("/api/student/records", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type, id, data }),
+        });
+        const result = (await res.json()) as { message?: string };
+        if (!res.ok) {
+            setMessage({
+                type: "error",
+                text: result.message ?? "Failed to update record.",
+            });
+            return;
+        }
+        setMessage({ type: "success", text: result.message ?? "Record updated." });
+        setActiveForm(null);
+        setEditingRecord(null);
+        refreshRecords();
+    }
+
+    function startEdit(type: RecordType, row: AnyRecord) {
+        setMessage(null);
+        setEditingRecord({ type, id: row._id, data: row });
+        setActiveForm(type);
+    }
+
+    function cancelForm() {
+        setActiveForm(null);
+        setEditingRecord(null);
+    }
+
+    /** Shared create/edit wiring for a record-type form so each tab only states its own fields. */
+    function formProps(type: RecordType) {
+        const isEditing = editingRecord?.type === type;
+        return {
+            defaultValues: isEditing ? editingRecord.data : undefined,
+            onSubmit: (data: AnyRecord) =>
+                isEditing ? handleUpdate(type, editingRecord.id, data) : handleCreate(type, data),
+            onCancel: cancelForm,
+        };
     }
 
     async function handleDelete(type: RecordType, id: string) {
@@ -397,21 +500,6 @@ export function StudentRecordsDashboard({
                 <aside className="space-y-6 lg:sticky lg:top-32 lg:self-start">
                     <Card className="border-border bg-card">
                         <CardHeader>
-                            <CardTitle className="text-lg">Student Mapping</CardTitle>
-                            <CardDescription>Institution and program context used for all records.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <ReadOnlyLine label="Student" value={studentMeta.studentName} />
-                            <ReadOnlyLine label="Institution Email" value={studentMeta.studentEmail} />
-                            <ReadOnlyLine label="Institution" value={studentMeta.institutionName ?? "-"} />
-                            <ReadOnlyLine label="Department" value={studentMeta.departmentName ?? "-"} />
-                            <ReadOnlyLine label="Program" value={studentMeta.programName ?? "-"} />
-                            <ReadOnlyLine label="Degree Type" value={studentMeta.degreeType ?? "-"} />
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-border bg-card">
-                        <CardHeader>
                             <CardTitle className="text-lg">Navigation</CardTitle>
                             <CardDescription>Use route-based tabs to move across the student workspace.</CardDescription>
                         </CardHeader>
@@ -480,6 +568,14 @@ export function StudentRecordsDashboard({
                                 semesterError={semesterError}
                             />
                         )}
+                        {correctionRequestFor && (
+                            <AcademicCorrectionRequestForm
+                                record={records.academics.find((a) => a._id === correctionRequestFor)}
+                                onSubmit={(d) => submitCorrectionRequest(correctionRequestFor, d)}
+                                onCancel={() => setCorrectionRequestFor(null)}
+                                isPending={isPending}
+                            />
+                        )}
                         <RecordTable
                             headers={[
                                 "Semester",
@@ -491,6 +587,28 @@ export function StudentRecordsDashboard({
                                 "",
                             ]}
                             rows={records.academics}
+                            renderExtraActions={(r) => {
+                                const pending = pendingCorrectionByRecordId.get(String(r._id));
+                                if (pending) {
+                                    return (
+                                        <Badge variant="outline" className="whitespace-nowrap text-xs">
+                                            Correction pending
+                                        </Badge>
+                                    );
+                                }
+                                return (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        aria-label="Request correction"
+                                        title="Request a correction to this record"
+                                        onClick={() => setCorrectionRequestFor(r._id)}
+                                    >
+                                        <FileWarning className="size-4" />
+                                    </Button>
+                                );
+                            }}
                             renderRow={(r) => (
                                 <>
                                     <TableCell className="font-medium">
@@ -556,10 +674,7 @@ export function StudentRecordsDashboard({
                     >
                         {activeForm === "publication" && (
                             <PublicationForm
-                                onSubmit={(d) =>
-                                    handleCreate("publication", d)
-                                }
-                                onCancel={() => setActiveForm(null)}
+                                {...formProps("publication")}
                                 isPending={isPending}
                                 userId={studentMeta.userId}
                             />
@@ -636,6 +751,7 @@ export function StudentRecordsDashboard({
                                     />
                                 </>
                             )}
+                            onEdit={(row) => startEdit("publication", row)}
                             onDelete={(id) => handleDelete("publication", id)}
                         />
                     </SectionCard>
@@ -652,8 +768,7 @@ export function StudentRecordsDashboard({
                     >
                         {activeForm === "research" && (
                             <ResearchForm
-                                onSubmit={(d) => handleCreate("research", d)}
-                                onCancel={() => setActiveForm(null)}
+                                {...formProps("research")}
                                 isPending={isPending}
                                 userId={studentMeta.userId}
                             />
@@ -725,6 +840,7 @@ export function StudentRecordsDashboard({
                                     />
                                 </>
                             )}
+                            onEdit={(row) => startEdit("research", row)}
                             onDelete={(id) => handleDelete("research", id)}
                         />
                     </SectionCard>
@@ -741,8 +857,7 @@ export function StudentRecordsDashboard({
                     >
                         {activeForm === "award" && (
                             <AwardForm
-                                onSubmit={(d) => handleCreate("award", d)}
-                                onCancel={() => setActiveForm(null)}
+                                {...formProps("award")}
                                 isPending={isPending}
                                 userId={studentMeta.userId}
                                 awards={masterData.awards}
@@ -813,6 +928,7 @@ export function StudentRecordsDashboard({
                                     />
                                 </>
                             )}
+                            onEdit={(row) => startEdit("award", row)}
                             onDelete={(id) => handleDelete("award", id)}
                         />
                     </SectionCard>
@@ -829,8 +945,7 @@ export function StudentRecordsDashboard({
                     >
                         {activeForm === "skill" && (
                             <SkillForm
-                                onSubmit={(d) => handleCreate("skill", d)}
-                                onCancel={() => setActiveForm(null)}
+                                {...formProps("skill")}
                                 isPending={isPending}
                                 userId={studentMeta.userId}
                                 skills={masterData.skills}
@@ -914,6 +1029,7 @@ export function StudentRecordsDashboard({
                                     />
                                 </>
                             )}
+                            onEdit={(row) => startEdit("skill", row)}
                             onDelete={(id) => handleDelete("skill", id)}
                         />
                     </SectionCard>
@@ -930,8 +1046,7 @@ export function StudentRecordsDashboard({
                     >
                         {activeForm === "sport" && (
                             <SportForm
-                                onSubmit={(d) => handleCreate("sport", d)}
-                                onCancel={() => setActiveForm(null)}
+                                {...formProps("sport")}
                                 isPending={isPending}
                                 userId={studentMeta.userId}
                                 sports={masterData.sports}
@@ -1003,6 +1118,7 @@ export function StudentRecordsDashboard({
                                     />
                                 </>
                             )}
+                            onEdit={(row) => startEdit("sport", row)}
                             onDelete={(id) => handleDelete("sport", id)}
                         />
                     </SectionCard>
@@ -1019,8 +1135,7 @@ export function StudentRecordsDashboard({
                     >
                         {activeForm === "cultural" && (
                             <CulturalForm
-                                onSubmit={(d) => handleCreate("cultural", d)}
-                                onCancel={() => setActiveForm(null)}
+                                {...formProps("cultural")}
                                 isPending={isPending}
                                 userId={studentMeta.userId}
                                 activities={masterData.culturalActivities}
@@ -1083,6 +1198,7 @@ export function StudentRecordsDashboard({
                                     />
                                 </>
                             )}
+                            onEdit={(row) => startEdit("cultural", row)}
                             onDelete={(id) => handleDelete("cultural", id)}
                         />
                     </SectionCard>
@@ -1099,8 +1215,7 @@ export function StudentRecordsDashboard({
                     >
                         {activeForm === "event" && (
                             <EventForm
-                                onSubmit={(d) => handleCreate("event", d)}
-                                onCancel={() => setActiveForm(null)}
+                                {...formProps("event")}
                                 isPending={isPending}
                                 userId={studentMeta.userId}
                                 events={masterData.events}
@@ -1202,6 +1317,7 @@ export function StudentRecordsDashboard({
                                     />
                                 </>
                             )}
+                            onEdit={(row) => startEdit("event", row)}
                             onDelete={(id) => handleDelete("event", id)}
                         />
                     </SectionCard>
@@ -1218,8 +1334,7 @@ export function StudentRecordsDashboard({
                     >
                         {activeForm === "social" && (
                             <SocialForm
-                                onSubmit={(d) => handleCreate("social", d)}
-                                onCancel={() => setActiveForm(null)}
+                                {...formProps("social")}
                                 isPending={isPending}
                                 userId={studentMeta.userId}
                                 programs={masterData.socialPrograms}
@@ -1301,6 +1416,7 @@ export function StudentRecordsDashboard({
                                     />
                                 </>
                             )}
+                            onEdit={(row) => startEdit("social", row)}
                             onDelete={(id) => handleDelete("social", id)}
                         />
                     </SectionCard>
@@ -1317,8 +1433,7 @@ export function StudentRecordsDashboard({
                     >
                         {activeForm === "placement" && (
                             <PlacementForm
-                                onSubmit={(d) => handleCreate("placement", d)}
-                                onCancel={() => setActiveForm(null)}
+                                {...formProps("placement")}
                                 isPending={isPending}
                             />
                         )}
@@ -1369,6 +1484,7 @@ export function StudentRecordsDashboard({
                                     <MobileField label="Joining Date" value={fmtDate(r.joiningDate)} />
                                 </>
                             )}
+                            onEdit={(row) => startEdit("placement", row)}
                             onDelete={(id) => handleDelete("placement", id)}
                         />
                     </SectionCard>
@@ -1385,8 +1501,7 @@ export function StudentRecordsDashboard({
                     >
                         {activeForm === "internship" && (
                             <InternshipRecordForm
-                                onSubmit={(d) => handleCreate("internship", d)}
-                                onCancel={() => setActiveForm(null)}
+                                {...formProps("internship")}
                                 isPending={isPending}
                                 userId={studentMeta.userId}
                             />
@@ -1460,6 +1575,7 @@ export function StudentRecordsDashboard({
                                     />
                                 </>
                             )}
+                            onEdit={(row) => startEdit("internship", row)}
                             onDelete={(id) => handleDelete("internship", id)}
                         />
                     </SectionCard>
@@ -1513,15 +1629,6 @@ function LevelBadge({ level }: { level: string }) {
             <Icon aria-hidden />
             {level}
         </Badge>
-    );
-}
-
-function ReadOnlyLine({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="grid gap-1 rounded-md border border-border bg-muted/50 p-3">
-            <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
-            <p className="text-sm font-semibold text-foreground">{value}</p>
-        </div>
     );
 }
 
@@ -1579,6 +1686,21 @@ function DeleteRecordButton({ onConfirm }: { onConfirm: () => void }) {
     );
 }
 
+function EditRecordButton({ onClick }: { onClick: () => void }) {
+    return (
+        <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Edit record"
+            title="Edit this record"
+            onClick={onClick}
+        >
+            <Pencil className="size-4" />
+        </Button>
+    );
+}
+
 /** A single label/value row inside a mobile record card. */
 function MobileField({ label, value }: { label: string; value: React.ReactNode }) {
     return (
@@ -1594,13 +1716,17 @@ function RecordTable({
     rows,
     renderRow,
     renderMobileCard,
+    onEdit,
     onDelete,
+    renderExtraActions,
 }: {
     headers: string[];
     rows: AnyRecord[];
     renderRow: (row: AnyRecord) => React.ReactNode;
     renderMobileCard: (row: AnyRecord) => React.ReactNode;
+    onEdit?: (row: AnyRecord) => void;
     onDelete: (id: string) => void;
+    renderExtraActions?: (row: AnyRecord) => React.ReactNode;
 }) {
     if (rows.length === 0) {
         return (
@@ -1627,7 +1753,13 @@ function RecordTable({
                             <TableRow key={row._id}>
                                 {renderRow(row)}
                                 <TableCell>
-                                    <DeleteRecordButton onConfirm={() => onDelete(row._id)} />
+                                    <div className="flex items-center justify-end gap-1">
+                                        {renderExtraActions?.(row)}
+                                        {onEdit ? (
+                                            <EditRecordButton onClick={() => onEdit(row)} />
+                                        ) : null}
+                                        <DeleteRecordButton onConfirm={() => onDelete(row._id)} />
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         ))}
@@ -1640,7 +1772,13 @@ function RecordTable({
                     <div key={row._id} className="rounded-lg border border-border bg-card p-4">
                         <div className="flex items-start justify-between gap-3">
                             <dl className="flex-1 space-y-2">{renderMobileCard(row)}</dl>
-                            <DeleteRecordButton onConfirm={() => onDelete(row._id)} />
+                            <div className="flex items-center gap-1">
+                                {renderExtraActions?.(row)}
+                                {onEdit ? (
+                                    <EditRecordButton onClick={() => onEdit(row)} />
+                                ) : null}
+                                <DeleteRecordButton onConfirm={() => onDelete(row._id)} />
+                            </div>
                         </div>
                     </div>
                 ))}
@@ -1691,13 +1829,15 @@ function FormActions({
 function EvidenceUploadField({
     userId,
     label = "Evidence Document (optional)",
+    defaultDocument,
     onChange,
 }: {
     userId: string;
     label?: string;
+    defaultDocument?: UploadedDocument | null;
     onChange?: (doc: UploadedDocument) => void;
 }) {
-    const [doc, setDoc] = useState<UploadedDocument | null>(null);
+    const [doc, setDoc] = useState<UploadedDocument | null>(defaultDocument ?? null);
 
     return (
         <div>
@@ -1869,16 +2009,88 @@ function AcademicForm({
     );
 }
 
+/**
+ * Semester grades are official records, so students can't edit them directly —
+ * this submits a correction request that an Admin/Director must approve.
+ */
+function AcademicCorrectionRequestForm({
+    record,
+    onSubmit,
+    onCancel,
+    isPending,
+}: {
+    record?: AnyRecord;
+    onSubmit: (d: AnyRecord) => void;
+    onCancel: () => void;
+    isPending: boolean;
+}) {
+    if (!record) {
+        return null;
+    }
+
+    return (
+        <form
+            className="rounded-lg border border-warning-muted bg-warning-muted/30 p-4 space-y-4"
+            onSubmit={(e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                const requestedChanges: AnyRecord = {};
+                for (const field of ["sgpa", "cgpa", "percentage", "rank", "resultStatus"]) {
+                    const value = fd.get(field);
+                    if (value) requestedChanges[field] = value;
+                }
+                onSubmit({ requestedChanges, reason: fd.get("reason") });
+            }}
+        >
+            <p className="text-sm text-muted-foreground">
+                Semester {record.semesterNumber ?? refName(record.semesterId, "semesterNumber") ?? "-"} — only fill in
+                the fields you want corrected. This request needs review before it takes effect.
+            </p>
+            <div className="grid gap-4 md:grid-cols-3">
+                <FormField label={`SGPA (current: ${record.sgpa ?? "-"})`} id="sgpa">
+                    <Input id="sgpa" name="sgpa" type="number" step="0.01" min={0} max={10} />
+                </FormField>
+                <FormField label={`CGPA (current: ${record.cgpa ?? "-"})`} id="cgpa">
+                    <Input id="cgpa" name="cgpa" type="number" step="0.01" min={0} max={10} />
+                </FormField>
+                <FormField label={`Percentage (current: ${record.percentage ?? "-"})`} id="percentage">
+                    <Input id="percentage" name="percentage" type="number" step="0.01" min={0} max={100} />
+                </FormField>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+                <FormField label={`Rank (current: ${record.rank ?? "-"})`} id="rank">
+                    <Input id="rank" name="rank" type="number" min={1} />
+                </FormField>
+                <FormField label={`Result Status (current: ${record.resultStatus ?? "-"})`} id="resultStatus">
+                    <NativeSelect id="resultStatus" name="resultStatus">
+                        <option value="">No change</option>
+                        <option value="Pass">Pass</option>
+                        <option value="Fail">Fail</option>
+                        <option value="Promoted">Promoted</option>
+                        <option value="Withheld">Withheld</option>
+                    </NativeSelect>
+                </FormField>
+            </div>
+            <FormField label="Reason for correction" id="reason">
+                <Textarea id="reason" name="reason" required placeholder="Explain why this record needs to change." />
+            </FormField>
+            <FormActions onCancel={onCancel} isPending={isPending} />
+        </form>
+    );
+}
+
 function PublicationForm({
     onSubmit,
     onCancel,
     isPending,
     userId,
+    defaultValues,
 }: {
     onSubmit: (d: AnyRecord) => void;
     onCancel: () => void;
     isPending: boolean;
     userId: string;
+    defaultValues?: AnyRecord;
 }) {
     return (
         <form
@@ -1900,12 +2112,13 @@ function PublicationForm({
         >
             <div className="grid gap-4 md:grid-cols-2">
                 <FormField label="Title" id="title">
-                    <Input id="title" name="title" required />
+                    <Input id="title" name="title" required defaultValue={defaultValues?.title} />
                 </FormField>
                 <FormField label="Publication Type" id="publicationType">
                     <NativeSelect
                         id="publicationType"
                         name="publicationType"
+                        defaultValue={defaultValues?.publicationType ?? ""}
                     >
                         <option value="">Select type</option>
                         <option value="Journal">Journal</option>
@@ -1916,10 +2129,10 @@ function PublicationForm({
             </div>
             <div className="grid gap-4 md:grid-cols-2">
                 <FormField label="Journal Name" id="journalName">
-                    <Input id="journalName" name="journalName" />
+                    <Input id="journalName" name="journalName" defaultValue={defaultValues?.journalName} />
                 </FormField>
                 <FormField label="Publisher" id="publisher">
-                    <Input id="publisher" name="publisher" />
+                    <Input id="publisher" name="publisher" defaultValue={defaultValues?.publisher} />
                 </FormField>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
@@ -1928,20 +2141,26 @@ function PublicationForm({
                         id="publicationDate"
                         name="publicationDate"
                         type="date"
+                        defaultValue={toDateInputValue(defaultValues?.publicationDate)}
                     />
                 </FormField>
                 <FormField label="DOI" id="doi">
-                    <Input id="doi" name="doi" placeholder="10.xxxx/xxxxx" />
+                    <Input id="doi" name="doi" placeholder="10.xxxx/xxxxx" defaultValue={defaultValues?.doi} />
                 </FormField>
                 <FormField label="Indexed In" id="indexedIn">
                     <Input
                         id="indexedIn"
                         name="indexedIn"
                         placeholder="Scopus, Web of Science, etc."
+                        defaultValue={defaultValues?.indexedIn}
                     />
                 </FormField>
             </div>
-            <EvidenceUploadField userId={userId} label="Publication proof (optional)" />
+            <EvidenceUploadField
+                userId={userId}
+                label="Publication proof (optional)"
+                defaultDocument={defaultValues?.documentId as UploadedDocument | null}
+            />
             <FormActions onCancel={onCancel} isPending={isPending} />
         </form>
     );
@@ -1952,11 +2171,13 @@ function ResearchForm({
     onCancel,
     isPending,
     userId,
+    defaultValues,
 }: {
     onSubmit: (d: AnyRecord) => void;
     onCancel: () => void;
     isPending: boolean;
     userId: string;
+    defaultValues?: AnyRecord;
 }) {
     return (
         <form
@@ -1977,23 +2198,24 @@ function ResearchForm({
         >
             <div className="grid gap-4 md:grid-cols-2">
                 <FormField label="Project Title" id="title">
-                    <Input id="title" name="title" required />
+                    <Input id="title" name="title" required defaultValue={defaultValues?.title} />
                 </FormField>
                 <FormField label="Guide / Supervisor" id="guideName">
-                    <Input id="guideName" name="guideName" />
+                    <Input id="guideName" name="guideName" defaultValue={defaultValues?.guideName} />
                 </FormField>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
                 <FormField label="Start Date" id="startDate">
-                    <Input id="startDate" name="startDate" type="date" />
+                    <Input id="startDate" name="startDate" type="date" defaultValue={toDateInputValue(defaultValues?.startDate)} />
                 </FormField>
                 <FormField label="End Date" id="endDate">
-                    <Input id="endDate" name="endDate" type="date" />
+                    <Input id="endDate" name="endDate" type="date" defaultValue={toDateInputValue(defaultValues?.endDate)} />
                 </FormField>
                 <FormField label="Status" id="status">
                     <NativeSelect
                         id="status"
                         name="status"
+                        defaultValue={defaultValues?.status ?? ""}
                     >
                         <option value="">Select status</option>
                         <option value="Planned">Planned</option>
@@ -2003,9 +2225,13 @@ function ResearchForm({
                 </FormField>
             </div>
             <FormField label="Description" id="description">
-                <Textarea id="description" name="description" />
+                <Textarea id="description" name="description" defaultValue={defaultValues?.description} />
             </FormField>
-            <EvidenceUploadField userId={userId} label="Research proof (optional)" />
+            <EvidenceUploadField
+                userId={userId}
+                label="Research proof (optional)"
+                defaultDocument={defaultValues?.documentId as UploadedDocument | null}
+            />
             <FormActions onCancel={onCancel} isPending={isPending} />
         </form>
     );
@@ -2018,6 +2244,7 @@ function AwardForm({
     userId,
     awards,
     masterError,
+    defaultValues,
 }: {
     onSubmit: (d: AnyRecord) => void;
     onCancel: () => void;
@@ -2025,6 +2252,7 @@ function AwardForm({
     userId: string;
     awards: MasterOption[];
     masterError: string | null;
+    defaultValues?: AnyRecord;
 }) {
     return (
         <form
@@ -2045,6 +2273,7 @@ function AwardForm({
                         id="awardId"
                         name="awardId"
                         required
+                        defaultValue={idOf(defaultValues?.awardId)}
                     >
                         <option value="">Select award</option>
                         {awards.map((award) => (
@@ -2066,10 +2295,10 @@ function AwardForm({
             </div>
             <div className="grid gap-4 md:grid-cols-2">
                 <FormField label="Award Date" id="awardDate">
-                    <Input id="awardDate" name="awardDate" type="date" />
+                    <Input id="awardDate" name="awardDate" type="date" defaultValue={toDateInputValue(defaultValues?.awardDate)} />
                 </FormField>
             </div>
-            <EvidenceUploadField userId={userId} />
+            <EvidenceUploadField userId={userId} defaultDocument={defaultValues?.documentId as UploadedDocument | null} />
             <FormActions onCancel={onCancel} isPending={isPending} />
         </form>
     );
@@ -2082,6 +2311,7 @@ function SkillForm({
     userId,
     skills,
     masterError,
+    defaultValues,
 }: {
     onSubmit: (d: AnyRecord) => void;
     onCancel: () => void;
@@ -2089,6 +2319,7 @@ function SkillForm({
     userId: string;
     skills: MasterOption[];
     masterError: string | null;
+    defaultValues?: AnyRecord;
 }) {
     return (
         <form
@@ -2111,6 +2342,7 @@ function SkillForm({
                         id="skillId"
                         name="skillId"
                         required
+                        defaultValue={idOf(defaultValues?.skillId)}
                     >
                         <option value="">Select skill</option>
                         {skills.map((skill) => (
@@ -2133,18 +2365,19 @@ function SkillForm({
                         id="provider"
                         name="provider"
                         placeholder="Coursera, NPTEL, etc."
+                        defaultValue={defaultValues?.provider}
                     />
                 </FormField>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
                 <FormField label="Start Date" id="startDate">
-                    <Input id="startDate" name="startDate" type="date" />
+                    <Input id="startDate" name="startDate" type="date" defaultValue={toDateInputValue(defaultValues?.startDate)} />
                 </FormField>
                 <FormField label="End Date" id="endDate">
-                    <Input id="endDate" name="endDate" type="date" />
+                    <Input id="endDate" name="endDate" type="date" defaultValue={toDateInputValue(defaultValues?.endDate)} />
                 </FormField>
             </div>
-            <EvidenceUploadField userId={userId} />
+            <EvidenceUploadField userId={userId} defaultDocument={defaultValues?.documentId as UploadedDocument | null} />
             <FormActions onCancel={onCancel} isPending={isPending} />
         </form>
     );
@@ -2157,6 +2390,7 @@ function SportForm({
     userId,
     sports,
     masterError,
+    defaultValues,
 }: {
     onSubmit: (d: AnyRecord) => void;
     onCancel: () => void;
@@ -2164,6 +2398,7 @@ function SportForm({
     userId: string;
     sports: MasterOption[];
     masterError: string | null;
+    defaultValues?: AnyRecord;
 }) {
     return (
         <form
@@ -2187,6 +2422,7 @@ function SportForm({
                         id="sportId"
                         name="sportId"
                         required
+                        defaultValue={idOf(defaultValues?.sportId)}
                     >
                         <option value="">Select sport</option>
                         {sports.map((sport) => (
@@ -2209,6 +2445,7 @@ function SportForm({
                         name="eventName"
                         required
                         placeholder="Inter-college tournament, etc."
+                        defaultValue={defaultValues?.eventName}
                     />
                 </FormField>
             </div>
@@ -2217,6 +2454,7 @@ function SportForm({
                     <NativeSelect
                         id="level"
                         name="level"
+                        defaultValue={defaultValues?.level ?? ""}
                     >
                         <option value="">Select level</option>
                         <option value="College">College</option>
@@ -2230,13 +2468,14 @@ function SportForm({
                         id="position"
                         name="position"
                         placeholder="1st, Runner-up, etc."
+                        defaultValue={defaultValues?.position}
                     />
                 </FormField>
                 <FormField label="Event Date" id="eventDate">
-                    <Input id="eventDate" name="eventDate" type="date" />
+                    <Input id="eventDate" name="eventDate" type="date" defaultValue={toDateInputValue(defaultValues?.eventDate)} />
                 </FormField>
             </div>
-            <EvidenceUploadField userId={userId} />
+            <EvidenceUploadField userId={userId} defaultDocument={defaultValues?.documentId as UploadedDocument | null} />
             <FormActions onCancel={onCancel} isPending={isPending} />
         </form>
     );
@@ -2249,6 +2488,7 @@ function CulturalForm({
     userId,
     activities,
     masterError,
+    defaultValues,
 }: {
     onSubmit: (d: AnyRecord) => void;
     onCancel: () => void;
@@ -2256,6 +2496,7 @@ function CulturalForm({
     userId: string;
     activities: MasterOption[];
     masterError: string | null;
+    defaultValues?: AnyRecord;
 }) {
     return (
         <form
@@ -2279,6 +2520,7 @@ function CulturalForm({
                         id="activityId"
                         name="activityId"
                         required
+                        defaultValue={idOf(defaultValues?.activityId)}
                     >
                         <option value="">Select activity</option>
                         {activities.map((activity) => (
@@ -2299,13 +2541,14 @@ function CulturalForm({
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <FormField label="Event Name" id="eventName">
-                    <Input id="eventName" name="eventName" required />
+                    <Input id="eventName" name="eventName" required defaultValue={defaultValues?.eventName} />
                 </FormField>
                 <FormField label="Level" id="level">
                     <Input
                         id="level"
                         name="level"
                         placeholder="College, State, etc."
+                        defaultValue={defaultValues?.level}
                     />
                 </FormField>
                 <FormField label="Position" id="position">
@@ -2313,13 +2556,14 @@ function CulturalForm({
                         id="position"
                         name="position"
                         placeholder="Winner, Participant, etc."
+                        defaultValue={defaultValues?.position}
                     />
                 </FormField>
                 <FormField label="Date" id="date">
-                    <Input id="date" name="date" type="date" />
+                    <Input id="date" name="date" type="date" defaultValue={toDateInputValue(defaultValues?.date)} />
                 </FormField>
             </div>
-            <EvidenceUploadField userId={userId} />
+            <EvidenceUploadField userId={userId} defaultDocument={defaultValues?.documentId as UploadedDocument | null} />
             <FormActions onCancel={onCancel} isPending={isPending} />
         </form>
     );
@@ -2332,6 +2576,7 @@ function EventForm({
     userId,
     events,
     masterError,
+    defaultValues,
 }: {
     onSubmit: (d: AnyRecord) => void;
     onCancel: () => void;
@@ -2339,8 +2584,9 @@ function EventForm({
     userId: string;
     events: MasterOption[];
     masterError: string | null;
+    defaultValues?: AnyRecord;
 }) {
-    const [role, setRole] = useState("Participant");
+    const [role, setRole] = useState(defaultValues?.role ?? "Participant");
     return (
         <form
             className="rounded-lg border border-border bg-muted/50 p-4 space-y-4"
@@ -2361,6 +2607,7 @@ function EventForm({
                         id="eventId"
                         name="eventId"
                         required
+                        defaultValue={idOf(defaultValues?.eventId)}
                     >
                         <option value="">Select event</option>
                         {events.map((event) => (
@@ -2401,10 +2648,11 @@ function EventForm({
                         id="paperTitle"
                         name="paperTitle"
                         placeholder="Title of presented paper"
+                        defaultValue={defaultValues?.paperTitle}
                     />
                 </FormField>
             )}
-            <EvidenceUploadField userId={userId} />
+            <EvidenceUploadField userId={userId} defaultDocument={defaultValues?.documentId as UploadedDocument | null} />
             <FormActions onCancel={onCancel} isPending={isPending} />
         </form>
     );
@@ -2417,6 +2665,7 @@ function SocialForm({
     userId,
     programs,
     masterError,
+    defaultValues,
 }: {
     onSubmit: (d: AnyRecord) => void;
     onCancel: () => void;
@@ -2424,6 +2673,7 @@ function SocialForm({
     userId: string;
     programs: MasterOption[];
     masterError: string | null;
+    defaultValues?: AnyRecord;
 }) {
     return (
         <form
@@ -2446,6 +2696,7 @@ function SocialForm({
                         id="programId"
                         name="programId"
                         required
+                        defaultValue={idOf(defaultValues?.programId)}
                     >
                         <option value="">Select program</option>
                         {programs.map((program) => (
@@ -2464,7 +2715,7 @@ function SocialForm({
                     ) : null}
                 </FormField>
                 <FormField label="Activity Name" id="activityName">
-                    <Input id="activityName" name="activityName" required />
+                    <Input id="activityName" name="activityName" required defaultValue={defaultValues?.activityName} />
                 </FormField>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
@@ -2474,13 +2725,14 @@ function SocialForm({
                         name="hoursContributed"
                         type="number"
                         min={0}
+                        defaultValue={defaultValues?.hoursContributed}
                     />
                 </FormField>
                 <FormField label="Date" id="date">
-                    <Input id="date" name="date" type="date" />
+                    <Input id="date" name="date" type="date" defaultValue={toDateInputValue(defaultValues?.date)} />
                 </FormField>
             </div>
-            <EvidenceUploadField userId={userId} />
+            <EvidenceUploadField userId={userId} defaultDocument={defaultValues?.documentId as UploadedDocument | null} />
             <FormActions onCancel={onCancel} isPending={isPending} />
         </form>
     );
@@ -2490,10 +2742,12 @@ function PlacementForm({
     onSubmit,
     onCancel,
     isPending,
+    defaultValues,
 }: {
     onSubmit: (d: AnyRecord) => void;
     onCancel: () => void;
     isPending: boolean;
+    defaultValues?: AnyRecord;
 }) {
     return (
         <form
@@ -2512,10 +2766,10 @@ function PlacementForm({
         >
             <div className="grid gap-4 md:grid-cols-2">
                 <FormField label="Company Name" id="companyName">
-                    <Input id="companyName" name="companyName" required />
+                    <Input id="companyName" name="companyName" required defaultValue={defaultValues?.companyName} />
                 </FormField>
                 <FormField label="Job Role" id="jobRole">
-                    <Input id="jobRole" name="jobRole" />
+                    <Input id="jobRole" name="jobRole" defaultValue={defaultValues?.jobRole} />
                 </FormField>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
@@ -2526,13 +2780,14 @@ function PlacementForm({
                         type="number"
                         min={0}
                         placeholder="e.g. 600000"
+                        defaultValue={defaultValues?.package}
                     />
                 </FormField>
                 <FormField label="Offer Date" id="offerDate">
-                    <Input id="offerDate" name="offerDate" type="date" />
+                    <Input id="offerDate" name="offerDate" type="date" defaultValue={toDateInputValue(defaultValues?.offerDate)} />
                 </FormField>
                 <FormField label="Joining Date" id="joiningDate">
-                    <Input id="joiningDate" name="joiningDate" type="date" />
+                    <Input id="joiningDate" name="joiningDate" type="date" defaultValue={toDateInputValue(defaultValues?.joiningDate)} />
                 </FormField>
             </div>
             <FormActions onCancel={onCancel} isPending={isPending} />
@@ -2545,11 +2800,13 @@ function InternshipRecordForm({
     onCancel,
     isPending,
     userId,
+    defaultValues,
 }: {
     onSubmit: (d: AnyRecord) => void;
     onCancel: () => void;
     isPending: boolean;
     userId: string;
+    defaultValues?: AnyRecord;
 }) {
     return (
         <form
@@ -2569,18 +2826,18 @@ function InternshipRecordForm({
         >
             <div className="grid gap-4 md:grid-cols-2">
                 <FormField label="Company Name" id="companyName">
-                    <Input id="companyName" name="companyName" required />
+                    <Input id="companyName" name="companyName" required defaultValue={defaultValues?.companyName} />
                 </FormField>
                 <FormField label="Role" id="role">
-                    <Input id="role" name="role" />
+                    <Input id="role" name="role" defaultValue={defaultValues?.role} />
                 </FormField>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
                 <FormField label="Start Date" id="startDate">
-                    <Input id="startDate" name="startDate" type="date" />
+                    <Input id="startDate" name="startDate" type="date" defaultValue={toDateInputValue(defaultValues?.startDate)} />
                 </FormField>
                 <FormField label="End Date" id="endDate">
-                    <Input id="endDate" name="endDate" type="date" />
+                    <Input id="endDate" name="endDate" type="date" defaultValue={toDateInputValue(defaultValues?.endDate)} />
                 </FormField>
                 <FormField label="Monthly Stipend" id="stipend">
                     <Input
@@ -2589,10 +2846,11 @@ function InternshipRecordForm({
                         type="number"
                         min={0}
                         placeholder="e.g. 15000"
+                        defaultValue={defaultValues?.stipend}
                     />
                 </FormField>
             </div>
-            <EvidenceUploadField userId={userId} />
+            <EvidenceUploadField userId={userId} defaultDocument={defaultValues?.documentId as UploadedDocument | null} />
             <FormActions onCancel={onCancel} isPending={isPending} />
         </form>
     );
