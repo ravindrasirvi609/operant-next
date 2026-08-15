@@ -16,7 +16,7 @@ type PortalLink = {
 
 const publicPortalLinks: PortalLink[] = [
   {
-    label: "Student and Faculty Login",
+    label: "Student, Faculty and Alumni Login",
     href: "/login",
     description: "Use this for regular institutional sign-in.",
   },
@@ -48,6 +48,14 @@ function getSignedInLinks(role: string, hasLeadershipPortalAccess: boolean): Por
       label: "Open Faculty Workspace",
       href: "/faculty",
       description: "Manage PBAS, CAS, AQAR, and faculty profile data.",
+    });
+  }
+
+  if (role === "Alumni") {
+    links.push({
+      label: "Open Alumni Workspace",
+      href: "/alumni",
+      description: "View your profile and stay connected as an alumnus/alumna.",
     });
   }
 
