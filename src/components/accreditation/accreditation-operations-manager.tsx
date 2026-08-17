@@ -1387,8 +1387,30 @@ export function AccreditationOperationsManager({
                                 </div>
                                 <div className="grid gap-2 md:col-span-2">
                                     <Label>Eligible student IDs</Label>
+                                    <Select
+                                        value=""
+                                        onValueChange={(studentId) =>
+                                            setSssForm((current) => {
+                                                const existingIds = parseIdLines(current.eligibleStudentIdsText);
+                                                return existingIds.includes(studentId)
+                                                    ? current
+                                                    : { ...current, eligibleStudentIdsText: [...existingIds, studentId].join("\n") };
+                                            })
+                                        }
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Add an eligible student" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {filteredStudentOptions.map((student) => (
+                                                <SelectItem key={student.id} value={student.id}>
+                                                    {student.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                     <Textarea rows={4} value={sssForm.eligibleStudentIdsText} onChange={(event) => setSssForm((current) => ({ ...current, eligibleStudentIdsText: event.target.value }))} />
-                                    <p className="text-xs text-muted-foreground">One id per line or comma-separated. Leave blank to auto-populate the active student pool for the selected institution.</p>
+                                    <p className="text-xs text-muted-foreground">Choose students above or enter Student IDs one per line. Leave blank to auto-populate the active student pool for the selected institution.</p>
                                 </div>
                                 <div className="grid gap-2 md:col-span-2">
                                     <Label>Question lines</Label>

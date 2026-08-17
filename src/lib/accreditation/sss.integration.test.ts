@@ -86,6 +86,17 @@ describe("createSssSurvey (integration)", () => {
         expect(notifications[0].entityId).toBe(survey._id.toString());
     });
 
+    it("normalizes a user id to the linked student id for eligibility", async () => {
+        const { student, user } = await makeStudentWithUser("SSS-USER-ID");
+        const survey = await createSssSurvey(
+            admin,
+            surveyInput({ surveyStatus: "Active", eligibleStudentIds: [user._id.toString()] })
+        );
+
+        const eligibility = await SssEligibleStudent.findOne({ surveyId: survey._id });
+        expect(eligibility?.studentId.toString()).toBe(student._id.toString());
+    });
+
     it("does not notify anyone while the survey is still Draft", async () => {
         const { student, user } = await makeStudentWithUser("SSS-2");
         await createSssSurvey(admin, surveyInput({ eligibleStudentIds: [student._id.toString()] }));

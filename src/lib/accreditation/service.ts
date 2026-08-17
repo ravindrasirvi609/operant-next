@@ -280,6 +280,38 @@ async function notifyEligibleStudentsOfSssSurvey(
     });
 }
 
+/**
+ * The admin console displays student ids, but older data/imports sometimes
+ * leave an admin with a User._id instead. Resolve either form to the canonical
+ * Student._id and reject unknown ids instead of creating an unreachable
+ * eligibility row.
+ */
+async function resolveSssEligibleStudentIds(inputIds: string[]) {
+    if (!inputIds.length) {
+        return [] as Types.ObjectId[];
+    }
+
+    const ids = inputIds.map((value) => new Types.ObjectId(value));
+    const students = await Student.find({
+        $or: [{ _id: { $in: ids } }, { userId: { $in: ids } }],
+    })
+        .select("_id userId")
+        .lean();
+
+    const studentById = new Map(students.map((student) => [String(student._id), student._id]));
+    const studentByUserId = new Map(
+        students
+            .filter((student) => student.userId)
+            .map((student) => [String(student.userId), student._id])
+    );
+    const resolved = inputIds.map((value) => studentById.get(value) ?? studentByUserId.get(value));
+    if (resolved.some((value) => !value)) {
+        throw new AuthError("One or more eligible student IDs do not match a student record.", 400);
+    }
+
+    return Array.from(new Map(resolved.map((id) => [String(id), id])).values()) as Types.ObjectId[];
+}
+
 async function loadSssAdminRecords() {
     const [surveys, questions, eligibles, analytics] = await Promise.all([
         SssSurvey.find({}).sort({ createdAt: -1 }).lean(),
@@ -624,6 +656,7 @@ export async function createSssSurvey(actor: AccreditationActor, rawInput: unkno
     await dbConnect();
 
     const input = sssSurveySchema.parse(rawInput);
+    const explicitEligibleStudentIds = await resolveSssEligibleStudentIds(input.eligibleStudentIds);
     const survey = await SssSurvey.create({
         institutionId: ensureObjectId(input.institutionId),
         academicYearId: ensureObjectId(input.academicYearId),
@@ -645,8 +678,8 @@ export async function createSssSurvey(actor: AccreditationActor, rawInput: unkno
     }));
     await SssQuestion.insertMany(questionPayload);
 
-    const activeStudents = input.eligibleStudentIds.length
-        ? input.eligibleStudentIds.map((value) => ensureObjectId(value))
+    const activeStudents = explicitEligibleStudentIds.length
+        ? explicitEligibleStudentIds
         : (
               await Student.find({
                   status: "Active",
@@ -730,7 +763,7 @@ export async function updateSssSurvey(actor: AccreditationActor, id: string, raw
     if (input.eligibleStudentIds) {
         // Diff against the existing roster instead of delete+reinsert, so a
         // student who already responded doesn't get their submission wiped.
-        const nextStudentIds = input.eligibleStudentIds.map((value) => ensureObjectId(value));
+        const nextStudentIds = await resolveSssEligibleStudentIds(input.eligibleStudentIds);
         const nextStudentIdSet = new Set(nextStudentIds.map((id) => id.toString()));
         const existingRows = await SssEligibleStudent.find({ surveyId: survey._id }).select("studentId");
         const existingStudentIdSet = new Set(existingRows.map((row) => row.studentId.toString()));
@@ -779,7 +812,11 @@ export async function getStudentSssWorkspace(actor: StudentActor) {
         throw new AuthError("Student profile not found.", 404);
     }
 
-    const eligibilities = await SssEligibleStudent.find({ studentId: student._id })
+    // Accept legacy rows that were accidentally saved with User._id before
+    // the admin assignment field was normalized to Student._id.
+    const eligibilities = await SssEligibleStudent.find({
+        studentId: { $in: [student._id, new Types.ObjectId(actor.id)] },
+    })
         .sort({ updatedAt: -1 })
         .lean();
     const surveyIds = eligibilities.map((item) => item.surveyId);
